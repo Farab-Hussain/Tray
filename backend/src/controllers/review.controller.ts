@@ -1,0 +1,263 @@
+// src/controllers/review.controller.ts
+import { Request, Response } from "express";
+import { db } from "../config/firebase";
+import { reviewServices } from "../services/review.service";
+
+// ✅ Create a new review (Student only, must have completed booking)
+export const createReview = async (req: Request, res: Response) => {
+  try {
+    const studentId = (req as any).user.uid;
+    const { consultantId, rating, comment, recommend } = req.body;
+
+    console.log('🔍 [createReview] Creating review with data:', {
+      studentId,
+      consultantId,
+      rating,
+      comment,
+      recommend
+    });
+
+    if (!consultantId || !rating) {
+      console.log('❌ [createReview] Missing required fields');
+      return res.status(400).json({ error: "Consultant ID and rating are required" });
+    }
+
+    if (rating < 1 || rating > 5) {
+      console.log('❌ [createReview] Invalid rating:', rating);
+      return res.status(400).json({ error: "Rating must be between 1 and 5" });
+    }
+
+    // ✅ Check if student has a completed/confirmed booking with this consultant
+    console.log('🔍 [createReview] Checking for bookings with studentId:', studentId, 'consultantId:', consultantId);
+    
+    const bookingsSnapshot = await db
+      .collection("bookings")
+      .where("studentId", "==", studentId)
+      .where("consultantId", "==", consultantId)
+      .where("status", "in", ["completed", "confirmed"])
+      .where("paymentStatus", "==", "paid")
+      .get();
+
+    console.log('📊 [createReview] Found', bookingsSnapshot.size, 'confirmed/paid bookings');
+
+    if (bookingsSnapshot.empty) {
+      console.log('❌ [createReview] No confirmed/paid bookings found');
+      return res.status(403).json({ 
+        error: "You can only review consultants you have confirmed/paid bookings with" 
+      });
+    }
+
+    // ✅ Check if student already reviewed this consultant
+    console.log('🔍 [createReview] Checking for existing review...');
+    const existingReview = await reviewServices.getByStudentAndConsultant(
+      studentId,
+      consultantId
+    );
+
+    if (existingReview) {
+      console.log('❌ [createReview] Student already reviewed this consultant');
+      return res.status(400).json({ 
+        error: "You have already reviewed this consultant. Use PUT to update your review." 
+      });
+    }
+
+    // Create the review
+    console.log('✅ [createReview] Creating new review...');
+    const bookingId = bookingsSnapshot.docs[0].id;
+    const review = await reviewServices.create({
+      studentId,
+      consultantId,
+      bookingId,
+      rating,
+      comment: comment || "",
+      recommend: recommend ?? true,
+    });
+
+    console.log('✅ [createReview] Review created successfully:', review.id);
+
+    // Update consultant's rating
+    console.log('🔄 [createReview] Updating consultant rating...');
+    await updateConsultantRating(consultantId);
+
+    console.log('✅ [createReview] Review process completed successfully');
+    res.status(201).json({ 
+      message: "Review created successfully", 
+      review 
+    });
+  } catch (error: any) {
+    console.error("Create review error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ Get all reviews for a consultant (Public)
+export const getConsultantReviews = async (req: Request, res: Response) => {
+  try {
+    const { consultantId } = req.params;
+
+    const reviews = await reviewServices.getByConsultantId(consultantId);
+
+    // Populate student details
+    const reviewsWithDetails = await Promise.all(
+      reviews.map(async (review) => {
+        const studentDoc = await db.collection("users").doc(review.studentId).get();
+        const student = studentDoc.data();
+
+        return {
+          ...review,
+          studentName: student?.name || "Anonymous",
+          studentProfileImage: student?.profileImage || null,
+        };
+      })
+    );
+
+    res.status(200).json({ reviews: reviewsWithDetails });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ Get reviews written by logged-in user (Student)
+export const getMyReviews = async (req: Request, res: Response) => {
+  try {
+    const studentId = (req as any).user.uid;
+
+    const reviews = await reviewServices.getByStudentId(studentId);
+
+    // Populate consultant details
+    const reviewsWithDetails = await Promise.all(
+      reviews.map(async (review) => {
+        const consultantDoc = await db.collection("consultants").doc(review.consultantId).get();
+        const consultant = consultantDoc.data();
+
+        return {
+          ...review,
+          consultantName: consultant?.name || "Unknown",
+        };
+      })
+    );
+
+    res.status(200).json({ reviews: reviewsWithDetails });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ Update a review (Student can update their own, Admin can update any)
+export const updateReview = async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const userId = (req as any).user.uid;
+    const userRole = (req as any).user.role;
+    const { rating, comment, recommend } = req.body;
+
+    // Get the review
+    const review = await reviewServices.getById(reviewId);
+
+    // ✅ Permission check: Only review owner or admin can update
+    if (review.studentId !== userId && userRole !== "admin") {
+      return res.status(403).json({ error: "You can only update your own reviews" });
+    }
+
+    if (rating && (rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: "Rating must be between 1 and 5" });
+    }
+
+    // Update the review
+    const updates: any = {};
+    if (rating !== undefined) updates.rating = rating;
+    if (comment !== undefined) updates.comment = comment;
+    if (recommend !== undefined) updates.recommend = recommend;
+
+    const updatedReview = await reviewServices.update(reviewId, updates);
+
+    // Recalculate consultant rating
+    await updateConsultantRating(review.consultantId);
+
+    res.status(200).json({ 
+      message: "Review updated successfully", 
+      review: updatedReview 
+    });
+  } catch (error: any) {
+    console.error("Update review error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ Delete a review (Student can delete their own, Admin can delete any)
+export const deleteReview = async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const userId = (req as any).user.uid;
+    const userRole = (req as any).user.role;
+
+    // Get the review
+    const review = await reviewServices.getById(reviewId);
+
+    // ✅ Permission check: Only review owner or admin can delete
+    if (review.studentId !== userId && userRole !== "admin") {
+      return res.status(403).json({ error: "You can only delete your own reviews" });
+    }
+
+    const consultantId = review.consultantId;
+
+    // Delete the review
+    await reviewServices.delete(reviewId);
+
+    // Recalculate consultant rating
+    await updateConsultantRating(consultantId);
+
+    res.status(200).json({ message: "Review deleted successfully" });
+  } catch (error: any) {
+    console.error("Delete review error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ Get all reviews (Admin only)
+export const getAllReviews = async (req: Request, res: Response) => {
+  try {
+    const userRole = (req as any).user.role;
+
+    if (userRole !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const reviews = await reviewServices.getAll();
+
+    res.status(200).json({ reviews });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🔧 Helper function to update consultant's average rating
+async function updateConsultantRating(consultantId: string) {
+  try {
+    const reviews = await reviewServices.getByConsultantId(consultantId);
+
+    if (reviews.length === 0) {
+      // No reviews, reset to 0
+      await db.collection("consultants").doc(consultantId).update({
+        rating: 0,
+        totalReviews: 0,
+        updatedAt: new Date(),
+      });
+      return;
+    }
+
+    // Calculate average rating
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    const averageRating = totalRating / reviews.length;
+
+    // Update consultant document
+    await db.collection("consultants").doc(consultantId).update({
+      rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+      totalReviews: reviews.length,
+      updatedAt: new Date(),
+    });
+  } catch (error) {
+    console.error("Error updating consultant rating:", error);
+  }
+}
+

@@ -1,0 +1,40 @@
+import { View, Text, Image } from 'react-native';
+import { message } from '../../constants/styles/message';
+
+type MessageProps = {
+  id: string | number;
+  name: string;
+  avatar: any;
+  lastMessage: string;
+  time: string;
+  unreadCount: number;
+};
+
+const Message = ({ name, avatar, lastMessage, time, unreadCount }: MessageProps) => {
+  return (
+    <View style={message.messageContainer}>
+      <View style={message.messageHeader}>
+        <Image
+          source={avatar}
+          style={message.messageAvatar}
+        />
+        <View style={message.messageNameContainer}>
+          <Text style={message.messageName}>{name}</Text>
+          <Text style={message.messageContent}>{lastMessage}</Text>
+        </View>
+        <View style={message.messageTimeContainer}>
+          <Text style={message.messageTime}>{time}</Text>
+          {unreadCount > 0 && (
+            <View style={message.badgeContainer}>
+              <Text style={message.badgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+export default Message;

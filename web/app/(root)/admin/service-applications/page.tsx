@@ -1,0 +1,307 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { consultantFlowAPI } from '@/utils/api';
+import { ConsultantApplication } from '@/types';
+import ApprovalModal from '@/components/admin/ApprovalModal';
+import MobileHeader from '@/components/shared/MobileHeader';
+import { Loader2, CheckCircle, XCircle, Filter } from 'lucide-react';
+import Image from 'next/image';
+
+type FilterStatus = 'all' | 'pending' | 'approved' | 'rejected';
+
+const AdminServiceApplicationsPage = () => {
+  const [applications, setApplications] = useState<ConsultantApplication[]>([]);
+  const [filteredApplications, setFilteredApplications] = useState<ConsultantApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('pending');
+  const [selectedApplication, setSelectedApplication] = useState<ConsultantApplication | null>(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [modalAction, setModalAction] = useState<'approve' | 'reject'>('approve');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadApplications();
+  }, []);
+
+  useEffect(() => {
+    if (filterStatus === 'all') {
+      setFilteredApplications(applications);
+    } else {
+      setFilteredApplications(applications.filter(a => a.status === filterStatus));
+    }
+  }, [filterStatus, applications]);
+
+  const loadApplications = async () => {
+    try {
+      setIsLoading(true);
+      const response = await consultantFlowAPI.getAllApplications();
+      setApplications((response.data as { applications: ConsultantApplication[] }).applications);
+    } catch (error: unknown) {
+      console.error('Error loading applications:', error);
+      setErrorMessage('Failed to load applications. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApprove = (application: ConsultantApplication) => {
+    setSelectedApplication(application);
+    setModalAction('approve');
+    setShowApprovalModal(true);
+  };
+
+  const handleReject = (application: ConsultantApplication) => {
+    setSelectedApplication(application);
+    setModalAction('reject');
+    setShowApprovalModal(true);
+  };
+
+  const handleConfirmAction = async (notes?: string) => {
+    if (!selectedApplication) return;
+
+    try {
+      if (modalAction === 'approve') {
+        await consultantFlowAPI.approveApplication(selectedApplication.id, notes);
+        setSuccessMessage('Application approved successfully! Service has been created.');
+      } else {
+        await consultantFlowAPI.rejectApplication(selectedApplication.id, notes);
+        setSuccessMessage('Application rejected.');
+      }
+
+      setShowApprovalModal(false);
+      setSelectedApplication(null);
+      loadApplications();
+
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error: unknown) {
+      console.error('Error updating application status:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error.response as { data?: { error?: string } })?.data?.error 
+        : undefined;
+      setErrorMessage(errorMessage || 'Failed to update application. Please try again.');
+    }
+  };
+
+  const getServiceTitle = (app: ConsultantApplication) => {
+    if (app.type === 'new' && app.customService) {
+      return app.customService.title;
+    }
+    return app.serviceId || 'N/A';
+  };
+
+  const getServiceDescription = (app: ConsultantApplication) => {
+    if (app.type === 'new' && app.customService) {
+      return app.customService.description;
+    }
+    return 'Existing platform service';
+  };
+
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      approved: 'bg-green-100 text-green-800 border-green-200',
+      rejected: 'bg-red-100 text-red-800 border-red-200',
+    };
+
+    return (
+      <span className={`px-3 py-1 text-xs font-medium rounded-full border ${styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-12 h-12 text-green-600 animate-spin mb-4" />
+        <p className="text-gray-600">Loading applications...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-6">
+      {/* Mobile Header */}
+      <MobileHeader title="Service Applications" />
+      
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Service Applications</h1>
+            <p className="text-gray-600">Review and approve consultant service applications</p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-gray-500" />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="all">All Applications</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {successMessage && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-green-700">{successMessage}</p>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-700">{errorMessage}</p>
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-sm text-gray-600 mb-1">Total Applications</p>
+          <p className="text-2xl font-bold text-gray-900">{applications.length}</p>
+        </div>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-700 mb-1">Pending Review</p>
+          <p className="text-2xl font-bold text-yellow-800">
+            {applications.filter(a => a.status === 'pending').length}
+          </p>
+        </div>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-green-700 mb-1">Approved</p>
+          <p className="text-2xl font-bold text-green-800">
+            {applications.filter(a => a.status === 'approved').length}
+          </p>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-700 mb-1">Rejected</p>
+          <p className="text-2xl font-bold text-red-800">
+            {applications.filter(a => a.status === 'rejected').length}
+          </p>
+        </div>
+      </div>
+
+      {/* Applications List */}
+      {filteredApplications.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+          <p className="text-gray-500">No applications found for the selected filter.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredApplications.map((application) => (
+            <div
+              key={application.id}
+              className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {getServiceTitle(application)}
+                    </h3>
+                    <span className={`px-2 py-1 text-xs font-medium rounded ${
+                      application.type === 'new' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-purple-100 text-purple-800'
+                    }`}>
+                      {application.type === 'new' ? 'New Service' : 'Existing Service'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">{getServiceDescription(application)}</p>
+                  
+                  {/* Service Image */}
+                  {application.type === 'new' && application.customService?.imageUrl && (
+                    <div className="mb-3">
+                      <Image
+                        src={application.customService.imageUrl} 
+                        alt={getServiceTitle(application)}
+                        width={128}
+                        height={96}
+                        className="w-32 h-24 object-cover rounded-lg border border-gray-200"
+                      />
+                    </div>
+                  )}
+                  
+                  {application.type === 'new' && application.customService && (
+                    <div className="flex gap-4 text-sm text-gray-600">
+                      <span>Duration: {application.customService.duration} min</span>
+                      <span>Price: ${application.customService.price}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col items-end gap-2">
+                  {getStatusBadge(application.status)}
+                  <span className="text-xs text-gray-500">
+                    {new Date(application.submittedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Consultant:</span> {application.consultantName || 'Unknown Consultant'}
+                </div>
+                
+                {application.status === 'pending' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleApprove(application)}
+                      className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleReject(application)}
+                      className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Reject
+                    </button>
+                  </div>
+                )}
+
+                {application.reviewNotes && (
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Review Notes:</span> {application.reviewNotes}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Approval/Rejection Modal */}
+      {showApprovalModal && selectedApplication && (
+        <ApprovalModal
+          isOpen={showApprovalModal}
+          onClose={() => {
+            setShowApprovalModal(false);
+            setSelectedApplication(null);
+          }}
+          onConfirm={handleConfirmAction}
+          action={modalAction}
+          title={modalAction === 'approve' ? 'Approve Application' : 'Reject Application'}
+          message={
+            modalAction === 'approve'
+              ? `Are you sure you want to approve this service application? The service will be created and assigned to the consultant.`
+              : `Are you sure you want to reject this service application?`
+          }
+          requireNotes={true}
+        />
+      )}
+    </div>
+  );
+};
+
+export default AdminServiceApplicationsPage;
+

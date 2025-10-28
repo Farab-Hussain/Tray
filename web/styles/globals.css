@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #00000075;
+  --green: #187D22;
+  --yellow: #FFCB4B;
+  --lightGreen: #ADEBB3;
+  --lightYellow: #FFF0CB;
+  --Red: #E64646;
+  --black: #000000;
+  --gray: #6C6C6C;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --color-green: var(--green);
+  --color-yellow: var(--yellow);
+  --color-lightGreen: var(--lightGreen);
+  --color-lightYellow: var(--lightYellow);
+  --color-Red: var(--Red);
+  --color-black: var(--black);
+  --color-gray: var(--gray);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom scrollbar styles for better mobile experience */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Ensure tables are scrollable on mobile */
+@media (max-width: 768px) {
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar-track {
+    background: #f8fafc;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 3px;
+  }
+}
+
+/* Ensure all scrollable containers work properly */
+.overflow-x-auto,
+.overflow-y-auto,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Force horizontal scrolling ONLY for tables on small screens */
+@media (max-width: 1024px) {
+  .admin-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: none;
+    position: relative;
+  }
+  
+  .admin-table-container table {
+    min-width: max-content;
+    width: auto;
+    table-layout: auto;
+  }
+}
+
+/* Ensure table containers can expand beyond parent constraints */
+.admin-table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table-container table {
+  min-width: max-content;
+}
+
+/* Ensure proper scrolling on all devices */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for all scrollable elements */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Mobile-specific scrollbar adjustments */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+  }
+}
+
+/* 
+.layout {
+  @apply container mx-auto px-4;
+} */
