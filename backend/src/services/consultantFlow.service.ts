@@ -78,19 +78,36 @@ export const consultantFlowService = {
     try {
       const now = Timestamp.now();
       
+      console.log(`🔗 [linkApprovedConsultant] Starting for uid: ${profile.uid}`);
+      console.log(`🔗 [linkApprovedConsultant] Profile data:`, JSON.stringify({
+        uid: profile.uid,
+        personalInfo: {
+          fullName: profile.personalInfo?.fullName,
+          email: profile.personalInfo?.email,
+          bio: profile.personalInfo?.bio ? 'present' : 'missing',
+          experience: profile.personalInfo?.experience,
+        },
+        professionalInfo: {
+          category: profile.professionalInfo?.category,
+          title: profile.professionalInfo?.title,
+          specialties: profile.professionalInfo?.specialties,
+        }
+      }, null, 2));
+      
       const consultantDoc = await db.collection(CONSULTANTS_COLLECTION).doc(profile.uid).get();
       const consultantExists = consultantDoc.exists;
+      console.log(`🔗 [linkApprovedConsultant] Consultant exists: ${consultantExists}`);
 
-      const consultantData: Consultant = {
+      const existingData = consultantExists ? consultantDoc.data() as Consultant : null;
+      
+      // Build consultant data, but filter out undefined values
+      const consultantData: any = {
         uid: profile.uid,
         name: profile.personalInfo?.fullName || "Unknown",
         email: profile.personalInfo?.email || "",
         category: profile.professionalInfo?.category || "General",
-        bio: profile.personalInfo?.bio,
-        experience: profile.personalInfo?.experience,
-        rating: consultantExists ? (consultantDoc.data() as Consultant).rating : 0,
-        totalReviews: consultantExists ? (consultantDoc.data() as Consultant).totalReviews : 0,
-        hourlyRate: profile.professionalInfo?.hourlyRate,
+        rating: existingData?.rating ?? 0,
+        totalReviews: existingData?.totalReviews ?? 0,
         profileImage: profile.personalInfo?.profileImage || null,
         availability: profile.professionalInfo?.availability || {},
         contactMethods: {
@@ -98,20 +115,43 @@ export const consultantFlowService = {
           call: false,
           video: false,
         },
-        title: profile.professionalInfo?.title,
         specialties: profile.professionalInfo?.specialties || [],
-        createdAt: consultantExists ? (consultantDoc.data() as Consultant).createdAt : now,
+        createdAt: existingData?.createdAt || now,
         updatedAt: now,
         isActive: true,
       };
 
+      // Only add optional fields if they have values (not undefined)
+      if (profile.personalInfo?.bio !== undefined && profile.personalInfo?.bio !== null) {
+        consultantData.bio = profile.personalInfo.bio;
+      }
+      if (profile.personalInfo?.experience !== undefined && profile.personalInfo?.experience !== null) {
+        consultantData.experience = profile.personalInfo.experience;
+      }
+      if (profile.professionalInfo?.hourlyRate !== undefined && profile.professionalInfo?.hourlyRate !== null) {
+        consultantData.hourlyRate = profile.professionalInfo.hourlyRate;
+      }
+      if (profile.professionalInfo?.title !== undefined && profile.professionalInfo?.title !== null) {
+        consultantData.title = profile.professionalInfo.title;
+      }
+
+      console.log(`🔗 [linkApprovedConsultant] Consultant data to save:`, JSON.stringify({
+        ...consultantData,
+        createdAt: consultantData.createdAt ? 'Timestamp' : null,
+        updatedAt: consultantData.updatedAt ? 'Timestamp' : null,
+      }, null, 2));
 
       await db.collection(CONSULTANTS_COLLECTION).doc(profile.uid).set(consultantData, { merge: true });
       
+      console.log(`✅ [linkApprovedConsultant] Successfully linked consultant`);
       Logger.info("ConsultantFlow", profile.uid, `Auto-linked approved consultant to ${CONSULTANTS_COLLECTION} collection`);
-    } catch (error) {
+    } catch (error: any) {
+      console.error(`❌ [linkApprovedConsultant] Error details:`, error);
+      console.error(`❌ [linkApprovedConsultant] Error message:`, error?.message);
+      console.error(`❌ [linkApprovedConsultant] Error code:`, error?.code);
+      console.error(`❌ [linkApprovedConsultant] Error stack:`, error?.stack);
       Logger.error("ConsultantFlow", profile.uid, "Failed to auto-link approved consultant", error);
-      throw new Error("Failed to link consultant to main collection");
+      throw new Error(`Failed to link consultant to main collection: ${error?.message || 'Unknown error'}`);
     }
   },
 
@@ -137,12 +177,15 @@ export const consultantFlowService = {
     if (!doc.exists) {
       throw new Error("Application not found");
     }
-    return doc.data() as ConsultantApplication;
+    const application = doc.data() as ConsultantApplication;
+    const populated = await this.populateConsultantNames([application]);
+    return populated[0];
   },
 
   async getAllApplications(): Promise<ConsultantApplication[]> {
     const snapshot = await db.collection(APPLICATIONS_COLLECTION).get();
-    return snapshot.docs.map((doc) => doc.data() as ConsultantApplication);
+    const applications = snapshot.docs.map((doc) => doc.data() as ConsultantApplication);
+    return this.populateConsultantNames(applications);
   },
 
   async getApplicationsByConsultant(consultantId: string): Promise<ConsultantApplication[]> {
@@ -150,7 +193,8 @@ export const consultantFlowService = {
       .collection(APPLICATIONS_COLLECTION)
       .where("consultantId", "==", consultantId)
       .get();
-    return snapshot.docs.map((doc) => doc.data() as ConsultantApplication);
+    const applications = snapshot.docs.map((doc) => doc.data() as ConsultantApplication);
+    return this.populateConsultantNames(applications);
   },
 
   async getApplicationsByStatus(
@@ -160,7 +204,53 @@ export const consultantFlowService = {
       .collection(APPLICATIONS_COLLECTION)
       .where("status", "==", status)
       .get();
-    return snapshot.docs.map((doc) => doc.data() as ConsultantApplication);
+    const applications = snapshot.docs.map((doc) => doc.data() as ConsultantApplication);
+    return this.populateConsultantNames(applications);
+  },
+
+  async populateConsultantNames(applications: ConsultantApplication[]): Promise<ConsultantApplication[]> {
+    // Get unique consultant IDs
+    const consultantIds = [...new Set(applications.map(app => app.consultantId))];
+    
+    // Fetch all consultant profiles in parallel
+    const consultantProfiles = await Promise.all(
+      consultantIds.map(async (consultantId) => {
+        try {
+          const profileDoc = await db.collection(PROFILES_COLLECTION).doc(consultantId).get();
+          if (profileDoc.exists) {
+            const profile = profileDoc.data() as ConsultantProfile;
+            return {
+              id: consultantId,
+              name: profile.personalInfo?.fullName || null
+            };
+          }
+          
+          // If profile doesn't exist, try the consultants collection
+          const consultantDoc = await db.collection(CONSULTANTS_COLLECTION).doc(consultantId).get();
+          if (consultantDoc.exists) {
+            const consultant = consultantDoc.data() as Consultant;
+            return {
+              id: consultantId,
+              name: consultant.name || null
+            };
+          }
+          
+          return { id: consultantId, name: null };
+        } catch (error) {
+          Logger.error("ConsultantFlow", consultantId, "Failed to fetch consultant name", error);
+          return { id: consultantId, name: null };
+        }
+      })
+    );
+
+    // Create a map of consultantId -> name
+    const nameMap = new Map(consultantProfiles.map(c => [c.id, c.name]));
+
+    // Populate consultant names in applications
+    return applications.map(app => ({
+      ...app,
+      consultantName: nameMap.get(app.consultantId) || undefined
+    }));
   },
 
   async updateApplicationStatus(

@@ -182,6 +182,48 @@ export const getConsultantServices = async (req: Request, res: Response) => {
   }
 };
 
+// Get a specific service by ID
+export const getServiceById = async (req: Request, res: Response) => {
+  try {
+    const { serviceId } = req.params;
+    
+    console.log(`🔍 Fetching service by ID: ${serviceId}`);
+    
+    const serviceDoc = await db.collection("services").doc(serviceId).get();
+    
+    if (!serviceDoc.exists) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+    
+    const service = serviceDoc.data();
+    
+    res.status(200).json({
+      service: {
+        id: service?.id,
+        title: service?.title,
+        description: service?.description,
+        duration: service?.duration || 60,
+        price: service?.price || 100,
+        consultantId: service?.consultantId,
+        icon: service?.icon || 'briefcase',
+        tags: service?.tags || [],
+        rating: service?.rating || 5,
+        isVerified: service?.isVerified !== false,
+        proposalsCount: service?.proposalsCount || '0 reviews',
+        isDefault: false,
+        basedOnDefaultService: service?.basedOnDefaultService,
+        fromApplication: service?.fromApplication,
+        createdAt: service?.createdAt,
+        updatedAt: service?.updatedAt,
+        imageUrl: service?.imageUrl || '',
+      }
+    });
+  } catch (error: any) {
+    console.error(`❌ Error fetching service by ID: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Update a specific service
 export const updateService = async (req: Request, res: Response) => {
   try {

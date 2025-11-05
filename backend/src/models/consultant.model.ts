@@ -25,6 +25,12 @@ export interface Consultant {
   title?: string;       // Professional title (e.g., "Senior Career Consultant")
   specialties?: string[]; // Array of specialties
   
+  // Stripe Connect account for payments
+  stripeAccountId?: string; // Stripe Connect account ID
+  stripeAccountStatus?: 'pending' | 'active' | 'restricted' | 'disabled'; // Account status
+  stripeAccountDetailsSubmitted?: boolean; // Whether account details have been submitted
+  stripeOnboardingComplete?: boolean; // Whether onboarding is complete
+  
   createdAt: Timestamp;
   updatedAt: Timestamp;
   isActive: boolean;

@@ -21,8 +21,8 @@ export interface ConsultantProfile {
     title?: string;
     category: string;
     customCategory?: string;
-    specialties: string[];
-    hourlyRate: number;
+    specialties?: string[];
+    hourlyRate?: number;
     availability?: Record<string, string[]>; // Legacy format: monday: ["10:00", "12:00"]
     availabilitySlots?: AvailabilitySlot[]; // New format: specific dates with time slots
   };
@@ -47,8 +47,8 @@ export interface ConsultantProfileInput {
     title?: string;
     category: string;
     customCategory?: string;
-    specialties: string[];
-    hourlyRate: number;
+    specialties?: string[];
+    hourlyRate?: number;
     availability?: Record<string, string[]>;
     availabilitySlots?: AvailabilitySlot[];
   };

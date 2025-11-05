@@ -1,0 +1,637 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import { api } from '../lib/fetcher';
+
+const FCM_TOKEN_KEY = 'fcm_token';
+
+// Safely import React Native Firebase messaging
+let messaging: any = null;
+try {
+  // Suppress deprecation warnings during module loading
+  const originalWarn = console.warn;
+  console.warn = (...args: any[]) => {
+    const message = args[0]?.toString() || '';
+    // Suppress Firebase deprecation warnings during initialization
+    if (!message.includes('This method is deprecated') &&
+        !message.includes('react-native-firebase') &&
+        !message.includes('migrating-to-v22') &&
+        !message.includes('Please use `getApp()` instead')) {
+      originalWarn.apply(console, args);
+    }
+  };
+  
+  // First ensure Firebase App is initialized
+  const firebaseApp = require('@react-native-firebase/app');
+  if (!firebaseApp || !firebaseApp.default) {
+    console.warn = originalWarn;
+    throw new Error('Firebase App module not available');
+  }
+  
+  // Then get messaging
+  const messagingModule = require('@react-native-firebase/messaging');
+  if (!messagingModule || !messagingModule.default) {
+    console.warn = originalWarn;
+    throw new Error('Messaging module not available');
+  }
+  
+  messaging = messagingModule.default;
+  
+  // Restore warnings
+  console.warn = originalWarn;
+  
+  if (__DEV__) {
+    console.log('✅ [FCM] Firebase Messaging module loaded successfully');
+  }
+} catch (error: any) {
+  // Restore warnings if error occurred (originalWarn is in outer scope)
+  // Note: originalWarn may not be accessible here if error occurred before definition
+  // This is okay - the warnings will still be suppressed by the global warning filter in App.tsx
+  
+  if (__DEV__) {
+    // Only log if it's not the native module error (which is expected until rebuild)
+    const errorMsg = error?.message || '';
+    if (!errorMsg.includes('not installed natively') && 
+        !errorMsg.includes('not installed on your project')) {
+      console.log('ℹ️ [FCM] React Native Firebase Messaging not available:', errorMsg || 'Unknown error');
+    }
+    console.log('ℹ️ [FCM] Push notifications will be disabled until native module is properly linked');
+  }
+  messaging = null;
+}
+
+// Helper to check if messaging is available
+const isMessagingAvailable = (): boolean => {
+  try {
+    return messaging !== null && typeof messaging === 'function';
+  } catch {
+    return false;
+  }
+};
+
+// Suppress React Native Firebase deprecation warnings (they work fine, just deprecated API)
+const suppressDeprecationWarnings = () => {
+  const originalWarn = console.warn;
+  console.warn = (...args: any[]) => {
+    const message = args[0]?.toString() || '';
+    // Suppress only React Native Firebase deprecation warnings
+    if (!message.includes('deprecated') && !message.includes('rnfirebase.io/migrating') &&
+      !message.includes('Please use') && !message.includes('will be removed')) {
+      originalWarn.apply(console, args);
+    }
+  };
+  return originalWarn;
+};
+
+const restoreConsoleWarn = (originalWarn: typeof console.warn) => {
+  console.warn = originalWarn;
+};
+
+/**
+ * Request notification permissions
+ */
+export const requestNotificationPermission = async (): Promise<boolean> => {
+  if (!isMessagingAvailable()) {
+    if (__DEV__) {
+      console.log('ℹ️ [FCM] Messaging not available, skipping permission request');
+    }
+    return false;
+  }
+
+  try {
+    const originalWarn = suppressDeprecationWarnings();
+    let messagingInstance;
+    try {
+      messagingInstance = messaging();
+      if (!messagingInstance) {
+        throw new Error('Messaging instance is null');
+      }
+    } catch (linkError: any) {
+      const errorMsg = linkError?.message || '';
+      if (errorMsg.includes('not installed natively') || errorMsg.includes('not installed on your project')) {
+        if (__DEV__) {
+          // Use console.log instead of console.error since this is expected behavior until rebuild
+          console.log('ℹ️ [FCM] Native module not installed. The app was built but the native module needs to be linked.');
+          console.log('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device');
+        }
+        restoreConsoleWarn(originalWarn);
+        return false;
+      }
+      throw linkError;
+    }
+    const authStatus = await messagingInstance.requestPermission();
+    restoreConsoleWarn(originalWarn);
+
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (enabled) {
+      if (__DEV__) {
+        console.log('✅ [FCM] Notification permissions granted');
+      }
+      return true;
+    } else {
+      if (__DEV__) {
+        console.log('ℹ️ [FCM] Notification permissions denied or not determined');
+      }
+      return false;
+    }
+  } catch (error: any) {
+    console.error('❌ [FCM] Error requesting notification permission:', error.message || error);
+    return false;
+  }
+};
+
+/**
+ * Get FCM token
+ */
+export const getFCMToken = async (): Promise<string | null> => {
+  if (!isMessagingAvailable()) {
+    if (__DEV__) {
+      console.log('ℹ️ [FCM] Messaging not available, cannot get token');
+    }
+    return null;
+  }
+
+  try {
+    // Request permission first
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) {
+      if (__DEV__) {
+        console.log('ℹ️ [FCM] Notification permission denied');
+      }
+      return null;
+    }
+
+    if (__DEV__) {
+      console.log('📱 [FCM] Getting token from Firebase...');
+    }
+    // Always get a fresh token from Firebase (it handles caching internally)
+    const originalWarn = suppressDeprecationWarnings();
+    let messagingInstance;
+    try {
+      messagingInstance = messaging();
+      if (!messagingInstance) {
+        throw new Error('Messaging instance is null');
+      }
+    } catch (linkError: any) {
+      const errorMsg = linkError?.message || '';
+      if (errorMsg.includes('not installed natively') || errorMsg.includes('not installed on your project')) {
+        if (__DEV__) {
+          // Use console.log instead of console.error since this is expected behavior until rebuild
+          console.log('ℹ️ [FCM] Native module not installed. The app was built but the native module needs to be linked.');
+          console.log('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device');
+        }
+        restoreConsoleWarn(originalWarn);
+        return null;
+      }
+      throw linkError;
+    }
+    
+    // Get token with retry mechanism - iOS needs explicit registration
+    let token: string | null = null;
+    let retries = 5;
+    let registrationAttempted = false;
+    
+    while (retries > 0 && !token) {
+      try {
+        token = await messagingInstance.getToken();
+        break; // Success, exit loop
+      } catch (tokenError: any) {
+        if (tokenError?.code === 'messaging/unregistered') {
+          // On iOS, register device for remote messages if not already attempted
+          if (Platform.OS === 'ios' && !registrationAttempted) {
+            try {
+              if (__DEV__) {
+                console.log('📱 [FCM] Registering device for remote messages...');
+              }
+              await messagingInstance.registerDeviceForRemoteMessages();
+              registrationAttempted = true;
+              // Wait for native registration to complete
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+              if (__DEV__) {
+                console.log('✅ [FCM] Device registered, retrying token...');
+              }
+              retries--;
+              continue;
+            } catch (registerError: any) {
+              const errorMsg = registerError?.message || '';
+              if (errorMsg.includes('already registered')) {
+                registrationAttempted = true;
+                if (__DEV__) {
+                  console.log('ℹ️ [FCM] Device already registered');
+                }
+                // Wait a bit and retry
+                await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+                retries--;
+                continue;
+              } else {
+                // Registration failed, but continue to retry
+                registrationAttempted = true;
+                if (__DEV__) {
+                  console.log('ℹ️ [FCM] Registration attempt:', registerError.message || 'Unknown');
+                }
+              }
+            }
+          }
+          
+          // If still unregistered, wait longer and retry
+          if (retries > 1) {
+            if (__DEV__) {
+              console.log(`ℹ️ [FCM] Token not ready, waiting... (${retries - 1} retries left)`);
+            }
+            // Exponential backoff: 2s, 3s, 4s
+            const waitTime = (6 - retries) * 1000;
+            await new Promise<void>(resolve => setTimeout(() => resolve(), waitTime));
+            retries--;
+          } else {
+            // Last retry failed - return null instead of throwing
+            if (__DEV__) {
+              console.warn('⚠️ [FCM] Failed to get token after all retries');
+            }
+            restoreConsoleWarn(originalWarn);
+            return null;
+          }
+        } else {
+          // Other error, throw immediately
+          throw tokenError;
+        }
+      }
+    }
+    restoreConsoleWarn(originalWarn);
+    if (token) {
+      if (__DEV__) {
+        console.log('✅ [FCM] Token obtained successfully');
+      }
+      // Save token to AsyncStorage for quick access
+      await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
+      if (__DEV__) {
+        console.log('✅ [FCM] Token saved successfully');
+      }
+      return token;
+    }
+
+    if (__DEV__) {
+    console.warn('⚠️ [FCM] No token returned from Firebase');
+    }
+    return null;
+  } catch (error: any) {
+    // Only log detailed errors in development
+    if (__DEV__) {
+    console.error('❌ [FCM] Error getting token:', error.message || error);
+    console.error('❌ [FCM] Error code:', error.code);
+    console.error('❌ [FCM] Error stack:', error.stack);
+    } else {
+      // In production, only log minimal error info
+      console.error('❌ [FCM] Failed to get token:', error.code || 'unknown');
+    }
+    return null;
+  }
+};
+
+/**
+ * Register FCM token with backend
+ */
+export const registerFCMToken = async (fcmToken: string): Promise<void> => {
+  try {
+    const deviceType = Platform.OS === 'ios' ? 'ios' : 'android';
+    await api.post('/fcm/token', {
+      fcmToken,
+      deviceType,
+    });
+    if (__DEV__) {
+      console.log('✅ FCM token registered with backend');
+    }
+  } catch (error: any) {
+    console.error('❌ Error registering FCM token:', error.response?.data || error.message);
+    // Don't throw - allow app to continue if token registration fails
+  }
+};
+
+/**
+ * Delete FCM token from backend (on logout)
+ */
+export const deleteFCMToken = async (fcmToken?: string): Promise<void> => {
+  try {
+    await api.delete('/fcm/token', {
+      data: fcmToken ? { fcmToken } : {},
+    });
+    if (__DEV__) {
+      console.log('✅ FCM token deleted from backend');
+    }
+    // Also remove from local storage
+    await AsyncStorage.removeItem(FCM_TOKEN_KEY);
+  } catch (error: any) {
+    console.error('❌ Error deleting FCM token:', error.response?.data || error.message);
+    // Don't throw - allow app to continue if token deletion fails
+  }
+};
+
+/**
+ * Refresh FCM token (called when token changes)
+ */
+export const refreshFCMToken = async (): Promise<string | null> => {
+  try {
+    // Delete old token
+    await deleteFCMToken();
+    // Get new token
+    const newToken = await getFCMToken();
+    if (newToken) {
+      // Register new token
+      await registerFCMToken(newToken);
+    }
+    return newToken;
+  } catch (error) {
+    console.error('Error refreshing FCM token:', error);
+    return null;
+  }
+};
+
+/**
+ * Listen for token refresh
+ */
+export const setupTokenRefreshListener = () => {
+  if (!isMessagingAvailable()) {
+    console.warn('⚠️ [FCM] Messaging not available, skipping token refresh listener');
+    return () => { }; // Return empty cleanup function
+  }
+
+  const originalWarn = suppressDeprecationWarnings();
+  const unsubscribe = messaging().onTokenRefresh(async (token: string) => {
+    if (__DEV__) {
+      console.log('🔄 FCM token refreshed');
+    }
+    await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
+    await registerFCMToken(token);
+  });
+  restoreConsoleWarn(originalWarn);
+  return unsubscribe;
+};
+
+export const setupForegroundMessageHandler = () => {
+  if (!isMessagingAvailable()) {
+    console.warn('⚠️ [FCM] Messaging not available, skipping foreground handler');
+    return () => { }; // Return empty cleanup function
+  }
+
+  const originalWarn = suppressDeprecationWarnings();
+  const unsubscribe = messaging().onMessage(async (remoteMessage: any) => {
+    if (__DEV__) {
+      console.log('📨 [Foreground] Message received while app is open:', remoteMessage);
+    }
+    
+    // Extract message data and notification
+    const messageData = remoteMessage.data || {};
+    const notification = remoteMessage.notification || {};
+    
+    // Handle incoming call notifications
+    if (messageData.type === 'call' || messageData.callId) {
+      const callId = messageData.callId;
+      const callType = messageData.callType || 'audio'; // 'audio' or 'video'
+      const callerId = messageData.callerId;
+      const receiverId = messageData.receiverId || messageData.userId;
+      
+      console.log('📞 [Foreground] Incoming call notification received:', { 
+        callId, 
+        callType, 
+        callerId, 
+        receiverId,
+        fullData: messageData 
+      });
+      
+      // Verify call exists in Firestore before navigating
+      try {
+        const { getCallOnce } = require('./call.service');
+        const callDoc = await getCallOnce(callId);
+        if (!callDoc.exists()) {
+          console.warn('⚠️ [Foreground] Call document not found:', callId);
+          // Still try to navigate - call might be created after notification
+        } else {
+          const callData = callDoc.data();
+          console.log('📞 [Foreground] Call document found:', callData);
+          if (callData?.status !== 'ringing') {
+            console.warn('⚠️ [Foreground] Call is not ringing anymore:', callData?.status);
+            return;
+          }
+        }
+      } catch (error: any) {
+        console.warn('⚠️ [Foreground] Error checking call document:', error);
+        // Continue anyway - navigate to call screen
+      }
+      
+      // Navigate to calling screen immediately
+      try {
+        const { navigate } = require('../navigator/navigationRef');
+        
+        // Navigate to the appropriate calling screen
+        const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
+        
+        console.log('📞 [Foreground] Navigating to calling screen:', screenName, 'with callId:', callId);
+        
+        // Small delay to ensure navigation is ready
+        setTimeout(() => {
+          try {
+            navigate('Screen', {
+              screen: screenName,
+              params: {
+                callId,
+                isCaller: false,
+                callerId,
+                receiverId,
+              },
+            });
+            
+            console.log('✅ [Foreground] Navigated to calling screen:', screenName);
+          } catch (navError: any) {
+            console.error('❌ [Foreground] Error navigating:', navError);
+            // Retry navigation
+            setTimeout(() => {
+              try {
+                const { navigate: retryNavigate } = require('../navigator/navigationRef');
+                retryNavigate('Screen', {
+                  screen: screenName,
+                  params: {
+                    callId,
+                    isCaller: false,
+                    callerId,
+                    receiverId,
+                  },
+                });
+                console.log('✅ [Foreground] Retry navigation successful');
+              } catch (retryError: any) {
+                console.error('❌ [Foreground] Retry navigation failed:', retryError);
+              }
+            }, 1000);
+          }
+        }, 200);
+      } catch (error: any) {
+        console.error('❌ [Foreground] Error setting up navigation:', error.message || error);
+      }
+      
+      return; // Don't process further for call notifications
+    }
+    
+    // For foreground messages:
+    // - iOS: AppDelegate shows notifications via UNUserNotificationCenter delegate
+    // - Android: React Native Firebase automatically displays notifications when notification field is present in payload
+    // Both platforms will show pop-up notifications even when app is in foreground
+    
+    if (messageData.chatId) {
+      console.log('💬 [Foreground] Chat message received for chat:', messageData.chatId);
+      console.log('💬 [Foreground] Message from:', messageData.senderId);
+      console.log('💬 [Foreground] Message text:', messageData.messageText || notification.body);
+      
+      // The chat context will handle refreshing chats when messages arrive
+      // No need to manually refresh here as the real-time listeners will pick it up
+    }
+    
+    // The notification will be automatically displayed as a pop-up on both iOS and Android
+    // iOS: Via AppDelegate's UNUserNotificationCenterDelegate
+    // Android: Via React Native Firebase's automatic notification display
+  });
+  restoreConsoleWarn(originalWarn);
+  return unsubscribe;
+};
+
+export const setupBackgroundMessageHandler = () => {
+  console.warn('⚠️ [FCM] Background handler should be registered in index.js, not in service');
+};
+
+// Handle notification opened (app opened from notification)
+
+export const setupNotificationOpenedHandler = (callback: (data: any) => void) => {
+  if (!isMessagingAvailable()) {
+    console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler');
+    return () => { }; // Return empty cleanup function
+  }
+
+  const originalWarn = suppressDeprecationWarnings();
+
+  // Check if app was opened from a notification
+  messaging()
+    .getInitialNotification()
+    .then((remoteMessage: any) => {
+      if (remoteMessage) {
+        if (__DEV__) {
+        console.log('📨 App opened from notification:', remoteMessage);
+        }
+        
+        const messageData = remoteMessage.data || {};
+        
+        // Handle incoming call notifications
+        if (messageData.type === 'call' || messageData.callId) {
+          handleIncomingCallNotification(messageData);
+          return;
+        }
+        
+        callback(remoteMessage.data);
+      }
+    });
+
+  // Listen for when a notification causes the app to open from background state
+  const unsubscribe = messaging().onNotificationOpenedApp((remoteMessage: any) => {
+    if (__DEV__) {
+      console.log('📨 [Notification Opened] Notification caused app to open:', remoteMessage);
+    }
+    
+    const messageData = remoteMessage.data || {};
+    const notification = remoteMessage.notification || {};
+    
+    console.log('📨 [Notification Opened] Message data:', messageData);
+    console.log('📨 [Notification Opened] Notification:', notification);
+    
+    // Handle incoming call notifications
+    if (messageData.type === 'call' || messageData.callId) {
+      console.log('📞 [Notification Opened] Handling incoming call notification...');
+      handleIncomingCallNotification(messageData);
+      return;
+    }
+    
+    callback(remoteMessage.data);
+  });
+
+  restoreConsoleWarn(originalWarn);
+  return unsubscribe;
+};
+
+// Handle incoming call notification - navigate to calling screen
+const handleIncomingCallNotification = (data: any) => {
+  const callId = data.callId;
+  const callType = data.callType || 'audio'; // 'audio' or 'video'
+  const callerId = data.callerId;
+  const receiverId = data.receiverId || data.userId;
+  
+  if (__DEV__) {
+    console.log('📞 [Call Notification] Handling incoming call:', { callId, callType, callerId, receiverId });
+  }
+  
+  if (!callId || !callerId || !receiverId) {
+    if (__DEV__) {
+      console.warn('⚠️ [Call Notification] Missing call parameters');
+    }
+    return;
+  }
+  
+  // Navigate to calling screen
+  try {
+    const { navigate } = require('../navigator/navigationRef');
+    
+    // Navigate to the appropriate calling screen
+    const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
+    
+    // Wait a bit for navigation to be ready, then navigate
+    const navigateToCall = () => {
+      try {
+        // Navigate to Screen navigator first, then to calling screen
+        navigate('Screen', {
+          screen: screenName,
+          params: {
+            callId,
+            isCaller: false,
+            callerId,
+            receiverId,
+          },
+        });
+        
+        if (__DEV__) {
+          console.log('✅ [Call Notification] Navigated to calling screen:', screenName);
+        }
+      } catch (error: any) {
+        if (__DEV__) {
+          console.error('❌ [Call Notification] Error navigating:', error.message || error);
+        }
+        // Retry after a short delay
+        setTimeout(navigateToCall, 500);
+      }
+    };
+    
+    // Try to navigate immediately
+    navigateToCall();
+  } catch (error: any) {
+    console.error('❌ [Call Notification] Error setting up navigation:', error.message || error);
+  }
+};
+
+// Get notification badge count (for app icon badge)
+
+export const getBadgeCount = async (): Promise<number> => {
+  // Get unread count from your local state or API
+  // This is just a placeholder
+  return 0;
+};
+
+/**
+ * Set app icon badge count
+ */
+export const setBadgeCount = async (count: number): Promise<void> => {
+  if (!isMessagingAvailable()) {
+    return; // Silently fail if messaging not available
+  }
+
+  try {
+    await messaging().setBadge(count);
+  } catch (error) {
+    console.error('Error setting badge count:', error);
+  }
+};
+

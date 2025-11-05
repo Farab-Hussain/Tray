@@ -13,7 +13,8 @@
     "prebuild": "rm -rf dist",
     "postbuild": "npm run copy-files",
     "copy-files": "cp -r src/config/*.json dist/config/ 2>/dev/null || :",
-    "test-auth": "node test-auth.js"
+    "test-auth": "node test-auth.js",
+    "create-admin": "ts-node scripts/createAdmin.ts"
   },
   "keywords": [],
   "author": "",
@@ -40,8 +41,9 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
-    "@types/node": "^24.6.2",
+    "@types/node": "^24.10.0",
     "firebase-tools": "^14.22.0",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }

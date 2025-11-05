@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { authAPI } from '@/utils/api';
+import { authAPI, consultantAPI } from '@/utils/api';
 import AdminCard from '@/components/admin/AdminCard';
 import AdminSection from '@/components/admin/AdminSection';
 import AdminTable from '@/components/admin/AdminTable';
@@ -15,11 +15,14 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  Star,
+  Crown
 } from 'lucide-react';
 
 interface User {
   id: string;
+  uid?: string;
   name: string | null;
   email: string;
   role: 'admin' | 'consultant' | 'student';
@@ -29,19 +32,25 @@ interface User {
   updatedAt: string | Date;
   profileImage?: string | null;
   profileComplete?: boolean;
+  isTopConsultant?: boolean;
 }
 
 const UserManagementPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
+  const [topConsultants, setTopConsultants] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'consultant' | 'student'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showTopConsultantModal, setShowTopConsultantModal] = useState(false);
+  const [selectedConsultant, setSelectedConsultant] = useState<User | null>(null);
+  const [isSettingTop, setIsSettingTop] = useState(false);
 
   useEffect(() => {
     loadUsers();
+    loadTopConsultants();
   }, []);
 
   const loadUsers = async () => {
@@ -57,6 +66,26 @@ const UserManagementPage = () => {
     }
   };
 
+  const loadTopConsultants = async () => {
+    try {
+      const response = await consultantAPI.getTop();
+      const topConsultantsData = (response.data as { topConsultants: any[] }).topConsultants || [];
+      // Extract consultant IDs from the response - the structure might vary
+      const topIds = new Set(
+        topConsultantsData
+          .map((c: any) => {
+            // Try different possible field names for consultant ID
+            return c.consultantId || c.uid || c.id || c.userId;
+          })
+          .filter((id: string | undefined) => id !== undefined)
+      );
+      setTopConsultants(topIds);
+    } catch (error: unknown) {
+      console.error('Error loading top consultants:', error);
+      // Don't show error for this, just continue without top consultant info
+    }
+  };
+
   const handleStatusChange = async (userId: string, newStatus: 'active' | 'inactive' | 'suspended') => {
     try {
       await authAPI.updateUserStatus(userId, newStatus);
@@ -67,6 +96,42 @@ const UserManagementPage = () => {
       console.error('Error updating user status:', error);
       setErrorMessage('Failed to update user status. Please try again.');
     }
+  };
+
+  const handleSetTopConsultant = (user: User) => {
+    setSelectedConsultant(user);
+    setShowTopConsultantModal(true);
+  };
+
+  const confirmSetTopConsultant = async () => {
+    if (!selectedConsultant) return;
+
+    setIsSettingTop(true);
+    try {
+      const consultantId = selectedConsultant.uid || selectedConsultant.id;
+      await consultantAPI.setTopConsultant(consultantId);
+      setSuccessMessage(`${selectedConsultant.name || 'Consultant'} has been set as top consultant!`);
+      setShowTopConsultantModal(false);
+      setSelectedConsultant(null);
+      await loadTopConsultants(); // Reload top consultants
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error: any) {
+      console.error('Error setting top consultant:', error);
+      setErrorMessage(error?.response?.data?.error || 'Failed to set top consultant. Please try again.');
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsSettingTop(false);
+    }
+  };
+
+  const cancelSetTopConsultant = () => {
+    setShowTopConsultantModal(false);
+    setSelectedConsultant(null);
+  };
+
+  const isTopConsultant = (user: User) => {
+    const userId = user.uid || user.id;
+    return topConsultants.has(userId);
   };
 
   const filteredUsers = users.filter(user => {
@@ -267,7 +332,7 @@ const UserManagementPage = () => {
                     </span>
                   </td>
                   <td className="py-3 sm:py-4 px-2 sm:px-4">
-                    <div className="flex items-center gap-1 sm:gap-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                       <select
                         value={getUserStatus(user)}
                         onChange={(e) => handleStatusChange(user.id, e.target.value as 'active' | 'inactive' | 'suspended')}
@@ -277,6 +342,30 @@ const UserManagementPage = () => {
                         <option value="inactive">Inactive</option>
                         <option value="suspended">Suspended</option>
                       </select>
+                      {user.role === 'consultant' && (
+                        <button
+                          onClick={() => handleSetTopConsultant(user)}
+                          disabled={isSettingTop}
+                          className={`text-xs px-2 py-1 rounded focus:outline-none focus:ring-1 focus:ring-green-500 flex items-center gap-1 ${
+                            isTopConsultant(user)
+                              ? 'bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-default'
+                              : 'bg-blue-50 text-blue-700 border border-blue-300 hover:bg-blue-100'
+                          }`}
+                          title={isTopConsultant(user) ? 'This consultant is already set as top consultant' : 'Set as top consultant'}
+                        >
+                          {isTopConsultant(user) ? (
+                            <>
+                              <Crown className="w-3 h-3" />
+                              Top
+                            </>
+                          ) : (
+                            <>
+                              <Star className="w-3 h-3" />
+                              Set Top
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -292,6 +381,59 @@ const UserManagementPage = () => {
           )}
         </div>
       </AdminSection>
+
+      {/* Set Top Consultant Confirmation Modal */}
+      {showTopConsultantModal && selectedConsultant && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Crown className="w-6 h-6 text-yellow-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Set as Top Consultant</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to set <span className="font-semibold">{selectedConsultant.name || selectedConsultant.email}</span> as the top consultant?
+              {isTopConsultant(selectedConsultant) && (
+                <span className="block mt-2 text-sm text-yellow-600">
+                  Note: This consultant is already set as top consultant. This will reset the top consultant status.
+                </span>
+              )}
+              {!isTopConsultant(selectedConsultant) && (
+                <span className="block mt-2 text-sm text-gray-500">
+                  This will replace the current top consultant (if any) with this consultant.
+                </span>
+              )}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelSetTopConsultant}
+                disabled={isSettingTop}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSetTopConsultant}
+                disabled={isSettingTop}
+                className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSettingTop ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Setting...
+                  </>
+                ) : (
+                  <>
+                    <Crown className="w-4 h-4" />
+                    Set as Top Consultant
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

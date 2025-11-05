@@ -1,435 +1,189 @@
-# Tray - Complete Application Suite
+# Tray – Complete Monorepo Overview
 
-A comprehensive platform connecting students with consultants, featuring real-time chat, booking management, and push notifications.
+A full-stack platform connecting students with consultants. It includes a React Native mobile app, a Next.js web portal, and a TypeScript/Express backend with Firebase for auth, data, storage, and messaging, plus Stripe for payments.
 
-## 📁 Repository Structure
+---
 
-```
+## Monorepo Structure
+
+```text
 Tray/
-├── application/    # React Native Mobile App (iOS/Android)
-├── backend/        # Express.js Backend API (TypeScript)
-├── functions/      # Firebase Cloud Functions (Push Notifications)
-└── web/           # Next.js Web Dashboard (TypeScript)
+├─ application/           # React Native mobile app (iOS/Android)
+├─ backend/               # Express.js REST API (TypeScript)
+├─ web/                   # Next.js 15 Web portal (Admin + Consultant)
+├─ firestore.indexes.json # Firestore indexes definition
+├─ MOBILE_APP_TEST.md     # Mobile manual test notes
+├─ TEST_CHAT_NOTIFICATION.md # FCM testing notes
+└─ TEST_RESULTS.md        # Test runs and notes
+```
+
+### application/ (React Native)
+```text
+application/
+├─ app.json
+├─ index.js
+├─ android/                    # Gradle project, google-services.json
+├─ ios/                        # Xcode project, GoogleService-Info.plist, Pods
+├─ src/
+│  ├─ App.tsx
+│  ├─ assets/
+│  │  ├─ icon/                 # social icons
+│  │  └─ image/                # app images (logo, avatar, etc.)
+│  ├─ components/
+│  │  ├─ consultant/           # multi-step forms & status
+│  │  ├─ shared/               # headers, search bar
+│  │  └─ ui/                   # reusable UI (buttons, cards, modals)
+│  ├─ constants/
+│  │  ├─ core/                 # colors, globals
+│  │  ├─ data/                 # static lists for UI
+│  │  └─ styles/               # co-located style objects per screen/feature
+│  ├─ contexts/                # Auth, Chat, Notification providers
+│  ├─ hooks/                   # useLogin, useRegister, useChat
+│  ├─ lib/                     # axios fetcher, Firebase init
+│  ├─ navigator/               # React Navigation stacks/tabs
+│  ├─ Screen/
+│  │  ├─ Admin/RefundReview/   # Admin refund review
+│  │  ├─ Auth/                 # Login/Register/Reset/Verify
+│  │  ├─ common/               # Account, Calling, Help, Messages, Notifications
+│  │  ├─ Consultant/           # Consultant flows (availability, services, slots)
+│  │  ├─ Splash/               # splash screens
+│  │  └─ Student/              # Browse, Booking, Cart, Payment, Reviews
+│  ├─ services/                # API service modules (booking, chat, payment, etc.)
+│  ├─ types/                   # shared types (env, chat)
+│  └─ utils/                   # helpers (password, time, toast)
+└─ tests, configs, metro/jest/babel
+```
+
+Key services in `application/src/services/`:
+- booking.service.ts, bookingRequest.service.ts
+- chat.Service.ts
+- consultant.service.ts, consultantFlow.service.ts
+- email.service.ts
+- notification.service.ts, notification-storage.service.ts
+- payment.service.ts
+- review.service.ts, sessionCompletion.service.ts
+- upload.service.ts
+- user.service.ts
+
+Navigation in `application/src/navigator/`:
+- `AuthNavigation`, `RootNavigation`
+- `BottomNavigation`, `ConsultantBottomNavigation`
+- `HomeStackNavigator`, `ServicesStackNavigator`, `ScreenNavigator`
+
+### backend/ (Express + TypeScript)
+```text
+backend/
+├─ src/
+│  ├─ app.ts, server.ts
+│  ├─ config/                  # firebase admin config
+│  ├─ controllers/             # route handlers (auth, booking, payment, etc.)
+│  ├─ functions/               # sendMessageNotification.function.ts
+│  ├─ middleware/              # auth, consultant gates
+│  ├─ models/                  # consultant, application, profile, review
+│  ├─ routes/                  # auth, booking, consultant, payment, review, etc.
+│  ├─ services/                # consultant and review domain services
+│  └─ utils/                   # email, logger
+├─ dist/                       # build output
+└─ scripts, configs
+```
+
+Routes in `backend/src/routes/`:
+- `auth.routes.ts`, `booking.routes.ts`, `consultant.routes.ts`, `consultantFlow.routes.ts`
+- `fcm.routes.ts`, `notification.routes.ts`, `payment.routes.ts`, `review.routes.ts`, `upload.routes.ts`
+
+### web/ (Next.js 15 + React 19)
+```text
+web/
+├─ app/
+│  ├─ (root)/
+│  │  ├─ admin/                # Admin dashboard pages
+│  │  └─ consultant/           # Consultant portal pages
+│  ├─ layout.tsx               # Root layout
+│  └─ login/page.tsx           # Auth entry
+├─ components/                 # Admin/Consultant/UI components
+├─ config/firebase.ts          # web firebase init
+├─ constants/, contexts/       # Auth context, constants
+├─ utils/                      # API client & helpers
+└─ styles/, tailwind config
 ```
 
 ---
 
-## 🏗️ System Architecture
+## Features (End-to-End)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Complete Architecture                     │
-└─────────────────────────────────────────────────────────────────┘
+### Core Platform
+- **Authentication & Roles**: Student, Consultant, Admin via Firebase Auth + backend role checks
+- **Profiles**: Create, update, verify consultant profiles, upload avatars and documents
+- **Consultant Services**: Create and manage services, availability, slots, and pricing
+- **Discovery & Booking**: Browse consultants/services, add to cart, book sessions
+- **Chat & Calling**: Real-time chat (Firestore). Voice/video screens present (integration-ready)
+- **Notifications**: FCM push notifications for messages, bookings, status changes
+- **Payments**: Stripe-based payment flows (PaymentSheet/UI in mobile, payouts tracking in admin)
+- **Reviews & Ratings**: Post-session reviews, session completion flows
+- **Admin Tools**: Review applications, manage users, services, refunds, analytics
 
-┌──────────────┐      ┌─────────────┐      ┌──────────────┐
-│  Application │      │   Backend   │      │   Functions   │
-│  (Mobile)    │◄────►│    API      │      │    (Cloud)    │
-└──────────────┘      └─────────────┘      └──────────────┘
-        │                     │                      │
-        │                     │                      │
-        ▼                     ▼                      ▼
-┌───────────────────────────────────────────────────────────┐
-│              Firebase Services                             │
-├───────────────────────────────────────────────────────────┤
-│  • Firestore (Real-time database)                         │
-│  • Firebase Auth (User authentication)                    │
-│  • FCM (Push notifications)                               │
-│  • Firebase Storage (Image uploads)                       │
-└───────────────────────────────────────────────────────────┘
-        ▲
-        │
-┌──────────────┐
-│  Web Portal  │
-│  (Dashboard) │
-└──────────────┘
-```
+### Mobile App (React Native)
+- **Auth**: Login, Register, Email verification, Password reset
+- **Student**:
+  - Browse services and consultants, search and filter
+  - Manage cart and bookings; payment and checkout
+  - Chat with consultants; receive notifications
+  - Submit reviews and view history
+- **Consultant**:
+  - Profile creation, status, verification steps
+  - Manage availability, services, slots, clients
+  - View earnings, notifications, messages
+  - Handle session completion and ratings
+- **Common**: Account management, profile editing, help center, calling screens
 
----
+### Web Portal (Next.js)
+- **Admin**:
+  - Overview dashboard: analytics, activity
+  - Users, consultant profiles, service applications (approve/reject)
+  - Commission, funds, payouts tables and widgets
+  - Settings and support
+- **Consultant**:
+  - Multi-step profile, status, service management (create/edit)
+  - Clients, bookings, transactions views
+  - Route guards for roles
 
-## 🚀 Quick Start
+### Backend API (Express)
+- **Auth**: Token verification (Firebase Admin), profile updates, user retrieval
+- **Consultants**: CRUD for profiles, services, applications, availability
+- **Bookings**: Create/update bookings, status changes, lists for student/consultant
+- **Notifications**: FCM token registration and cleanup
+- **Payments**: Stripe integration endpoints for intents/sheets (client-side flows on mobile/web)
+- **Reviews**: Post and list reviews
+- **Uploads**: Media/document upload endpoints (e.g., Cloudinary-backed)
 
-### Prerequisites
-
-- **Node.js** 20+ installed
-- **npm** or **yarn** package manager
-- **Firebase CLI** (for deploying functions)
-- **Xcode** (for iOS development)
-- **Android Studio** (for Android development)
-- **Firebase Project** configured (`tray-ed2f7`)
-
-### Installation
-
-Each repository runs independently:
-
-```bash
-# 1. Mobile Application
-cd application
-npm install
-cd ios && pod install && cd ..
-
-# 2. Backend API
-cd backend
-npm install
-npm run build
-
-# 3. Cloud Functions
-cd functions
-npm install
-npm run build
-
-# 4. Web Dashboard
-cd web
-npm install
-```
+### Notifications & Messaging
+- **Real-time Chat**: Firestore chat with last message, unread counts, typing indicators (UI hooks)
+- **Push Notifications**: Cloud Function `sendMessageNotification` for background messages; badge count updates; invalid token cleanup
 
 ---
 
-## 📱 1. Application (React Native Mobile App)
-
-**Location:** `application/`  
-**Type:** React Native (TypeScript)  
-**Platforms:** iOS & Android
-
-### Features
-
-- ✅ User authentication (Student/Consultant roles)
-- ✅ Real-time chat messaging
-- ✅ Booking management
-- ✅ Push notifications
-- ✅ Profile management
-- ✅ Payment integration (Stripe)
-- ✅ Service booking
-- ✅ Reviews & ratings
-
-### Tech Stack
-
-- React Native 0.82
-- TypeScript
-- Firebase (Auth, Firestore, FCM)
-- React Navigation
-- Axios
-- React Native Firebase
-
-### Setup
-
-```bash
-cd application
-
-# Install dependencies
-npm install
-
-# iOS - Install pods
-cd ios && pod install && cd ..
-
-# Start Metro bundler
-npm start
-
-# Run on iOS
-npm run ios
-
-# Run on Android
-npm run android
-```
-
-### Environment Variables
-
-Create `.env` in `application/`:
-
-```env
-API_URL=http://localhost:3000
-FIREBASE_API_KEY=your_key
-FIREBASE_AUTH_DOMAIN=your_domain
-FIREBASE_PROJECT_ID=tray-ed2f7
-FIREBASE_STORAGE_BUCKET=your_bucket
-FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-FIREBASE_APP_ID=your_app_id
-```
-
-### Key Features Implementation
-
-- **Real-time Chat:** Firestore listeners for instant messaging
-- **Push Notifications:** FCM integration with badge counters
-- **Booking Flow:** Student booking → Consultant acceptance → Chat enabled
-- **Profile Images:** Consultant and student profile images in chat
+## Tech Stack
+- **Mobile**: React Native, TypeScript, React Navigation, RN Firebase, Axios
+- **Web**: Next.js 15, React 19, TypeScript, Tailwind CSS, Firebase
+- **Backend**: Node.js, Express 5, TypeScript, Firebase Admin, Stripe, Nodemailer, Cloudinary
+- **Infra**: Firebase (Auth, Firestore, Storage, FCM)
 
 ---
 
-## 🔧 2. Backend (Express.js API)
+## Setup and Run
 
-**Location:** `backend/`  
-**Type:** Express.js (TypeScript)  
-**Port:** Default 3000 (configurable)
-
-### Features
-
-- ✅ RESTful API endpoints
-- ✅ Firebase Admin SDK integration
-- ✅ User authentication & authorization
-- ✅ Booking management
-- ✅ Consultant profile management
-- ✅ FCM token management
-- ✅ File uploads (Cloudinary)
-- ✅ Email service (Nodemailer)
-
-### Tech Stack
-
-- Express.js 5.1
-- TypeScript
-- Firebase Admin SDK
-- Cloudinary (Image storage)
-- Stripe (Payments)
-- Nodemailer (Email)
-
-### Setup
-
+### 1) Backend
 ```bash
 cd backend
-
-# Install dependencies
 npm install
-
-# Build TypeScript
 npm run build
-
-# Development mode
+# Dev
 npm run dev
-
-# Production mode
+# Prod
 npm run start:prod
 ```
 
-### API Endpoints
-
-#### Authentication
-- `POST /auth/register` - Register new user
-- `POST /auth/login` - User login
-- `GET /auth/me` - Get current user
-- `GET /auth/users/:uid` - Get user by ID
-- `PUT /auth/profile` - Update profile
-
-#### Bookings
-- `POST /bookings` - Create booking
-- `GET /bookings/student` - Get student bookings
-- `GET /bookings/consultant` - Get consultant bookings
-- `PUT /bookings/:id/status` - Update booking status
-
-#### FCM (Push Notifications)
-- `POST /fcm/token` - Register FCM token
-- `DELETE /fcm/token` - Delete FCM token
-
-#### Consultants
-- `GET /consultants` - Get all consultants
-- `GET /consultants/top` - Get top consultants
-- `GET /consultants/:id/services` - Get consultant services
-
-See `backend/src/routes/` for complete API documentation.
-
----
-
-## ☁️ 3. Functions (Firebase Cloud Functions)
-
-**Location:** `functions/`  
-**Type:** Firebase Cloud Functions (TypeScript)  
-**Deployment:** Firebase Hosting
-
-### Features
-
-- ✅ Automatic push notifications on new messages
-- ✅ Badge count updates
-- ✅ Invalid token cleanup
-- ✅ Firestore triggers
-
-### Tech Stack
-
-- Firebase Functions
-- Firebase Admin SDK
-- TypeScript
-
-### Setup
-
-```bash
-cd functions
-
-# Install dependencies
-npm install
-
-# Build TypeScript
-npm run build
-
-# Local testing (emulator)
-npm run serve
-
-# Deploy to Firebase
-npx firebase-tools login
-npx firebase-tools deploy --only functions:sendMessageNotification
-```
-
-### Functions
-
-#### `sendMessageNotification`
-- **Trigger:** Firestore `onCreate` on `chats/{chatId}/messages/{messageId}`
-- **Action:** Sends FCM push notification to message recipient
-- **Auto-runs:** When app is in background/closed
-
-See `functions/README.md` for detailed documentation.
-
----
-
-## 💻 4. Web (Next.js Dashboard)
-
-**Location:** `web/`  
-**Type:** Next.js (TypeScript)  
-**Framework:** Next.js 15
-
-### Features
-
-- ✅ Admin dashboard
-- ✅ Analytics & monitoring
-- ✅ User management
-- ✅ Business insights
-
-### Tech Stack
-
-- Next.js 15.5
-- React 19
-- TypeScript
-- Tailwind CSS
-- Firebase
-
-### Setup
-
-```bash
-cd web
-
-# Install dependencies
-npm install
-
-# Development mode
-npm run dev
-
-# Production build
-npm run build
-npm start
-```
-
-### Access
-
-- **Development:** http://localhost:3000
-- **External Access:** http://0.0.0.0:3000
-
----
-
-## 🔄 How Components Work Together
-
-### 1. User Registration Flow
-
-```
-User registers in Mobile App
-    ↓
-Backend creates user in Firestore
-    ↓
-User receives confirmation
-```
-
-### 2. Booking & Chat Flow
-
-```
-Student books consultant
-    ↓
-Backend creates booking
-    ↓
-Consultant accepts booking
-    ↓
-Chat automatically enabled
-    ↓
-Users can message each other
-```
-
-### 3. Real-time Messaging Flow
-
-```
-User A sends message
-    ↓
-Message saved to Firestore
-    ↓
-Firestore listener updates User B (if app open)
-    ↓
-Cloud Function triggers (if app closed/background)
-    ↓
-Push notification sent to User B
-```
-
-### 4. Push Notification Flow
-
-```
-New message created
-    ↓
-Cloud Function triggers automatically
-    ↓
-Function finds recipient's FCM tokens
-    ↓
-Sends push notification
-    ↓
-Badge count updates
-    ↓
-User taps notification
-    ↓
-App opens to chat screen
-```
-
----
-
-## 🗄️ Database Schema
-
-### Firestore Collections
-
-```
-/users/{userId}
-  - name: string
-  - email: string
-  - role: 'student' | 'consultant' | 'admin'
-  - profileImage: string
-  - isActive: boolean
-  - createdAt: timestamp
-  
-/users/{userId}/fcmTokens/{tokenId}
-  - fcmToken: string
-  - deviceType: 'ios' | 'android'
-  - createdAt: timestamp
-  - updatedAt: timestamp
-
-/chats/{chatId}
-  - participants: [uid1, uid2]
-  - lastMessage: string
-  - lastMessageAt: timestamp
-  - lastMessageSenderId: string
-
-/chats/{chatId}/messages/{messageId}
-  - senderId: string
-  - text: string
-  - type: 'text' | 'image'
-  - createdAt: timestamp
-  - seenBy: [userId, ...]
-```
-
----
-
-## 🔐 Environment Setup
-
-### Application (.env)
-
-```env
-API_URL=http://localhost:3000
-FIREBASE_API_KEY=your_key
-FIREBASE_AUTH_DOMAIN=your_domain
-FIREBASE_PROJECT_ID=tray-ed2f7
-FIREBASE_STORAGE_BUCKET=your_bucket
-FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-FIREBASE_APP_ID=your_app_id
-```
-
-### Backend (.env)
-
+Backend environment (`backend/.env`):
 ```env
 PORT=3000
 NODE_ENV=development
@@ -442,8 +196,41 @@ CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-### Web (.env.local)
+### 2) Mobile (React Native)
+```bash
+cd application
+npm install
+# iOS pods
+cd ios && pod install && cd ..
+# Start bundler
+npm start
+# Run
+npm run ios
+npm run android
+```
 
+Mobile environment (`application/.env`):
+```env
+API_URL=http://localhost:3000
+FIREBASE_API_KEY=your_key
+FIREBASE_AUTH_DOMAIN=your_domain
+FIREBASE_PROJECT_ID=tray-ed2f7
+FIREBASE_STORAGE_BUCKET=your_bucket
+FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+FIREBASE_APP_ID=your_app_id
+```
+
+### 3) Web (Next.js)
+```bash
+cd web
+npm install
+npm run dev
+# Build + Start
+npm run build
+npm start
+```
+
+Web environment (`web/.env.local`):
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3000
 NEXT_PUBLIC_FIREBASE_API_KEY=your_key
@@ -451,265 +238,81 @@ NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=tray-ed2f7
 ```
 
----
-
-## 🚢 Deployment
-
-### Application (Mobile)
-
-**iOS:**
-```bash
-cd application/ios
-xcodebuild -workspace tray.xcworkspace -scheme tray -configuration Release
-```
-
-**Android:**
-```bash
-cd application/android
-./gradlew assembleRelease
-```
-
-### Backend API
-
-```bash
-cd backend
-npm run build
-npm run start:prod
-```
-
-Deploy to your preferred hosting (Heroku, AWS, DigitalOcean, etc.)
-
-### Cloud Functions
-
-```bash
-cd functions
-npx firebase-tools login
-npx firebase-tools deploy --only functions
-```
-
-### Web Dashboard
-
-```bash
-cd web
-npm run build
-npm start
-```
-
-Deploy to Vercel, Netlify, or your preferred hosting.
+### 4) Firebase Functions (used within backend project)
+- Cloud function source: `backend/src/functions/sendMessageNotification.function.ts`
+- Deploy via your chosen pipeline or via Firebase CLI if extracted into a functions project.
 
 ---
 
-## 🧪 Testing
+## API Overview (High-Level)
 
-### Application
+Base URL (dev): `http://localhost:3000`
 
-```bash
-cd application
-npm test
-```
+- `Auth` (`/auth`): register, login, me, profile update, user lookup
+- `Consultant` (`/consultants`, `/consultant-flow`): profile, application, services, availability
+- `Booking` (`/bookings`): create, list (student/consultant), update status
+- `Payments` (`/payment`): intents/sheets, webhooks (if configured)
+- `Notifications` (`/fcm`, `/notification`): token register/delete, list notifications
+- `Reviews` (`/review`): create/list
+- `Upload` (`/upload`): images/documents
 
-### Backend
+All protected routes require header: `Authorization: Bearer <firebase-id-token>`.
 
-```bash
-cd backend
-npm test
-```
+---
 
-### Web
+## Data Model (Firestore – key collections)
+```text
+/users/{userId}
+  role: 'student' | 'consultant' | 'admin'
+  name, email, photoURL, ...
+  createdAt, isActive
 
-```bash
-cd web
-npm test
+/users/{userId}/fcmTokens/{tokenId}
+  fcmToken, deviceType, createdAt, updatedAt
+
+/chats/{chatId}
+  participants: [uid1, uid2]
+  lastMessage, lastMessageAt, lastMessageSenderId
+
+/chats/{chatId}/messages/{messageId}
+  senderId, text | imageUrl, createdAt, seenBy[]
 ```
 
 ---
 
-## 📊 Monitoring
+## Workflows
 
-### Backend API
+### Registration & Profile
+1) User signs up (mobile/web) → Firebase Auth + backend user record
+2) Consultant completes multi-step profile and submits verification
+3) Admin reviews and approves consultant application
 
-- Health check: `GET /health`
-- Logs: Check console output
-- Errors: Check error logs
+### Booking → Chat → Completion
+1) Student browses services and books a slot
+2) Consultant accepts; chat opens between both parties
+3) Session occurs; consultant marks completion → student reviews and rates
 
-### Cloud Functions
-
-```bash
-# View logs
-cd functions
-npx firebase-tools functions:log
-
-# Or Firebase Console
-# https://console.firebase.google.com/project/tray-ed2f7/functions/logs
-```
-
-### Firestore
-
-Monitor in Firebase Console → Firestore → Data
+### Messaging & Notifications
+- Foreground: Firestore listeners update chat in real time
+- Background/closed: Cloud Function sends FCM notification; tap opens chat
 
 ---
 
-## 🐛 Troubleshooting
-
-### Application Issues
-
-**iOS Build Fails:**
-```bash
-cd application/ios
-pod install
-pod repo update
-```
-
-**Metro Bundler Issues:**
-```bash
-cd application
-npm start -- --reset-cache
-```
-
-**Firebase Native Module Error:**
-- Rebuild iOS app: `npm run ios`
-- Check pods installed: `cd ios && pod install`
-
-### Backend Issues
-
-**Port Already in Use:**
-- Change PORT in `.env`
-- Kill process: `lsof -ti:3000 | xargs kill`
-
-**Firebase Admin Error:**
-- Check service account key path
-- Verify Firebase project ID
-
-### Functions Issues
-
-**Function Not Triggering:**
-- Check Firestore rules allow writes
-- Verify function is deployed
-- Check Firebase Console logs
-
-**Notification Not Received:**
-- Verify FCM token registered
-- Check notification permissions
-- Verify device has internet
+## Scripts
+- Mobile: `npm start`, `npm run ios`, `npm run android`, `npm test`
+- Backend: `npm run dev`, `npm run build`, `npm start`, `npm test`
+- Web: `npm run dev`, `npm run build`, `npm start`, `npm test`
 
 ---
 
-## 📚 Key Features Documentation
-
-### Real-time Chat
-
-- Uses Firestore listeners for instant updates
-- Supports text messages
-- Shows unread message counts
-- Displays last message preview
-- Profile images in chat header
-
-### Push Notifications
-
-- Automatic notifications when app closed/background
-- Badge count on app icon
-- Opens chat on notification tap
-- No notifications when app is foreground
-
-### Booking System
-
-- Students book consultants
-- Consultants accept/reject bookings
-- Chat enabled after acceptance
-- Booking history management
-- Payment integration
+## Troubleshooting
+- iOS pods: `cd application/ios && pod install && pod repo update`
+- Metro cache: `cd application && npm start -- --reset-cache`
+- Kill port (3000): `lsof -ti:3000 | xargs kill`
+- Firebase Admin errors: verify service account config and project ID
+- Push not received: ensure token registered, permissions granted, function deployed
 
 ---
 
-## 🔗 Related Documentation
-
-- **Application:** See `application/README.md`
-- **Backend:** See `backend/README.md`
-- **Functions:** See `functions/README.md`
-- **Web:** See `web/README.md`
-
----
-
-## 🛠️ Development Workflow
-
-### Running Everything Locally
-
-```bash
-# Terminal 1: Backend API
-cd backend
-npm run dev
-
-# Terminal 2: Mobile App
-cd application
-npm start
-# Then run on simulator
-
-# Terminal 3: Web Dashboard (optional)
-cd web
-npm run dev
-
-# Terminal 4: Firebase Emulators (optional)
-cd functions
-npm run serve
-```
-
-### Making Changes
-
-1. **Application:** Edit → Hot reload automatically
-2. **Backend:** Edit → Server restarts (ts-node-dev)
-3. **Functions:** Edit → Build → Deploy
-4. **Web:** Edit → Hot reload automatically
-
----
-
-## 📝 API Documentation
-
-### Base URL
-- **Development:** `http://localhost:3000`
-- **Production:** `https://api.tray.com` (configure in production)
-
-### Authentication
-
-All protected routes require Firebase ID token in header:
-```
-Authorization: Bearer <firebase-id-token>
-```
-
----
-
-## 🆘 Support
-
-### Common Issues
-
-1. **"Native module not found"** - Rebuild app after installing packages
-2. **"FCM token not registered"** - Check backend `/fcm/token` endpoint
-3. **"Push notifications not working"** - Verify Cloud Function is deployed
-4. **"Chat not loading"** - Check Firestore rules and permissions
-
-### Getting Help
-
-- Check Firebase Console logs
-- Review error messages in console
-- Verify environment variables
-- Check network connectivity
-
----
-
-## ✅ Current Status
-
-- ✅ Mobile Application (iOS/Android) - Complete
-- ✅ Backend API (REST) - Complete
-- ✅ Cloud Functions (Push Notifications) - Ready to deploy
-- ✅ Web Dashboard (Next.js) - Complete
-- ✅ Real-time Chat - Implemented
-- ✅ Push Notifications - Implemented
-- ✅ Booking System - Complete
-- ✅ Payment Integration - Complete
-
----
-
-## 📄 License
-
-Private - All Rights Reserved
-
----
+## License
+Private – All rights reserved.

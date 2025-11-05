@@ -182,11 +182,85 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
     const { bookingId } = req.params;
     const { status, paymentStatus } = req.body;
 
+    // Get current booking data
+    const bookingDoc = await db.collection("bookings").doc(bookingId).get();
+    if (!bookingDoc.exists) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const bookingData = bookingDoc.data();
+    const previousStatus = bookingData?.status;
+
+    // Update booking status
     await db.collection("bookings").doc(bookingId).update({
       status,
       paymentStatus,
       updatedAt: new Date().toISOString(),
     });
+
+    // If status changed to "completed" and payment hasn't been transferred yet, trigger transfer
+    if (status === "completed" && previousStatus !== "completed" && bookingData?.paymentStatus === "paid") {
+      const paymentTransferred = bookingData?.paymentTransferred;
+      
+      if (!paymentTransferred && bookingData?.amount) {
+        try {
+          // Import Stripe for transfer
+          const Stripe = require("stripe");
+          const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+          
+          // Get consultant's Stripe account
+          const consultantDoc = await db.collection("consultants").doc(bookingData.consultantId).get();
+          if (consultantDoc.exists) {
+            const consultantData = consultantDoc.data();
+            const stripeAccountId = consultantData?.stripeAccountId;
+            
+            if (stripeAccountId) {
+              // Verify account is ready
+              const account = await stripe.accounts.retrieve(stripeAccountId);
+              
+              if (account.details_submitted && account.charges_enabled && account.payouts_enabled) {
+                // Calculate platform fee
+                const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
+                const platformFeeAmount = Math.round(bookingData.amount * 100 * (platformFeePercent / 100));
+                const transferAmount = Math.round(bookingData.amount * 100) - platformFeeAmount;
+                
+                // Create transfer
+                const transfer = await stripe.transfers.create({
+                  amount: transferAmount,
+                  currency: "usd",
+                  destination: stripeAccountId,
+                  description: `Payment for completed booking ${bookingId}`,
+                  metadata: {
+                    bookingId,
+                    consultantId: bookingData.consultantId,
+                    studentId: bookingData.studentId,
+                    platformFee: platformFeeAmount.toString(),
+                  },
+                });
+                
+                // Update booking with transfer info
+                await db.collection("bookings").doc(bookingId).update({
+                  paymentTransferred: true,
+                  transferId: transfer.id,
+                  transferAmount: transferAmount / 100,
+                  platformFee: platformFeeAmount / 100,
+                  transferredAt: new Date().toISOString(),
+                });
+                
+                console.log(`✅ Auto-transferred $${transferAmount / 100} to consultant for booking ${bookingId}`);
+              } else {
+                console.warn(`⚠️ Consultant ${bookingData.consultantId} Stripe account not ready for transfer`);
+              }
+            } else {
+              console.warn(`⚠️ Consultant ${bookingData.consultantId} does not have Stripe account set up`);
+            }
+          }
+        } catch (transferError: any) {
+          // Log error but don't fail the booking update
+          console.error(`❌ Error auto-transferring payment for booking ${bookingId}:`, transferError);
+        }
+      }
+    }
 
     res.status(200).json({ message: "Booking updated successfully" });
   } catch (error: any) {

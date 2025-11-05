@@ -200,49 +200,56 @@ const AdminServiceApplicationsPage = () => {
               key={application.id}
               className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {getServiceTitle(application)}
-                    </h3>
-                    <span className={`px-2 py-1 text-xs font-medium rounded ${
-                      application.type === 'new' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-purple-100 text-purple-800'
-                    }`}>
-                      {application.type === 'new' ? 'New Service' : 'Existing Service'}
+              <div className="mb-4">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {getServiceTitle(application)}
+                  </h3>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">
+                      {application.submittedAt 
+                        ? new Date(application.submittedAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })
+                        : 'Date not available'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">{getServiceDescription(application)}</p>
-                  
-                  {/* Service Image */}
-                  {application.type === 'new' && application.customService?.imageUrl && (
-                    <div className="mb-3">
-                      <Image
-                        src={application.customService.imageUrl} 
-                        alt={getServiceTitle(application)}
-                        width={128}
-                        height={96}
-                        className="w-32 h-24 object-cover rounded-lg border border-gray-200"
-                      />
-                    </div>
-                  )}
-                  
-                  {application.type === 'new' && application.customService && (
-                    <div className="flex gap-4 text-sm text-gray-600">
-                      <span>Duration: {application.customService.duration} min</span>
-                      <span>Price: ${application.customService.price}</span>
-                    </div>
-                  )}
                 </div>
                 
-                <div className="flex flex-col items-end gap-2">
-                  {getStatusBadge(application.status)}
-                  <span className="text-xs text-gray-500">
-                    {new Date(application.submittedAt).toLocaleDateString()}
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <span className={`px-2 py-1 text-xs font-medium rounded ${
+                    application.type === 'new' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-purple-100 text-purple-800'
+                  }`}>
+                    {application.type === 'new' ? 'New Service' : 'Existing Service'}
                   </span>
+                  {getStatusBadge(application.status)}
                 </div>
+                
+                <p className="text-sm text-gray-600 mb-3">{getServiceDescription(application)}</p>
+                
+                {/* Service Image */}
+                {application.type === 'new' && application.customService?.imageUrl && (
+                  <div className="mb-3">
+                    <Image
+                      src={application.customService.imageUrl} 
+                      alt={getServiceTitle(application)}
+                      width={128}
+                      height={96}
+                      className="w-32 h-24 object-cover rounded-lg border border-gray-200"
+                    />
+                  </div>
+                )}
+                
+                {application.type === 'new' && application.customService && (
+                  <div className="flex gap-4 text-sm text-gray-600 mb-3">
+                    <span>Duration: {application.customService.duration} min</span>
+                    <span>Price: ${application.customService.price}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-gray-200">

@@ -4,6 +4,7 @@ import { Timestamp } from "firebase-admin/firestore";
 export interface ConsultantApplication {
   id: string;
   consultantId: string;
+  consultantName?: string; // Populated when fetching applications
   type: "existing" | "new";
   serviceId?: string; // only for existing service type
   customService?: {
@@ -11,6 +12,8 @@ export interface ConsultantApplication {
     description: string;
     duration: number; // in minutes
     price: number;
+    imageUrl?: string;
+    imagePublicId?: string;
   };
   status: "pending" | "approved" | "rejected";
   submittedAt: Timestamp;
@@ -28,5 +31,7 @@ export interface ConsultantApplicationInput {
     description: string;
     duration: number;
     price: number;
+    imageUrl?: string;
+    imagePublicId?: string;
   };
 }

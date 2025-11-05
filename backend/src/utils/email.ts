@@ -5,32 +5,38 @@ import { Logger } from "./logger";
 
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
-const SMTP_USER = process.env.SMTP_USER || "no-reply@tray.com";
-const SMTP_PASSWORD = process.env.SMTP_PASSWORD;
-const SMTP_FROM = process.env.SMTP_FROM || "Tray <no-reply@tray.com>";
+// Support both SMTP_USER and SMTP_EMAIL for compatibility
+const SMTP_USER = process.env.SMTP_USER || process.env.SMTP_EMAIL || "no-reply@tray.com";
+const SMTP_PASSWORD = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
+const SMTP_FROM = process.env.SMTP_FROM || `Tray <${SMTP_USER}>`;
 
 // Check if email credentials are configured
-const isEmailConfigured = SMTP_USER && SMTP_PASSWORD;
+const isEmailConfigured = SMTP_USER && SMTP_PASSWORD && SMTP_USER !== "no-reply@tray.com";
 
-const transporter = nodemailer.createTransport({
+const transporter = isEmailConfigured ? nodemailer.createTransport({
   host: SMTP_HOST,
   port: SMTP_PORT,
-  secure: SMTP_PORT === 465,
-  auth: isEmailConfigured ? {
+  secure: SMTP_PORT === 465, // Use SSL for port 465
+  auth: {
     user: SMTP_USER,
     pass: SMTP_PASSWORD,
-  } : undefined,
-});
+  },
+  tls: {
+    rejectUnauthorized: false // For development/testing
+  }
+}) : null;
 
-// Only verify connection if email is configured
-if (isEmailConfigured) {
-  transporter.verify((error, success) => {
-    if (error) {
-      Logger.error("Email", "", "Email configuration error", error);
-    } else {
+// Verify email connection if configured
+if (isEmailConfigured && transporter) {
+  // Verify connection silently (don't block startup on failure)
+  transporter.verify()
+    .then(() => {
       Logger.info("Email", "", "Email server ready to send messages");
-    }
-  });
+    })
+    .catch((error) => {
+      // Only log as warning, don't throw - allows server to start
+      Logger.warn("Email", "", `Email verification failed: ${error.message}. Email may not work properly.`);
+    });
 } else {
   Logger.warn("Email", "", "Email credentials not configured - email functionality disabled");
 }
@@ -45,7 +51,7 @@ interface EmailOptions {
 
 export const sendEmail = async (options: EmailOptions): Promise<void> => {
   // Skip if email is not configured
-  if (!isEmailConfigured) {
+  if (!isEmailConfigured || !transporter) {
     Logger.warn("Email", "", `Email not sent (credentials not configured) - To: ${options.to}, Subject: ${options.subject}`);
     return;
   }
@@ -143,11 +149,7 @@ export const emailConsultantProfileApproved = (consultantName: string, consultan
             </ul>
           </div>
           
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://tray.com/consultant/dashboard" style="background-color: #0066cc; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              Go to Dashboard
-            </a>
-          </div>
+        
           
           <p style="color: #555; line-height: 1.6;">
             Welcome to the team! We're excited to have you on board.
@@ -303,11 +305,7 @@ export const emailApplicationApproved = (
             </ul>
           </div>
           
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://tray.com/consultant/dashboard" style="background-color: #0066cc; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              View Dashboard
-            </a>
-          </div>
+         
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
@@ -404,11 +402,6 @@ export const emailAdminNewProfile = (adminEmail: string, consultantName: string,
             </p>
           </div>
           
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://tray.com/admin/consultant-profiles?status=pending" style="background-color: #0066cc; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              Review Profile
-            </a>
-          </div>
           
           <p style="color: #555; line-height: 1.6;">
             Please review this profile and approve or reject it in the admin dashboard.
@@ -454,11 +447,7 @@ export const emailAdminNewApplication = (
             </p>
           </div>
           
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://tray.com/admin/applications?status=pending" style="background-color: #0066cc; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              Review Application
-            </a>
-          </div>
+        
           
           <p style="color: #555; line-height: 1.6;">
             Please review this application and approve or reject it in the admin dashboard.
@@ -534,11 +523,6 @@ export const emailBookingConfirmation = (
             </ul>
           </div>
           
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://tray.com/my-bookings" style="background-color: #0066cc; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              View My Bookings
-            </a>
-          </div>
           
           <p style="color: #555; line-height: 1.6;">
             Thank you for choosing Tray! We look forward to your session.
@@ -618,11 +602,7 @@ export const emailConsultantNewBooking = (
             </ul>
           </div>
           
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://tray.com/consultant/my-bookings" style="background-color: #0066cc; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              View Booking Details
-            </a>
-          </div>
+        
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>

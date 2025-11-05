@@ -11,6 +11,7 @@ import consultantFlowRoutes from "./routes/consultantFlow.routes";
 import paymentRoutes from './routes/payment.routes';
 import uploadRoutes from './routes/upload.routes';
 import fcmRoutes from './routes/fcm.routes';
+import notificationRoutes from './routes/notification.routes';
 
 dotenv.config();
 
@@ -66,6 +67,7 @@ app.use("/consultant-flow", consultantFlowRoutes);
 app.use("/payment", paymentRoutes);
 app.use("/upload", uploadRoutes);
 app.use("/fcm", fcmRoutes);
+app.use("/notifications", notificationRoutes);
 
 
 

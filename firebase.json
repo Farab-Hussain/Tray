@@ -1,0 +1,10 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "react-native": {
+    "messaging_ios_auto_register_for_remote_messages": false
+  }
+}
+

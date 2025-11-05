@@ -1,0 +1,17 @@
+export const COLORS = {
+    yellow: '#FFCB4B',
+    black: '#000000',
+    green: '#60C169',
+    blackTransparent: '#000000B2',
+    white: '#FFFFFF',
+    gray: '#666666',
+    blue: '#3B82F6', 
+    lightBlue: '#EFF6FF',
+    orange: '#FF9500',
+    red: '#EF4444',
+    dark: '#1F2937',
+    lightGray: '#9CA3AF',
+    lightBackground: '#F5F5F5',
+    chatBackground: '#D9D9D94D',
+    chatInputBackground: '#ADEBB3',
+};

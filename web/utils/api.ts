@@ -144,6 +144,8 @@ export const consultantAPI = {
   getAll: () => api.get('/consultants'),
   getById: (uid: string) => api.get(`/consultants/${uid}`),
   getTop: () => api.get('/consultants/top'),
+  setTopConsultant: (consultantId: string) => 
+    api.post('/consultants/set-top', { consultantId }),
   
   // Services
   addService: (data: ServiceData) => api.post('/consultants/services', data),
