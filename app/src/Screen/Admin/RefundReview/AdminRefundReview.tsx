@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppButton from '../../../components/ui/AppButton';
 import { SessionCompletionService, RefundRequest } from '../../../services/sessionCompletion.service';
@@ -222,11 +222,16 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
 
   return (
     <SafeAreaView style={refundReviewStyles.container} edges={['top']}>
-      <View style={refundReviewStyles.header}>
-        <Text style={refundReviewStyles.headerTitle}>Refund Review</Text>
-      </View>
-      
-      <ScrollView style={refundReviewStyles.content}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={refundReviewStyles.header}>
+          <Text style={refundReviewStyles.headerTitle}>Refund Review</Text>
+        </View>
+        
+        <ScrollView style={refundReviewStyles.content} keyboardShouldPersistTaps="handled">
         <Text style={refundReviewStyles.detailsTitle}>
           Pending Refund Requests ({refundRequests.length})
         </Text>
@@ -246,6 +251,7 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

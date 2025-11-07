@@ -10,11 +10,13 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import AppButton from '../../components/ui/AppButton';
 import PasswordStrengthIndicator from '../../components/ui/PasswordStrengthIndicator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
+import { COLORS } from '../../constants/core/colors';
 import * as LucideIcons from 'lucide-react-native';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
@@ -306,12 +308,17 @@ const Register = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <ScrollView
-        style={authStyles.scrollContainer}
-        contentContainerStyle={authStyles.scrollContentContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
+        <ScrollView
+          style={authStyles.scrollContainer}
+          contentContainerStyle={authStyles.scrollContentContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <Text style={authStyles.authHeading}>Register</Text>
 
         <Text style={authStyles.label}>Full Name</Text>
@@ -342,9 +349,12 @@ const Register = ({ navigation, route }: any) => {
           <TextInput
             style={authStyles.input}
             placeholder="Create a strong password"
+            placeholderTextColor={COLORS.lightGray}
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
+            autoCorrect={false}
+            autoCapitalize="none"
           />
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
@@ -370,9 +380,12 @@ const Register = ({ navigation, route }: any) => {
           <TextInput
             style={authStyles.input}
             placeholder="password must match"
+            placeholderTextColor={COLORS.lightGray}
             secureTextEntry={!showConfirmPassword}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
+            autoCorrect={false}
+            autoCapitalize="none"
           />
           <TouchableOpacity
             onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -420,7 +433,7 @@ const Register = ({ navigation, route }: any) => {
             >
               <View style={authStyles.iconContainer}>
                 {socialLoading === 'facebook' ? (
-                  <ActivityIndicator size="small" color="#333333" />
+                  <ActivityIndicator size="small" color="#1877F2" />
                 ) : (
                   <Image
                     source={require('../../assets/icon/facebook.png')}
@@ -455,7 +468,7 @@ const Register = ({ navigation, route }: any) => {
               >
                 <View style={authStyles.iconContainer}>
                   {socialLoading === 'apple' ? (
-                    <ActivityIndicator size="small" color="#333333" />
+                    <ActivityIndicator size="small" color="#000000" />
                   ) : (
                     <Image
                       source={require('../../assets/icon/apple.png')}
@@ -479,6 +492,7 @@ const Register = ({ navigation, route }: any) => {
           </Text>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

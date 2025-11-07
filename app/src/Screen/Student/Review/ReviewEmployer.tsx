@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Star } from 'lucide-react-native';
@@ -138,19 +140,43 @@ const ReviewEmployer = ({ navigation, route }: any) => {
     } catch (error: any) {
       console.error('❌ Error submitting review:', error);
 
+      const status = error?.response?.status;
+      const responseData = error?.response?.data || {};
+      
+      // Extract error message from various possible formats
+      const errorMessage = 
+        responseData.error || 
+        responseData.message || 
+        responseData.errorMessage ||
+        (typeof responseData === 'string' ? responseData : null);
 
-      if (error?.response?.status === 404) {
+      if (__DEV__) {
+        console.log('📋 Error details:', {
+          status,
+          responseData,
+          errorMessage,
+        });
+      }
+
+      if (status === 403) {
+        // Permission denied - user doesn't have a confirmed booking
+        const message = errorMessage || 'You can only review consultants you have completed bookings with.';
+        Alert.alert(
+          'Cannot Submit Review',
+          message,
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        );
+      } else if (status === 404) {
         Alert.alert(
           'Feature Coming Soon',
           'The review system is not yet available on the backend. Your review will be saved once the feature is implemented.',
           [{ text: 'OK', onPress: () => navigation.goBack() }],
         );
       } else {
-        // Other errors
+        // Other errors - toast already shown by handleApiError, but show Alert as backup
         Alert.alert(
           'Error',
-          error?.response?.data?.message ||
-            'Failed to submit review. Please try again.',
+          errorMessage || 'Failed to submit review. Please try again.',
           [{ text: 'OK' }],
         );
       }
@@ -220,20 +246,26 @@ const ReviewEmployer = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={reviewStyles.container} edges={['top', 'bottom']}>
-      <View style={reviewStyles.header}>
-        <TouchableOpacity
-          style={reviewStyles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <ChevronLeft size={24} color={COLORS.black} />
-        </TouchableOpacity>
-        <Text style={reviewStyles.headerTitle}>Review Employer</Text>
-      </View>
-
-      <ScrollView
-        style={reviewStyles.content}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
+        <View style={reviewStyles.header}>
+          <TouchableOpacity
+            style={reviewStyles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ChevronLeft size={24} color={COLORS.black} />
+          </TouchableOpacity>
+          <Text style={reviewStyles.headerTitle}>Review Employer</Text>
+        </View>
+
+        <ScrollView
+          style={reviewStyles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={reviewStyles.profileSection}>
           <Image
             source={
@@ -326,6 +358,7 @@ const ReviewEmployer = ({ navigation, route }: any) => {
           )}
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

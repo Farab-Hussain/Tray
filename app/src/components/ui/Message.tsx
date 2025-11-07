@@ -11,6 +11,11 @@ type MessageProps = {
 };
 
 const Message = ({ name, avatar, lastMessage, time, unreadCount }: MessageProps) => {
+  // Debug: Log unread count
+  if (__DEV__ && unreadCount > 0) {
+    console.log(`🔔 [Message] Rendering badge for ${name}: unreadCount=${unreadCount}`);
+  }
+
   return (
     <View style={message.messageContainer}>
       <View style={message.messageHeader}>
@@ -25,8 +30,8 @@ const Message = ({ name, avatar, lastMessage, time, unreadCount }: MessageProps)
         <View style={message.messageTimeContainer}>
           <Text style={message.messageTime}>{time}</Text>
           {unreadCount > 0 && (
-            <View style={message.badgeContainer}>
-              <Text style={message.badgeText}>
+            <View style={message.badgeContainer} testID="unread-badge">
+              <Text style={message.badgeText} numberOfLines={1}>
                 {unreadCount > 99 ? '99+' : unreadCount.toString()}
               </Text>
             </View>

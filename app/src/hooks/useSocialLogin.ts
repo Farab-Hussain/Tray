@@ -9,10 +9,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showError } from '../utils/toast';
 import { GOOGLE_WEB_CLIENT_ID } from '@env';
 
-GoogleSignin.configure({
-  webClientId: GOOGLE_WEB_CLIENT_ID, 
-  offlineAccess: true,
-});
+// Configure Google Sign-In
+if (GOOGLE_WEB_CLIENT_ID) {
+  GoogleSignin.configure({
+    webClientId: GOOGLE_WEB_CLIENT_ID, 
+    offlineAccess: true,
+  });
+} else {
+  console.warn('⚠️ GOOGLE_WEB_CLIENT_ID is not configured. Google Sign-In will not work.');
+}
 
 interface SocialLoginOptions {
   role?: string;
@@ -110,9 +115,19 @@ export const useSocialLogin = () => {
    */
   const googleLogin = async (options?: SocialLoginOptions) => {
     try {
+      // Check if Google Sign-In is configured
+      if (!GOOGLE_WEB_CLIENT_ID) {
+        throw new Error('Google Sign-In is not configured. Please set GOOGLE_WEB_CLIENT_ID in your environment variables.');
+      }
+
       // Check if Google Play Services are available (Android only)
       if (Platform.OS === 'android') {
-        await GoogleSignin.hasPlayServices();
+        try {
+          await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        } catch (playServicesError: any) {
+          console.error('Google Play Services error:', playServicesError);
+          throw new Error('Google Play Services is required for Google Sign-In. Please update Google Play Services.');
+        }
       }
 
       // Sign in with Google
@@ -146,6 +161,22 @@ export const useSocialLogin = () => {
       if (error.code === 'SIGN_IN_CANCELLED' || error.message?.includes('cancelled')) {
         console.log('Google Sign-In cancelled by user');
         return null;
+      }
+
+      // Handle DEVELOPER_ERROR with helpful message
+      if (error.code === 'DEVELOPER_ERROR' || error.message?.includes('DEVELOPER_ERROR')) {
+        const developerErrorMessage = 
+          'Google Sign-In configuration error. Please ensure:\n' +
+          '1. GOOGLE_WEB_CLIENT_ID is set in your .env file\n' +
+          '2. SHA-1 fingerprint is added to Firebase Console\n' +
+          '3. OAuth client is properly configured in Google Cloud Console';
+        showError(developerErrorMessage, 'Google Sign-In Configuration Error');
+        
+        if (options?.onError) {
+          options.onError(error);
+        }
+        
+        throw error;
       }
 
       const errorMessage = error.message || 'Google Sign-In failed. Please try again.';

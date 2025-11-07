@@ -1,4 +1,6 @@
 import { api } from '../lib/fetcher';
+import * as NotificationStorage from './notification-storage.service';
+import { UserService } from './user.service';
 
 export const BookingService = {
   // Create a new booking
@@ -56,7 +58,61 @@ export const BookingService = {
   // Cancel booking
   async cancelBooking(bookingId: string, reason?: string) {
     const response = await api.post(`/bookings/${bookingId}/cancel`, { reason });
-    return response.data;
+    const result = response.data;
+    
+    // Create notifications for both parties about booking cancellation
+    // Note: We need booking details to know who to notify
+    // The backend should ideally return booking details, but we'll try to get them
+    try {
+      // Try to get booking details from the response or fetch them
+      const bookingData = result.booking || result;
+      
+      if (bookingData && bookingData.consultantId && bookingData.studentId) {
+        const studentData = await UserService.getUserById(bookingData.studentId);
+        const consultantData = await UserService.getUserById(bookingData.consultantId);
+        
+        const studentName = studentData?.name || studentData?.displayName || 'Student';
+        const consultantName = consultantData?.name || consultantData?.displayName || 'Consultant';
+        const studentAvatar = studentData?.profileImage || studentData?.avatarUrl || '';
+        const consultantAvatar = consultantData?.profileImage || consultantData?.avatarUrl || '';
+        
+        // Notify consultant
+        await NotificationStorage.createNotification({
+          userId: bookingData.consultantId,
+          type: 'booking_cancelled',
+          title: studentName,
+          message: `Booking cancelled${reason ? `: ${reason}` : ''}`,
+          data: {
+            bookingId: bookingId,
+            consultantId: bookingData.consultantId,
+            studentId: bookingData.studentId,
+          },
+          senderId: bookingData.studentId,
+          senderName: studentName,
+          senderAvatar: studentAvatar,
+        });
+        
+        // Notify student
+        await NotificationStorage.createNotification({
+          userId: bookingData.studentId,
+          type: 'booking_cancelled',
+          title: consultantName,
+          message: `Your booking has been cancelled${reason ? `: ${reason}` : ''}`,
+          data: {
+            bookingId: bookingId,
+            consultantId: bookingData.consultantId,
+            studentId: bookingData.studentId,
+          },
+          senderId: bookingData.consultantId,
+          senderName: consultantName,
+          senderAvatar: consultantAvatar,
+        });
+      }
+    } catch (notifError) {
+      console.warn('⚠️ Failed to create booking cancellation notifications:', notifError);
+    }
+    
+    return result;
   },
 
   // Get booked slots for a specific consultant

@@ -494,11 +494,14 @@ export const setupForegroundMessageHandler = () => {
 };
 
 export const setupBackgroundMessageHandler = () => {
-  console.warn('⚠️ [FCM] Background handler should be registered in index.js, not in service');
+  // Background handler is registered in index.js
+  // This function exists for API compatibility but does nothing
+  if (__DEV__) {
+    console.log('ℹ️ [FCM] Background handler is registered in index.js');
+  }
 };
 
 // Handle notification opened (app opened from notification)
-
 export const setupNotificationOpenedHandler = (callback: (data: any) => void) => {
   if (!isMessagingAvailable()) {
     console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler');
@@ -552,6 +555,137 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
 
   restoreConsoleWarn(originalWarn);
   return unsubscribe;
+};
+
+/**
+ * Setup notification opened handler with navigation support (when app is opened from notification)
+ * Handles both initial notification and notification opened from background
+ * This version accepts navigation object for action handling
+ */
+export const setupNotificationOpenedHandlerWithNavigation = (navigation: any) => {
+  if (!isMessagingAvailable()) {
+    console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler');
+    return () => { };
+  }
+
+  const originalWarn = suppressDeprecationWarnings();
+  
+  // Handle notification that opened app from quit state
+  messaging()
+    .getInitialNotification()
+    .then((remoteMessage: any) => {
+      if (remoteMessage) {
+        console.log('📱 [Notification Opened] App opened from notification:', remoteMessage);
+        handleNotificationAction(remoteMessage, navigation);
+      }
+    });
+
+  // Handle notification that opened app from background
+  const unsubscribe = messaging().onNotificationOpenedApp((remoteMessage: any) => {
+    console.log('📱 [Notification Opened] App opened from background notification:', remoteMessage);
+    handleNotificationAction(remoteMessage, navigation);
+  });
+  
+  restoreConsoleWarn(originalWarn);
+  return unsubscribe;
+};
+
+/**
+ * Handle notification actions (reply, accept, decline, etc.)
+ */
+const handleNotificationAction = (remoteMessage: any, navigation: any) => {
+  const messageData = remoteMessage.data || {};
+  const action = messageData.action || remoteMessage.action; // Action from notification button
+  
+  console.log('🔔 [Notification Action] Action:', action, 'Data:', messageData);
+  
+  // Handle call notification actions
+  if (messageData.type === 'call' || messageData.callId) {
+    const callId = messageData.callId;
+    const callType = messageData.callType || 'audio';
+    const callerId = messageData.callerId;
+    const receiverId = messageData.receiverId;
+    
+    if (action === 'accept') {
+      // Navigate to call screen and auto-accept
+      const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
+      setTimeout(() => {
+        navigation.navigate('Screen', {
+          screen: screenName,
+          params: {
+            callId,
+            isCaller: false,
+            callerId,
+            receiverId,
+            autoAccept: true, // Flag to auto-accept
+          },
+        });
+      }, 200);
+    } else if (action === 'decline') {
+      // Decline the call
+      const { endCall } = require('./call.service');
+      endCall(callId, 'missed').catch(() => {});
+    } else {
+      // Default: navigate to call screen
+      const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
+      setTimeout(() => {
+        navigation.navigate('Screen', {
+          screen: screenName,
+          params: {
+            callId,
+            isCaller: false,
+            callerId,
+            receiverId,
+          },
+        });
+      }, 200);
+    }
+    return;
+  }
+  
+  // Handle message notification actions
+  if (messageData.type === 'chat_message' || messageData.chatId) {
+    const chatId = messageData.chatId;
+    const senderId = messageData.senderId;
+    
+    if (action === 'reply') {
+      // Navigate to chat screen with keyboard open
+      setTimeout(() => {
+        navigation.navigate('ChatScreen', {
+          chatId,
+          otherUserId: senderId,
+          focusInput: true, // Flag to focus input
+        });
+      }, 200);
+    } else if (action === 'mark_read') {
+      // Mark messages as read
+      const { markMessagesSeen } = require('./chat.Service');
+      const { useAuth } = require('../contexts/AuthContext');
+      // Note: This would need user context - handled in ChatContext
+    } else {
+      // Default: navigate to chat screen
+      setTimeout(() => {
+        navigation.navigate('ChatScreen', {
+          chatId,
+          otherUserId: senderId,
+        });
+      }, 200);
+    }
+    return;
+  }
+  
+  // Handle booking notification actions
+  if (messageData.type === 'booking' || messageData.bookingId) {
+    const bookingId = messageData.bookingId;
+    
+    if (action === 'view') {
+      // Navigate to booking details
+      setTimeout(() => {
+        navigation.navigate('BookingDetails', { bookingId });
+      }, 200);
+    }
+    return;
+  }
 };
 
 // Handle incoming call notification - navigate to calling screen

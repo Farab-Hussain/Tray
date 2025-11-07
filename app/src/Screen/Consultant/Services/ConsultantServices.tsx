@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, View, Text, ActivityIndicator, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import SearchBar from '../../../components/shared/SearchBar';
@@ -39,27 +40,8 @@ const ConsultantServices = ({ navigation }: any) => {
   const [error, setError] = useState<string | null>(null);
   const [, setConsultantUid] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user?.uid) {
-      fetchConsultantServices();
-    }
-  }, [user?.uid]);
-
-  useEffect(() => {
-
-    if (searchQuery.trim() === '') {
-      setFilteredServices(services);
-    } else {
-      const filtered = services.filter(
-        service =>
-          service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          service.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredServices(filtered);
-    }
-  }, [searchQuery, services]);
-
-  const fetchConsultantServices = async () => {
+  // Fetch consultant services function
+  const fetchConsultantServices = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -124,7 +106,32 @@ const ConsultantServices = ({ navigation }: any) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.uid]);
+
+  // Auto-refresh services when screen comes into focus (e.g., after service approval)
+  // This runs on initial mount AND when navigating back to the screen
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.uid) {
+        console.log('🔄 [ConsultantServices] Screen focused, refreshing services...');
+        fetchConsultantServices();
+      }
+    }, [user?.uid, fetchConsultantServices])
+  );
+
+  useEffect(() => {
+
+    if (searchQuery.trim() === '') {
+      setFilteredServices(services);
+    } else {
+      const filtered = services.filter(
+        service =>
+          service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          service.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredServices(filtered);
+    }
+  }, [searchQuery, services]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

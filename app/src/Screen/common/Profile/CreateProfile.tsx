@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -57,12 +59,17 @@ const CreateProfile = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={screenStyles.safeArea} edges={['top']}>
-      <ScreenHeader
-        title="Create Profile"
-        onBackPress={() => navigation.goBack()}
-      />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScreenHeader
+          title="Create Profile"
+          onBackPress={() => navigation.goBack()}
+        />
 
-      <View style={styles.container}>
+        <View style={styles.container}>
         <View style={styles.content}>
           <Text style={styles.title}>Welcome!</Text>
           <Text style={styles.subtitle}>
@@ -94,6 +101,7 @@ const CreateProfile = ({ navigation }: any) => {
           </View>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

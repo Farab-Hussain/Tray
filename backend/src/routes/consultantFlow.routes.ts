@@ -12,12 +12,14 @@ import {
   rejectConsultantProfile,
   createConsultantApplication,
   getConsultantApplication,
+  getMyConsultantApplications,
   getAllConsultantApplications,
   approveConsultantApplication,
   rejectConsultantApplication,
   deleteConsultantApplication,
   getDashboardStats,
 } from "../controllers/consultantFlow.controller";
+import { getAdminAnalyticsController } from "../controllers/analytics.controller";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
 import { 
   checkConsultantStatus, 
@@ -82,15 +84,7 @@ router.post(
 router.post("/applications", authenticateUser, canApplyForServices, createConsultantApplication);
 
 // GET /consultant-flow/applications/my - Get MY applications (consultant-only route)
-router.get("/applications/my", authenticateUser, async (req, res) => {
-  const user = (req as any).user;
-  if (!user || !user.uid) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  // Call the controller with consultantId from authenticated user
-  req.query.consultantId = user.uid;
-  return getAllConsultantApplications(req, res);
-});
+router.get("/applications/my", authenticateUser, getMyConsultantApplications);
 
 // GET /consultant-flow/applications/:id - Get specific application (consultant can view their own)
 router.get("/applications/:id", authenticateUser, getConsultantApplication);
@@ -132,6 +126,14 @@ router.get(
   authenticateUser, 
   authorizeRole(["admin"]), 
   getDashboardStats
+);
+
+// GET /consultant-flow/admin/analytics - Get admin analytics (admin only)
+router.get(
+  "/admin/analytics", 
+  authenticateUser, 
+  authorizeRole(["admin"]), 
+  getAdminAnalyticsController
 );
 
 export default router;

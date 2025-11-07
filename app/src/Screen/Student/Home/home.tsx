@@ -115,16 +115,38 @@ const Home = ({ navigation }: any) => {
           showError('Failed to open chat');
         }
       } else if (iconType === 'phone') {
-        // Navigate to audio call screen
+        // Initiate audio call
+        if (!user?.uid) {
+          showError('You must be logged in to make calls');
+          return;
+        }
+        
+        // Generate callId: callerId_receiverId-timestamp
+        const callId = `${user.uid}_${consultantId}-${Date.now()}`;
+        
+        // Navigate to audio call screen with proper parameters
         navigation.navigate('CallingScreen', {
-          consultantId,
-          consultantName: consultant.name,
+          callId,
+          callerId: user.uid,
+          receiverId: consultantId,
+          isCaller: true,
         });
       } else if (iconType === 'video') {
-        // Navigate to video call screen
+        // Initiate video call
+        if (!user?.uid) {
+          showError('You must be logged in to make calls');
+          return;
+        }
+        
+        // Generate callId: callerId_receiverId-timestamp
+        const callId = `${user.uid}_${consultantId}-${Date.now()}`;
+        
+        // Navigate to video call screen with proper parameters
         navigation.navigate('VideoCallingScreen', {
-          consultantId,
-          consultantName: consultant.name,
+          callId,
+          callerId: user.uid,
+          receiverId: consultantId,
+          isCaller: true,
         });
       }
     } catch (error) {
@@ -212,7 +234,7 @@ const Home = ({ navigation }: any) => {
                 ? { uri: topConsultant.profileImage }
                 : require('../../../assets/image/avatar.png')
             }
-            rating={topConsultant.rating || 5}
+            rating={topConsultant.rating ?? 0}
             consultantId={topConsultant.uid}
             navigation={navigation}
             onChatPress={async () => {
@@ -251,7 +273,7 @@ const Home = ({ navigation }: any) => {
                       ? { uri: item.profileImage }
                       : require('../../../assets/image/avatar.png')
                   }
-                  rating={item.rating || 5}
+                  rating={item.rating ?? 0}
                   onBookPress={() => {
                     console.log('📍 Book Now Clicked - Home Screen');
                     console.log('🆔 Consultant UID:', item.uid);

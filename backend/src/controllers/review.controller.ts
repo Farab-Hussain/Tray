@@ -27,23 +27,50 @@ export const createReview = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Rating must be between 1 and 5" });
     }
 
-    // ✅ Check if student has a completed/confirmed booking with this consultant
+    // ✅ Check if student has a completed/confirmed/approved booking with this consultant
+    // Allow reviews for: completed, confirmed, approved, or accepted bookings (as long as they're paid)
     console.log('🔍 [createReview] Checking for bookings with studentId:', studentId, 'consultantId:', consultantId);
     
     const bookingsSnapshot = await db
       .collection("bookings")
       .where("studentId", "==", studentId)
       .where("consultantId", "==", consultantId)
-      .where("status", "in", ["completed", "confirmed"])
+      .where("status", "in", ["completed", "confirmed", "approved", "accepted"])
       .where("paymentStatus", "==", "paid")
       .get();
 
-    console.log('📊 [createReview] Found', bookingsSnapshot.size, 'confirmed/paid bookings');
+    console.log('📊 [createReview] Found', bookingsSnapshot.size, 'valid paid bookings');
 
     if (bookingsSnapshot.empty) {
-      console.log('❌ [createReview] No confirmed/paid bookings found');
+      console.log('❌ [createReview] No valid paid bookings found');
+      // Check what bookings exist for better error message
+      const allBookingsSnapshot = await db
+        .collection("bookings")
+        .where("studentId", "==", studentId)
+        .where("consultantId", "==", consultantId)
+        .get();
+      
+      if (allBookingsSnapshot.empty) {
+        return res.status(403).json({ 
+          error: "You can only review consultants you have booked with" 
+        });
+      }
+      
+      // Log booking details for debugging
+      allBookingsSnapshot.forEach((doc) => {
+        const booking = doc.data();
+        console.log('📋 [createReview] Booking found:', {
+          id: doc.id,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+        });
+      });
+      
       return res.status(403).json({ 
-        error: "You can only review consultants you have confirmed/paid bookings with" 
+        error: "You can only review consultants you have confirmed/paid bookings with. Your booking status: " + 
+               (allBookingsSnapshot.docs[0]?.data()?.status || 'unknown') + 
+               ", payment status: " + 
+               (allBookingsSnapshot.docs[0]?.data()?.paymentStatus || 'unknown')
       });
     }
 

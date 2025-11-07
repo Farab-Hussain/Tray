@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -256,16 +258,22 @@ const MyClients = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
-      <ScreenHeader
-        title="My Clients"
-        onBackPress={() => navigation.goBack()}
-      />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScreenHeader
+          title="My Clients"
+          onBackPress={() => navigation.goBack()}
+        />
 
-      <ScrollView
-        style={screenStyles.scrollViewContainer}
-        contentContainerStyle={screenStyles.scrollViewContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
+        <ScrollView
+          style={screenStyles.scrollViewContainer}
+          contentContainerStyle={screenStyles.scrollViewContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
@@ -364,6 +372,7 @@ const MyClients = ({ navigation }: any) => {
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

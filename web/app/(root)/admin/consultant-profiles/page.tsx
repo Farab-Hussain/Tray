@@ -242,7 +242,37 @@ const AdminConsultantProfilesPage = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-500">
-                    {new Date(profile.createdAt).toLocaleDateString()}
+                    {(() => {
+                      try {
+                        let date: Date;
+                        // Handle Firestore timestamp format {_seconds: number, _nanoseconds: number}
+                        if (profile.createdAt && typeof profile.createdAt === 'object' && '_seconds' in profile.createdAt) {
+                          date = new Date((profile.createdAt as {_seconds: number})._seconds * 1000);
+                        } 
+                        // Handle ISO string format
+                        else if (typeof profile.createdAt === 'string') {
+                          date = new Date(profile.createdAt);
+                        }
+                        // Handle Date object
+                        else if (profile.createdAt instanceof Date) {
+                          date = profile.createdAt;
+                        }
+                        // Fallback to current date if invalid
+                        else {
+                          date = new Date();
+                        }
+                        
+                        // Check if date is valid
+                        if (isNaN(date.getTime())) {
+                          return 'N/A';
+                        }
+                        
+                        return date.toLocaleDateString();
+                      } catch (error) {
+                        console.error('Error parsing date:', error, profile.createdAt);
+                        return 'N/A';
+                      }
+                    })()}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -307,7 +337,7 @@ const AdminConsultantProfilesPage = () => {
 
       {/* Profile Details Modal */}
       {showDetailsModal && selectedProfile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-white/30 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">

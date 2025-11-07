@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
 import app from "./app";
 import { db, auth } from "./config/firebase";
+import { sendAppointmentReminders } from "./services/reminder.service";
+import { processAutomatedPayouts } from "./services/payout.service";
 
 dotenv.config();
 
@@ -43,5 +45,77 @@ app.listen(PORT, async () => {
   // Run Firebase verification after server starts
   await verifyFirebaseConnection();
   
+  // Setup scheduled reminder job (runs every hour)
+  setupReminderScheduler();
+  
+  // Setup scheduled payout job (runs daily at 2 AM)
+  setupPayoutScheduler();
+  
   console.log("✨ Server startup completed!");
 });
+
+/**
+ * Setup scheduled job to send appointment reminders
+ * Runs every hour to check for bookings 24 hours away
+ */
+function setupReminderScheduler() {
+  console.log("⏰ Setting up appointment reminder scheduler...");
+  
+  // Run immediately on startup (for testing)
+  // In production, you might want to skip this
+  // sendAppointmentReminders().catch(err => {
+  //   console.error("❌ Error running initial reminder check:", err);
+  // });
+  
+  // Schedule to run every hour
+  setInterval(async () => {
+    try {
+      console.log("⏰ Running scheduled reminder check...");
+      await sendAppointmentReminders();
+    } catch (error) {
+      console.error("❌ Error in scheduled reminder check:", error);
+    }
+  }, 60 * 60 * 1000); // 1 hour in milliseconds
+  
+  console.log("✅ Reminder scheduler set up (runs every hour)");
+}
+
+/**
+ * Setup scheduled job to process automated payouts
+ * Runs daily at 2 AM
+ */
+function setupPayoutScheduler() {
+  console.log("💰 Setting up automated payout scheduler...");
+  
+  // Calculate time until next 2 AM
+  const now = new Date();
+  const next2AM = new Date();
+  next2AM.setHours(2, 0, 0, 0);
+  
+  // If it's already past 2 AM today, schedule for tomorrow
+  if (now.getTime() >= next2AM.getTime()) {
+    next2AM.setDate(next2AM.getDate() + 1);
+  }
+  
+  const msUntil2AM = next2AM.getTime() - now.getTime();
+  
+  // Schedule first run
+  setTimeout(() => {
+    // Run payout processing
+    processAutomatedPayouts().catch(err => {
+      console.error("❌ Error running payout processing:", err);
+    });
+    
+    // Then schedule to run daily
+    setInterval(async () => {
+      try {
+        console.log("💰 Running scheduled payout processing...");
+        await processAutomatedPayouts();
+      } catch (error) {
+        console.error("❌ Error in scheduled payout processing:", error);
+      }
+    }, 24 * 60 * 60 * 1000); // 24 hours
+  }, msUntil2AM);
+  
+  console.log(`✅ Payout scheduler set up (runs daily at 2 AM, first run in ${Math.round(msUntil2AM / 1000 / 60)} minutes)`);
+}

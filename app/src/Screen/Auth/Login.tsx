@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View, Image, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View, Image, Alert, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import AppButton from '../../components/ui/AppButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
+import { COLORS } from '../../constants/core/colors';
 import * as LucideIcons from 'lucide-react-native';
 import { signInWithEmailAndPassword, sendEmailVerification, type UserCredential } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
@@ -500,13 +501,18 @@ const Login = ({ navigation }: LoginProps) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <View style={authStyles.loginContainer}>
-        <ScrollView
-          style={authStyles.scrollContainer}
-          contentContainerStyle={authStyles.scrollContentContainer}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={authStyles.loginContainer}>
+          <ScrollView
+            style={authStyles.scrollContainer}
+            contentContainerStyle={authStyles.scrollContentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <Text style={authStyles.authHeading}>Login</Text>
           
           {/* Email Input */}
@@ -528,9 +534,12 @@ const Login = ({ navigation }: LoginProps) => {
             <TextInput
               style={authStyles.input}
               placeholder="Enter your password"
+              placeholderTextColor={COLORS.lightGray}
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
+              autoCorrect={false}
+              autoCapitalize="none"
             />
             <TouchableOpacity 
               onPress={() => setShowPassword(!showPassword)}
@@ -645,6 +654,7 @@ const Login = ({ navigation }: LoginProps) => {
           </Text>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

@@ -182,21 +182,61 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
     const { bookingId } = req.params;
     const { status, paymentStatus } = req.body;
 
+    console.log('🔍 [updateBookingStatus] Updating booking:', {
+      bookingId,
+      status,
+      paymentStatus,
+      body: req.body
+    });
+
+    // Validate that status is provided
+    if (!status) {
+      console.error('❌ [updateBookingStatus] Status is required');
+      return res.status(400).json({ error: "Status is required" });
+    }
+
     // Get current booking data
     const bookingDoc = await db.collection("bookings").doc(bookingId).get();
     if (!bookingDoc.exists) {
+      console.error('❌ [updateBookingStatus] Booking not found:', bookingId);
       return res.status(404).json({ error: "Booking not found" });
     }
 
     const bookingData = bookingDoc.data();
     const previousStatus = bookingData?.status;
 
-    // Update booking status
-    await db.collection("bookings").doc(bookingId).update({
-      status,
-      paymentStatus,
-      updatedAt: new Date().toISOString(),
+    console.log('📋 [updateBookingStatus] Current booking data:', {
+      bookingId,
+      previousStatus,
+      currentPaymentStatus: bookingData?.paymentStatus
     });
+
+    // Build update data object explicitly, only including defined values
+    // This prevents Firestore from receiving undefined values
+    const filteredUpdateData: any = {
+      status: status,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Only include paymentStatus if it's explicitly provided and not undefined/null
+    if (paymentStatus !== undefined && paymentStatus !== null && paymentStatus !== '') {
+      filteredUpdateData.paymentStatus = paymentStatus;
+    }
+    
+    // Double-check: Remove any undefined values that might have slipped through
+    Object.keys(filteredUpdateData).forEach(key => {
+      if (filteredUpdateData[key] === undefined || filteredUpdateData[key] === null) {
+        delete filteredUpdateData[key];
+      }
+    });
+    
+    console.log('💾 [updateBookingStatus] Updating with data:', JSON.stringify(filteredUpdateData));
+    console.log('💾 [updateBookingStatus] Update data keys:', Object.keys(filteredUpdateData));
+    console.log('💾 [updateBookingStatus] Update data values:', Object.values(filteredUpdateData));
+    
+    await db.collection("bookings").doc(bookingId).update(filteredUpdateData);
+    
+    console.log('✅ [updateBookingStatus] Booking updated successfully');
 
     // If status changed to "completed" and payment hasn't been transferred yet, trigger transfer
     if (status === "completed" && previousStatus !== "completed" && bookingData?.paymentStatus === "paid") {
@@ -264,7 +304,16 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
 
     res.status(200).json({ message: "Booking updated successfully" });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ [updateBookingStatus] Error updating booking:', {
+      bookingId: req.params.bookingId,
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+    res.status(500).json({ 
+      error: error.message || "Failed to update booking status",
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 

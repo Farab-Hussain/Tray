@@ -197,7 +197,7 @@ const BookedConsultants = ({ navigation }: any) => {
                           );
                         })}
                         <Text style={bookedConsultantsStyles.rating}>
-                          {consultant.rating || '5.0'}
+                          {consultant.rating ?? 0}
                         </Text>
                         <Text style={bookedConsultantsStyles.reviewCount}>
                           ({consultant.totalReviews || 0})

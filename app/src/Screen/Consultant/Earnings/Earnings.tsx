@@ -6,7 +6,7 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import Loader from '../../../components/ui/Loader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
-import { DollarSign, TrendingUp, Calendar, CreditCard } from 'lucide-react-native';
+import { DollarSign, TrendingUp, Calendar, CreditCard, Star, Users, BarChart3 } from 'lucide-react-native';
 import { BookingService } from '../../../services/booking.service';
 import { api } from '../../../lib/fetcher';
 
@@ -19,6 +19,35 @@ interface EarningsData {
   growthRate: number;
   pendingAmount: number;
   receivedAmount: number;
+}
+
+interface AnalyticsData {
+  totalBookings: number;
+  completedBookings: number;
+  pendingBookings: number;
+  cancelledBookings: number;
+  totalRevenue: number;
+  averageBookingValue: number;
+  averageRating: number;
+  totalReviews: number;
+  topServices: Array<{ serviceId: string; serviceTitle: string; bookingCount: number; revenue: number }>;
+  bookingTrends: {
+    thisWeek: number;
+    lastWeek: number;
+    thisMonth: number;
+    lastMonth: number;
+  };
+  clientRetention: number;
+}
+
+interface Payout {
+  id: string;
+  amount: number;
+  platformFee: number;
+  totalEarnings: number;
+  bookingIds: string[];
+  status: string;
+  processedAt: string;
 }
 
 interface Booking {
@@ -49,6 +78,8 @@ const Earnings = ({ navigation }: any) => {
   const { user } = useAuth();
   const [earningsData, setEarningsData] = useState<EarningsData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +87,8 @@ const Earnings = ({ navigation }: any) => {
 
   useEffect(() => {
     fetchEarningsData();
+    fetchPayoutHistory();
+    fetchAnalytics();
   }, [user, selectedPeriod]);
 
   const fetchEarningsData = async () => {
@@ -271,8 +304,32 @@ const Earnings = ({ navigation }: any) => {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchEarningsData();
+    await Promise.all([fetchEarningsData(), fetchPayoutHistory(), fetchAnalytics()]);
     setIsRefreshing(false);
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      const response = await api.get(`/analytics/consultant?period=${selectedPeriod}`);
+      if (response.data?.success && response.data?.analytics) {
+        setAnalytics(response.data.analytics);
+      }
+    } catch (error: any) {
+      console.error('Error fetching analytics:', error);
+      // Don't show error - analytics are optional
+    }
+  };
+
+  const fetchPayoutHistory = async () => {
+    try {
+      const response = await api.get('/payment/payouts/history');
+      if (response.data?.success && response.data?.payouts) {
+        setPayouts(response.data.payouts);
+      }
+    } catch (error: any) {
+      console.error('Error fetching payout history:', error);
+      // Don't show error - payouts are optional
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -444,6 +501,89 @@ const Earnings = ({ navigation }: any) => {
           </View>
         )}
 
+        {/* Analytics Section */}
+        {analytics && (
+          <View style={styles.transactionsSection}>
+            <Text style={styles.sectionTitle}>Analytics</Text>
+            
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <BarChart3 size={20} color={COLORS.green} />
+                <Text style={styles.statValue}>{analytics.totalBookings}</Text>
+                <Text style={styles.statLabel}>Total Bookings</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Calendar size={20} color={COLORS.blue} />
+                <Text style={styles.statValue}>{analytics.completedBookings}</Text>
+                <Text style={styles.statLabel}>Completed</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Star size={20} color={COLORS.orange} />
+                <Text style={styles.statValue}>{analytics.averageRating.toFixed(1)}</Text>
+                <Text style={styles.statLabel}>Avg Rating</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Users size={20} color={COLORS.purple || COLORS.green} />
+                <Text style={styles.statValue}>{analytics.clientRetention.toFixed(0)}%</Text>
+                <Text style={styles.statLabel}>Retention</Text>
+              </View>
+            </View>
+
+            {/* Booking Trends */}
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsTitle}>Booking Trends</Text>
+              <View style={styles.trendRow}>
+                <View style={styles.trendItem}>
+                  <Text style={styles.trendLabel}>This Week</Text>
+                  <Text style={styles.trendValue}>{analytics.bookingTrends.thisWeek}</Text>
+                  {analytics.bookingTrends.lastWeek > 0 && (
+                    <Text style={[
+                      styles.trendChange,
+                      { color: analytics.bookingTrends.thisWeek >= analytics.bookingTrends.lastWeek ? COLORS.green : COLORS.red }
+                    ]}>
+                      {analytics.bookingTrends.thisWeek >= analytics.bookingTrends.lastWeek ? '↑' : '↓'} 
+                      {Math.abs(((analytics.bookingTrends.thisWeek - analytics.bookingTrends.lastWeek) / analytics.bookingTrends.lastWeek) * 100).toFixed(0)}%
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.trendItem}>
+                  <Text style={styles.trendLabel}>This Month</Text>
+                  <Text style={styles.trendValue}>{analytics.bookingTrends.thisMonth}</Text>
+                  {analytics.bookingTrends.lastMonth > 0 && (
+                    <Text style={[
+                      styles.trendChange,
+                      { color: analytics.bookingTrends.thisMonth >= analytics.bookingTrends.lastMonth ? COLORS.green : COLORS.red }
+                    ]}>
+                      {analytics.bookingTrends.thisMonth >= analytics.bookingTrends.lastMonth ? '↑' : '↓'} 
+                      {Math.abs(((analytics.bookingTrends.thisMonth - analytics.bookingTrends.lastMonth) / analytics.bookingTrends.lastMonth) * 100).toFixed(0)}%
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Top Services */}
+            {analytics.topServices.length > 0 && (
+              <View style={styles.analyticsCard}>
+                <Text style={styles.analyticsTitle}>Top Services</Text>
+                {analytics.topServices.map((service, index) => (
+                  <View key={service.serviceId} style={styles.serviceRow}>
+                    <View style={styles.serviceRank}>
+                      <Text style={styles.serviceRankText}>#{index + 1}</Text>
+                    </View>
+                    <View style={styles.serviceInfo}>
+                      <Text style={styles.serviceName}>{service.serviceTitle}</Text>
+                      <Text style={styles.serviceStats}>
+                        {service.bookingCount} booking{service.bookingCount !== 1 ? 's' : ''} • {formatCurrency(service.revenue)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Recent Transactions */}
         <View style={styles.transactionsSection}>
           <Text style={styles.sectionTitle}>Recent Transactions</Text>
@@ -487,6 +627,45 @@ const Earnings = ({ navigation }: any) => {
             </View>
           )}
         </View>
+
+        {/* Payout History */}
+        {payouts.length > 0 && (
+          <View style={styles.transactionsSection}>
+            <Text style={styles.sectionTitle}>Payout History</Text>
+            <View style={styles.transactionsList}>
+              {payouts.slice(0, 10).map(payout => (
+                <View key={payout.id} style={styles.transactionCard}>
+                  <View style={styles.transactionInfo}>
+                    <View style={styles.transactionHeader}>
+                      <Text style={styles.clientName}>
+                        Payout #{payout.id.slice(0, 8)}
+                      </Text>
+                      <Text style={styles.transactionAmount}>
+                        {formatCurrency(payout.amount)}
+                      </Text>
+                    </View>
+                    <Text style={styles.serviceTitle}>
+                      {payout.bookingIds.length} booking{payout.bookingIds.length !== 1 ? 's' : ''} • Fee: {formatCurrency(payout.platformFee)}
+                    </Text>
+                    <View style={styles.transactionFooter}>
+                      <Text style={styles.transactionDate}>
+                        {formatDate(payout.processedAt)}
+                      </Text>
+                      <View style={[
+                        styles.statusBadge,
+                        { backgroundColor: payout.status === 'completed' ? COLORS.green : COLORS.gray }
+                      ]}>
+                        <Text style={styles.statusText}>
+                          {payout.status === 'completed' ? 'Completed' : payout.status}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -623,6 +802,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: COLORS.black,
+    marginTop: 8,
     marginBottom: 4,
   },
   statLabel: {
@@ -721,6 +901,84 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.white,
     fontWeight: '600',
+  },
+  analyticsCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  analyticsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.black,
+    marginBottom: 12,
+  },
+  trendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  trendItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  trendLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 4,
+  },
+  trendValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.black,
+    marginBottom: 4,
+  },
+  trendChange: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  serviceRank: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.green,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  serviceRankText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  serviceInfo: {
+    flex: 1,
+  },
+  serviceName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: 4,
+  },
+  serviceStats: {
+    fontSize: 12,
+    color: COLORS.gray,
   },
 });
 

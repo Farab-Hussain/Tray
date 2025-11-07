@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Star } from 'lucide-react-native';
 import { COLORS } from '../../../constants/core/colors';
@@ -85,15 +85,20 @@ const EditReview = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={reviewStyles.container} edges={['top']}>
-      {/* Header */}
-      <View style={reviewStyles.header}>
-        <TouchableOpacity style={reviewStyles.backButton} onPress={() => navigation.goBack()}>
-          <ChevronLeft size={24} color={COLORS.black} />
-        </TouchableOpacity>
-        <Text style={reviewStyles.headerTitle}>Edit Review</Text>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        {/* Header */}
+        <View style={reviewStyles.header}>
+          <TouchableOpacity style={reviewStyles.backButton} onPress={() => navigation.goBack()}>
+            <ChevronLeft size={24} color={COLORS.black} />
+          </TouchableOpacity>
+          <Text style={reviewStyles.headerTitle}>Edit Review</Text>
+        </View>
 
-      <ScrollView style={reviewStyles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={reviewStyles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Consultant Name */}
         <View style={reviewStyles.profileSection}>
           <Text style={reviewStyles.questionText}>
@@ -172,6 +177,7 @@ const EditReview = ({ navigation, route }: any) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

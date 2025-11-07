@@ -69,6 +69,16 @@ export const listenCandidates = (callId: string, cb: (data: { senderId: string; 
   });
 };
 
+export const getExistingCandidates = async (callId: string) => {
+  const ref = collection(firestore, 'calls', callId, 'candidates');
+  const snapshot = await getDocs(ref);
+  const candidates: { senderId: string; candidate: any }[] = [];
+  snapshot.forEach((doc) => {
+    candidates.push(doc.data() as any);
+  });
+  return candidates;
+};
+
 /**
  * Listen for incoming calls where the current user is the receiver
  * This allows the app to detect incoming calls globally, not just when on the calling screen
@@ -107,13 +117,25 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
   const unsubscribe = onSnapshot(
     q,
     (snapshot) => {
-      console.log('📞 [listenIncomingCalls] Snapshot received, docs:', snapshot.size);
-      
       // Stop polling if listener is working
       if (pollInterval) {
         clearInterval(pollInterval);
         pollInterval = null;
         console.log('📞 [listenIncomingCalls] Stopped polling - listener is working');
+      }
+      
+      // Get document changes (only actual changes, not metadata updates)
+      const changes = snapshot.docChanges();
+      
+      // Skip processing if there are no actual document changes (metadata-only updates)
+      // This prevents excessive logging and processing when Firestore sends metadata updates
+      if (!isFirstSnapshot && changes.length === 0) {
+        return; // No actual changes, just a metadata update
+      }
+      
+      // Only log if there are actual document changes or on first snapshot
+      if (isFirstSnapshot || changes.length > 0) {
+        console.log('📞 [listenIncomingCalls] Snapshot received, docs:', snapshot.size, 'changes:', changes.length);
       }
       
       // Handle initial snapshot - check for existing ringing calls
@@ -135,12 +157,13 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
         if (snapshot.size === 0) {
           console.log('📞 [listenIncomingCalls] No existing ringing calls found');
         }
+        return; // Don't process changes on initial snapshot
       }
       
-      // Handle new calls
-      snapshot.docChanges().forEach((change) => {
-        console.log('📞 [listenIncomingCalls] Document change:', change.type, change.doc.id);
-        if (change.type === 'added' && !isFirstSnapshot) {
+      // Handle new calls - only process 'added' changes (new incoming calls)
+      changes.forEach((change) => {
+        // Only process actual document changes, ignore metadata-only updates
+        if (change.type === 'added') {
           const callData = change.doc.data() as CallDocument;
           const callId = change.doc.id;
           
@@ -153,6 +176,8 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
             console.log('📞 [listenIncomingCalls] Call status is', callData.status, '- skipping callback');
           }
         }
+        // Note: We ignore 'modified' and 'removed' changes as they're handled elsewhere
+        // (e.g., when call status changes from 'ringing' to 'active' or 'ended')
       });
     },
     (error) => {

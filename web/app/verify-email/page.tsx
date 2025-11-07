@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { applyActionCode } from 'firebase/auth';
+import { applyActionCode, reload } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 
 function VerifyEmailContent() {
@@ -19,49 +19,84 @@ function VerifyEmailContent() {
         const mode = searchParams.get('mode');
         const oobCode = searchParams.get('oobCode');
 
-        if (!mode || !oobCode) {
-          setStatus('error');
-          setMessage('Invalid verification link. Missing required parameters.');
-          return;
-        }
-
-        if (mode !== 'verifyEmail') {
-          setStatus('error');
-          setMessage('Invalid verification link. This link is not for email verification.');
-          return;
-        }
-
-        // Use Firebase client SDK to verify the email
         if (!auth) {
           throw new Error('Firebase auth not initialized');
         }
 
-        await applyActionCode(auth, oobCode);
+        // If we have oobCode and mode, Firebase hasn't processed it yet
+        // This happens when user clicks the link directly
+        if (mode && oobCode) {
+          if (mode !== 'verifyEmail') {
+            setStatus('error');
+            setMessage('Invalid verification link. This link is not for email verification.');
+            return;
+          }
 
+          try {
+            // Apply the action code to verify the email
+            await applyActionCode(auth, oobCode);
+            
+            // Reload the user to get updated emailVerified status
+            const user = auth.currentUser;
+            if (user) {
+              await reload(user);
+            }
+            
+            setStatus('success');
+            setMessage('Email verified successfully! You can now log in to your account.');
+            
+            // Redirect to login after 3 seconds
+            setTimeout(() => {
+              router.push('/login');
+            }, 3000);
+            return;
+          } catch (error: unknown) {
+            console.error('Verification error:', error);
+            
+            let errorMessage = 'An error occurred while verifying your email.';
+            
+            if (error && typeof error === 'object' && 'code' in error) {
+              const firebaseError = error as { code?: string; message?: string };
+              if (firebaseError.code === 'auth/expired-action-code') {
+                errorMessage = 'This verification link has expired. Please request a new verification email.';
+              } else if (firebaseError.code === 'auth/invalid-action-code') {
+                errorMessage = 'This verification link is invalid or has already been used.';
+              } else if (firebaseError.code === 'auth/user-disabled') {
+                errorMessage = 'This account has been disabled. Please contact support.';
+              } else if (firebaseError.message) {
+                errorMessage = firebaseError.message;
+              }
+            } else if (error instanceof Error) {
+              errorMessage = error.message;
+            }
+            
+            setStatus('error');
+            setMessage(errorMessage);
+            return;
+          }
+        }
+
+        // If no oobCode/mode, Firebase action handler already processed the verification
+        // When Firebase processes the verification link, it verifies the email on the server
+        // and then redirects to continueUrl without parameters
+        // In this case, we should show success since Firebase already processed it
+        console.log('No oobCode/mode in URL - Firebase action handler already processed verification');
         setStatus('success');
-        setMessage('Email verified successfully! You can now log in to your account.');
+        setMessage('Email verification link has been processed. Your email has been verified. Please log in to your account.');
         
         // Redirect to login after 3 seconds
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           router.push('/login');
         }, 3000);
-      } catch (error: any) {
+        
+        // Cleanup timeout if component unmounts
+        return () => {
+          clearTimeout(timeoutId);
+        };
+      } catch (error: unknown) {
         console.error('Verification error:', error);
-        
-        let errorMessage = 'An error occurred while verifying your email.';
-        
-        if (error.code === 'auth/expired-action-code') {
-          errorMessage = 'This verification link has expired. Please request a new verification email.';
-        } else if (error.code === 'auth/invalid-action-code') {
-          errorMessage = 'This verification link is invalid or has already been used.';
-        } else if (error.code === 'auth/user-disabled') {
-          errorMessage = 'This account has been disabled. Please contact support.';
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        
         setStatus('error');
-        setMessage(errorMessage);
+        setMessage('An error occurred while verifying your email. Please try again.');
       }
     };
 

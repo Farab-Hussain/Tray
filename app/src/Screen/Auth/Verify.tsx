@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import AppButton from '../../components/ui/AppButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
@@ -57,13 +57,18 @@ const Verify = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={authStyles.backButton}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ChevronLeft color="#000" style={authStyles.back} />
-      </TouchableOpacity>
-      <View style={authStyles.formContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={authStyles.backButton}
+        >
+          <ChevronLeft color="#000" style={authStyles.back} />
+        </TouchableOpacity>
+        <View style={authStyles.formContainer}>
         <Text style={authStyles.authHeading}>Please check your email</Text>
         <Text style={authStyles.authPara}>
           We've sent a code to {email || 'your email'}
@@ -123,6 +128,7 @@ const Verify = ({ navigation, route }: any) => {
           </Text>
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

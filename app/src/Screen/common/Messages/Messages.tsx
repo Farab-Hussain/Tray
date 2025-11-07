@@ -33,9 +33,12 @@ const Messages = ({ navigation }: any) => {
   // Debug: Log unread counts
   useEffect(() => {
     if (chats && chats.length > 0) {
+      console.log(`📊 [Messages] Total chats: ${chats.length}`);
       chats.forEach(chat => {
-        if (chat.unreadCount && chat.unreadCount > 0) {
-          console.log(`📊 [Messages] Chat ${chat.id}: unreadCount=${chat.unreadCount}`);
+        const unread = chat.unreadCount || 0;
+        console.log(`📊 [Messages] Chat ${chat.id}: unreadCount=${unread}, lastMessage="${chat.lastMessage}"`);
+        if (unread > 0) {
+          console.log(`🔔 [Messages] ⚠️ Chat ${chat.id} has ${unread} unread messages!`);
         }
       });
     }

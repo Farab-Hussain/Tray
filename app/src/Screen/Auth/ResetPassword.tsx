@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Text, TextInput, View, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
+import { Text, TextInput, View, Alert, ActivityIndicator, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import AppButton from "../../components/ui/AppButton";
 import PasswordStrengthIndicator from "../../components/ui/PasswordStrengthIndicator";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -80,7 +80,12 @@ const ResetPassword = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <View style={authStyles.formContainer}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={authStyles.formContainer}>
         <Text style={authStyles.authHeading}>Reset Password</Text>
         <Text style={authStyles.authPara}>Enter your new password below.</Text>
 
@@ -90,8 +95,11 @@ const ResetPassword = ({ navigation, route }: any) => {
             style={authStyles.input}
             secureTextEntry={!showNewPassword}
             placeholder="Enter new password"
+            placeholderTextColor={COLORS.lightGray}
             value={newPassword}
             onChangeText={setNewPassword}
+            autoCorrect={false}
+            autoCapitalize="none"
           />
           <TouchableOpacity
             onPress={() => setShowNewPassword(!showNewPassword)}
@@ -119,8 +127,11 @@ const ResetPassword = ({ navigation, route }: any) => {
             style={authStyles.input}
             secureTextEntry={!showConfirmPassword}
             placeholder="Confirm new password"
+            placeholderTextColor={COLORS.lightGray}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
+            autoCorrect={false}
+            autoCapitalize="none"
           />
           <TouchableOpacity
             onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -146,6 +157,7 @@ const ResetPassword = ({ navigation, route }: any) => {
         />
         {loading && <ActivityIndicator style={{ marginTop: 10 }} />}
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

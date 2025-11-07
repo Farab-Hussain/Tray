@@ -12,6 +12,8 @@ import paymentRoutes from './routes/payment.routes';
 import uploadRoutes from './routes/upload.routes';
 import fcmRoutes from './routes/fcm.routes';
 import notificationRoutes from './routes/notification.routes';
+import reminderRoutes from './routes/reminder.routes';
+import analyticsRoutes from './routes/analytics.routes';
 
 dotenv.config();
 
@@ -68,6 +70,8 @@ app.use("/payment", paymentRoutes);
 app.use("/upload", uploadRoutes);
 app.use("/fcm", fcmRoutes);
 app.use("/notifications", notificationRoutes);
+app.use("/reminders", reminderRoutes);
+app.use("/analytics", analyticsRoutes);
 
 
 

@@ -6,6 +6,8 @@ import RootNavigator from './navigator/RootNavigation';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { NetworkProvider } from './contexts/NetworkContext';
+import OfflineOverlay from './components/ui/OfflineOverlay';
 import { navigationRef } from './navigator/navigationRef';
 
 // Initialize React Native Firebase App (required for messaging)
@@ -74,16 +76,19 @@ export default function App() {
   
   return (
     <StripeProvider publishableKey={stripeKey}>
-      <AuthProvider>
-        <ChatProvider>
-          <NotificationProvider>
-            <NavigationContainer ref={navigationRef}>
-              <RootNavigator />
-            </NavigationContainer>
-            <Toast />
-          </NotificationProvider>
-        </ChatProvider>
-      </AuthProvider>
+      <NetworkProvider>
+        <AuthProvider>
+          <ChatProvider>
+            <NotificationProvider>
+              <NavigationContainer ref={navigationRef}>
+                <RootNavigator />
+              </NavigationContainer>
+              <OfflineOverlay />
+              <Toast />
+            </NotificationProvider>
+          </ChatProvider>
+        </AuthProvider>
+      </NetworkProvider>
     </StripeProvider>
   );
 }

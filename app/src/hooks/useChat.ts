@@ -23,7 +23,7 @@ export const useChat = (chatId?: string | null, userId?: string | null) => {
 
     const sendMessage = async (payload: Omit<Message, 'createdAt' | 'id'> & { chatId: string }) => {
         const { chatId: cId, ...msg } = payload;
-        await sendMsg(cId, msg as any);
+        return await sendMsg(cId, msg as any);
     };
 
     const deleteMessage = async (messageId: string) => {

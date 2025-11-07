@@ -60,7 +60,36 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
       chatId: chatId,
       senderId: senderId,
       type: 'chat_message',
+      category: 'message', // Notification category
+      link: `tray://chat/${chatId}`, // Deep link for navigation
     };
+
+    // Prepare rich notification actions for iOS
+    const apnsActions = [
+      {
+        id: 'reply',
+        title: 'Reply',
+        options: ['foreground'],
+      },
+      {
+        id: 'mark_read',
+        title: 'Mark as Read',
+      },
+    ];
+
+    // Prepare Android notification actions
+    const androidActions = [
+      {
+        action: 'reply',
+        title: 'Reply',
+        icon: 'ic_reply',
+      },
+      {
+        action: 'mark_read',
+        title: 'Mark as Read',
+        icon: 'ic_done',
+      },
+    ];
 
     // Extract FCM tokens
     const tokens: string[] = [];
@@ -90,13 +119,18 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
           aps: {
             sound: 'default',
             badge: 1,
-            'content-available': 1, // Required for background notifications
+            'content-available': 1,
             'alert': {
               'title': notification.title,
               'body': notification.body,
             },
-            'mutable-content': 1, // Allow notification extensions
+            'mutable-content': 1,
+            'category': 'MESSAGE_CATEGORY', // Notification category
+            'thread-id': chatId, // Group notifications by chat
           },
+        },
+        fcmOptions: {
+          // FCM options for iOS
         },
         headers: {
           'apns-priority': '10', // High priority for immediate delivery
@@ -106,16 +140,18 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
       android: {
         notification: {
           sound: 'default',
-          channelId: 'chat_messages',
+          channelId: 'chat_messages', // Notification channel
           priority: 'high' as const,
-          visibility: 'public' as const, // Show on lock screen
+          visibility: 'public' as const,
           defaultSound: true,
           defaultVibrateTimings: true,
           defaultLightSettings: true,
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK', // Action when notification is tapped
+          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          // Note: Android notification actions are handled via data payload
+          // The app should read action data from the notification data
         },
         priority: 'high' as const,
-        ttl: 3600, // Time to live in seconds
+        ttl: 3600,
       },
       // Ensure notification is shown even when app is in foreground
       webpush: {
@@ -222,7 +258,36 @@ export const sendCallNotification = async (req: Request, res: Response) => {
       receiverId: receiverId,
       callType: callType,
       type: 'call',
+      category: 'call', // Notification category
+      link: `tray://call/${callId}`, // Deep link for navigation
     };
+
+    // Prepare rich notification actions for call
+    const callApnsActions = [
+      {
+        id: 'accept',
+        title: 'Accept',
+        options: ['foreground'],
+      },
+      {
+        id: 'decline',
+        title: 'Decline',
+        options: ['destructive'],
+      },
+    ];
+
+    const callAndroidActions = [
+      {
+        action: 'accept',
+        title: 'Accept',
+        icon: 'ic_call_answer',
+      },
+      {
+        action: 'decline',
+        title: 'Decline',
+        icon: 'ic_call_decline',
+      },
+    ];
 
     // Extract FCM tokens
     const tokens: string[] = [];
@@ -258,7 +323,11 @@ export const sendCallNotification = async (req: Request, res: Response) => {
               'body': notification.body,
             },
             'mutable-content': 1,
+            'category': 'CALL_CATEGORY', // Notification category
           },
+        },
+        fcmOptions: {
+          // FCM options for iOS
         },
         headers: {
           'apns-priority': '10',
@@ -268,13 +337,15 @@ export const sendCallNotification = async (req: Request, res: Response) => {
       android: {
         notification: {
           sound: 'default',
-          channelId: 'calls',
+          channelId: 'calls', // Notification channel
           priority: 'high' as const,
           visibility: 'public' as const,
           defaultSound: true,
           defaultVibrateTimings: true,
           defaultLightSettings: true,
           clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          // Note: Android notification actions are handled via data payload
+          // The app should read action data from the notification data
         },
         priority: 'high' as const,
         ttl: 30, // Call notifications expire after 30 seconds

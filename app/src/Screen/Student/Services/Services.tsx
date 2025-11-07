@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, View, Text, Alert, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import SearchBar from '../../../components/shared/SearchBar';
@@ -19,21 +20,34 @@ const Services = ({ navigation, route }: any) => {
   const [loading, setLoading] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(false);
   
-  const { consultantId, consultantName, consultantCategory } = route?.params || {};
+  // Use state to track current consultant info (updated on focus)
+  const [currentConsultantId, setCurrentConsultantId] = useState<string | undefined>(undefined);
+  const [currentConsultantName, setCurrentConsultantName] = useState<string | undefined>(undefined);
+  const [currentConsultantCategory, setCurrentConsultantCategory] = useState<string | undefined>(undefined);
+  
+  // Use ref to track previous params to detect stale params
+  const previousParamsRef = useRef<any>(null);
 
-  console.log('🔍 Services Screen - Route Params:', route?.params);
-  console.log('📋 Consultant ID:', consultantId);
-  console.log('👤 Consultant Name:', consultantName);
+  // Get route params - will be undefined when accessed from bottom navigator
+  const routeParams = route?.params;
+  const consultantId = currentConsultantId ?? routeParams?.consultantId;
+  const consultantName = currentConsultantName ?? routeParams?.consultantName;
+  const consultantCategory = currentConsultantCategory ?? routeParams?.consultantCategory;
 
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
+  console.log('🔍 Services Screen - Route Params:', routeParams);
+  console.log('📋 Current Consultant ID:', consultantId);
+  console.log('👤 Current Consultant Name:', consultantName);
+
+  // Fetch services function
+  const fetchServices = useCallback(async (targetConsultantId?: string) => {
+    try {
+      setLoading(true);
         let servicesData = [];
         
-        if (consultantId) {
+      if (targetConsultantId) {
           // Fetch specific consultant's services
-          console.log('🚀 Fetching services for consultant:', consultantId);
-          const response = await ConsultantService.getConsultantServices(consultantId);
+        console.log('🚀 Fetching services for consultant:', targetConsultantId);
+        const response = await ConsultantService.getConsultantServices(targetConsultantId);
           console.log('✅ Services Response:', response);
           servicesData = response?.services || [];
         } else {
@@ -65,10 +79,113 @@ const Services = ({ navigation, route }: any) => {
       } finally {
         setLoading(false);
       }
-    };
+  }, []);
 
-    fetchServices();
-  }, [consultantId]);
+  // Initial fetch on mount (will be overridden by useFocusEffect)
+  useEffect(() => {
+    const initialParams = route?.params;
+    const initialConsultantId = initialParams?.consultantId;
+    if (initialConsultantId) {
+      setCurrentConsultantId(initialConsultantId);
+      setCurrentConsultantName(initialParams?.consultantName);
+      setCurrentConsultantCategory(initialParams?.consultantCategory);
+    }
+    fetchServices(initialConsultantId);
+  }, []); // Only run on mount
+
+  // Auto-refresh services when screen comes into focus
+  // This ensures that when accessing from bottom navigator (no params), we fetch all services
+  useFocusEffect(
+    useCallback(() => {
+      // Get current route params
+      const currentParams = route?.params;
+      const currentConsultantId = currentParams?.consultantId;
+      const currentConsultantName = currentParams?.consultantName;
+      const currentConsultantCategory = currentParams?.consultantCategory;
+      
+      console.log('🔄 Services screen focused - Route params:', currentParams);
+      console.log('📋 Current Consultant ID:', currentConsultantId);
+      console.log('📋 Previous params:', previousParamsRef.current);
+      
+      // Get previous params for comparison
+      const previousParams = previousParamsRef.current;
+      
+      // Check if params changed (new navigation with params)
+      const paramsChanged = !previousParams || 
+        previousParams.consultantId !== currentConsultantId ||
+        previousParams.consultantName !== currentConsultantName;
+      
+      // Check navigation state
+      const navigationState = navigation.getState();
+      const isAtRoot = navigationState.index === 0;
+      
+      console.log('📍 Navigation state - isAtRoot:', isAtRoot, 'index:', navigationState.index);
+      console.log('📍 Params changed:', paramsChanged);
+      
+      // Logic:
+      // 1. If at root AND params exist AND params haven't changed → stale (from bottom navigator)
+      // 2. If at root AND no params → show all services (from bottom navigator)
+      // 3. If at root AND params changed → new navigation with params (valid)
+      // 4. If not at root AND params exist → navigated with params (valid)
+      // 5. If not at root AND no params → show all services
+      
+      // Case 1: At root with params that haven't changed - these are stale
+      if (isAtRoot && currentParams && currentConsultantId && !paramsChanged) {
+        console.log('🧹 Ignoring stale route params - accessed from bottom navigator');
+        setCurrentConsultantId(undefined);
+        setCurrentConsultantName(undefined);
+        setCurrentConsultantCategory(undefined);
+        setSearchQuery('');
+        fetchServices(undefined);
+        // Keep previousParamsRef as is to continue detecting stale params
+        return;
+      }
+      
+      // Case 2: At root with params that changed - new navigation with params (valid)
+      if (isAtRoot && currentParams && currentConsultantId && paramsChanged) {
+        console.log('📋 New navigation with params - showing consultant services');
+        setCurrentConsultantId(currentConsultantId);
+        setCurrentConsultantName(currentConsultantName);
+        setCurrentConsultantCategory(currentConsultantCategory);
+        fetchServices(currentConsultantId);
+        previousParamsRef.current = currentParams;
+        return;
+      }
+      
+      // Case 3: At root with no params - show all services
+      if (isAtRoot && (!currentParams || !currentConsultantId)) {
+        console.log('📋 At root with no params - fetching all services');
+        setCurrentConsultantId(undefined);
+        setCurrentConsultantName(undefined);
+        setCurrentConsultantCategory(undefined);
+        setSearchQuery('');
+        fetchServices(undefined);
+        previousParamsRef.current = currentParams || null;
+        return;
+      }
+      
+      // Case 4: Not at root - navigated with params or no params
+      // Update previous params ref
+      previousParamsRef.current = currentParams || null;
+      
+      if (!currentParams || !currentConsultantId) {
+        // No params - show all services
+        console.log('📋 No consultant ID in params - fetching all services');
+        setCurrentConsultantId(undefined);
+        setCurrentConsultantName(undefined);
+        setCurrentConsultantCategory(undefined);
+        setSearchQuery('');
+        fetchServices(undefined);
+      } else {
+        // Has params - show that consultant's services
+        console.log('📋 Consultant ID in params - fetching consultant services:', currentConsultantId);
+        setCurrentConsultantId(currentConsultantId);
+        setCurrentConsultantName(currentConsultantName);
+        setCurrentConsultantCategory(currentConsultantCategory);
+        fetchServices(currentConsultantId);
+      }
+    }, [route, navigation, fetchServices])
+  );
 
   // Fetch reviews for the consultant
   useEffect(() => {

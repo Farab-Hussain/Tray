@@ -4,58 +4,65 @@ import React, { useState, useEffect } from 'react';
 import AdminCard from '@/components/admin/AdminCard';
 import AdminSection from '@/components/admin/AdminSection';
 import MobileHeader from '@/components/shared/MobileHeader';
+import { consultantFlowAPI } from '@/utils/api';
 import { 
   Users, 
   DollarSign, 
   Calendar,
   CheckCircle,
-  Loader2
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  FileText,
+  XCircle
 } from 'lucide-react';
 
-interface BasicAnalytics {
-  totalUsers: number;
-  activeConsultants: number;
-  totalBookings: number;
-  totalRevenue: number;
+interface AdminAnalytics {
+  overview: {
+    totalUsers: number;
+    activeConsultants: number;
+    totalBookings: number;
+    totalRevenue: number;
+    pendingApplications: number;
+    completedBookings: number;
+    cancelledBookings: number;
+  };
+  trends: {
+    newUsersThisMonth: number;
+    newConsultantsThisMonth: number;
+    bookingsThisMonth: number;
+    revenueThisMonth: number;
+    bookingsGrowth: number;
+    revenueGrowth: number;
+  };
+  recentActivity: Array<{
+    type: string;
+    description: string;
+    timestamp: string;
+  }>;
 }
 
 const AnalyticsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [analyticsData, setAnalyticsData] = useState<BasicAnalytics | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AdminAnalytics | null>(null);
 
   useEffect(() => {
-    const fetchBasicAnalytics = async () => {
+    const fetchAnalytics = async () => {
       try {
         setIsLoading(true);
-        // TODO: Replace with actual API calls when backend analytics endpoints are ready
-        // const [usersResponse, consultantsResponse, bookingsResponse] = await Promise.all([
-        //   api.get('/admin/users/count'),
-        //   api.get('/admin/consultants/count'),
-        //   api.get('/admin/bookings/count'),
-        //   api.get('/admin/revenue/total')
-        // ]);
-        
-        // For now, show basic counts
-        setAnalyticsData({
-          totalUsers: 0,
-          activeConsultants: 0,
-          totalBookings: 0,
-          totalRevenue: 0
-        });
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
-        setAnalyticsData({
-          totalUsers: 0,
-          activeConsultants: 0,
-          totalBookings: 0,
-          totalRevenue: 0
-        });
+        setError(null);
+        const response = await consultantFlowAPI.getAnalytics();
+        setAnalyticsData(response.data);
+      } catch (err: any) {
+        console.error('Error fetching analytics:', err);
+        setError(err?.response?.data?.error || 'Failed to load analytics');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchBasicAnalytics();
+    fetchAnalytics();
   }, []);
 
   if (isLoading) {
@@ -67,6 +74,30 @@ const AnalyticsPage = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="py-4 sm:py-6">
+        <MobileHeader title="Analytics Dashboard" />
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+          <p className="text-red-700">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!analyticsData) {
+    return null;
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   return (
     <div className="py-4 sm:py-6 space-y-6 sm:space-y-8">
       {/* Mobile Header */}
@@ -75,36 +106,36 @@ const AnalyticsPage = () => {
       {/* Desktop Header */}
       <div className="hidden lg:block">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
-        <p className="text-sm sm:text-base text-gray-600">Basic platform metrics and insights</p>
+        <p className="text-sm sm:text-base text-gray-600">Platform-wide metrics and insights</p>
       </div>
 
-      {/* Basic Metrics */}
+      {/* Overview Metrics */}
       <AdminSection title="Platform Overview" subtitle="Essential platform metrics">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <AdminCard
             title="Total Users"
-            value={analyticsData?.totalUsers || 0}
+            value={analyticsData.overview.totalUsers}
             icon={Users}
             color="blue"
             subtitle="Registered users"
           />
           <AdminCard
             title="Active Consultants"
-            value={analyticsData?.activeConsultants || 0}
+            value={analyticsData.overview.activeConsultants}
             icon={CheckCircle}
             color="green"
             subtitle="Approved consultants"
           />
           <AdminCard
             title="Total Bookings"
-            value={analyticsData?.totalBookings || 0}
+            value={analyticsData.overview.totalBookings}
             icon={Calendar}
             color="purple"
-            subtitle="Completed sessions"
+            subtitle={`${analyticsData.overview.completedBookings} completed`}
           />
           <AdminCard
             title="Total Revenue"
-            value={`$${analyticsData?.totalRevenue || 0}`}
+            value={formatCurrency(analyticsData.overview.totalRevenue)}
             icon={DollarSign}
             color="green"
             subtitle="Platform revenue"
@@ -112,24 +143,111 @@ const AnalyticsPage = () => {
         </div>
       </AdminSection>
 
-      {/* Coming Soon Section */}
-      <AdminSection title="Advanced Analytics" subtitle="Coming soon with more detailed insights">
-        <div className="bg-white border border-gray-200 rounded-xl p-6 sm:p-8">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-gray-400" />
+      {/* Additional Metrics */}
+      <AdminSection title="Additional Metrics" subtitle="Platform health indicators">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <AdminCard
+            title="Pending Applications"
+            value={analyticsData.overview.pendingApplications}
+            icon={FileText}
+            color="yellow"
+            subtitle="Awaiting review"
+          />
+          <AdminCard
+            title="Completed Bookings"
+            value={analyticsData.overview.completedBookings}
+            icon={CheckCircle}
+            color="green"
+            subtitle="Successful sessions"
+          />
+          <AdminCard
+            title="Cancelled Bookings"
+            value={analyticsData.overview.cancelledBookings}
+            icon={XCircle}
+            color="red"
+            subtitle="Cancelled sessions"
+          />
+        </div>
+      </AdminSection>
+
+      {/* Trends */}
+      <AdminSection title="Monthly Trends" subtitle="This month's performance">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-600">New Users</h3>
+              <Users className="w-4 h-4 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Advanced Analytics Coming Soon</h3>
-            <p className="text-gray-600 mb-4 max-w-2xl mx-auto">
-              We&apos;re working on adding more detailed analytics including user growth trends, 
-              conversion rates, geographic distribution, and performance metrics.
+            <p className="text-2xl font-bold text-gray-900">{analyticsData.trends.newUsersThisMonth}</p>
+            <p className="text-xs text-gray-500 mt-1">This month</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-600">New Consultants</h3>
+              <CheckCircle className="w-4 h-4 text-gray-400" />
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{analyticsData.trends.newConsultantsThisMonth}</p>
+            <p className="text-xs text-gray-500 mt-1">This month</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-600">Bookings</h3>
+              {analyticsData.trends.bookingsGrowth >= 0 ? (
+                <TrendingUp className="w-4 h-4 text-green-600" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-red-600" />
+              )}
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{analyticsData.trends.bookingsThisMonth}</p>
+            <p className={`text-xs mt-1 ${analyticsData.trends.bookingsGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {analyticsData.trends.bookingsGrowth >= 0 ? '+' : ''}{analyticsData.trends.bookingsGrowth.toFixed(1)}% vs last month
             </p>
-            <div className="text-sm text-gray-500">
-              Features will be added as the platform grows and more data becomes available.
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-gray-600">Revenue</h3>
+              {analyticsData.trends.revenueGrowth >= 0 ? (
+                <TrendingUp className="w-4 h-4 text-green-600" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-red-600" />
+              )}
             </div>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(analyticsData.trends.revenueThisMonth)}</p>
+            <p className={`text-xs mt-1 ${analyticsData.trends.revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {analyticsData.trends.revenueGrowth >= 0 ? '+' : ''}{analyticsData.trends.revenueGrowth.toFixed(1)}% vs last month
+            </p>
           </div>
         </div>
       </AdminSection>
+
+      {/* Recent Activity */}
+      {analyticsData.recentActivity && analyticsData.recentActivity.length > 0 && (
+        <AdminSection title="Recent Activity" subtitle="Latest platform activities">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+            <div className="space-y-3">
+              {analyticsData.recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${
+                    activity.type === 'profile_approved' ? 'bg-green-100' : 'bg-blue-100'
+                  }`}>
+                    {activity.type === 'profile_approved' ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{activity.description}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(activity.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </AdminSection>
+      )}
     </div>
   );
 };

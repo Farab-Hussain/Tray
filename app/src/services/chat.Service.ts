@@ -4,10 +4,63 @@ import { database } from '../lib/firebase.ts';
 import { api } from '../lib/fetcher';
 import * as NotificationStorage from './notification-storage.service';
 import { UserService } from './user.service';
+import * as OfflineQueue from './offline-message-queue.service';
 import type { Message, Chat } from '../types/chatTypes';
 
 // @ts-ignore
 const db = database;
+
+/**
+ * Set typing status for a user in a chat
+ */
+export const setTypingStatus = async (chatId: string, userId: string, isTyping: boolean) => {
+    try {
+        const typingRef = ref(db, `chats/${chatId}/typing/${userId}`);
+        if (isTyping) {
+            await set(typingRef, {
+                userId,
+                isTyping: true,
+                timestamp: serverTimestamp(),
+            });
+        } else {
+            await set(typingRef, null);
+        }
+    } catch (error) {
+        console.error('❌ [ChatService] Error setting typing status:', error);
+    }
+};
+
+/**
+ * Listen to typing status changes in a chat
+ */
+export const listenToTypingStatus = (
+    chatId: string,
+    currentUserId: string,
+    callback: (userId: string, isTyping: boolean) => void
+) => {
+    const typingRef = ref(db, `chats/${chatId}/typing`);
+    
+    const unsubscribe = onValue(typingRef, (snapshot) => {
+        if (snapshot.exists()) {
+            const typingData = snapshot.val();
+            // Check each user's typing status
+            Object.keys(typingData).forEach((userId) => {
+                if (userId !== currentUserId) {
+                    const typingInfo = typingData[userId];
+                    callback(userId, typingInfo?.isTyping || false);
+                }
+            });
+        } else {
+            // No one is typing
+            callback('', false);
+        }
+    });
+    
+    return () => {
+        off(typingRef);
+        unsubscribe();
+    };
+};
 
 export const getChatIdFor = (uidA: string, uidB: string) => {
     return [uidA, uidB].sort().join('_');
@@ -46,10 +99,11 @@ export const createChatIfNotExists = async (uidA: string, uidB: string) => {
 export const sendMessage = async (
     chatId: string,
     message: Omit<Message, 'createdAt' | 'id'>
-) => {
+): Promise<string> => {
     try {
         const messagesRef = ref(db, `chats/${chatId}/messages`);
         const newMessageRef = push(messagesRef);
+        const messageId = newMessageRef.key || '';
 
         const messageData = {
             ...message,
@@ -134,8 +188,31 @@ export const sendMessage = async (
             console.warn('⚠️ Error sending notification (non-critical):', notifError);
         }
 
-        return newMessageRef.key || '';
-    } catch (error) {
+        return messageId;
+    } catch (error: any) {
+        // Check if it's a network/offline error
+        const isNetworkError = error?.code === 'unavailable' || 
+                               error?.code === 'network-error' ||
+                               error?.message?.toLowerCase().includes('network') ||
+                               error?.message?.toLowerCase().includes('offline') ||
+                               error?.message?.toLowerCase().includes('failed to fetch');
+        
+        if (isNetworkError) {
+            // Queue the message for offline sending
+            if (__DEV__) {
+                console.log('📦 [ChatService] Network error detected, queueing message for offline sending');
+            }
+            
+            try {
+                const queueId = await OfflineQueue.queueMessage(chatId, message);
+                // Return queue ID so UI can show pending status
+                return queueId;
+            } catch (queueError) {
+                console.error('❌ [ChatService] Error queueing message:', queueError);
+                throw new Error('Failed to send message. Please check your internet connection.');
+            }
+        }
+        
         console.error('Error sending message:', error);
         throw error;
     }
@@ -160,6 +237,16 @@ export const listenMessages = (
                 const timeB = b.createdAt || 0;
                 return timeA - timeB; // ascending order
             });
+            
+            if (__DEV__) {
+                // Log seenBy status for debugging
+                messages.forEach(msg => {
+                    if (msg.seenBy && msg.seenBy.length > 0) {
+                        console.log(`📬 [listenMessages] Message ${msg.id} seenBy:`, msg.seenBy);
+                    }
+                });
+            }
+            
             cb(messages);
         } else {
             cb([]);
@@ -278,10 +365,17 @@ export const fetchUserChats = async (uid: string) => {
 
 export const markMessagesSeen = async (chatId: string, userId: string) => {
     try {
+        if (__DEV__) {
+            console.log('👁️ [markMessagesSeen] Marking messages as seen:', { chatId, userId });
+        }
+        
         const messagesRef = ref(db, `chats/${chatId}/messages`);
         const snapshot = await get(messagesRef);
 
         if (!snapshot.exists()) {
+            if (__DEV__) {
+                console.log('⚠️ [markMessagesSeen] No messages found in chat');
+            }
             return;
         }
 
@@ -290,20 +384,47 @@ export const markMessagesSeen = async (chatId: string, userId: string) => {
 
         for (const msgId in messagesData) {
             const msg = messagesData[msgId];
-            if (msg.senderId !== userId && !msg.seenBy?.includes(userId)) {
+            // Mark messages as seen if they're NOT from the current user
+            // Only add the current user's ID to seenBy if they haven't seen it yet
+            if (msg.senderId !== userId) {
                 const seenBy = msg.seenBy || [];
                 if (!seenBy.includes(userId)) {
                     seenBy.push(userId);
                     updates[`chats/${chatId}/messages/${msgId}/seenBy`] = seenBy;
+                    
+                    if (__DEV__) {
+                        console.log(`✅ [markMessagesSeen] Marking message ${msgId} as seen by ${userId}`, {
+                            messageSenderId: msg.senderId,
+                            currentUserId: userId,
+                            seenByBefore: msg.seenBy || [],
+                            seenByAfter: seenBy
+                        });
+                    }
+                } else {
+                    if (__DEV__) {
+                        console.log(`ℹ️ [markMessagesSeen] Message ${msgId} already marked as seen by ${userId}`);
+                    }
+                }
+            } else {
+                if (__DEV__) {
+                    console.log(`⏭️ [markMessagesSeen] Skipping message ${msgId} - sent by current user`);
                 }
             }
         }
 
         if (Object.keys(updates).length > 0) {
             await update(ref(db), updates);
+            if (__DEV__) {
+                console.log(`✅ [markMessagesSeen] Updated ${Object.keys(updates).length} messages as seen`);
+            }
+        } else {
+            if (__DEV__) {
+                console.log('ℹ️ [markMessagesSeen] No messages to update (all already seen or no messages from others)');
+            }
         }
     } catch (error) {
-        console.error('Error marking messages as seen:', error);
+        console.error('❌ [markMessagesSeen] Error marking messages as seen:', error);
+        throw error;
     }
 };
 

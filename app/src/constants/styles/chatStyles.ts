@@ -153,16 +153,38 @@ export const chatStyles = StyleSheet.create({
   sendButtonInactive: {
     backgroundColor: COLORS.gray,
   },
+  timestampContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginTop: 4,
+    gap: 4,
+  },
+  timestampContainerRight: {
+    justifyContent: 'flex-end' as const,
+    alignItems: 'center' as const,
+  },
+  timestampContainerLeft: {
+    justifyContent: 'flex-start' as const,
+    alignItems: 'center' as const,
+  },
   timestampText: {
     fontSize: 10,
     opacity: 0.7,
-    marginTop: 4,
+    lineHeight: 12,
   },
   timestampRight: {
-    alignSelf: 'flex-end' as const,
+    // No longer needed, handled by container
   },
   timestampLeft: {
-    alignSelf: 'flex-start' as const,
+    // No longer needed, handled by container
+  },
+  statusIndicator: {
+    marginLeft: 5,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    minWidth: 22,
+    height: 16,
+    paddingHorizontal: 2,
   },
   // Selection mode styles
   selectionModeContainer: {
@@ -309,5 +331,33 @@ export const chatStyles = StyleSheet.create({
   },
   modalButtonTextDelete: {
     color: COLORS.white,
+  },
+  // Typing indicator styles
+  typingIndicatorContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  typingIndicatorBubble: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: COLORS.chatBackground,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+  },
+  typingIndicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.gray,
+  },
+  typingIndicatorText: {
+    fontSize: 12,
+    color: COLORS.gray,
+    fontStyle: 'italic' as const,
   },
 });

@@ -3,10 +3,19 @@ import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Phone, Mic, MicOff, FlipHorizontal } from 'lucide-react-native';
+// Safely import InCallManager - may not be available until native module is linked
+let InCallManager: any = null;
+try {
+  InCallManager = require('react-native-incall-manager').default;
+} catch (error) {
+  if (__DEV__) {
+    console.log('ℹ️ [InCallManager] Native module not linked yet - run pod install and rebuild');
+  }
+}
 import { COLORS } from '../../../constants/core/colors';
 import { callingStyles } from '../../../constants/styles/callingStyles';
 import { createPeer, applyAnswer, addRemoteIce } from '../../../webrtc/peer';
-import { addIceCandidate, answerCall, createCall, endCall, listenCall, listenCandidates, getCallOnce, type CallDocument } from '../../../services/call.service';
+import { addIceCandidate, answerCall, createCall, endCall, listenCall, listenCandidates, getCallOnce, getExistingCandidates, type CallDocument } from '../../../services/call.service';
 import { UserService } from '../../../services/user.service';
 import { useAuth } from '../../../contexts/AuthContext';
 // Avoid static RTCView import; require dynamically to prevent crashes if pod not installed
@@ -18,7 +27,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const [isSwapped, setIsSwapped] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // 'user' = front, 'environment' = back
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [status, setStatus] = useState<'ringing' | 'active' | 'ended' | 'missed'>('ringing');
   const [local, setLocal] = useState<any | null>(null);
   const [remote, setRemote] = useState<any | null>(null);
@@ -27,6 +36,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const pcRef = useRef<any | null>(null);
   const localStreamRef = useRef<any | null>(null);
   const RTCViewRef = useRef<any>(null);
+  const iceCandidateQueueRef = useRef<Array<{ senderId: string; candidate: any }>>([]);
+  const isMutedRef = useRef<boolean>(false);
   const { callId, isCaller, callerId, receiverId } = route?.params || {};
 
   // Prevent back navigation while call is active
@@ -98,16 +109,86 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         audioOnly: false,
         onLocalStream: (stream) => {
           console.log('✅ Local stream created for receiver');
+          console.log('📹 Local stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length);
           setLocal(stream);
           localStreamRef.current = stream;
           const hasVideoTrack = stream.getVideoTracks().length > 0;
           if (hasVideoTrack) {
             setIsVideoEnabled(true);
           }
+          
+          // 🎧 Step 1: Verify local audio track after stream creation
+          const audioTracks = stream.getAudioTracks();
+          console.log('🎤 [Receiver] Local stream audio tracks count:', audioTracks.length);
+          if (audioTracks.length > 0) {
+            audioTracks.forEach((track: any, index: number) => {
+              console.log(`🎤 [Receiver] Local audio track ${index + 1}:`, {
+                id: track.id,
+                enabled: track.enabled,
+                readyState: track.readyState,
+              });
+              try {
+                const settings = track.getSettings();
+                console.log(`🎤 [Receiver] Local audio track ${index + 1} settings:`, {
+                  sampleRate: settings.sampleRate,
+                  channelCount: settings.channelCount,
+                });
+              } catch (e) {
+                // Settings might not be available
+              }
+            });
+          } else {
+            console.error('❌ [Receiver] WARNING: Local stream has no audio tracks!');
+          }
         },
         onRemoteStream: (stream) => {
           console.log('✅ Remote stream received by receiver');
+          console.log('📹 Remote stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length);
+          // Ensure video tracks are enabled
+          const videoTracks = stream.getVideoTracks();
+          videoTracks.forEach((track: any) => {
+            track.enabled = true;
+            console.log('📹 Remote video track enabled:', track.id, track.enabled);
+          });
+          // Update video enabled state if remote has video
+          if (videoTracks.length > 0) {
+            setIsVideoEnabled(true);
+            console.log('📹 Remote video detected, enabling video display');
+          }
+          // Verify this is different from local stream
+          if (localStreamRef.current && stream.id === localStreamRef.current.id) {
+            console.error('⚠️ WARNING: Remote stream has same ID as local stream!');
+          }
+          
+          // 🔎 Step 3: Verify Remote Audio Tracks
+          const audioTracks = stream.getAudioTracks();
+          console.log('🔎 [Receiver] Remote stream audio tracks count:', audioTracks.length);
+          if (audioTracks.length === 0) {
+            console.error('❌ [Receiver] WARNING: Remote stream has no audio tracks!');
+          } else {
+            audioTracks.forEach((track: any, index: number) => {
+              track.enabled = true;
+              console.log(`🔎 [Receiver] Remote audio track ${index + 1}:`, {
+                id: track.id,
+                enabled: track.enabled,
+                readyState: track.readyState,
+              });
+              try {
+                const settings = track.getSettings();
+                console.log(`🔎 [Receiver] Remote audio track ${index + 1} settings:`, {
+                  sampleRate: settings.sampleRate,
+                  channelCount: settings.channelCount,
+                });
+              } catch (e) {
+                // Settings might not be available
+              }
+            });
+          }
+          
+          // Force update by setting remote stream - this triggers re-render
           setRemote(stream);
+          // Log track count for debugging
+          console.log('📹 Remote stream set with', stream.getTracks().length, 'total tracks');
         },
         onIce: (c: any) => {
           console.log('🧊 Sending ICE candidate from receiver');
@@ -117,6 +198,104 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       });
       
       pcRef.current = pc;
+      
+      // Process queued ICE candidates and fetch existing ones
+      const processIceCandidates = async () => {
+        const myId = receiverId;
+        const processedIds = new Set<string>();
+        
+        // Process queued candidates
+        console.log(`📦 [Receiver] Processing ${iceCandidateQueueRef.current.length} queued ICE candidates...`);
+        for (const c of iceCandidateQueueRef.current) {
+          if (c.senderId !== myId && !processedIds.has(`${c.senderId}-${JSON.stringify(c.candidate)}`)) {
+            try {
+              await addRemoteIce(pc, c.candidate);
+              console.log(`✅ [Receiver] Processed queued ICE candidate from:`, c.senderId);
+              processedIds.add(`${c.senderId}-${JSON.stringify(c.candidate)}`);
+            } catch (error: any) {
+              console.error(`❌ [Receiver] Error processing queued ICE candidate:`, error.message || error);
+            }
+          }
+        }
+        iceCandidateQueueRef.current = [];
+        
+        // Fetch and process existing candidates from Firestore
+        try {
+          console.log(`📥 [Receiver] Fetching existing ICE candidates from Firestore...`);
+          const existingCandidates = await getExistingCandidates(callId);
+          console.log(`📥 [Receiver] Found ${existingCandidates.length} existing ICE candidates`);
+          
+          if (existingCandidates.length === 0) {
+            console.log(`📊 [Receiver] No existing ICE candidates to process`);
+          } else {
+            let processedCount = 0;
+            let skippedCount = 0;
+            let errorCount = 0;
+            
+            for (const c of existingCandidates) {
+              if (c.senderId === myId) {
+                skippedCount++;
+                continue; // Skip own candidates
+              }
+              const candidateKey = `${c.senderId}-${JSON.stringify(c.candidate)}`;
+              if (processedIds.has(candidateKey)) {
+                skippedCount++;
+                continue; // Skip duplicates
+              }
+              try {
+                await addRemoteIce(pc, c.candidate);
+                console.log(`✅ [Receiver] Processed existing ICE candidate ${processedCount + 1} from:`, c.senderId);
+                processedIds.add(candidateKey);
+                processedCount++;
+              } catch (error: any) {
+                console.error(`❌ [Receiver] Error processing existing ICE candidate from ${c.senderId}:`, error.message || error);
+                errorCount++;
+              }
+            }
+            console.log(`📊 [Receiver] ICE candidate processing summary: ${processedCount} processed, ${skippedCount} skipped (self/duplicates), ${errorCount} errors`);
+          }
+        } catch (error: any) {
+          console.error(`❌ [Receiver] Error fetching existing ICE candidates:`, error.message || error);
+        }
+        
+        // Log connection state after processing all candidates
+        console.log(`🔌 [Receiver] Connection state after processing ICE candidates:`, {
+          connectionState: pc.connectionState,
+          iceConnectionState: pc.iceConnectionState,
+        });
+      };
+      
+      // Process candidates after a short delay to ensure peer connection is fully initialized
+      setTimeout(() => {
+        processIceCandidates();
+      }, 500);
+      
+      // Monitor connection state to ensure audio is configured when connected
+      pc.addEventListener('connectionstatechange', () => {
+        const state = pc.connectionState;
+        console.log('🔌 [Receiver] Connection state:', state);
+        
+        if (state === 'connected') {
+          console.log('✅ [Receiver] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅');
+        } else if (state === 'failed' || state === 'disconnected') {
+          console.error('❌ [Receiver] Connection failed or disconnected:', state);
+          console.warn('⚠️ [Receiver] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.');
+        }
+      });
+      
+      // Also monitor ICE connection state (separate from connection state)
+      pc.addEventListener('iceconnectionstatechange', () => {
+        const iceState = pc.iceConnectionState;
+        console.log('🧊 [Receiver] ICE connection state:', iceState);
+        
+        if (iceState === 'connected' || iceState === 'completed') {
+          console.log('✅ [Receiver] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅');
+        } else if (iceState === 'failed') {
+          console.error('❌ [Receiver] ICE connection failed');
+          console.warn('⚠️ [Receiver] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.');
+        }
+      });
+      
       console.log('📞 Answering call...');
       // Serialize the answer for Firestore storage
       const answerToStore = localDescription.toJSON ? localDescription.toJSON() : {
@@ -171,11 +350,25 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
     const audioTracks = localStreamRef.current.getAudioTracks();
     const newMutedState = !isMuted;
     
+    // Update WebRTC audio tracks
     audioTracks.forEach((track: any) => {
       track.enabled = !newMutedState;
+      console.log(`🎤 [Mute] Audio track ${track.id}: enabled=${!newMutedState}`);
     });
     
+    // Sync with InCallManager
+    if (InCallManager) {
+      try {
+        InCallManager.setMicrophoneMute(newMutedState);
+        console.log(`🎤 [Mute] InCallManager microphone muted: ${newMutedState}`);
+      } catch (error: any) {
+        console.warn('⚠️ [Mute] Error setting InCallManager mute state:', error.message);
+      }
+    }
+    
     setIsMuted(newMutedState);
+    isMutedRef.current = newMutedState;
+    console.log(`🎤 [Mute] Mute state changed to: ${newMutedState}`);
   };
 
   const handleSwitchCamera = async () => {
@@ -186,8 +379,17 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       return;
     }
     
+    // Double-check peer connection is still valid before proceeding
+    const pc = pcRef.current;
+    if (!pc) {
+      if (__DEV__) {
+        console.warn('⚠️ Cannot switch camera: peer connection is null');
+      }
+      return;
+    }
+    
     // Check if peer connection is in a valid state
-    if (pcRef.current.signalingState === 'closed' || pcRef.current.connectionState === 'closed') {
+    if (pc.signalingState === 'closed' || pc.connectionState === 'closed') {
       if (__DEV__) {
         console.warn('⚠️ Cannot switch camera: peer connection is closed');
       }
@@ -220,8 +422,23 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         throw new Error('Failed to get new video track');
       }
       
+      // Verify peer connection is still valid before accessing getSenders
+      if (!pcRef.current) {
+        throw new Error('Peer connection was closed during camera switch');
+      }
+      
+      // Check connection state again
+      if (pcRef.current.signalingState === 'closed' || pcRef.current.connectionState === 'closed') {
+        throw new Error('Peer connection closed during camera switch');
+      }
+      
       // Find the video sender
-      const sender = pcRef.current.getSenders().find((s: any) => s.track && s.track.kind === 'video');
+      const senders = pcRef.current.getSenders();
+      if (!senders || senders.length === 0) {
+        throw new Error('No senders available in peer connection');
+      }
+      
+      const sender = senders.find((s: any) => s.track && s.track.kind === 'video');
       
       if (!sender) {
         if (__DEV__) {
@@ -266,7 +483,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       
       // Trigger renegotiation if connection is active
       // Only create offer if we're in a stable state (not already negotiating)
-      if (pcRef.current.signalingState === 'stable' && pcRef.current.connectionState !== 'closed') {
+      // Verify peer connection is still valid before creating offer
+      if (pcRef.current && pcRef.current.signalingState === 'stable' && pcRef.current.connectionState !== 'closed') {
         try {
           const offer = await pcRef.current.createOffer();
           await pcRef.current.setLocalDescription(offer);
@@ -298,6 +516,89 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
     setIsSwapped(!isSwapped);
   };
 
+  // 📱 Step 2: Verify InCallManager Session Starts (Video Call)
+  useEffect(() => {
+    const callActive = status === 'active' && pcRef.current;
+    
+    if (callActive) {
+      // Check if InCallManager is available
+      if (!InCallManager) {
+        if (__DEV__) {
+          console.warn('⚠️ [InCallManager] Native module not available - audio session management disabled');
+          console.warn('⚠️ [InCallManager] Run: cd ios && pod install && cd .. && npm run ios');
+        }
+        return;
+      }
+
+      // Start audio session when call becomes active
+      try {
+        console.log('✅ [InCallManager] Starting audio session for video call...');
+        InCallManager.start({ media: 'audio', auto: true });
+        // For video calls, optionally use speakerphone by default
+        // User can toggle via UI if needed
+        InCallManager.setForceSpeakerphoneOn(false); // Use earpiece by default, user can toggle
+        if (__DEV__) {
+          console.log('✅ [InCallManager] Audio session started for video call (earpiece mode)');
+          console.log('✅ [InCallManager] Audio route should be: earpiece');
+        }
+      } catch (error: any) {
+        console.error('❌ [InCallManager] Error starting audio session:', error.message || error);
+      }
+    } else {
+      // Stop audio session when call is not active
+      if (InCallManager) {
+        try {
+          InCallManager.stop();
+          if (__DEV__) {
+            console.log('🛑 [InCallManager] Stopped audio session');
+          }
+        } catch (error: any) {
+          console.error('❌ [InCallManager] Error stopping audio session:', error.message || error);
+        }
+      }
+    }
+    
+    return () => {
+      // Cleanup: Stop audio session when component unmounts
+      if (InCallManager && callActive) {
+        try {
+          InCallManager.stop();
+          if (__DEV__) {
+            console.log('🛑 [InCallManager] Audio session stopped (cleanup)');
+          }
+        } catch (error: any) {
+          console.error('❌ [InCallManager] Error stopping audio session:', error.message || error);
+        }
+      }
+    };
+  }, [status]);
+
+  // Listen for audio route changes (for debugging)
+  useEffect(() => {
+    // Optional: Listen to audio route changes (for debugging)
+    // Note: This feature may not be available in all versions of react-native-incall-manager
+    if (status === 'active' && InCallManager && __DEV__) {
+      try {
+        // Check if addListener method exists
+        if (typeof InCallManager.addListener === 'function') {
+          const subscription = InCallManager.addListener('onAudioRouteChange', (data: any) => {
+            console.log('📱 [InCallManager] Audio route changed:', data);
+          });
+          
+          return () => {
+            if (subscription && typeof subscription.remove === 'function') {
+              subscription.remove();
+            }
+          };
+        }
+        // Silently skip if addListener is not available - this is optional debug functionality
+      } catch (error: any) {
+        // Silently fail - audio route listener is optional debug feature
+      }
+    }
+    return () => {};
+  }, [status]);
+
   useEffect(() => {
     // Load RTCView lazily
     try {
@@ -324,16 +625,86 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           audioOnly: false,
           onLocalStream: (stream) => {
             console.log('✅ Local stream created for caller');
+            console.log('📹 Local stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length);
             setLocal(stream);
             localStreamRef.current = stream;
             const hasVideoTrack = stream.getVideoTracks().length > 0;
             if (hasVideoTrack) {
               setIsVideoEnabled(true);
             }
+            
+            // 🎧 Step 1: Verify local audio track after stream creation
+            const audioTracks = stream.getAudioTracks();
+            console.log('🎤 [Caller] Local stream audio tracks count:', audioTracks.length);
+            if (audioTracks.length > 0) {
+              audioTracks.forEach((track: any, index: number) => {
+                console.log(`🎤 [Caller] Local audio track ${index + 1}:`, {
+                  id: track.id,
+                  enabled: track.enabled,
+                  readyState: track.readyState,
+                });
+                try {
+                  const settings = track.getSettings();
+                  console.log(`🎤 [Caller] Local audio track ${index + 1} settings:`, {
+                    sampleRate: settings.sampleRate,
+                    channelCount: settings.channelCount,
+                  });
+                } catch (e) {
+                  // Settings might not be available
+                }
+              });
+            } else {
+              console.error('❌ [Caller] WARNING: Local stream has no audio tracks!');
+            }
           },
           onRemoteStream: (stream) => {
             console.log('✅ Remote stream received by caller');
+            console.log('📹 Remote stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length);
+            // Ensure video tracks are enabled
+            const videoTracks = stream.getVideoTracks();
+            videoTracks.forEach((track: any) => {
+              track.enabled = true;
+              console.log('📹 Remote video track enabled:', track.id, track.enabled);
+            });
+            // Update video enabled state if remote has video
+            if (videoTracks.length > 0) {
+              setIsVideoEnabled(true);
+              console.log('📹 Remote video detected, enabling video display');
+            }
+            // Verify this is different from local stream
+            if (localStreamRef.current && stream.id === localStreamRef.current.id) {
+              console.error('⚠️ WARNING: Remote stream has same ID as local stream!');
+            }
+            
+            // 🔎 Step 3: Verify Remote Audio Tracks
+            const audioTracks = stream.getAudioTracks();
+            console.log('🔎 [Caller] Remote stream audio tracks count:', audioTracks.length);
+            if (audioTracks.length === 0) {
+              console.error('❌ [Caller] WARNING: Remote stream has no audio tracks!');
+            } else {
+              audioTracks.forEach((track: any, index: number) => {
+                track.enabled = true;
+                console.log(`🔎 [Caller] Remote audio track ${index + 1}:`, {
+                  id: track.id,
+                  enabled: track.enabled,
+                  readyState: track.readyState,
+                });
+                try {
+                  const settings = track.getSettings();
+                  console.log(`🔎 [Caller] Remote audio track ${index + 1} settings:`, {
+                    sampleRate: settings.sampleRate,
+                    channelCount: settings.channelCount,
+                  });
+                } catch (e) {
+                  // Settings might not be available
+                }
+              });
+            }
+            
+            // Force update by setting remote stream - this triggers re-render
             setRemote(stream);
+            // Log track count for debugging
+            console.log('📹 Remote stream set with', stream.getTracks().length, 'total tracks');
           },
           onIce: (c: any) => {
             console.log('🧊 Sending ICE candidate from caller');
@@ -341,6 +712,33 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           },
         });
         pcRef.current = pc;
+        
+        // Monitor connection state to ensure audio is configured when connected
+        pc.addEventListener('connectionstatechange', () => {
+          const state = pc.connectionState;
+          console.log('🔌 [Caller] Connection state:', state);
+          
+          if (state === 'connected') {
+            console.log('✅ [Caller] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅');
+          } else if (state === 'failed' || state === 'disconnected') {
+            console.error('❌ [Caller] Connection failed or disconnected:', state);
+            console.warn('⚠️ [Caller] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.');
+          }
+        });
+        
+        // Also monitor ICE connection state (separate from connection state)
+        pc.addEventListener('iceconnectionstatechange', () => {
+          const iceState = pc.iceConnectionState;
+          console.log('🧊 [Caller] ICE connection state:', iceState);
+          
+          if (iceState === 'connected' || iceState === 'completed') {
+            console.log('✅ [Caller] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅');
+          } else if (iceState === 'failed') {
+            console.error('❌ [Caller] ICE connection failed');
+            console.warn('⚠️ [Caller] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.');
+          }
+        });
+        
         console.log('📞 Creating video call document...');
         await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
         
@@ -389,6 +787,57 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
               
               await applyAnswer(pcRef.current, data.answer);
               console.log('✅ Caller: Answer applied successfully');
+              
+              // Fetch and process existing ICE candidates from receiver
+              // Wait a bit for the answer to be fully applied
+              setTimeout(async () => {
+                try {
+                  console.log('📥 [Caller] Fetching existing ICE candidates from Firestore...');
+                  const existingCandidates = await getExistingCandidates(callId);
+                  console.log('📥 [Caller] Found', existingCandidates.length, 'existing ICE candidates');
+                  
+                  if (existingCandidates.length === 0) {
+                    console.log('📊 [Caller] No existing ICE candidates to process');
+                  } else {
+                    const myId = callerId;
+                    const processedIds = new Set<string>();
+                    let processedCount = 0;
+                    let skippedCount = 0;
+                    let errorCount = 0;
+                    
+                    for (const c of existingCandidates) {
+                      if (c.senderId === myId) {
+                        skippedCount++;
+                        continue; // Skip own candidates
+                      }
+                      const candidateKey = `${c.senderId}-${JSON.stringify(c.candidate)}`;
+                      if (processedIds.has(candidateKey)) {
+                        skippedCount++;
+                        continue; // Skip duplicates
+                      }
+                      try {
+                        await addRemoteIce(pcRef.current, c.candidate);
+                        console.log(`✅ [Caller] Processed existing ICE candidate ${processedCount + 1} from:`, c.senderId);
+                        processedIds.add(candidateKey);
+                        processedCount++;
+                      } catch (error: any) {
+                        console.error(`❌ [Caller] Error processing existing ICE candidate from ${c.senderId}:`, error.message || error);
+                        errorCount++;
+                      }
+                    }
+                    
+                    console.log(`📊 [Caller] ICE candidate processing summary: ${processedCount} processed, ${skippedCount} skipped (self/duplicates), ${errorCount} errors`);
+                  }
+                  
+                  // Log connection state after processing candidates
+                  console.log('🔌 [Caller] Connection state after processing ICE candidates:', {
+                    connectionState: pcRef.current.connectionState,
+                    iceConnectionState: pcRef.current.iceConnectionState,
+                  });
+                } catch (error: any) {
+                  console.error('❌ [Caller] Error fetching existing ICE candidates:', error.message || error);
+                }
+              }, 500);
             } catch (error: any) {
               // Safely extract error message
               let errorMessage = '';
@@ -479,7 +928,29 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
 
       unsubCand = listenCandidates(callId, async (c) => {
         const myId = isCaller ? callerId : receiverId;
-        if (c.senderId !== myId && pcRef.current) await addRemoteIce(pcRef.current, c.candidate);
+        const roleLabel = isCaller ? 'Caller' : 'Receiver';
+        if (c.senderId !== myId) {
+          if (pcRef.current) {
+            console.log(`🧊 [${roleLabel}] Received ICE candidate from:`, c.senderId);
+            try {
+              await addRemoteIce(pcRef.current, c.candidate);
+              console.log(`✅ [${roleLabel}] ICE candidate added successfully`);
+              // Log connection state after adding candidate
+              console.log(`🔌 [${roleLabel}] Connection state after ICE candidate:`, {
+                connectionState: pcRef.current.connectionState,
+                iceConnectionState: pcRef.current.iceConnectionState,
+              });
+            } catch (error: any) {
+              console.error(`❌ [${roleLabel}] Error adding ICE candidate:`, error.message || error);
+            }
+          } else {
+            // Queue the candidate for later processing
+            console.log(`📦 [${roleLabel}] Queueing ICE candidate (peer connection not ready yet) from:`, c.senderId);
+            iceCandidateQueueRef.current.push(c);
+          }
+        } else {
+          console.log(`🧊 [${roleLabel}] Ignoring ICE candidate from self:`, c.senderId);
+        }
       });
 
       hangTimer = setTimeout(() => {
@@ -514,17 +985,129 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   // When swapped: local in main (full screen), remote in inset (small)
   const mainVideoStream = isSwapped ? local : remote;
   const insetVideoStream = isSwapped ? remote : local;
+  
+  // Check if streams have video tracks - but also check if stream exists
+  // Show stream if it exists, even if tracks haven't arrived yet (they might arrive separately)
+  const mainHasVideo = mainVideoStream && mainVideoStream.getVideoTracks().length > 0;
+  const insetHasVideo = insetVideoStream && insetVideoStream.getVideoTracks().length > 0;
+  
+  // For main view: show if stream exists and has video, or if it's local (we know local has video)
+  const shouldShowMainVideo = mainVideoStream && RTCViewRef.current && status === 'active' && isVideoEnabled && (
+    mainHasVideo || mainVideoStream === local
+  );
+  
+  // For inset view: show if stream exists and has video, or if it's local (we know local has video)
+  const shouldShowInsetVideo = insetVideoStream && RTCViewRef.current && status === 'active' && isVideoEnabled && (
+    insetHasVideo || insetVideoStream === local
+  );
+
+  // Debug logging for stream identification
+  useEffect(() => {
+    if (__DEV__ && status === 'active') {
+      const localStreamId = local?.id || 'none';
+      const remoteStreamId = remote?.id || 'none';
+      const mainStreamId = mainVideoStream?.id || 'none';
+      const insetStreamId = insetVideoStream?.id || 'none';
+      
+      console.log('📹 Video Streams Status:', {
+        hasLocal: !!local,
+        hasRemote: !!remote,
+        localStreamId,
+        remoteStreamId,
+        localVideoTracks: local?.getVideoTracks().length || 0,
+        remoteVideoTracks: remote?.getVideoTracks().length || 0,
+        isSwapped,
+        mainStream: mainVideoStream === local ? 'LOCAL' : 'REMOTE',
+        mainStreamId,
+        insetStream: insetVideoStream === local ? 'LOCAL' : 'REMOTE',
+        insetStreamId,
+        mainHasVideo,
+        insetHasVideo,
+        shouldShowMainVideo,
+        shouldShowInsetVideo,
+        mainStreamURL: mainVideoStream?.toURL(),
+        insetStreamURL: insetVideoStream?.toURL(),
+      });
+      
+      // Verify streams are different
+      if (local && remote && local.id === remote.id) {
+        console.error('⚠️ CRITICAL: Local and remote streams have the same ID!');
+      }
+      if (mainVideoStream && insetVideoStream && mainVideoStream.id === insetVideoStream.id && !isSwapped) {
+        console.warn('⚠️ Main and inset streams are the same when not swapped');
+      }
+    }
+  }, [local, remote, isSwapped, status, mainVideoStream, insetVideoStream, mainHasVideo, insetHasVideo, shouldShowMainVideo, shouldShowInsetVideo]);
+
+  // Force re-render when remote stream tracks change
+  const [remoteTrackCount, setRemoteTrackCount] = useState(0);
+  const [remoteVideoTrackIds, setRemoteVideoTrackIds] = useState<string[]>([]);
+  const [streamVersion, setStreamVersion] = useState(0); // Version counter to force RTCView updates
+  const prevTrackDataRef = useRef<{ count: number; videoTrackIds: string; streamId: string }>({ 
+    count: 0, 
+    videoTrackIds: '',
+    streamId: ''
+  });
+  
+  useEffect(() => {
+    if (remote && status === 'active') {
+      const currentTrackCount = remote.getTracks().length;
+      const currentVideoTracks = remote.getVideoTracks();
+      const currentVideoTrackIds = currentVideoTracks.map((t: any) => t.id).sort();
+      const currentVideoTrackIdsStr = JSON.stringify(currentVideoTrackIds);
+      const currentStreamId = remote.id;
+      
+      // Check if stream ID changed (new stream reference) or tracks changed
+      const streamIdChanged = currentStreamId !== prevTrackDataRef.current.streamId;
+      const tracksChanged = currentTrackCount !== prevTrackDataRef.current.count || 
+                           currentVideoTrackIdsStr !== prevTrackDataRef.current.videoTrackIds;
+      
+      if (streamIdChanged || tracksChanged) {
+        prevTrackDataRef.current = {
+          count: currentTrackCount,
+          videoTrackIds: currentVideoTrackIdsStr,
+          streamId: currentStreamId,
+        };
+        setRemoteTrackCount(currentTrackCount);
+        setRemoteVideoTrackIds(currentVideoTrackIds);
+        // Increment version to force RTCView to remount
+        setStreamVersion(prev => prev + 1);
+        if (__DEV__) {
+          const audioTracks = remote.getAudioTracks();
+          console.log('📹 Remote stream changed:', {
+            streamId: currentStreamId,
+            streamIdChanged,
+            tracksChanged,
+            videoTracks: currentVideoTracks.length,
+            audioTracks: audioTracks.length,
+            totalTracks: currentTrackCount,
+            videoTrackIds: currentVideoTrackIds,
+            streamURL: remote.toURL(),
+          });
+        }
+      }
+    } else if (!remote) {
+      // Reset when remote stream is cleared
+      prevTrackDataRef.current = { count: 0, videoTrackIds: '', streamId: '' };
+      setRemoteTrackCount(0);
+      setRemoteVideoTrackIds([]);
+      setStreamVersion(0);
+    }
+  }, [remote, status]); // Removed remoteTrackCount and remoteVideoTrackIds from dependencies
 
   return (
     <View style={callingStyles.videoCallContainer}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.black} />
 
       {/* Main video feed (full screen) - shows remote by default, local when swapped */}
-      {mainVideoStream && RTCViewRef.current && status === 'active' && isVideoEnabled ? (
+      {shouldShowMainVideo && mainVideoStream ? (
         <RTCViewRef.current 
+          key={`main-${mainVideoStream.id || 'main'}-${isSwapped ? 'local' : 'remote'}-${mainVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
           streamURL={mainVideoStream.toURL()} 
           style={callingStyles.mainVideoFeed} 
           objectFit="cover" 
+          mirror={mainVideoStream === local && facingMode === 'user'}
+          zOrder={0}
         />
       ) : (
         <View style={[callingStyles.mainVideoFeed, { backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }]}>
@@ -558,7 +1141,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
 
       {/* Inset video preview (small) - shows local by default, remote when swapped */}
       {/* Only show when call is active and video is enabled */}
-      {insetVideoStream && RTCViewRef.current && status === 'active' && isVideoEnabled && (
+      {shouldShowInsetVideo && (
         <TouchableOpacity
           style={[
             callingStyles.insetVideoContainer,
@@ -568,9 +1151,12 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           activeOpacity={0.8}
         >
           <RTCViewRef.current 
+            key={`inset-${insetVideoStream.id || 'inset'}-${isSwapped ? 'remote' : 'local'}-${insetVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
             streamURL={insetVideoStream.toURL()} 
             style={callingStyles.insetVideo} 
             objectFit="cover" 
+            mirror={insetVideoStream === local && facingMode === 'user'}
+            zOrder={1}
           />
         </TouchableOpacity>
       )}

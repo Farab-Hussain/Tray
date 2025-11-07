@@ -13,13 +13,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
 import { chatStyles } from '../../../constants/styles/chatStyles';
-import { ChevronLeft, Phone, Video, Send, Trash2, X } from 'lucide-react-native';
+import { ChevronLeft, Phone, Video, Send, Trash2, X, Check, CheckCheck, Clock } from 'lucide-react-native';
 import { useChat } from '../../../hooks/useChat';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useNotificationContext } from '../../../contexts/NotificationContext';
 import { UserService } from '../../../services/user.service';
 import { ConsultantService } from '../../../services/consultant.service';
-import { markMessagesSeen } from '../../../services/chat.Service';
+import { markMessagesSeen, setTypingStatus, listenToTypingStatus } from '../../../services/chat.Service';
+import * as OfflineQueue from '../../../services/offline-message-queue.service';
 import type { Message } from '../../../types/chatTypes';
 import { Modal, Alert } from 'react-native';
 
@@ -39,20 +40,116 @@ const ChatScreen = ({ navigation, route }: any) => {
   const { markChatAsRead } = useNotificationContext();
   const { messages, sendMessage, deleteMessage, deleteMessages } = useChat(chatId, userId);
   
+  // Merge queued messages with Firebase messages for display
+  const [queuedMessages, setQueuedMessages] = useState<(Message & { id: string })[]>([]);
+  
+  useEffect(() => {
+    const loadQueuedMessages = async () => {
+      if (!chatId || !userId) return;
+      
+      try {
+        const queue = await OfflineQueue.getQueuedMessages();
+        const chatQueuedMessages = queue
+          .filter(q => q.chatId === chatId)
+          .map(q => ({
+            id: q.id,
+            ...q.message,
+            createdAt: { toDate: () => new Date(q.timestamp) } as any,
+          }));
+        setQueuedMessages(chatQueuedMessages);
+      } catch (error) {
+        console.error('Error loading queued messages:', error);
+      }
+    };
+    
+    loadQueuedMessages();
+    
+    // Refresh queued messages periodically
+    const interval = setInterval(loadQueuedMessages, 2000);
+    return () => clearInterval(interval);
+  }, [chatId, userId]);
+  
+  // Combine Firebase messages with queued messages
+  const allMessages = React.useMemo(() => {
+    const combined = [...messages, ...queuedMessages];
+    // Sort by timestamp
+    return combined.sort((a, b) => {
+      const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt || 0);
+      const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt || 0);
+      return timeA - timeB;
+    });
+  }, [messages, queuedMessages]);
+  
   // Selection mode state
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Typing indicator listener
+  useEffect(() => {
+    if (!chatId || !userId) return;
+    
+    const unsubscribe = listenToTypingStatus(chatId, userId, (typingUserId, isTyping) => {
+      setIsOtherUserTyping(isTyping && typingUserId !== userId);
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [chatId, userId]);
+  
+  // Handle typing status when user types
+  useEffect(() => {
+    if (!chatId || !userId) return;
+    
+    // Clear existing timeout
+    if (typingDebounceRef.current) {
+      clearTimeout(typingDebounceRef.current);
+    }
+    
+    if (message.trim().length > 0) {
+      // Set typing status
+      setTypingStatus(chatId, userId, true);
+      
+      // Clear typing status after 3 seconds of no typing
+      typingDebounceRef.current = setTimeout(() => {
+        setTypingStatus(chatId, userId, false);
+      }, 3000);
+    } else {
+      // Clear typing status immediately if message is empty
+      setTypingStatus(chatId, userId, false);
+    }
+    
+    return () => {
+      if (typingDebounceRef.current) {
+        clearTimeout(typingDebounceRef.current);
+      }
+      // Clear typing status on unmount
+      if (chatId && userId) {
+        setTypingStatus(chatId, userId, false);
+      }
+    };
+  }, [message, chatId, userId]);
+  
+  // Clear typing status when message is sent
+  useEffect(() => {
+    if (isSending && chatId && userId) {
+      setTypingStatus(chatId, userId, false);
+    }
+  }, [isSending, chatId, userId]);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (messages.length > 0) {
+    if (allMessages.length > 0) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages]);
+  }, [allMessages]);
   
   // Mark messages as seen and notifications as read when chat is opened (only once per chatId)
   const markedChatIdRef = useRef<string | null>(null);
@@ -65,9 +162,11 @@ const ChatScreen = ({ navigation, route }: any) => {
       markMessagesSeen(chatId, userId)
         .then(() => {
           console.log('✅ [ChatScreen] Messages marked as seen');
-          // Refresh chat list to update unread counts after a short delay
+          // Force refresh messages after a short delay to ensure UI updates
           setTimeout(() => {
             refreshChats();
+            // Also trigger a re-render by updating a state
+            setQueuedMessages(prev => [...prev]);
           }, 500);
         })
         .catch(error => {
@@ -79,6 +178,92 @@ const ChatScreen = ({ navigation, route }: any) => {
       markChatAsRead(chatId);
     }
   }, [chatId, userId, refreshChats, markChatAsRead]);
+
+  // Monitor network connection and process queued messages when online
+  useEffect(() => {
+    let connectionCheckInterval: NodeJS.Timeout;
+    let connectionUnsubscribe: (() => void) | null = null;
+    let wasOffline = false;
+
+    try {
+      // Use Firebase's connection state listener
+      const { ref, onValue, off } = require('firebase/database');
+      const { database } = require('../../lib/firebase');
+      const connectedRef = ref(database, '.info/connected');
+      
+      connectionUnsubscribe = onValue(connectedRef, async (snapshot: any) => {
+        const isConnected = snapshot.val() === true;
+        
+        if (isConnected && wasOffline) {
+          // Connection restored - process queued messages
+          console.log('🌐 [ChatScreen] Connection restored, processing queued messages...');
+          wasOffline = false;
+          try {
+            await OfflineQueue.processQueuedMessages();
+            // Refresh queued messages display
+            const queue = await OfflineQueue.getQueuedMessages();
+            const chatQueuedMessages = queue
+              .filter(q => q.chatId === chatId)
+              .map(q => ({
+                id: q.id,
+                ...q.message,
+                createdAt: { toDate: () => new Date(q.timestamp) } as any,
+              }));
+            setQueuedMessages(chatQueuedMessages);
+            // Refresh messages to update UI
+            setTimeout(() => {
+              refreshChats();
+            }, 1000);
+          } catch (error) {
+            console.error('❌ [ChatScreen] Error processing queued messages:', error);
+          }
+        } else if (!isConnected) {
+          wasOffline = true;
+          if (__DEV__) {
+            console.log('⚠️ [ChatScreen] Connection lost');
+          }
+        }
+      });
+    } catch (error) {
+      console.warn('⚠️ [ChatScreen] Could not set up connection listener:', error);
+    }
+
+    // Fallback: Check periodically (every 5 seconds) to process queue
+    connectionCheckInterval = setInterval(async () => {
+      try {
+        const queuedMessages = await OfflineQueue.getQueuedMessages();
+        if (queuedMessages.length > 0) {
+          // Try to process queue
+          await OfflineQueue.processQueuedMessages();
+          // Refresh queued messages display
+          const queue = await OfflineQueue.getQueuedMessages();
+          const chatQueuedMessages = queue
+            .filter(q => q.chatId === chatId)
+            .map(q => ({
+              id: q.id,
+              ...q.message,
+              createdAt: { toDate: () => new Date(q.timestamp) } as any,
+            }));
+          setQueuedMessages(chatQueuedMessages);
+          // Refresh messages
+          setTimeout(() => {
+            refreshChats();
+          }, 500);
+        }
+      } catch (error) {
+        // Silently fail - connection might still be down
+      }
+    }, 5000);
+
+    return () => {
+      if (connectionCheckInterval) {
+        clearInterval(connectionCheckInterval);
+      }
+      if (connectionUnsubscribe) {
+        connectionUnsubscribe();
+      }
+    };
+  }, [refreshChats]);
   
   // Get consultant info from route params
   const consultantFromParams = route?.params?.consultant;
@@ -173,13 +358,28 @@ const ChatScreen = ({ navigation, route }: any) => {
     
     try {
       // Send message
-      await sendMessage({
+      // Note: seenBy should be empty initially - it will be populated when the receiver opens the chat
+      const messageId = await sendMessage({
         chatId,
         senderId: userId,
         text: messageText,
         type: 'text',
-        seenBy: [userId],
+        seenBy: [],
       });
+      
+      // If message was queued (offline), refresh queued messages display
+      // Only check if messageId exists and is a string
+      if (messageId && typeof messageId === 'string' && OfflineQueue.isQueuedMessage(messageId)) {
+        const queue = await OfflineQueue.getQueuedMessages();
+        const chatQueuedMessages = queue
+          .filter(q => q.chatId === chatId)
+          .map(q => ({
+            id: q.id,
+            ...q.message,
+            createdAt: { toDate: () => new Date(q.timestamp) } as any,
+          }));
+        setQueuedMessages(chatQueuedMessages);
+      }
       
       // Refresh chat list to update unread counts
       setTimeout(() => {
@@ -405,10 +605,14 @@ const ChatScreen = ({ navigation, route }: any) => {
           ref={flatListRef}
           style={chatStyles.messagesContainer}
           contentContainerStyle={chatStyles.messagesContent}
-          data={messages}
-          keyExtractor={(item) => item.id || `msg-${Math.random()}`}
+          data={allMessages}
+          keyExtractor={(item) => {
+            // Include seenBy in key to force re-render when seen status changes
+            const seenByKey = item.seenBy ? JSON.stringify(item.seenBy.sort()) : '';
+            return `${item.id || `msg-${Math.random()}`}-${seenByKey}`;
+          }}
           onContentSizeChange={() => {
-            if (messages.length > 0) {
+            if (allMessages.length > 0) {
               flatListRef.current?.scrollToEnd({ animated: true });
             }
           }}
@@ -434,6 +638,37 @@ const ChatScreen = ({ navigation, route }: any) => {
               }
             };
             
+                      // Determine message status for user's own messages
+            const getMessageStatus = () => {
+              if (!isUser || !otherUserId) return null;
+              
+              // Check if message is pending (queued for offline sending)
+              const isPending = OfflineQueue.isQueuedMessage(messageId);
+              if (isPending) {
+                return 'pending';
+              }
+              
+              const seenBy = item.seenBy || [];
+              const isSeen = seenBy.includes(otherUserId);
+              
+              if (__DEV__ && isUser) {
+                console.log('📊 [MessageStatus]', {
+                  messageId,
+                  senderId: item.senderId,
+                  userId,
+                  otherUserId,
+                  seenBy,
+                  isSeen,
+                  status: isSeen ? 'seen' : 'sent'
+                });
+              }
+              
+              // Message is seen if the other user is in seenBy array
+              return isSeen ? 'seen' : 'sent';
+            };
+            
+            const messageStatus = getMessageStatus();
+            
             return (
               <TouchableOpacity
                 activeOpacity={0.7}
@@ -455,12 +690,40 @@ const ChatScreen = ({ navigation, route }: any) => {
                       {item.text}
                     </Text>
                     {item.createdAt && (
-                      <Text style={[
-                        chatStyles.timestampText,
-                        isUser ? chatStyles.timestampRight : chatStyles.timestampLeft
+                      <View style={[
+                        chatStyles.timestampContainer,
+                        isUser ? chatStyles.timestampContainerRight : chatStyles.timestampContainerLeft
                       ]}>
-                        {formatTime(item.createdAt)}
-                      </Text>
+                        <Text style={[
+                          chatStyles.timestampText,
+                          isUser ? chatStyles.timestampRight : chatStyles.timestampLeft
+                        ]}>
+                          {formatTime(item.createdAt)}
+                        </Text>
+                        {isUser && messageStatus && (
+                          <View style={chatStyles.statusIndicator}>
+                            {messageStatus === 'pending' ? (
+                              <Clock 
+                                size={13} 
+                                color={COLORS.orange || '#FF9500'} 
+                                strokeWidth={2.5}
+                              />
+                            ) : messageStatus === 'seen' ? (
+                              <CheckCheck 
+                                size={16} 
+                                color={COLORS.blue || '#007AFF'} 
+                                strokeWidth={2}
+                              />
+                            ) : (
+                              <Check 
+                                size={13} 
+                                color={COLORS.gray || '#8E8E93'} 
+                                strokeWidth={2.5}
+                              />
+                            )}
+                          </View>
+                        )}
+                      </View>
                     )}
                   </>
                 )}
@@ -473,12 +736,40 @@ const ChatScreen = ({ navigation, route }: any) => {
                       [{item.type}]
                     </Text>
                     {item.createdAt && (
-                      <Text style={[
-                        chatStyles.timestampText,
-                        isUser ? chatStyles.timestampRight : chatStyles.timestampLeft
+                      <View style={[
+                        chatStyles.timestampContainer,
+                        isUser ? chatStyles.timestampContainerRight : chatStyles.timestampContainerLeft
                       ]}>
-                        {formatTime(item.createdAt)}
-                      </Text>
+                        <Text style={[
+                          chatStyles.timestampText,
+                          isUser ? chatStyles.timestampRight : chatStyles.timestampLeft
+                        ]}>
+                          {formatTime(item.createdAt)}
+                        </Text>
+                        {isUser && messageStatus && (
+                          <View style={chatStyles.statusIndicator}>
+                            {messageStatus === 'pending' ? (
+                              <Clock 
+                                size={13} 
+                                color={COLORS.orange || '#FF9500'} 
+                                strokeWidth={2.5}
+                              />
+                            ) : messageStatus === 'seen' ? (
+                              <CheckCheck 
+                                size={16} 
+                                color={COLORS.blue || '#007AFF'} 
+                                strokeWidth={2}
+                              />
+                            ) : (
+                              <Check 
+                                size={13} 
+                                color={COLORS.gray || '#8E8E93'} 
+                                strokeWidth={2.5}
+                              />
+                            )}
+                          </View>
+                        )}
+                      </View>
                     )}
                   </>
                 )}
@@ -486,6 +777,20 @@ const ChatScreen = ({ navigation, route }: any) => {
             );
           }}
         />
+
+        {/* Typing Indicator */}
+        {isOtherUserTyping && !isSelectionMode && (
+          <View style={chatStyles.typingIndicatorContainer}>
+            <View style={chatStyles.typingIndicatorBubble}>
+              <View style={chatStyles.typingIndicatorDot} />
+              <View style={[chatStyles.typingIndicatorDot, { marginLeft: 4 }]} />
+              <View style={[chatStyles.typingIndicatorDot, { marginLeft: 4 }]} />
+            </View>
+            <Text style={chatStyles.typingIndicatorText}>
+              {otherUserName || 'Someone'} is typing...
+            </Text>
+          </View>
+        )}
 
         {/* Message Input - Hidden in selection mode */}
         {!isSelectionMode && (

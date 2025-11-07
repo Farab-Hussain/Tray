@@ -3,13 +3,10 @@ import { COLORS } from '../core/colors';
 
 export const authStyles = StyleSheet.create({
     container: {
+        flex: 1,
         width: '100%',
-        height: '100%',
-        display: 'flex',
-        justifyContent: 'flex-start',
-        alignItems: 'flex-start',
         backgroundColor: COLORS.white,
-        paddingTop: 30,
+        paddingHorizontal: 20,
     },
     loginContainer: {
         flex: 1,
@@ -24,7 +21,7 @@ export const authStyles = StyleSheet.create({
     formContainer: {
         width: '100%',
         height: 650,
-        paddingHorizontal: 20,
+        // paddingHorizontal: 20,
         paddingTop: 10,
         paddingBottom: 20,
     },
@@ -33,9 +30,9 @@ export const authStyles = StyleSheet.create({
         width: '100%',
     },
     scrollContentContainer: {
-        paddingHorizontal: 20,
-        paddingTop: 10,
-        paddingBottom: 20,
+        // paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 40,
         flexGrow: 1,
     },
     bottomContainer: {
@@ -55,7 +52,6 @@ export const authStyles = StyleSheet.create({
     },
     bottomSection: {
         width: '100%',
-        paddingHorizontal: 20,
         paddingTop: 20,
         paddingBottom: 20,
         backgroundColor: COLORS.white,
@@ -78,6 +74,8 @@ export const authStyles = StyleSheet.create({
     input: {
         flex: 1,
         height: 56,
+        color: COLORS.black,
+        fontSize: 16,
     },
     forgotPassword: {
         alignSelf: 'flex-end',
@@ -105,11 +103,11 @@ export const authStyles = StyleSheet.create({
     dividerWrapper: {
         flexDirection: "row",
         alignItems: "center",
-        paddingEnd: 10,
         marginBottom: 10,
         width: '100%',
         height: 40,
         backgroundColor: COLORS.white,
+        // paddingHorizontal: 20,
     },
     divider: {
         flex: 1,
@@ -117,28 +115,30 @@ export const authStyles = StyleSheet.create({
         backgroundColor: COLORS.blackTransparent,
     },
     dividerText: {
-        marginHorizontal: 8,
+        marginHorizontal: 12,
         color: COLORS.blackTransparent,
+        fontSize: 14,
     },
     socialRow: {
         flexDirection: "row",
         justifyContent: "center",
         marginBottom: 24,
         width: '100%',
-        gap: 15,
         alignItems: 'center',
+        gap: 12,
     },
     socialButton: {
-        flex: 1,
-        maxWidth: 110,
+        width: 115,
         height: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     iconContainer: {
-        width: '100%',
-        height: '100%',
+        width: 100,
+        height: 60,
         borderWidth: 1,
-        borderColor: COLORS.blackTransparent,
-        borderRadius: 10,
+        borderColor: COLORS.lightGray,
+        borderRadius: 12,
         backgroundColor: COLORS.white,
         justifyContent: 'center',
         alignItems: 'center',
@@ -147,12 +147,12 @@ export const authStyles = StyleSheet.create({
     icon: {
         width: 110,
         height: 60,
-        borderWidth: 1,
-        borderColor: COLORS.blackTransparent,
+        // borderWidth: 1,
+        // borderColor: COLORS.blackTransparent,
         borderStyle: 'solid',
         resizeMode: 'contain',
         borderRadius: 10,
-        padding: 10,
+        padding: 20,
     },
     socialIcon: {
         width: 36,

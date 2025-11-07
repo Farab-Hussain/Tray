@@ -49,9 +49,37 @@ const ConsultantAvailability = ({ navigation }: any) => {
     return slot ? slot.timeSlots : [];
   };
 
+  // Helper function to check if a date is in the past
+  const isPastDate = (dateString: string): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    const selectedDate = new Date(dateString);
+    selectedDate.setHours(0, 0, 0, 0);
+    return selectedDate < today;
+  };
+
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDateString = (): string => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Handle multiple date selection
   const handleDatePress = (day: any) => {
     const dateString = day.dateString;
+    
+    // Prevent selection of past dates
+    if (isPastDate(dateString)) {
+      Alert.alert(
+        'Invalid Date',
+        'You cannot select past dates. Please select today or a future date.',
+      );
+      return;
+    }
+
     setSelectedDates(prev => {
       if (prev.includes(dateString)) {
         // Remove date if already selected
@@ -182,12 +210,29 @@ const ConsultantAvailability = ({ navigation }: any) => {
       current += 30; // Add 30 minutes
     }
 
+    // Filter out past dates before processing
+    const validDates = selectedDates.filter(dateString => {
+      if (isPastDate(dateString)) {
+        console.warn(`⚠️ Skipping past date: ${dateString}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validDates.length === 0) {
+      Alert.alert(
+        'Error',
+        'All selected dates are in the past. Please select today or future dates.',
+      );
+      return;
+    }
+
     // Check for overlapping slots
     let totalSlotsAdded = 0;
     let overlappingDates: string[] = [];
     let overlappingInfo: any = null;
 
-    selectedDates.forEach(dateString => {
+    validDates.forEach(dateString => {
       const existingSlot = availabilitySlots.find(s => s.date === dateString);
       if (existingSlot && existingSlot.timeSlots.length > 0) {
         // Check for overlaps
@@ -231,8 +276,10 @@ const ConsultantAvailability = ({ navigation }: any) => {
     } else if (totalSlotsAdded > 0) {
       Alert.alert(
         'Success',
-        `Added ${totalSlotsAdded} time slot(s) for ${selectedDates.length} date(s)`,
+        `Added ${totalSlotsAdded} time slot(s) for ${validDates.length} date(s)`,
       );
+      // Clear selected dates after successful addition
+      setSelectedDates([]);
     }
   };
 
@@ -299,7 +346,20 @@ const ConsultantAvailability = ({ navigation }: any) => {
             '✅ [ConsultantAvailability] Availability slots loaded:',
             slots.length,
           );
-          setAvailabilitySlots(slots);
+          // Filter out past dates from loaded slots
+          const validSlots = slots.filter((slot: AvailabilitySlot) => {
+            if (isPastDate(slot.date)) {
+              console.warn(`⚠️ Filtering out past date slot: ${slot.date}`);
+              return false;
+            }
+            return true;
+          });
+          setAvailabilitySlots(validSlots);
+          if (validSlots.length < slots.length) {
+            console.log(
+              `ℹ️ [ConsultantAvailability] Filtered out ${slots.length - validSlots.length} past date slot(s)`,
+            );
+          }
         }
       } catch (profileError) {
         console.log(
@@ -380,6 +440,7 @@ const ConsultantAvailability = ({ navigation }: any) => {
         <View style={cleanStyles.calendarCard}>
           <Calendar
             onDayPress={handleDatePress}
+            minDate={getTodayDateString()}
             markedDates={{
               // Mark selected dates with light green background (consistent for all selected dates)
               ...Object.fromEntries(

@@ -403,6 +403,23 @@ export const getConsultantApplication = async (req: Request, res: Response) => {
   }
 };
 
+// Get MY applications (for authenticated consultant)
+export const getMyConsultantApplications = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Directly get applications for the authenticated user
+    const applications = await consultantFlowService.getApplicationsByConsultant(user.uid);
+    res.status(200).json({ applications });
+  } catch (error: any) {
+    console.error('Error getting my applications:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const getAllConsultantApplications = async (req: Request, res: Response) => {
   try {
     const { status, consultantId } = req.query;

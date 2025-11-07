@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import AppButton from '../../components/ui/AppButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
@@ -30,13 +30,18 @@ const ForgotPassword = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={authStyles.backButton}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ChevronLeft color="#000" style={authStyles.back} />
-      </TouchableOpacity>
-      <View style={authStyles.formContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={authStyles.backButton}
+        >
+          <ChevronLeft color="#000" style={authStyles.back} />
+        </TouchableOpacity>
+        <View style={authStyles.formContainer}>
         <Text style={authStyles.authHeading}>Forgot Password?</Text>
         <Text style={authStyles.authPara}>
           Don’t worry! It happens. Please enter the email associated with your
@@ -74,6 +79,7 @@ const ForgotPassword = ({ navigation }: any) => {
           </Text>
         </Text>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
