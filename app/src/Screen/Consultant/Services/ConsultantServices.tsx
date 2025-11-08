@@ -68,6 +68,37 @@ const ConsultantServices = ({ navigation }: any) => {
       console.log('📊 Services response:', JSON.stringify(servicesResponse, null, 2));
       
       const servicesData = servicesResponse?.services || servicesResponse || [];
+
+      const enrichedServices = await Promise.all(
+        servicesData.map(async (service: any) => {
+          if (
+            (!service.imageUrl || service.imageUrl.trim() === '') &&
+            service.basedOnDefaultService
+          ) {
+            try {
+              const defaultServiceResponse = await ConsultantService.getServiceById(
+                service.basedOnDefaultService,
+              );
+              const defaultService = defaultServiceResponse?.service || defaultServiceResponse;
+              if (defaultService?.imageUrl) {
+                console.log(
+                  `🖼️ [ConsultantServices] Using fallback image for ${service.title} from default service ${service.basedOnDefaultService}`,
+                );
+                return {
+                  ...service,
+                  imageUrl: defaultService.imageUrl,
+                };
+              }
+            } catch (fallbackError) {
+              console.warn(
+                `⚠️ [ConsultantServices] Unable to load fallback image for ${service.title}:`,
+                fallbackError,
+              );
+            }
+          }
+          return service;
+        }),
+      );
       
       // Debug: Log service data to see imageUrl values
       console.log('🔍 [ConsultantServices] Services data:', JSON.stringify(servicesData, null, 2));
@@ -91,10 +122,10 @@ const ConsultantServices = ({ navigation }: any) => {
         });
       });
 
-      setServices(servicesData);
-      setFilteredServices(servicesData);
+      setServices(enrichedServices);
+      setFilteredServices(enrichedServices);
 
-      console.log('✅ Loaded', servicesData.length, 'services for consultant:', uid);
+      console.log('✅ Loaded', enrichedServices.length, 'services for consultant:', uid);
     } catch (err: any) {
       console.error('❌ Error fetching consultant services:', err);
       console.error('❌ Error response:', err.response?.data);
@@ -141,7 +172,11 @@ const ConsultantServices = ({ navigation }: any) => {
 
   const handleSetAvailability = (service: Service) => {
     console.log('Set availability for service:', service.title, service.id);
-    navigation.navigate('ConsultantAvailability');
+    navigation.navigate('ConsultantAvailability', {
+      serviceId: service.id,
+      serviceTitle: service.title,
+      serviceDuration: service.duration,
+    });
   };
 
   if (isLoading) {

@@ -20,10 +20,13 @@ export const authStyles = StyleSheet.create({
     },
     formContainer: {
         width: '100%',
-        height: 650,
+        flexGrow: 1,
         // paddingHorizontal: 20,
         paddingTop: 10,
         paddingBottom: 20,
+    },
+    screenFlex: {
+        flex: 1,
     },
     scrollContainer: {
         flex: 1,
@@ -35,20 +38,18 @@ export const authStyles = StyleSheet.create({
         paddingBottom: 40,
         flexGrow: 1,
     },
+    keyboardContent: {
+        flexGrow: 1,
+    },
     bottomContainer: {
         width: '100%',
-        height: 240,
         padding: 20,
         display: 'flex',
-        // justifyContent: 'center',
         alignItems: 'center',
         gap: 10,
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: COLORS.white,
+        marginTop: 'auto',
     },
     bottomSection: {
         width: '100%',

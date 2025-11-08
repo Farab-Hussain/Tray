@@ -32,12 +32,6 @@ export const ConsultantProfileListData = [
         route: "ConsultantAvailability",
     },
     {
-        id: 51,
-        icon: Clock,
-        text: "My Slots",
-        route: "ConsultantSlots",
-    },
-    {
         id: 6,
         icon: CreditCard,
         text: "Earnings",

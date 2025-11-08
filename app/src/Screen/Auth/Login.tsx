@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View, Image, Alert, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View, Image, Alert, ActivityIndicator, Platform } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import AppButton from '../../components/ui/AppButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
@@ -501,18 +502,17 @@ const Login = ({ navigation }: LoginProps) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      <KeyboardAwareScrollView
+        style={authStyles.scrollContainer}
+        contentContainerStyle={authStyles.keyboardContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid
+        extraScrollHeight={24}
+        extraHeight={Platform.OS === 'ios' ? 40 : 24}
       >
         <View style={authStyles.loginContainer}>
-          <ScrollView
-            style={authStyles.scrollContainer}
-            contentContainerStyle={authStyles.scrollContentContainer}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={authStyles.scrollContentContainer}>
           <Text style={authStyles.authHeading}>Login</Text>
           
           {/* Email Input */}
@@ -575,7 +575,7 @@ const Login = ({ navigation }: LoginProps) => {
           {loading && (
             <ActivityIndicator size="small" color="#FFC107" style={{ marginTop: 10 }} />
           )}
-        </ScrollView>
+        </View>
 
         {/* Bottom Section - Fixed at bottom */}
         <View style={authStyles.bottomSection}>
@@ -654,7 +654,7 @@ const Login = ({ navigation }: LoginProps) => {
           </Text>
         </View>
       </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };

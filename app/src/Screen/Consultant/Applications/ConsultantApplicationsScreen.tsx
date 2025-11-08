@@ -25,13 +25,24 @@ import {
   ConsultantApplication,
 } from '../../../services/consultantFlow.service';
 import ImageUpload from '../../../components/ui/ImageUpload';
+import { api } from '../../../lib/fetcher';
+import { ConsultantService } from '../../../services/consultant.service';
+
+interface PlatformServiceSummary {
+  id: string;
+  title: string;
+}
+
+type ConsultantApplicationWithTitle = ConsultantApplication & {
+  existingServiceTitle?: string;
+};
 
 export default function ConsultantApplicationsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user, refreshConsultantStatus } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [applications, setApplications] = useState<ConsultantApplication[]>([]);
+  const [applications, setApplications] = useState<ConsultantApplicationWithTitle[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,6 +57,45 @@ export default function ConsultantApplicationsScreen() {
   // Validation state
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
+  const fetchPlatformServices = useCallback(async (): Promise<PlatformServiceSummary[]> => {
+    try {
+      const servicesResponse = await api.get('/consultants/services/available');
+      let services: PlatformServiceSummary[] = servicesResponse.data?.services || [];
+
+      if (services.length > 0) {
+        return services;
+      }
+
+      // Fallback to the current top consultant's services
+      const topResponse = await ConsultantService.getTopConsultants();
+      const topConsultants: Array<{ uid: string; name?: string; rating?: number }> =
+        topResponse?.topConsultants || [];
+
+      if (!topConsultants.length) {
+        return [];
+      }
+
+      const selectedTopConsultant = topConsultants.reduce(
+        (best, current) => {
+          const bestRating = best?.rating ?? 0;
+          const currentRating = current?.rating ?? 0;
+          return currentRating > bestRating ? current : best;
+        },
+        topConsultants[0],
+      );
+
+      const consultantServicesResponse = await ConsultantService.getConsultantServices(
+        selectedTopConsultant?.uid,
+      );
+
+      services = consultantServicesResponse?.services || [];
+      return services;
+    } catch (error) {
+      console.error('Error fetching platform services:', error);
+      return [];
+    }
+  }, []);
+
   const loadApplications = useCallback(async () => {
     if (!user?.uid) return;
     
@@ -53,14 +103,28 @@ export default function ConsultantApplicationsScreen() {
     try {
       // Load the applications
       const apps = await getConsultantApplications();
-      setApplications(apps);
+      const services = await fetchPlatformServices();
+      const serviceMap = new Map<string, string>();
+      services.forEach(service => {
+        if (service?.id && service?.title) {
+          serviceMap.set(service.id, service.title);
+        }
+      });
+
+      const enrichedApps: ConsultantApplicationWithTitle[] = apps.map(app => ({
+        ...app,
+        existingServiceTitle:
+          app.type === 'existing' && app.serviceId ? serviceMap.get(app.serviceId) : undefined,
+      }));
+
+      setApplications(enrichedApps);
     } catch (error) {
       console.error('Error loading applications:', error);
       Alert.alert('Error', 'Failed to load applications');
     } finally {
       setIsLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, fetchPlatformServices]);
 
   useEffect(() => {
     if (user) {
@@ -315,7 +379,9 @@ export default function ConsultantApplicationsScreen() {
                 </View>
 
                 <Text style={styles.cardTitle}>
-                  {app.type === 'new' ? app.customService?.title : 'Service Application'}
+                  {app.type === 'new'
+                    ? app.customService?.title
+                    : app.existingServiceTitle || 'Service Application'}
                 </Text>
                 
                 {app.type === 'new' && app.customService && (

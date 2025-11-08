@@ -24,6 +24,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../lib/fetcher';
 import { COLORS } from '../../../constants/core/colors';
 import { showSuccess, showToast, handleApiError } from '../../../utils/toast';
+import { ConsultantService } from '../../../services/consultant.service';
 
 interface PlatformService {
   id: string;
@@ -53,6 +54,13 @@ interface Application {
 interface ServiceWithApplication extends PlatformService {
   applicationStatus?: 'pending' | 'approved' | 'rejected';
   applicationId?: string;
+}
+
+interface TopConsultant {
+  uid: string;
+  name?: string;
+  rating?: number;
+  [key: string]: any;
 }
 
 export default function BrowseServicesScreen() {
@@ -86,7 +94,7 @@ export default function BrowseServicesScreen() {
         applicationsResponse.data.applications || [];
 
       // Map services with their application status
-      const servicesWithStatus: ServiceWithApplication[] =
+      let servicesWithStatus: ServiceWithApplication[] =
         availableServices.map(service => {
           // Find if consultant has applied for this service - ONLY from their own applications
           const application = myApplications.find(
@@ -118,6 +126,67 @@ export default function BrowseServicesScreen() {
 
           return result;
         });
+
+      if (servicesWithStatus.length === 0) {
+        console.log(
+          'No platform services available. Loading top consultant services as fallback.',
+        );
+        try {
+          const topResponse = await ConsultantService.getTopConsultants();
+          const topConsultants: TopConsultant[] =
+            topResponse?.topConsultants || [];
+
+          if (topConsultants.length > 0) {
+            const selectedTopConsultant = topConsultants.reduce(
+              (best, current) => {
+                const bestRating = best?.rating ?? 0;
+                const currentRating = current?.rating ?? 0;
+                return currentRating > bestRating ? current : best;
+              },
+              topConsultants[0],
+            );
+
+            console.log(
+              'Using top consultant services fallback:',
+              selectedTopConsultant?.name,
+            );
+
+            const consultantServicesResponse =
+              await ConsultantService.getConsultantServices(
+                selectedTopConsultant?.uid,
+              );
+            const consultantServices: PlatformService[] =
+              consultantServicesResponse?.services || [];
+
+            servicesWithStatus = consultantServices.map(service => {
+              const cleanService = { ...service };
+              delete (cleanService as any).applicationStatus;
+
+              const fallbackApplication = myApplications.find(
+                app =>
+                  app.type === 'existing' &&
+                  app.serviceId === service.id &&
+                  app.consultantId === user?.uid,
+              );
+
+              return {
+                ...(cleanService as PlatformService),
+                applicationStatus: fallbackApplication?.status || undefined,
+                applicationId: fallbackApplication?.id,
+                isPlatformService: true,
+                isDefault: service.isDefault ?? false,
+              } as ServiceWithApplication;
+            });
+          } else {
+            console.log('Top consultants response empty. No fallback services.');
+          }
+        } catch (fallbackError) {
+          console.error(
+            'Failed to load top consultant services fallback:',
+            fallbackError,
+          );
+        }
+      }
 
       console.log('Services with application status:', servicesWithStatus);
       console.log('My applications:', myApplications);
@@ -200,57 +269,55 @@ export default function BrowseServicesScreen() {
     });
 
     // Determine button style and content based on status
-    let buttonStyle = styles.applyButton;
-    let buttonContent = null;
-    let isDisabled = isApplying || hasApplication;
-
     if (isApplying) {
-      buttonContent = <ActivityIndicator color="#fff" size="small" />;
-    } else if (
-      service.applicationStatus === 'approved' &&
-      service.applicationId
-    ) {
-      // Only show as approved if there's actually an application ID
-      buttonStyle = styles.approvedButton;
-      buttonContent = (
-        <>
-          <Check size={18} color="#fff" />
-          <Text style={styles.approvedButtonText}>Approved ✓</Text>
-        </>
+      return (
+        <TouchableOpacity style={styles.applyButton} disabled>
+          <View style={styles.buttonContent}>
+            <ActivityIndicator color="#fff" size="small" />
+            <Text style={styles.applyButtonText}>Applying...</Text>
+          </View>
+        </TouchableOpacity>
       );
+    }
+
+    let buttonStyle = styles.applyButton;
+    let textStyle = styles.applyButtonText;
+    let icon: React.ReactNode = (
+      <CheckCircle size={18} color="#fff" />
+    );
+    let label = 'Apply to Offer';
+    let disabled = hasApplication;
+
+    if (service.applicationStatus === 'approved' && service.applicationId) {
+      buttonStyle = styles.approvedButton;
+      textStyle = styles.approvedButtonText;
+      icon = <Check size={18} color="#fff" />;
+      label = 'Approved ✓';
+      disabled = true;
     } else if (service.applicationStatus === 'pending') {
       buttonStyle = styles.pendingButton;
-      buttonContent = (
-        <>
-          <Clock size={18} color="#F59E0B" />
-          <Text style={styles.pendingButtonText}>Applied (Pending Review)</Text>
-        </>
-      );
+      textStyle = styles.pendingButtonText;
+      icon = <Clock size={18} color="#F59E0B" />;
+      label = 'Applied (Pending Review)';
+      disabled = true;
     } else if (service.applicationStatus === 'rejected') {
       buttonStyle = styles.rejectedButton;
-      buttonContent = (
-        <>
-          <XCircle size={18} color="#EF4444" />
-          <Text style={styles.rejectedButtonText}>Rejected</Text>
-        </>
-      );
-    } else {
-      // No application yet
-      buttonContent = (
-        <>
-          <CheckCircle size={18} color="#fff" />
-          <Text style={styles.applyButtonText}>Apply to Offer</Text>
-        </>
-      );
+      textStyle = styles.rejectedButtonText;
+      icon = <XCircle size={18} color="#EF4444" />;
+      label = 'Rejected';
+      disabled = true;
     }
 
     return (
       <TouchableOpacity
-        style={buttonStyle}
+        style={[buttonStyle]}
         onPress={() => handleApplyForService(service)}
-        disabled={isDisabled}
+        disabled={disabled}
       >
-        {buttonContent}
+        <View style={styles.buttonContent}>
+          {icon}
+          <Text style={textStyle}>{label}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -298,6 +365,8 @@ export default function BrowseServicesScreen() {
             create your own custom service. Pull down to refresh.
           </Text>
         </View>
+
+    
 
         {/* Services Count */}
         <Text style={styles.servicesCount}>
@@ -616,6 +685,12 @@ const styles = StyleSheet.create({
     color: '#991B1B',
     fontSize: 16,
     fontWeight: '600',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   createButton: {
     flexDirection: 'row',

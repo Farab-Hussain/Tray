@@ -42,13 +42,8 @@ function VerifyEmailContent() {
               await reload(user);
             }
             
-            setStatus('success');
-            setMessage('Email verified successfully! You can now log in to your account.');
-            
-            // Redirect to login after 3 seconds
-            setTimeout(() => {
-              router.push('/login');
-            }, 3000);
+                  setStatus('success');
+                  setMessage('Email verified successfully! You can now return to the Tray mobile app and sign in.');
             return;
           } catch (error: unknown) {
             console.error('Verification error:', error);
@@ -82,17 +77,8 @@ function VerifyEmailContent() {
         // In this case, we should show success since Firebase already processed it
         console.log('No oobCode/mode in URL - Firebase action handler already processed verification');
         setStatus('success');
-        setMessage('Email verification link has been processed. Your email has been verified. Please log in to your account.');
-        
-        // Redirect to login after 3 seconds
-        const timeoutId = setTimeout(() => {
-          router.push('/login');
-        }, 3000);
-        
-        // Cleanup timeout if component unmounts
-        return () => {
-          clearTimeout(timeoutId);
-        };
+              setMessage('Email verification link has been processed. You can now return to the Tray mobile app and sign in.');
+              return;
       } catch (error: unknown) {
         console.error('Verification error:', error);
         setStatus('error');
@@ -118,8 +104,8 @@ function VerifyEmailContent() {
           <>
             <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h1>
-            <p className="text-gray-600 mb-4">{message}</p>
-            <p className="text-sm text-gray-500">Redirecting to login page...</p>
+                  <p className="text-gray-600 mb-4">{message}</p>
+                  <p className="text-sm text-gray-500">You can safely close this page.</p>
           </>
         )}
 

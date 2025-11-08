@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { consultantFlowAPI } from '@/utils/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { consultantFlowAPI, api } from '@/utils/api';
 import { ConsultantApplication } from '@/types';
 import ApprovalModal from '@/components/admin/ApprovalModal';
 import MobileHeader from '@/components/shared/MobileHeader';
@@ -10,20 +10,28 @@ import Image from 'next/image';
 
 type FilterStatus = 'all' | 'pending' | 'approved' | 'rejected';
 
+type FirestoreTimestamp =
+  | { _seconds: number; _nanoseconds?: number }
+  | { seconds: number; nanoseconds?: number }
+  | string
+  | number;
+
+type AdminApplication = ConsultantApplication & {
+  existingServiceTitle?: string;
+  existingServiceDescription?: string;
+  submittedDate?: Date | null;
+};
+
 const AdminServiceApplicationsPage = () => {
-  const [applications, setApplications] = useState<ConsultantApplication[]>([]);
-  const [filteredApplications, setFilteredApplications] = useState<ConsultantApplication[]>([]);
+  const [applications, setApplications] = useState<AdminApplication[]>([]);
+  const [filteredApplications, setFilteredApplications] = useState<AdminApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('pending');
-  const [selectedApplication, setSelectedApplication] = useState<ConsultantApplication | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<AdminApplication | null>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [modalAction, setModalAction] = useState<'approve' | 'reject'>('approve');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadApplications();
-  }, []);
 
   useEffect(() => {
     if (filterStatus === 'all') {
@@ -33,26 +41,120 @@ const AdminServiceApplicationsPage = () => {
     }
   }, [filterStatus, applications]);
 
-  const loadApplications = async () => {
+  const parseTimestamp = (timestamp: FirestoreTimestamp | null | undefined): Date | null => {
+    if (!timestamp) return null;
+
+    if (typeof timestamp === 'number') {
+      return new Date(timestamp);
+    }
+
+    if (typeof timestamp === 'string') {
+      const parsed = Date.parse(timestamp);
+      return Number.isNaN(parsed) ? null : new Date(parsed);
+    }
+
+    if ('_seconds' in timestamp) {
+      const millis = timestamp._seconds * 1000 + Math.floor((timestamp._nanoseconds || 0) / 1_000_000);
+      return new Date(millis);
+    }
+
+    if ('seconds' in timestamp) {
+      const millis = timestamp.seconds * 1000 + Math.floor((timestamp.nanoseconds || 0) / 1_000_000);
+      return new Date(millis);
+    }
+
+    return null;
+  };
+
+  const fetchPlatformServices = useCallback(async () => {
+    try {
+      const servicesResponse = await api.get<{
+        services?: Array<{ id: string; title?: string; description?: string }>;
+      }>('/consultants/services/available');
+      let services: Array<{ id: string; title?: string; description?: string }> =
+        servicesResponse.data?.services ?? [];
+
+      if (services.length > 0) {
+        return services;
+      }
+
+      const topConsultantsResponse = await api.get<{
+        topConsultants?: Array<{ uid: string; rating?: number }>;
+      }>('/consultants/top');
+      const topConsultants: Array<{ uid: string; rating?: number }> =
+        topConsultantsResponse.data?.topConsultants ?? [];
+
+      if (!topConsultants.length) {
+        return [];
+      }
+
+      const selectedTopConsultant = topConsultants.reduce(
+        (best, current) => {
+          const bestRating = best?.rating ?? 0;
+          const currentRating = current?.rating ?? 0;
+          return currentRating > bestRating ? current : best;
+        },
+        topConsultants[0],
+      );
+
+      const consultantServicesResponse = await api.get<{
+        services?: Array<{ id: string; title?: string; description?: string }>;
+      }>(`/consultants/${selectedTopConsultant?.uid}/services`);
+
+      services = consultantServicesResponse.data?.services ?? [];
+      return services;
+    } catch (error) {
+      console.error('Error fetching platform services for admin list:', error);
+      return [];
+    }
+  }, []);
+
+  const loadApplications = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await consultantFlowAPI.getAllApplications();
-      setApplications((response.data as { applications: ConsultantApplication[] }).applications);
+      const rawApplications = (response.data as { applications: ConsultantApplication[] })
+        .applications;
+
+      const services = await fetchPlatformServices();
+      const serviceMap = new Map<string, { title?: string; description?: string }>();
+      services.forEach(service => {
+        if (service.id) {
+          serviceMap.set(service.id, { title: service.title, description: service.description });
+        }
+      });
+
+      const enrichedApplications: AdminApplication[] = rawApplications.map(app => ({
+        ...app,
+        existingServiceTitle:
+          app.type === 'existing' && app.serviceId ? serviceMap.get(app.serviceId)?.title : undefined,
+        existingServiceDescription:
+          app.type === 'existing' && app.serviceId
+            ? serviceMap.get(app.serviceId)?.description
+            : undefined,
+        submittedDate: parseTimestamp(app.submittedAt as FirestoreTimestamp),
+      }));
+
+      setApplications(enrichedApplications);
     } catch (error: unknown) {
       console.error('Error loading applications:', error);
       setErrorMessage('Failed to load applications. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchPlatformServices]);
 
-  const handleApprove = (application: ConsultantApplication) => {
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
+
+  const handleApprove = (application: AdminApplication) => {
     setSelectedApplication(application);
     setModalAction('approve');
     setShowApprovalModal(true);
   };
 
-  const handleReject = (application: ConsultantApplication) => {
+  const handleReject = (application: AdminApplication) => {
     setSelectedApplication(application);
     setModalAction('reject');
     setShowApprovalModal(true);
@@ -84,18 +186,18 @@ const AdminServiceApplicationsPage = () => {
     }
   };
 
-  const getServiceTitle = (app: ConsultantApplication) => {
+  const getServiceTitle = (app: AdminApplication) => {
     if (app.type === 'new' && app.customService) {
       return app.customService.title;
     }
-    return app.serviceId || 'N/A';
+    return app.existingServiceTitle || app.serviceId || 'Existing platform service';
   };
 
-  const getServiceDescription = (app: ConsultantApplication) => {
+  const getServiceDescription = (app: AdminApplication) => {
     if (app.type === 'new' && app.customService) {
       return app.customService.description;
     }
-    return 'Existing platform service';
+    return app.existingServiceDescription || 'Existing platform service';
   };
 
   const getStatusBadge = (status: string) => {
@@ -195,7 +297,7 @@ const AdminServiceApplicationsPage = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredApplications.map((application) => (
+          {filteredApplications.map(application => (
             <div
               key={application.id}
               className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
@@ -207,8 +309,8 @@ const AdminServiceApplicationsPage = () => {
                   </h3>
                   <div className="flex flex-col items-end gap-2">
                     <span className="text-xs text-gray-500 whitespace-nowrap">
-                      {application.submittedAt 
-                        ? new Date(application.submittedAt).toLocaleDateString('en-US', {
+                      {application.submittedDate
+                        ? application.submittedDate.toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'short',
                             day: 'numeric'

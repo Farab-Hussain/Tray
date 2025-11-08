@@ -20,11 +20,12 @@ import { callingStyles } from '../../../constants/styles/callingStyles';
 import { createPeer, applyAnswer, addRemoteIce } from '../../../webrtc/peer';
 import { addIceCandidate, answerCall, createCall, endCall, listenCall, listenCandidates, getCallOnce, getExistingCandidates, type CallDocument } from '../../../services/call.service';
 import { UserService } from '../../../services/user.service';
+import * as NotificationStorage from '../../../services/notification-storage.service';
 import { useAuth } from '../../../contexts/AuthContext';
 
 const CallingScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   
   // State for mute and video
   const [isMuted, setIsMuted] = useState(false);
@@ -285,6 +286,43 @@ const CallingScreen = ({ navigation, route }: any) => {
         
         console.log('📞 Creating call document...');
         await createCall(callId, { callerId, receiverId, type, offer: localDescription });
+        
+        // Create in-app notification for receiver
+        try {
+          let callerName = user?.name || user?.email?.split('@')[0] || 'Someone';
+          let callerAvatar = user?.profileImage || '';
+
+          if ((!callerName || callerName === 'Someone') || !callerAvatar) {
+            try {
+              const callerData = await UserService.getUserById(callerId);
+              if (callerData) {
+                callerName = callerData.name || callerData.displayName || callerName;
+                callerAvatar = callerAvatar || callerData.profileImage || callerData.avatarUrl || callerData.avatar || '';
+              }
+            } catch (callerInfoError) {
+              console.warn('⚠️ Failed to fetch caller info for notification:', callerInfoError);
+            }
+          }
+
+          await NotificationStorage.createNotification({
+            userId: receiverId,
+            type: 'call',
+            category: 'call',
+            title: callerName || 'Incoming call',
+            message: `${callerName || 'Someone'} is calling you`,
+            data: {
+              callId,
+              callerId,
+              receiverId,
+              callType: type,
+            },
+            senderId: callerId,
+            senderName: callerName || 'Someone',
+            senderAvatar: callerAvatar || '',
+          });
+        } catch (notifError) {
+          console.warn('⚠️ Failed to create call notification:', notifError);
+        }
         
         // Send push notification to receiver
         try {

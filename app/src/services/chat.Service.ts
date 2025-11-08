@@ -155,6 +155,7 @@ export const sendMessage = async (
                     NotificationStorage.createNotification({
                         userId: recipientId,
                         type: 'chat_message',
+                        category: 'message',
                         title: senderName,
                         message: message.text || 'New message',
                         data: { chatId, senderId: message.senderId },

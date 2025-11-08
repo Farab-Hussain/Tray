@@ -17,6 +17,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { reviewStyles } from '../../../constants/styles/reviewStyles';
 import { ReviewService } from '../../../services/review.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import * as NotificationStorage from '../../../services/notification-storage.service';
 
 const ReviewEmployer = ({ navigation, route }: any) => {
   const { user } = useAuth();
@@ -126,12 +127,38 @@ const ReviewEmployer = ({ navigation, route }: any) => {
         recommendation,
       });
 
-      await ReviewService.submitReview({
+      const response = await ReviewService.submitReview({
         consultantId,
         rating,
         comment: reviewText,
         recommend: recommendation === 'yes',
       });
+
+      try {
+        if (consultantId && user?.uid) {
+          const reviewerName = user.name || user.email?.split('@')[0] || 'Student';
+          const reviewerAvatar = user.profileImage || '';
+
+          await NotificationStorage.createNotification({
+            userId: consultantId,
+            type: 'review',
+            category: 'review',
+            title: reviewerName,
+            message: `${reviewerName} left you a ${rating}-star review`,
+            data: {
+              consultantId,
+              reviewerId: user.uid,
+              reviewId: response?.review?.id,
+              rating,
+            },
+            senderId: user.uid,
+            senderName: reviewerName,
+            senderAvatar: reviewerAvatar,
+          });
+        }
+      } catch (notifError) {
+        console.warn('⚠️ Failed to create review notification:', notifError);
+      }
 
       console.log('✅ Review submitted successfully');
       Alert.alert('Success', 'Thank you for your review!', [

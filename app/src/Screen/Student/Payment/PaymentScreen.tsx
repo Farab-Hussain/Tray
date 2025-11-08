@@ -16,6 +16,8 @@ import { COLORS } from '../../../constants/core/colors';
 import PaymentService, { PaymentIntentRequest } from '../../../services/payment.service';
 import { BookingService } from '../../../services/booking.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import * as NotificationStorage from '../../../services/notification-storage.service';
+import { UserService } from '../../../services/user.service';
 
 interface BookedSlot {
   date: string;
@@ -162,6 +164,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
       // Create bookings for each cart item (and each booked slot within)
       const bookingPromises: Promise<any>[] = [];
+      const bookingDetails: Array<{ bookingData: any; item: CartItem }> = [];
       
       cartItems.forEach((item) => {
         // Check if item has bookedSlots (new format)
@@ -181,6 +184,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             };
             
             bookingPromises.push(BookingService.createBooking(bookingData));
+            bookingDetails.push({ bookingData, item });
           });
         } else if (item.date && item.startTime) {
           // Legacy format: single booking per item
@@ -197,18 +201,93 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           };
           
           bookingPromises.push(BookingService.createBooking(bookingData));
+          bookingDetails.push({ bookingData, item });
         }
       });
 
       // Create bookings one by one to handle conflicts properly
       const results = [];
       const conflicts = [];
-      
+      const consultantInfoCache: Record<string, { name: string; avatar: string }> = {};
+      const getConsultantInfo = async (consultantId: string, fallbackName?: string) => {
+        if (consultantInfoCache[consultantId]) {
+          return consultantInfoCache[consultantId];
+        }
+        try {
+          const consultantData = await UserService.getUserById(consultantId);
+          const info = {
+            name: consultantData?.name || consultantData?.displayName || fallbackName || 'Consultant',
+            avatar: consultantData?.profileImage || consultantData?.avatarUrl || consultantData?.avatar || '',
+          };
+          consultantInfoCache[consultantId] = info;
+          return info;
+        } catch {
+          const info = {
+            name: fallbackName || 'Consultant',
+            avatar: '',
+          };
+          consultantInfoCache[consultantId] = info;
+          return info;
+        }
+      };
+
+      const studentName = user?.name || user?.email?.split('@')[0] || 'Student';
+      const studentAvatar = user?.profileImage || '';
+
       for (let i = 0; i < bookingPromises.length; i++) {
         try {
           const result = await bookingPromises[i];
           results.push(result);
           console.log(`✅ Booking ${i + 1}/${bookingPromises.length} created successfully`);
+
+          const detail = bookingDetails[i];
+          if (detail) {
+            const { bookingData, item } = detail;
+            const bookingId = result?.bookingId;
+            const consultantInfo = await getConsultantInfo(bookingData.consultantId, item.consultantName);
+            const sessionLabel = `${item.serviceTitle || 'a service'}${bookingData.date ? ` • ${bookingData.date}` : ''}${bookingData.time ? ` at ${bookingData.time}` : ''}`;
+
+            try {
+              await NotificationStorage.createNotification({
+                userId: bookingData.consultantId,
+                type: 'booking_confirmed',
+                category: 'booking',
+                title: studentName,
+                message: `${studentName} booked ${sessionLabel}`,
+                data: {
+                  bookingId,
+                  consultantId: bookingData.consultantId,
+                  studentId: bookingData.studentId,
+                  serviceId: bookingData.serviceId,
+                },
+                senderId: bookingData.studentId,
+                senderName: studentName,
+                senderAvatar: studentAvatar || '',
+              });
+            } catch (consultantNotifError) {
+              console.warn('⚠️ Failed to create consultant booking notification:', consultantNotifError);
+            }
+
+            try {
+              await NotificationStorage.createNotification({
+                userId: bookingData.studentId,
+                type: 'payment',
+                category: 'payment',
+                title: consultantInfo.name,
+                message: `Payment of ${formatAmount(bookingData.amount)} confirmed for ${sessionLabel}`,
+                data: {
+                  bookingId,
+                  consultantId: bookingData.consultantId,
+                  serviceId: bookingData.serviceId,
+                },
+                senderId: bookingData.consultantId,
+                senderName: consultantInfo.name,
+                senderAvatar: consultantInfo.avatar,
+              });
+            } catch (studentNotifError) {
+              console.warn('⚠️ Failed to create payment notification for student:', studentNotifError);
+            }
+          }
         } catch (error: any) {
           console.error(`❌ Booking ${i + 1}/${bookingPromises.length} failed:`, error);
           

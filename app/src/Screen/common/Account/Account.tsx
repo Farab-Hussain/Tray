@@ -11,17 +11,28 @@ import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserService } from '../../../services/user.service';
 import { Camera, User } from 'lucide-react-native';
+import Loader from '../../../components/ui/Loader';
 
 const Account = ({ navigation }: any) => {
   const { user, logout } = useAuth();
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   
   // Memoize the fetch function to prevent unnecessary re-renders
   const fetchBackendProfile = useCallback(async () => {
-    if (!user || apiUnavailable) return;
+    if (!user) {
+      setLoadingProfile(false);
+      return;
+    }
+
+    if (apiUnavailable) {
+      setLoadingProfile(false);
+      return;
+    }
     
     try {
+      setLoadingProfile(true);
       console.log('👤 Fetching user profile from backend...');
       const response = await UserService.getUserProfile();
       console.log('✅ Backend profile response:', response);
@@ -34,6 +45,8 @@ const Account = ({ navigation }: any) => {
       } else {
         console.log('⚠️ Backend profile error:', error?.message || error);
       }
+    } finally {
+      setLoadingProfile(false);
     }
   }, [user, apiUnavailable]);
   
@@ -66,6 +79,15 @@ const Account = ({ navigation }: any) => {
     navigation.navigate(route);
   };
   
+  if (loadingProfile) {
+    return (
+      <SafeAreaView style={screenStyles.safeAreaWhite}>
+        <ScreenHeader title="Account" onBackPress={() => navigation.goBack()} />
+        <Loader message="Loading your account..." />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={screenStyles.safeAreaWhite}>
       <ScreenHeader title="Account" onBackPress={() => navigation.goBack()} />

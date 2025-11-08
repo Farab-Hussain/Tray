@@ -24,167 +24,228 @@ const Services = ({ navigation, route }: any) => {
   const [currentConsultantId, setCurrentConsultantId] = useState<string | undefined>(undefined);
   const [currentConsultantName, setCurrentConsultantName] = useState<string | undefined>(undefined);
   const [currentConsultantCategory, setCurrentConsultantCategory] = useState<string | undefined>(undefined);
-  
-  // Use ref to track previous params to detect stale params
-  const previousParamsRef = useRef<any>(null);
 
-  // Get route params - will be undefined when accessed from bottom navigator
+  // Track when we've already handled an incoming set of route params to avoid clearing loops
+  const hasHandledRouteParamsRef = useRef(false);
+
+  // Cache for default service images to avoid duplicate network requests
+  const defaultServiceImageCacheRef = useRef<Record<string, string | null>>({});
+
+  // Memoized helpers for current params
   const routeParams = route?.params;
-  const consultantId = currentConsultantId ?? routeParams?.consultantId;
-  const consultantName = currentConsultantName ?? routeParams?.consultantName;
-  const consultantCategory = currentConsultantCategory ?? routeParams?.consultantCategory;
+  const paramsConsultantId = routeParams?.consultantId;
+  const paramsConsultantName = routeParams?.consultantName;
+  const paramsConsultantCategory = routeParams?.consultantCategory;
+
+  const consultantId = currentConsultantId ?? paramsConsultantId;
+  const consultantName = currentConsultantName ?? paramsConsultantName;
+  const consultantCategory = currentConsultantCategory ?? paramsConsultantCategory;
 
   console.log('🔍 Services Screen - Route Params:', routeParams);
   console.log('📋 Current Consultant ID:', consultantId);
   console.log('👤 Current Consultant Name:', consultantName);
 
   // Fetch services function
+  const resolveServiceImage = useCallback(
+    async (service: any): Promise<string | undefined> => {
+      const currentImageUrl =
+        typeof service.imageUrl === 'string' && service.imageUrl.trim() !== ''
+          ? service.imageUrl.trim()
+          : undefined;
+
+      if (currentImageUrl) {
+        return currentImageUrl;
+      }
+
+      const consultantProfileImage =
+        typeof service.consultant?.profileImage === 'string' &&
+        service.consultant.profileImage.trim() !== ''
+          ? service.consultant.profileImage.trim()
+          : undefined;
+
+      if (
+        typeof service.image === 'string' &&
+        service.image.trim() !== ''
+      ) {
+        return service.image.trim();
+      }
+
+      if (consultantProfileImage) {
+        return consultantProfileImage;
+      }
+
+      const defaultServiceId = service.basedOnDefaultService;
+      if (!defaultServiceId) {
+        return undefined;
+      }
+
+      const cache = defaultServiceImageCacheRef.current;
+      if (defaultServiceId in cache) {
+        const cachedValue = cache[defaultServiceId];
+        return cachedValue ?? undefined;
+      }
+
+      try {
+        const defaultServiceResponse =
+          await ConsultantService.getServiceById(defaultServiceId);
+        const fallbackImageUrl =
+          defaultServiceResponse?.service?.imageUrl ||
+          defaultServiceResponse?.service?.image ||
+          undefined;
+
+        cache[defaultServiceId] = fallbackImageUrl ?? null;
+        if (fallbackImageUrl) {
+          console.log(
+            `🖼️ Applied fallback image for service ${service.title} from default service ${defaultServiceId}`,
+          );
+        }
+        return fallbackImageUrl;
+      } catch (fallbackError) {
+        console.warn(
+          `⚠️ Unable to load fallback image for service ${service.title} (default: ${defaultServiceId})`,
+          fallbackError,
+        );
+        cache[defaultServiceId] = null;
+        return undefined;
+      }
+    },
+    [],
+  );
+
   const fetchServices = useCallback(async (targetConsultantId?: string) => {
     try {
       setLoading(true);
-        let servicesData = [];
-        
+      let servicesData = [];
+
       if (targetConsultantId) {
-          // Fetch specific consultant's services
+        // Fetch specific consultant's services
         console.log('🚀 Fetching services for consultant:', targetConsultantId);
         const response = await ConsultantService.getConsultantServices(targetConsultantId);
-          console.log('✅ Services Response:', response);
-          servicesData = response?.services || [];
-        } else {
-          // Fetch all services (from Services tab)
-          console.log('🚀 Fetching all services from all consultants');
-          try {
-            const response = await ConsultantService.getAllServices();
-            console.log('✅ All Services Response:', response);
-            console.log('📊 Total services found:', response?.services?.length || 0);
-            if (response?.services && response.services.length > 0) {
-              console.log('📋 Sample service:', response.services[0]);
-              console.log('🖼️ Sample service imageUrl:', response.services[0].imageUrl);
-              console.log('🖼️ Sample service image:', response.services[0].image);
-              console.log('🖼️ Sample service imageUri:', response.services[0].imageUri);
-              console.log('🔍 All service keys:', Object.keys(response.services[0]));
-            }
-            servicesData = response?.services || [];
-          } catch (error: any) {
-            console.log('⚠️ All services endpoint error:', error?.message);
-            console.log('❌ Error details:', error?.response?.status, error?.response?.data);
-            // If endpoint doesn't exist, show empty array
-            servicesData = [];
+        console.log('✅ Services Response:', response);
+        servicesData = response?.services || [];
+      } else {
+        // Fetch all services (from Services tab)
+        console.log('🚀 Fetching all services from all consultants');
+        try {
+          const response = await ConsultantService.getAllServices();
+          console.log('✅ All Services Response:', response);
+          console.log('📊 Total services found:', response?.services?.length || 0);
+          if (response?.services && response.services.length > 0) {
+            console.log('📋 Sample service:', response.services[0]);
+            console.log('🖼️ Sample service imageUrl:', response.services[0].imageUrl);
+            console.log('🖼️ Sample service image:', response.services[0].image);
+            console.log('🖼️ Sample service imageUri:', response.services[0].imageUri);
+            console.log('🔍 All service keys:', Object.keys(response.services[0]));
           }
+          servicesData = response?.services || [];
+        } catch (error: any) {
+          console.log('⚠️ All services endpoint error:', error?.message);
+          console.log('❌ Error details:', error?.response?.status, error?.response?.data);
+          // If endpoint doesn't exist, show empty array
+          servicesData = [];
         }
-        
-        setServices(servicesData);
-      } catch (err) {
-        console.error('❌ Error fetching services:', err);
-      } finally {
-        setLoading(false);
       }
-  }, []);
 
-  // Initial fetch on mount (will be overridden by useFocusEffect)
-  useEffect(() => {
-    const initialParams = route?.params;
-    const initialConsultantId = initialParams?.consultantId;
-    if (initialConsultantId) {
-      setCurrentConsultantId(initialConsultantId);
-      setCurrentConsultantName(initialParams?.consultantName);
-      setCurrentConsultantCategory(initialParams?.consultantCategory);
+      const servicesWithImages = await Promise.all(
+        servicesData.map(async (service: any) => {
+          const imageUrl = await resolveServiceImage(service);
+          if (imageUrl && imageUrl !== service.imageUrl) {
+            return {
+              ...service,
+              imageUrl,
+              image: service.image ?? imageUrl,
+            };
+          }
+          return service;
+        }),
+      );
+
+      setServices(servicesWithImages);
+    } catch (err) {
+      console.error('❌ Error fetching services:', err);
+    } finally {
+      setLoading(false);
     }
-    fetchServices(initialConsultantId);
-  }, []); // Only run on mount
+  }, [resolveServiceImage]);
+  useEffect(() => {
+    const parent = navigation.getParent?.();
+    if (!parent) {
+      return;
+    }
+
+    const unsubscribe = parent.addListener('tabPress', event => {
+      const parentState = parent.getState();
+      const targetRoute = parentState?.routes?.find(routeItem => routeItem.key === event.target);
+
+      if (targetRoute?.name !== 'Services') {
+        return;
+      }
+
+      console.log('🧭 Services tab pressed - clearing consultant context');
+      hasHandledRouteParamsRef.current = false;
+      setCurrentConsultantId(undefined);
+      setCurrentConsultantName(undefined);
+      setCurrentConsultantCategory(undefined);
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
 
   // Auto-refresh services when screen comes into focus
   // This ensures that when accessing from bottom navigator (no params), we fetch all services
   useFocusEffect(
     useCallback(() => {
-      // Get current route params
-      const currentParams = route?.params;
-      const currentConsultantId = currentParams?.consultantId;
-      const currentConsultantName = currentParams?.consultantName;
-      const currentConsultantCategory = currentParams?.consultantCategory;
-      
-      console.log('🔄 Services screen focused - Route params:', currentParams);
-      console.log('📋 Current Consultant ID:', currentConsultantId);
-      console.log('📋 Previous params:', previousParamsRef.current);
-      
-      // Get previous params for comparison
-      const previousParams = previousParamsRef.current;
-      
-      // Check if params changed (new navigation with params)
-      const paramsChanged = !previousParams || 
-        previousParams.consultantId !== currentConsultantId ||
-        previousParams.consultantName !== currentConsultantName;
-      
-      // Check navigation state
-      const navigationState = navigation.getState();
-      const isAtRoot = navigationState.index === 0;
-      
-      console.log('📍 Navigation state - isAtRoot:', isAtRoot, 'index:', navigationState.index);
-      console.log('📍 Params changed:', paramsChanged);
-      
-      // Logic:
-      // 1. If at root AND params exist AND params haven't changed → stale (from bottom navigator)
-      // 2. If at root AND no params → show all services (from bottom navigator)
-      // 3. If at root AND params changed → new navigation with params (valid)
-      // 4. If not at root AND params exist → navigated with params (valid)
-      // 5. If not at root AND no params → show all services
-      
-      // Case 1: At root with params that haven't changed - these are stale
-      if (isAtRoot && currentParams && currentConsultantId && !paramsChanged) {
-        console.log('🧹 Ignoring stale route params - accessed from bottom navigator');
-        setCurrentConsultantId(undefined);
-        setCurrentConsultantName(undefined);
-        setCurrentConsultantCategory(undefined);
-        setSearchQuery('');
-        fetchServices(undefined);
-        // Keep previousParamsRef as is to continue detecting stale params
+      const hasRouteConsultant = !!paramsConsultantId;
+
+      console.log('🔄 Services screen focused - Route params:', route?.params);
+      console.log('📋 Derived consultant ID from params:', paramsConsultantId);
+
+      if (hasRouteConsultant) {
+        console.log('📋 Handling consultant params from navigation');
+        setCurrentConsultantId(paramsConsultantId);
+        setCurrentConsultantName(paramsConsultantName);
+        setCurrentConsultantCategory(paramsConsultantCategory);
+        fetchServices(paramsConsultantId);
+
+        hasHandledRouteParamsRef.current = true;
+
+        // Clear params so they don't linger when accessing the tab directly later
+        navigation.setParams({
+          consultantId: undefined,
+          consultantName: undefined,
+          consultantCategory: undefined,
+        });
+
         return;
       }
-      
-      // Case 2: At root with params that changed - new navigation with params (valid)
-      if (isAtRoot && currentParams && currentConsultantId && paramsChanged) {
-        console.log('📋 New navigation with params - showing consultant services');
-        setCurrentConsultantId(currentConsultantId);
-        setCurrentConsultantName(currentConsultantName);
-        setCurrentConsultantCategory(currentConsultantCategory);
+
+      if (hasHandledRouteParamsRef.current) {
+        console.log('⏭️ Skipping reset after clearing handled params');
+        hasHandledRouteParamsRef.current = false;
+        return;
+      }
+
+      if (currentConsultantId) {
+        console.log('📋 No consultant params but existing consultant state detected - refreshing consultant services');
         fetchServices(currentConsultantId);
-        previousParamsRef.current = currentParams;
         return;
       }
-      
-      // Case 3: At root with no params - show all services
-      if (isAtRoot && (!currentParams || !currentConsultantId)) {
-        console.log('📋 At root with no params - fetching all services');
-        setCurrentConsultantId(undefined);
-        setCurrentConsultantName(undefined);
-        setCurrentConsultantCategory(undefined);
-        setSearchQuery('');
-        fetchServices(undefined);
-        previousParamsRef.current = currentParams || null;
-        return;
-      }
-      
-      // Case 4: Not at root - navigated with params or no params
-      // Update previous params ref
-      previousParamsRef.current = currentParams || null;
-      
-      if (!currentParams || !currentConsultantId) {
-        // No params - show all services
-        console.log('📋 No consultant ID in params - fetching all services');
-        setCurrentConsultantId(undefined);
-        setCurrentConsultantName(undefined);
-        setCurrentConsultantCategory(undefined);
-        setSearchQuery('');
-        fetchServices(undefined);
-      } else {
-        // Has params - show that consultant's services
-        console.log('📋 Consultant ID in params - fetching consultant services:', currentConsultantId);
-        setCurrentConsultantId(currentConsultantId);
-        setCurrentConsultantName(currentConsultantName);
-        setCurrentConsultantCategory(currentConsultantCategory);
-        fetchServices(currentConsultantId);
-      }
-    }, [route, navigation, fetchServices])
+
+      console.log('📋 No consultant params present - showing all services');
+      setCurrentConsultantId(undefined);
+      setCurrentConsultantName(undefined);
+      setCurrentConsultantCategory(undefined);
+      setSearchQuery('');
+      fetchServices(undefined);
+    }, [
+      fetchServices,
+      navigation,
+      currentConsultantId,
+      paramsConsultantCategory,
+      paramsConsultantId,
+      paramsConsultantName,
+    ])
   );
 
   // Fetch reviews for the consultant

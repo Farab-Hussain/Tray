@@ -8,10 +8,9 @@ import {
   Image,
   Alert,
   ActivityIndicator,
-  ScrollView,
   Platform,
-  KeyboardAvoidingView,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import AppButton from '../../components/ui/AppButton';
 import PasswordStrengthIndicator from '../../components/ui/PasswordStrengthIndicator';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -308,191 +307,192 @@ const Register = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      <KeyboardAwareScrollView
+        style={authStyles.scrollContainer}
+        contentContainerStyle={authStyles.keyboardContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid
+        extraScrollHeight={24}
+        extraHeight={Platform.OS === 'ios' ? 40 : 24}
       >
-        <ScrollView
-          style={authStyles.scrollContainer}
-          contentContainerStyle={authStyles.scrollContentContainer}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-        <Text style={authStyles.authHeading}>Register</Text>
+        <View style={authStyles.loginContainer}>
+          <View style={authStyles.scrollContentContainer}>
+            <Text style={authStyles.authHeading}>Register</Text>
 
-        <Text style={authStyles.label}>Full Name</Text>
-        <View style={authStyles.inputWrapper}>
-          <TextInput
-            style={authStyles.input}
-            placeholder="Enter your full name"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-          />
-        </View>
+            <Text style={authStyles.label}>Full Name</Text>
+            <View style={authStyles.inputWrapper}>
+              <TextInput
+                style={authStyles.input}
+                placeholder="Enter your full name"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            </View>
 
-        <Text style={authStyles.label}>Email</Text>
-        <View style={authStyles.inputWrapper}>
-          <TextInput
-            style={authStyles.input}
-            placeholder="example@gmail.com"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-          />
-        </View>
+            <Text style={authStyles.label}>Email</Text>
+            <View style={authStyles.inputWrapper}>
+              <TextInput
+                style={authStyles.input}
+                placeholder="example@gmail.com"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+              />
+            </View>
 
-        <Text style={authStyles.label}>Create a password</Text>
-        <View style={authStyles.inputWrapper}>
-          <TextInput
-            style={authStyles.input}
-            placeholder="Create a strong password"
-            placeholderTextColor={COLORS.lightGray}
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={authStyles.passwordToggle}
-          >
-            {showPassword ? (
-              <LucideIcons.EyeOff size={24} color="#333333" strokeWidth={1.5} />
-            ) : (
-              <LucideIcons.Eye size={24} color="#333333" strokeWidth={1.5} />
+            <Text style={authStyles.label}>Create a password</Text>
+            <View style={authStyles.inputWrapper}>
+              <TextInput
+                style={authStyles.input}
+                placeholder="Create a strong password"
+                placeholderTextColor={COLORS.lightGray}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={authStyles.passwordToggle}
+              >
+                {showPassword ? (
+                  <LucideIcons.EyeOff size={24} color="#333333" strokeWidth={1.5} />
+                ) : (
+                  <LucideIcons.Eye size={24} color="#333333" strokeWidth={1.5} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {passwordValidation && (
+              <PasswordStrengthIndicator
+                strength={passwordValidation.strength}
+                showFeedback={true}
+              />
             )}
-          </TouchableOpacity>
-        </View>
-        
-        {passwordValidation && (
-          <PasswordStrengthIndicator 
-            strength={passwordValidation.strength}
-            showFeedback={true}
-          />
-        )}
 
-        <Text style={authStyles.label}>Re-enter password</Text>
-        <View style={authStyles.inputWrapper}>
-          <TextInput
-            style={authStyles.input}
-            placeholder="password must match"
-            placeholderTextColor={COLORS.lightGray}
-            secureTextEntry={!showConfirmPassword}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          <TouchableOpacity
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-            style={authStyles.passwordToggle}
-          >
-            {showConfirmPassword ? (
-              <LucideIcons.EyeOff size={24} color="#333333" strokeWidth={1.5} />
-            ) : (
-              <LucideIcons.Eye size={24} color="#333333" strokeWidth={1.5} />
+            <Text style={authStyles.label}>Re-enter password</Text>
+            <View style={authStyles.inputWrapper}>
+              <TextInput
+                style={authStyles.input}
+                placeholder="password must match"
+                placeholderTextColor={COLORS.lightGray}
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={authStyles.passwordToggle}
+              >
+                {showConfirmPassword ? (
+                  <LucideIcons.EyeOff size={24} color="#333333" strokeWidth={1.5} />
+                ) : (
+                  <LucideIcons.Eye size={24} color="#333333" strokeWidth={1.5} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <AppButton
+              title={loading ? 'Creating account...' : 'Sign up'}
+              onPress={handleRegister}
+              disabled={loading || (passwordValidation && !passwordValidation.isValid)}
+              style={[
+                authStyles.signUpBtn,
+                (passwordValidation && !passwordValidation.isValid) && { opacity: 0.6 },
+              ]}
+              textStyle={authStyles.signUpText}
+            />
+
+            {loading && (
+              <ActivityIndicator
+                size="small"
+                color="#FFC107"
+                style={{ marginTop: 10 }}
+              />
             )}
-          </TouchableOpacity>
-        </View>
-
-        <AppButton
-          title={loading ? 'Creating account...' : 'Sign up'}
-          onPress={handleRegister}
-          disabled={loading || (passwordValidation && !passwordValidation.isValid)}
-          style={[
-            authStyles.signUpBtn,
-            (passwordValidation && !passwordValidation.isValid) && { opacity: 0.6 }
-          ]}
-          textStyle={authStyles.signUpText}
-        />
-
-        {loading && (
-          <ActivityIndicator
-            size="small"
-            color="#FFC107"
-            style={{ marginTop: 10 }}
-          />
-        )}
-
-        <View style={authStyles.bottomSection}>
-          <View style={authStyles.dividerWrapper}>
-            <View style={authStyles.divider} />
-            <Text style={authStyles.dividerText}>Or Register With</Text>
-            <View style={authStyles.divider} />
           </View>
 
-          <View style={authStyles.socialRow}>
-            <TouchableOpacity 
-              style={authStyles.socialButton}
-              onPress={() => handleSocialRegister('facebook', facebookLogin)}
-              disabled={socialLoading !== null || loading}
-            >
-              <View style={authStyles.iconContainer}>
-                {socialLoading === 'facebook' ? (
-                  <ActivityIndicator size="small" color="#1877F2" />
-                ) : (
-                  <Image
-                    source={require('../../assets/icon/facebook.png')}
-                    style={authStyles.socialIcon}
-                    resizeMode="contain"
-                  />
-                )}
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={authStyles.socialButton}
-              onPress={() => handleSocialRegister('google', googleLogin)}
-              disabled={socialLoading !== null || loading}
-            >
-              <View style={authStyles.iconContainer}>
-                {socialLoading === 'google' ? (
-                  <ActivityIndicator size="small" color="#333333" />
-                ) : (
-                  <Image
-                    source={require('../../assets/icon/google.png')}
-                    style={authStyles.socialIcon}
-                    resizeMode="contain"
-                  />
-                )}
-              </View>
-            </TouchableOpacity>
-            {Platform.OS === 'ios' && (
-              <TouchableOpacity 
+          <View style={authStyles.bottomSection}>
+            <View style={authStyles.dividerWrapper}>
+              <View style={authStyles.divider} />
+              <Text style={authStyles.dividerText}>Or Register With</Text>
+              <View style={authStyles.divider} />
+            </View>
+
+            <View style={authStyles.socialRow}>
+              <TouchableOpacity
                 style={authStyles.socialButton}
-                onPress={() => handleSocialRegister('apple', appleLogin)}
+                onPress={() => handleSocialRegister('facebook', facebookLogin)}
                 disabled={socialLoading !== null || loading}
               >
                 <View style={authStyles.iconContainer}>
-                  {socialLoading === 'apple' ? (
-                    <ActivityIndicator size="small" color="#000000" />
+                  {socialLoading === 'facebook' ? (
+                    <ActivityIndicator size="small" color="#1877F2" />
                   ) : (
                     <Image
-                      source={require('../../assets/icon/apple.png')}
+                      source={require('../../assets/icon/facebook.png')}
                       style={authStyles.socialIcon}
                       resizeMode="contain"
                     />
                   )}
                 </View>
               </TouchableOpacity>
-            )}
-          </View>
+              <TouchableOpacity
+                style={authStyles.socialButton}
+                onPress={() => handleSocialRegister('google', googleLogin)}
+                disabled={socialLoading !== null || loading}
+              >
+                <View style={authStyles.iconContainer}>
+                  {socialLoading === 'google' ? (
+                    <ActivityIndicator size="small" color="#333333" />
+                  ) : (
+                    <Image
+                      source={require('../../assets/icon/google.png')}
+                      style={authStyles.socialIcon}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={authStyles.socialButton}
+                  onPress={() => handleSocialRegister('apple', appleLogin)}
+                  disabled={socialLoading !== null || loading}
+                >
+                  <View style={authStyles.iconContainer}>
+                    {socialLoading === 'apple' ? (
+                      <ActivityIndicator size="small" color="#000000" />
+                    ) : (
+                      <Image
+                        source={require('../../assets/icon/apple.png')}
+                        style={authStyles.socialIcon}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
 
-          <Text style={authStyles.footer}>
-            Already have an account?{' '}
-            <Text
-              style={authStyles.loginLink}
-              onPress={() => navigation.navigate('Login')}
-            >
-              Log in
+            <Text style={authStyles.footer}>
+              Already have an account?{' '}
+              <Text
+                style={authStyles.loginLink}
+                onPress={() => navigation.navigate('Login')}
+              >
+                Log in
+              </Text>
             </Text>
-          </Text>
+          </View>
         </View>
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };

@@ -5,10 +5,25 @@ import { showToast } from '../utils/toast';
 
 const db = firestore;
 
+const NOTIFICATION_CATEGORIES = ['message', 'call', 'booking', 'payment', 'review', 'system'] as const;
+
+export type NotificationCategory = typeof NOTIFICATION_CATEGORIES[number];
+
+export type NotificationType =
+  | 'chat_message'
+  | 'booking'
+  | 'booking_confirmed'
+  | 'booking_cancelled'
+  | 'call'
+  | 'review'
+  | 'payment'
+  | 'system';
+
 export interface AppNotification {
   id: string;
   userId: string;
-  type: 'chat_message' | 'booking' | 'booking_confirmed' | 'booking_cancelled' | 'review' | 'system';
+  type: NotificationType;
+  category: NotificationCategory;
   title: string;
   message: string;
   data?: {
@@ -24,6 +39,30 @@ export interface AppNotification {
   senderName?: string;
   senderAvatar?: string;
 }
+
+const deriveCategory = (type?: string, category?: string): NotificationCategory => {
+  const normalizedCategory = category?.toLowerCase();
+  if (normalizedCategory && NOTIFICATION_CATEGORIES.includes(normalizedCategory as NotificationCategory)) {
+    return normalizedCategory as NotificationCategory;
+  }
+
+  switch (type) {
+    case 'chat_message':
+      return 'message';
+    case 'call':
+      return 'call';
+    case 'payment':
+      return 'payment';
+    case 'review':
+      return 'review';
+    case 'booking':
+    case 'booking_confirmed':
+    case 'booking_cancelled':
+      return 'booking';
+    default:
+      return 'system';
+  }
+};
 
 /**
  * Get all notifications for a user
@@ -43,10 +82,12 @@ export const getUserNotifications = async (userId: string, limitCount: number = 
 
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
+      const category = deriveCategory(data.type, data.category);
       const notification: AppNotification = {
         id: docSnap.id,
         userId: data.userId,
         type: data.type || 'system',
+        category,
         title: data.title || 'Notification',
         message: data.message || '',
         data: data.data || {},
@@ -82,11 +123,13 @@ export const getUserNotifications = async (userId: string, limitCount: number = 
 /**
  * Create a notification for a user
  */
-export const createNotification = async (notification: Omit<AppNotification, 'id' | 'createdAt' | 'read'>): Promise<void> => {
+export const createNotification = async (notification: Omit<AppNotification, 'id' | 'createdAt' | 'read' | 'category'> & { category?: NotificationCategory }): Promise<void> => {
   try {
     const notificationsRef = collection(db, 'notifications');
+    const resolvedCategory = deriveCategory(notification.type, notification.category);
     await addDoc(notificationsRef, {
       ...notification,
+      category: resolvedCategory,
       read: false,
       createdAt: Timestamp.now(),
     });
@@ -228,6 +271,7 @@ export const listenToNotifications = (
       const notificationPromises = snapshot.docs.map(async (docSnap) => {
         try {
           const data = docSnap.data();
+          const category = deriveCategory(data.type, data.category);
 
           // If sender info is missing, fetch it (but don't block the callback)
           let senderName = data.senderName;
@@ -249,6 +293,7 @@ export const listenToNotifications = (
             id: docSnap.id,
             userId: data.userId,
             type: data.type || 'system',
+            category,
             title: data.title || 'Notification',
             message: data.message || '',
             data: data.data || {},
@@ -292,10 +337,12 @@ export const listenToNotifications = (
               const notificationPromises = snapshot.docs.map(async (docSnap) => {
                 try {
                   const data = docSnap.data();
+                  const category = deriveCategory(data.type, data.category);
                   return {
                     id: docSnap.id,
                     userId: data.userId,
                     type: data.type || 'system',
+                    category,
                     title: data.title || 'Notification',
                     message: data.message || '',
                     data: data.data || {},

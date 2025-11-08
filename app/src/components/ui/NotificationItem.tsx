@@ -25,14 +25,19 @@ const NotificationItem = ({ notification: notif, onPress }: NotificationItemProp
   };
 
   const getNotificationIcon = () => {
-    switch (notif.type) {
-      case 'chat_message':
+    if (notif.type === 'booking_cancelled') {
+      return '❌';
+    }
+
+    switch (notif.category) {
+      case 'message':
         return '💬';
+      case 'call':
+        return '📞';
       case 'booking':
-      case 'booking_confirmed':
         return '📅';
-      case 'booking_cancelled':
-        return '❌';
+      case 'payment':
+        return '💳';
       case 'review':
         return '⭐';
       default:

@@ -68,6 +68,7 @@ export const BookingRequestService = {
         await NotificationStorage.createNotification({
           userId: bookingData.consultantId,
           type: 'booking',
+          category: 'booking',
           title: studentName,
           message: `New booking request for ${bookingRequest.serviceTitle || 'your service'}`,
           data: {
@@ -105,6 +106,7 @@ export const BookingRequestService = {
         await NotificationStorage.createNotification({
           userId: bookingRequest.studentId,
           type: 'booking_confirmed',
+          category: 'booking',
           title: consultantName,
           message: `Your booking request has been confirmed for ${bookingRequest.serviceTitle || 'the service'}`,
           data: {
@@ -147,6 +149,7 @@ export const BookingRequestService = {
         await NotificationStorage.createNotification({
           userId: bookingRequest.studentId,
           type: 'booking_cancelled',
+          category: 'booking',
           title: consultantName,
           message: `Your booking request has been declined${reason ? `: ${reason}` : ''}`,
           data: {
@@ -194,6 +197,7 @@ export const BookingRequestService = {
         await NotificationStorage.createNotification({
           userId: bookingRequest.consultantId,
           type: 'booking_cancelled',
+          category: 'booking',
           title: studentName,
           message: `Booking request cancelled for ${bookingRequest.serviceTitle || 'your service'}`,
           data: {
@@ -210,6 +214,7 @@ export const BookingRequestService = {
         await NotificationStorage.createNotification({
           userId: bookingRequest.studentId,
           type: 'booking_cancelled',
+          category: 'booking',
           title: consultantName,
           message: `Your booking request has been cancelled`,
           data: {

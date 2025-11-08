@@ -271,24 +271,63 @@ export const deleteService = async (req: Request, res: Response) => {
 export const getAllServicesWithConsultants = async (req: Request, res: Response) => {
   try {
     const snapshot = await db.collection("services").get();
+    const defaultServiceImageCache = new Map<string, string | null>();
     
     const services = await Promise.all(
       snapshot.docs.map(async (doc) => {
         const serviceData = doc.data();
-        
+        let imageUrl = typeof serviceData.imageUrl === "string" ? serviceData.imageUrl : "";
+
+        if (
+          (!imageUrl || imageUrl.trim() === "") &&
+          typeof serviceData.basedOnDefaultService === "string" &&
+          serviceData.basedOnDefaultService.trim() !== ""
+        ) {
+          const templateId = serviceData.basedOnDefaultService.trim();
+          if (defaultServiceImageCache.has(templateId)) {
+            const cachedValue = defaultServiceImageCache.get(templateId);
+            imageUrl = cachedValue ?? imageUrl;
+          } else {
+            const templateDoc = await db.collection("services").doc(templateId).get();
+            if (templateDoc.exists) {
+              const templateData = templateDoc.data();
+              const fallbackImage =
+                (typeof templateData?.imageUrl === "string" && templateData.imageUrl.trim() !== ""
+                  ? templateData.imageUrl.trim()
+                  : undefined) ||
+                (typeof templateData?.image === "string" && templateData.image.trim() !== ""
+                  ? templateData.image.trim()
+                  : undefined) ||
+                "";
+              imageUrl = fallbackImage || imageUrl;
+              defaultServiceImageCache.set(templateId, fallbackImage || null);
+            } else {
+              defaultServiceImageCache.set(templateId, null);
+            }
+          }
+        }
+
         // Fetch consultant info
         const consultantDoc = await db.collection("consultants")
           .doc(serviceData.consultantId).get();
         const consultant = consultantDoc.data();
         
+        const consultantProfileImage =
+          typeof consultant?.profileImage === "string" ? consultant.profileImage.trim() : "";
+
+        if ((!imageUrl || imageUrl.trim() === "") && consultantProfileImage) {
+          imageUrl = consultantProfileImage;
+        }
+
         return {
           id: serviceData.id,
           title: serviceData.title,
           description: serviceData.description,
           duration: serviceData.duration,
           price: serviceData.price,
-          imageUrl: serviceData.imageUrl || '',
+          imageUrl: imageUrl || '',
           isDefault: serviceData.isDefault || false,
+          basedOnDefaultService: serviceData.basedOnDefaultService || null,
           consultant: {
             uid: consultant?.uid,
             name: consultant?.name,

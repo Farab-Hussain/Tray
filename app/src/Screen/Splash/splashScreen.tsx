@@ -3,8 +3,8 @@ import { Image, View, Platform } from 'react-native';
 import { globalStyles } from '../../constants/core/global';
 import { useAuth } from '../../contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../../lib/fetcher';
-import { getConsultantApplications } from '../../services/consultantFlow.service';
+// import { api } from '../../lib/fetcher';
+// import { getConsultantApplications } from '../../services/consultantFlow.service';
 
 const SplashScreen = ({ navigation }: any) => {
   const { user, loading } = useAuth();

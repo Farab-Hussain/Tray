@@ -80,6 +80,7 @@ export const BookingService = {
         await NotificationStorage.createNotification({
           userId: bookingData.consultantId,
           type: 'booking_cancelled',
+          category: 'booking',
           title: studentName,
           message: `Booking cancelled${reason ? `: ${reason}` : ''}`,
           data: {
@@ -96,6 +97,7 @@ export const BookingService = {
         await NotificationStorage.createNotification({
           userId: bookingData.studentId,
           type: 'booking_cancelled',
+          category: 'booking',
           title: consultantName,
           message: `Your booking has been cancelled${reason ? `: ${reason}` : ''}`,
           data: {

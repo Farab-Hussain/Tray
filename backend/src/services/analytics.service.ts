@@ -213,6 +213,48 @@ export interface AdminAnalytics {
   }>;
 }
 
+type FirestoreLikeTimestamp =
+  | {
+      _seconds?: number;
+      _nanoseconds?: number;
+      seconds?: number;
+      nanoseconds?: number;
+      toDate?: () => Date;
+    }
+  | Date
+  | string
+  | number
+  | null
+  | undefined;
+
+interface ConsultantProfileDoc {
+  id: string;
+  status?: string;
+  personalInfo?: {
+    fullName?: string;
+  };
+  createdAt?: FirestoreLikeTimestamp;
+  updatedAt?: FirestoreLikeTimestamp;
+}
+
+interface BookingDoc {
+  id: string;
+  studentId?: string;
+  consultantId?: string;
+  status?: string;
+  paymentStatus?: string;
+  amount?: number;
+  date?: FirestoreLikeTimestamp;
+  createdAt?: FirestoreLikeTimestamp;
+}
+
+interface ApplicationDoc {
+  id: string;
+  consultantId?: string;
+  status?: string;
+  createdAt?: FirestoreLikeTimestamp;
+}
+
 /**
  * Get admin analytics for the entire platform
  */
@@ -227,15 +269,24 @@ export const getAdminAnalytics = async (): Promise<AdminAnalytics> => {
     // Get all consultant profiles (these represent all users who registered as consultants)
     // For total users, we'll count unique user IDs from profiles, bookings, and other sources
     const profilesSnapshot = await db.collection("consultantProfiles").get();
-    const allProfiles = profilesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const allProfiles: ConsultantProfileDoc[] = profilesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as Record<string, unknown>),
+    }));
     
     // Get all bookings
     const bookingsSnapshot = await db.collection("bookings").get();
-    const allBookings = bookingsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const allBookings: BookingDoc[] = bookingsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as Record<string, unknown>),
+    }));
     
     // Get all applications
     const applicationsSnapshot = await db.collection("consultantApplications").get();
-    const allApplications = applicationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const allApplications: ApplicationDoc[] = applicationsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as Record<string, unknown>),
+    }));
     
     // Calculate total users: unique user IDs from profiles, bookings (students), and consultants
     const userIds = new Set<string>();
@@ -265,19 +316,32 @@ export const getAdminAnalytics = async (): Promise<AdminAnalytics> => {
     const pendingApplications = allApplications.filter(a => a.status === 'pending').length;
 
     // Helper function to convert Firestore timestamp to Date
-    const toDate = (timestamp: any): Date => {
-      if (!timestamp) return new Date(0);
-      if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-        return timestamp.toDate();
-      }
-      if (timestamp._seconds) {
-        return new Date(timestamp._seconds * 1000);
+    const toDate = (timestamp: FirestoreLikeTimestamp): Date => {
+      if (timestamp === null || timestamp === undefined) return new Date(0);
+      if (typeof timestamp === 'number') {
+        return new Date(timestamp);
       }
       if (typeof timestamp === 'string') {
-        return new Date(timestamp);
+        const parsed = Date.parse(timestamp);
+        return Number.isNaN(parsed) ? new Date(0) : new Date(parsed);
       }
       if (timestamp instanceof Date) {
         return timestamp;
+      }
+      if (typeof timestamp === 'object') {
+        if (typeof timestamp.toDate === 'function') {
+          return timestamp.toDate();
+        }
+        if (timestamp._seconds !== undefined) {
+          const seconds = timestamp._seconds || 0;
+          const nanos = timestamp._nanoseconds || 0;
+          return new Date(seconds * 1000 + Math.floor(nanos / 1_000_000));
+        }
+        if (timestamp.seconds !== undefined) {
+          const seconds = timestamp.seconds || 0;
+          const nanos = timestamp.nanoseconds || 0;
+          return new Date(seconds * 1000 + Math.floor(nanos / 1_000_000));
+        }
       }
       return new Date(0);
     };

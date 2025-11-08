@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import AppButton from '../../components/ui/AppButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
@@ -30,11 +31,14 @@ const ForgotPassword = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      <KeyboardAwareScrollView
+        contentContainerStyle={authStyles.keyboardContent}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraScrollHeight={24}
+        showsVerticalScrollIndicator={false}
       >
+        <View style={authStyles.screenFlex}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={authStyles.backButton}
@@ -79,7 +83,8 @@ const ForgotPassword = ({ navigation }: any) => {
           </Text>
         </Text>
       </View>
-      </KeyboardAvoidingView>
+      </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };

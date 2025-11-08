@@ -16,6 +16,10 @@ export const ConsultantService = {
     return await fetcher(`/consultants/${consultantId}/services`);
   },
 
+  async getServiceById(serviceId: string) {
+    return await fetcher(`/consultants/services/${serviceId}`);
+  },
+
   // Fetch all services from all consultants
   async getAllServices() {
     return await fetcher('/consultants/services/all');

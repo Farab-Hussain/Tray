@@ -20,7 +20,6 @@ import { useChatContext } from '../../../contexts/ChatContext';
 
 const Notifications = ({ navigation }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const {
     notifications,
     unreadCount,
@@ -31,30 +30,13 @@ const Notifications = ({ navigation }: any) => {
   } = useNotificationContext();
   const { openChatWith } = useChatContext();
 
-  // Notification categories
-  const categories = [
-    { id: null, label: 'All', icon: '📬' },
-    { id: 'message', label: 'Messages', icon: '💬' },
-    { id: 'call', label: 'Calls', icon: '📞' },
-    { id: 'booking', label: 'Bookings', icon: '📅' },
-    { id: 'payment', label: 'Payments', icon: '💳' },
-    { id: 'review', label: 'Reviews', icon: '⭐' },
-  ];
-
   // Filter notifications based on search and category
   const filteredNotifications = notifications.filter(notif => {
     const matchesSearch =
       notif.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notif.message.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = 
-      !selectedCategory || 
-      notif.category === selectedCategory ||
-      notif.type === selectedCategory ||
-      (selectedCategory === 'message' && notif.type === 'chat_message') ||
-      (selectedCategory === 'call' && notif.type === 'call');
-    
-    return matchesSearch && matchesCategory;
+
+    return matchesSearch;
   });
 
   const handleNotificationPress = async (notif: any) => {
@@ -128,35 +110,6 @@ const Notifications = ({ navigation }: any) => {
           placeholder="Search notifications"
         />
 
-        {/* Category Filter */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoryContainer}
-          contentContainerStyle={styles.categoryContent}
-        >
-          {categories.map(category => (
-            <TouchableOpacity
-              key={category.id || 'all'}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category.id && styles.categoryButtonActive,
-              ]}
-              onPress={() => setSelectedCategory(category.id)}
-            >
-              <Text style={styles.categoryIcon}>{category.icon}</Text>
-              <Text
-                style={[
-                  styles.categoryText,
-                  selectedCategory === category.id && styles.categoryTextActive,
-                ]}
-              >
-                {category.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
         {/* Notifications List */}
         {isLoading && notifications.length === 0 ? (
           <Loader message="Loading notifications..." />
@@ -229,39 +182,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.gray,
     marginTop: 8,
-  },
-  categoryContainer: {
-    marginVertical: 12,
-    marginHorizontal: 16,
-  },
-  categoryContent: {
-    paddingRight: 16,
-    gap: 8,
-  },
-  categoryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.lightGray,
-    marginRight: 8,
-    gap: 6,
-  },
-  categoryButtonActive: {
-    backgroundColor: COLORS.green,
-  },
-  categoryIcon: {
-    fontSize: 16,
-  },
-  categoryText: {
-    fontSize: 14,
-    color: COLORS.black,
-    fontWeight: '500',
-  },
-  categoryTextActive: {
-    color: COLORS.white,
-    fontWeight: '600',
   },
 });
 

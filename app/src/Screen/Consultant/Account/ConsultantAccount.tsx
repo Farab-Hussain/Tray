@@ -92,10 +92,6 @@ const ConsultantAccount = ({ navigation }: any) => {
         // Navigate to Earnings screen (exists in stack)
         navigation.navigate("Earnings");
         break;
-      case "ConsultantSlots":
-        // Navigate to My Slots screen
-        navigation.navigate("ConsultantSlots");
-        break;
       case "StripePaymentSetup":
         // Navigate to Stripe Payment Setup screen
         navigation.navigate("StripePaymentSetup");

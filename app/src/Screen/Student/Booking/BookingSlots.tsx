@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TouchableOpacity, Alert } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, Alert, RefreshControl } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import AppButton from '../../../components/ui/AppButton';
@@ -71,6 +72,7 @@ const BookingSlots = ({ navigation, route }: any) => {
   const [loadingSlots, _setLoadingSlots] = useState(false);
   const [consultantAvailability, setConsultantAvailability] = useState<any>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Default time slots (fallback if API fails) - removed hardcoded data
   const defaultTimeSlots = useMemo(() => [], []);
@@ -151,36 +153,45 @@ const BookingSlots = ({ navigation, route }: any) => {
     return bookedSlots.has(slotKey);
   }, [bookedSlots]);
 
-  // Fetch consultant availability and booked slots on component mount
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!consultantId) return;
-      
-      try {
-        setLoadingAvailability(true);
-        
-        // Fetch both availability and booked slots in parallel
+  const fetchAvailabilityData = useCallback(
+    async (skipLoading = false) => {
+    if (!consultantId) return;
+
+    try {
+        if (!skipLoading) {
+          setLoadingAvailability(true);
+        }
+
         const [availabilityResponse] = await Promise.all([
           ConsultantService.getConsultantAvailability(consultantId),
-          fetchBookedSlots()
+          fetchBookedSlots(),
         ]);
-        
+
         console.log('✅ Availability response:', availabilityResponse);
-        
+
         if (availabilityResponse?.available) {
-          // Check if consultant has actual availability data
-          const hasAvailability = availabilityResponse.availability && Object.keys(availabilityResponse.availability).length > 0;
-          const hasAvailabilitySlots = availabilityResponse.availabilitySlots && availabilityResponse.availabilitySlots.length > 0;
-          
+          const hasAvailability =
+            availabilityResponse.availability &&
+            Object.keys(availabilityResponse.availability).length > 0;
+          const hasAvailabilitySlots =
+            availabilityResponse.availabilitySlots &&
+            availabilityResponse.availabilitySlots.length > 0;
+
           if (hasAvailability || hasAvailabilitySlots) {
             setConsultantAvailability(availabilityResponse);
-            console.log('✅ Consultant availability loaded:', availabilityResponse.availability);
+            console.log(
+              '✅ Consultant availability loaded:',
+              availabilityResponse.availability,
+            );
           } else {
             console.log('⚠️ Consultant has no availability set');
             setConsultantAvailability(null);
           }
         } else {
-          console.log('⚠️ Consultant not available:', availabilityResponse?.message);
+          console.log(
+            '⚠️ Consultant not available:',
+            availabilityResponse?.message,
+          );
           setConsultantAvailability(null);
         }
       } catch (error: any) {
@@ -189,10 +200,21 @@ const BookingSlots = ({ navigation, route }: any) => {
       } finally {
         setLoadingAvailability(false);
       }
-    };
+    },
+    [consultantId, fetchBookedSlots],
+  );
 
-    fetchData();
-  }, [consultantId, fetchBookedSlots]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchAvailabilityData();
+    }, [fetchAvailabilityData]),
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await fetchAvailabilityData(true);
+    setIsRefreshing(false);
+  }, [fetchAvailabilityData]);
 
   // Update time slots when date is selected
   useEffect(() => {
@@ -311,6 +333,13 @@ const BookingSlots = ({ navigation, route }: any) => {
       <ScrollView 
         style={styles.bookingContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={COLORS.green}
+          />
+        }
       >
         {/* Calendar */}
         <View style={styles.calendarContainer}>

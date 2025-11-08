@@ -488,7 +488,7 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
 
         // Create copy for this consultant
         const newServiceRef = db.collection("services").doc();
-        await newServiceRef.set({
+        const newServiceData: any = {
           id: newServiceRef.id,
           consultantId: application.consultantId,
           title: serviceData?.title || "Service",
@@ -500,7 +500,17 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
           fromApplication: id,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        });
+        };
+
+        if (serviceData?.imageUrl) {
+          newServiceData.imageUrl = serviceData.imageUrl;
+        }
+
+        if (serviceData?.imagePublicId) {
+          newServiceData.imagePublicId = serviceData.imagePublicId;
+        }
+
+        await newServiceRef.set(newServiceData);
 
         createdServiceId = newServiceRef.id;
         Logger.success("Service Creation", application.consultantId,

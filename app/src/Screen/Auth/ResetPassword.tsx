@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Text, TextInput, View, Alert, ActivityIndicator, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
+import { Text, TextInput, View, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import AppButton from "../../components/ui/AppButton";
 import PasswordStrengthIndicator from "../../components/ui/PasswordStrengthIndicator";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -80,10 +81,12 @@ const ResetPassword = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={authStyles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      <KeyboardAwareScrollView
+        contentContainerStyle={authStyles.keyboardContent}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraScrollHeight={24}
+        showsVerticalScrollIndicator={false}
       >
         <View style={authStyles.formContainer}>
         <Text style={authStyles.authHeading}>Reset Password</Text>
@@ -157,7 +160,7 @@ const ResetPassword = ({ navigation, route }: any) => {
         />
         {loading && <ActivityIndicator style={{ marginTop: 10 }} />}
       </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };
