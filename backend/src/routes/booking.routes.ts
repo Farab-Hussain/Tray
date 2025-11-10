@@ -9,6 +9,7 @@ import {
   checkAccess,
   getMyConsultants,
   testBookingDebug,
+  cancelBooking,
 } from "../controllers/booking.controller";
 import { authenticateUser } from "../middleware/authMiddleware";
 
@@ -21,6 +22,7 @@ router.get("/consultant/:consultantId/booked-slots", getConsultantBookedSlots); 
 router.get("/my-consultants", authenticateUser, getMyConsultants);
 router.get("/debug", authenticateUser, testBookingDebug);
 router.put("/:bookingId/status", authenticateUser, updateBookingStatus);
+router.post("/:bookingId/cancel", authenticateUser, cancelBooking);
 router.get("/has-access/:consultantId", authenticateUser, checkAccess);
 
 export default router;

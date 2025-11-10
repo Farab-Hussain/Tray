@@ -130,7 +130,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
     setIsDeleting(true);
     try {
-      await UploadService.deleteProfileImage(currentPublicId);
+      if (uploadType === 'consultant') {
+        await UploadService.deleteConsultantImage(currentPublicId);
+      } else {
+        await UploadService.deleteProfileImage(currentPublicId);
+      }
       onImageDeleted?.();
       showAlert('success', 'Success', 'Image deleted successfully!');
     } catch (err: any) {

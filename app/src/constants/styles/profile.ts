@@ -12,7 +12,9 @@ export const Profile = StyleSheet.create({
     avatar: {
         width: 120,
         height: 120,
-        borderRadius: 50,
+        borderRadius: 60,
+        overflow: 'hidden',
+        resizeMode: 'cover',
     },
     name: {
         fontSize: 16,

@@ -65,7 +65,9 @@ const BookingSlots = ({ navigation, route }: any) => {
 
   // Multi-selection state
   const [selectedDate, setSelectedDate] = useState('');
-  const [selectedSlots, setSelectedSlots] = useState<Array<{date: string; startTime: string; endTime: string}>>([]);
+  const [selectedSlots, setSelectedSlots] = useState<
+    Array<{date: string; startTime: string; endTime: string; displayStartTime: string; displayEndTime: string}>
+  >([]);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]); // For current date
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
@@ -81,11 +83,11 @@ const BookingSlots = ({ navigation, route }: any) => {
   const [_availabilityApiUnavailable, _setAvailabilityApiUnavailable] = React.useState(false);
 
   // Helper function to get day name from date
-  const getDayName = (dateString: string): string => {
+  const getDayName = useCallback((dateString: string): string => {
     const date = new Date(dateString);
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return days[date.getDay()];
-  };
+  }, []);
 
   // Helper function to check if date is available
   const isDateAvailable = (dateString: string): boolean => {
@@ -152,6 +154,145 @@ const BookingSlots = ({ navigation, route }: any) => {
     const slotKey = `${date}_${time}`;
     return bookedSlots.has(slotKey);
   }, [bookedSlots]);
+
+  const highlightedDates = useMemo(() => {
+    const marks: Record<string, any> = {};
+    const datesWithSlots = new Set<string>();
+
+    if (!isConsultant && Array.isArray(consultantAvailability?.availabilitySlots)) {
+      consultantAvailability.availabilitySlots.forEach((slot: any) => {
+        if (slot?.date && Array.isArray(slot?.timeSlots) && slot.timeSlots.length > 0) {
+          datesWithSlots.add(slot.date);
+        }
+      });
+    }
+
+    if (!isConsultant && consultantAvailability?.availability) {
+      const daysToProject = 90;
+      for (let i = 0; i < daysToProject; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        const dateString = date.toISOString().split('T')[0];
+        const dayName = getDayName(dateString).toLowerCase();
+        const daySlots = consultantAvailability.availability[dayName];
+        if (Array.isArray(daySlots) && daySlots.length > 0) {
+          datesWithSlots.add(dateString);
+        }
+      }
+    }
+
+    if (!isConsultant) {
+      datesWithSlots.forEach(dateString => {
+        marks[dateString] = {
+          customStyles: {
+            container: {
+              backgroundColor: 'rgba(96, 193, 105, 0.18)',
+              borderRadius: 8,
+            },
+            text: {
+              color: COLORS.black,
+              fontWeight: '600',
+            },
+          },
+        };
+      });
+    }
+
+    if (selectedDate) {
+      marks[selectedDate] = {
+        customStyles: {
+          container: {
+            backgroundColor: COLORS.green,
+            borderRadius: 8,
+          },
+          text: {
+            color: COLORS.white,
+            fontWeight: '600',
+          },
+        },
+      };
+    }
+
+    return marks;
+  }, [consultantAvailability, getDayName, isConsultant, selectedDate]);
+
+  const upcomingAvailableDates = useMemo(() => {
+    const dates: Array<{ date: string; label: string; weekday: string }> = [];
+    if (!consultantAvailability) {
+      return dates;
+    }
+
+    const seen = new Set<string>();
+
+    const addDate = (dateString: string) => {
+      if (seen.has(dateString)) return;
+      const dateObj = new Date(`${dateString}T00:00:00`);
+      if (Number.isNaN(dateObj.getTime())) return;
+
+      const label = dateObj.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      });
+      const weekday = dateObj.toLocaleDateString(undefined, {
+        weekday: 'short',
+      });
+
+      dates.push({
+        date: dateString,
+        label,
+        weekday,
+      });
+      seen.add(dateString);
+    };
+
+    if (Array.isArray(consultantAvailability?.availabilitySlots)) {
+      consultantAvailability.availabilitySlots
+        .filter((slot: any) => slot?.date && Array.isArray(slot?.timeSlots) && slot.timeSlots.length > 0)
+        .sort((a: any, b: any) => new Date(`${a.date}T00:00:00`).getTime() - new Date(`${b.date}T00:00:00`).getTime())
+        .forEach((slot: any) => addDate(slot.date));
+    }
+
+    if (consultantAvailability?.availability) {
+      const projectionDays = 180;
+      for (let i = 0; i < projectionDays; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        const dateString = date.toISOString().split('T')[0];
+        const dayName = getDayName(dateString).toLowerCase();
+        const daySlots = consultantAvailability.availability[dayName];
+        if (Array.isArray(daySlots) && daySlots.length > 0) {
+          addDate(dateString);
+        }
+      }
+    }
+
+    dates.sort((a, b) => new Date(`${a.date}T00:00:00`).getTime() - new Date(`${b.date}T00:00:00`).getTime());
+    return dates.slice(0, 20);
+  }, [consultantAvailability, getDayName]);
+
+  const parseSlotTime = useCallback(
+    (slot: string): { startDisplay: string; endDisplay: string } => {
+      if (!slot) {
+        return { startDisplay: '', endDisplay: '' };
+      }
+
+      const normalized = slot.replace(/–/g, '-');
+      const parts = normalized.split('-').map(part => part.trim()).filter(Boolean);
+
+      const startDisplay = parts[0] || slot.trim();
+      let endDisplay = parts[1] || '';
+
+      if (!endDisplay) {
+        endDisplay = calculateEndTime(
+          startDisplay,
+          typeof serviceDuration === 'number' && serviceDuration > 0 ? serviceDuration : 60,
+        );
+      }
+
+      return { startDisplay, endDisplay };
+    },
+    [serviceDuration],
+  );
 
   const fetchAvailabilityData = useCallback(
     async (skipLoading = false) => {
@@ -262,13 +403,25 @@ const BookingSlots = ({ navigation, route }: any) => {
     }
 
     // Add all selected time slots for this date
-    const newSlots = selectedTimeSlots.map(startTime => ({
-      date: selectedDate,
-      startTime,
-      endTime: calculateEndTime(startTime, serviceDuration)
-    }));
+    const newSlots = selectedTimeSlots.map(slotString => {
+      const { startDisplay, endDisplay } = parseSlotTime(slotString);
+      return {
+        date: selectedDate,
+        startTime: slotString,
+        endTime: endDisplay,
+        displayStartTime: startDisplay,
+        displayEndTime: endDisplay,
+      };
+    });
 
-    setSelectedSlots(prev => [...prev, ...newSlots]);
+    setSelectedSlots(prev => {
+      const existingKeys = new Set(prev.map(slot => `${slot.date}_${slot.startTime}`));
+      const deduped = newSlots.filter(slot => !existingKeys.has(`${slot.date}_${slot.startTime}`));
+      if (deduped.length === 0) {
+        return prev;
+      }
+      return [...prev, ...deduped];
+    });
     setSelectedTimeSlots([]); // Reset current selections
     
     console.log('✅ Added slots for date:', selectedDate, 'Slots:', newSlots.length);
@@ -307,7 +460,11 @@ const BookingSlots = ({ navigation, route }: any) => {
       serviceTitle: serviceTitle || 'Consultation Service',
       serviceImageUrl: serviceImageUrl, // Include service image URL
       pricePerSlot: route?.params?.servicePrice || 100,
-      bookedSlots: selectedSlots,
+      bookedSlots: selectedSlots.map(slot => ({
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      })),
       duration: serviceDuration,
     };
 
@@ -356,34 +513,18 @@ const BookingSlots = ({ navigation, route }: any) => {
             </View>
           ) : (
             <Calendar
-              current={selectedDate}
+              current={selectedDate || undefined}
               onDayPress={(day) => {
-                if (isDateAvailable(day.dateString)) {
-                  setSelectedDate(day.dateString);
-                } else {
+                const { dateString } = day;
+                if (!isDateAvailable(dateString)) {
                   Alert.alert('Date Not Available', 'This consultant is not available on this day');
+                  return;
                 }
+
+                setSelectedDate(prev => (prev === dateString ? '' : dateString));
               }}
-              markedDates={{
-                [selectedDate]: {
-                  selected: true,
-                  selectedColor: COLORS.green,
-                },
-                ...Object.fromEntries(
-                  Array.from({ length: 30 }, (_, i) => {
-                    const date = new Date();
-                    date.setDate(date.getDate() + i);
-                    const dateString = date.toISOString().split('T')[0];
-                    return [
-                      dateString,
-                      {
-                        marked: isDateAvailable(dateString),
-                        dotColor: COLORS.green,
-                      }
-                    ];
-                  })
-                )
-              }}
+              markedDates={highlightedDates}
+              markingType="custom"
               theme={{
                 backgroundColor: COLORS.white,
                 calendarBackground: COLORS.white,
@@ -410,6 +551,60 @@ const BookingSlots = ({ navigation, route }: any) => {
           <Text style={styles.timeSlotsTitle}>
             {isConsultant ? "Set Your Available Time Slots" : "Available Time Slots"}
           </Text>
+
+          {!isConsultant && (
+            <View style={mergedStyles.availableDatesContainer}>
+              <Text style={mergedStyles.availableDatesHeading}>
+                Upcoming available dates
+              </Text>
+              {upcomingAvailableDates.length === 0 ? (
+                <Text style={mergedStyles.noUpcomingDatesText}>
+                  This consultant hasn't published any availability yet.
+                </Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={mergedStyles.availableDatesScroll}
+                >
+                  {upcomingAvailableDates.map(({ date, label, weekday }) => {
+                    const isActive = selectedDate === date;
+                    return (
+                      <TouchableOpacity
+                        key={date}
+                        style={[
+                          mergedStyles.availableDateChip,
+                          isActive && mergedStyles.availableDateChipActive,
+                        ]}
+                        onPress={() => {
+                          if (isDateAvailable(date)) {
+                            setSelectedDate(prev => (prev === date ? '' : date));
+                          }
+                        }}
+                      >
+                        <Text
+                          style={[
+                            mergedStyles.availableDateChipLabel,
+                            isActive && mergedStyles.availableDateChipLabelActive,
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                        <Text
+                          style={[
+                            mergedStyles.availableDateChipWeekday,
+                            isActive && mergedStyles.availableDateChipWeekdayActive,
+                          ]}
+                        >
+                          {weekday}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+          )}
           
           {loadingSlots ? (
             <View style={styles.timeSlotsGrid}>
@@ -495,7 +690,10 @@ const BookingSlots = ({ navigation, route }: any) => {
                 <View key={idx} style={mergedStyles.selectedSlotItem}>
                   <View style={mergedStyles.slotInfo}>
                     <Text style={mergedStyles.slotDate}>{slot.date}</Text>
-                    <Text style={mergedStyles.slotTime}>{slot.startTime} - {slot.endTime}</Text>
+                    <Text style={mergedStyles.slotTime}>
+                      {slot.displayStartTime || slot.startTime}
+                      {slot.displayEndTime ? ` - ${slot.displayEndTime}` : ''}
+                    </Text>
                   </View>
                   <TouchableOpacity
                     onPress={() => handleRemoveSlot(slot)}
@@ -568,6 +766,55 @@ const additionalStyles = {
   addSlotsButton: {
     backgroundColor: COLORS.green,
     paddingVertical: 12,
+  },
+  availableDatesContainer: {
+    marginBottom: 20,
+  },
+  availableDatesHeading: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: COLORS.black,
+    marginBottom: 12,
+  },
+  availableDatesScroll: {
+    paddingRight: 24,
+  },
+  noUpcomingDatesText: {
+    fontSize: 14,
+    color: COLORS.gray,
+    fontStyle: 'italic' as const,
+  },
+  availableDateChip: {
+    backgroundColor: COLORS.lightBackground,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    minWidth: 76,
+  },
+  availableDateChipActive: {
+    backgroundColor: COLORS.green,
+    borderColor: COLORS.green,
+  },
+  availableDateChipLabel: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: COLORS.black,
+    textAlign: 'center' as const,
+  },
+  availableDateChipLabelActive: {
+    color: COLORS.white,
+  },
+  availableDateChipWeekday: {
+    fontSize: 12,
+    color: COLORS.gray,
+    textAlign: 'center' as const,
+    marginTop: 4,
+  },
+  availableDateChipWeekdayActive: {
+    color: COLORS.white,
   },
   selectedSlotsList: {
     maxHeight: 200,

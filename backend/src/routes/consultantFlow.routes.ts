@@ -11,6 +11,7 @@ import {
   approveConsultantProfile,
   rejectConsultantProfile,
   createConsultantApplication,
+  updateConsultantApplication,
   getConsultantApplication,
   getMyConsultantApplications,
   getAllConsultantApplications,
@@ -82,6 +83,7 @@ router.post(
 
 // POST /consultant-flow/applications - Submit service application (requires approved profile)
 router.post("/applications", authenticateUser, canApplyForServices, createConsultantApplication);
+router.put("/applications/:id", authenticateUser, updateConsultantApplication);
 
 // GET /consultant-flow/applications/my - Get MY applications (consultant-only route)
 router.get("/applications/my", authenticateUser, getMyConsultantApplications);

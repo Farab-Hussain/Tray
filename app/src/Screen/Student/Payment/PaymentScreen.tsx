@@ -100,11 +100,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
       // Step 1: Create payment intent on your backend
       let clientSecret: string;
+      let paymentIntentId: string;
       try {
         const response = await PaymentService.createPaymentIntent(paymentData);
         clientSecret = response.clientSecret;
+        paymentIntentId = response.paymentIntentId;
         
-        if (!clientSecret) {
+        if (!clientSecret || !paymentIntentId) {
           throw new Error('No client secret returned from backend');
         }
         console.log('✅ Payment intent created successfully');
@@ -148,7 +150,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       }
 
       // Payment succeeded - create all bookings
-      await handlePaymentSuccess(clientSecret);
+      await handlePaymentSuccess(paymentIntentId);
 
     } catch (error: any) {
       console.error('Payment error:', error);
@@ -181,6 +183,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
               quantity: 1,
               status: 'confirmed',
               paymentStatus: 'paid',
+              paymentIntentId,
             };
             
             bookingPromises.push(BookingService.createBooking(bookingData));
@@ -198,6 +201,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             quantity: 1,
             status: 'confirmed',
             paymentStatus: 'paid',
+            paymentIntentId,
           };
           
           bookingPromises.push(BookingService.createBooking(bookingData));
@@ -231,8 +235,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
         }
       };
 
-      const studentName = user?.name || user?.email?.split('@')[0] || 'Student';
-      const studentAvatar = user?.profileImage || '';
+      const userAny = user as any;
+      const studentName = userAny?.name || user?.email?.split('@')[0] || 'Student';
+      const studentAvatar = userAny?.profileImage || '';
 
       for (let i = 0; i < bookingPromises.length; i++) {
         try {

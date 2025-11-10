@@ -15,18 +15,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ChevronLeft, Plus, X, CheckCircle, Clock, XCircle, FileText, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, Plus, X, CheckCircle, Clock, XCircle, FileText, Trash2, Pencil } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
 import {
   createConsultantApplication,
   getConsultantApplications,
   deleteConsultantApplication,
+  updateConsultantApplication,
   ConsultantApplication,
 } from '../../../services/consultantFlow.service';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import { api } from '../../../lib/fetcher';
 import { ConsultantService } from '../../../services/consultant.service';
+import axios from 'axios';
 
 interface PlatformServiceSummary {
   id: string;
@@ -35,6 +37,8 @@ interface PlatformServiceSummary {
 
 type ConsultantApplicationWithTitle = ConsultantApplication & {
   existingServiceTitle?: string;
+  linkedServiceId?: string;
+  linkedService?: any;
 };
 
 export default function ConsultantApplicationsScreen() {
@@ -45,6 +49,42 @@ export default function ConsultantApplicationsScreen() {
   const [applications, setApplications] = useState<ConsultantApplicationWithTitle[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingApplication, setEditingApplication] = useState<ConsultantApplicationWithTitle | null>(null);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editingOriginalValues, setEditingOriginalValues] = useState<{
+    title: string;
+    description: string;
+    duration: number;
+    price: number;
+    imageUrl?: string | null;
+  } | null>(null);
+  const [isLoadingServiceDetails, setIsLoadingServiceDetails] = useState(false);
+  const [loadingServiceId, setLoadingServiceId] = useState<string | null>(null);
+  const [mutatingApplicationId, setMutatingApplicationId] = useState<string | null>(null);
+
+  const confirmAction = useCallback(
+    (
+      title: string,
+      message: string,
+      confirmLabel: string = 'Yes',
+      cancelLabel: string = 'No',
+    ): Promise<boolean> =>
+      new Promise(resolve => {
+        Alert.alert(title, message, [
+          {
+            text: cancelLabel,
+            style: 'cancel',
+            onPress: () => resolve(false),
+          },
+          {
+            text: confirmLabel,
+            onPress: () => resolve(true),
+          },
+        ]);
+      }),
+    [],
+  );
 
   // Form state
   const [serviceTitle, setServiceTitle] = useState('');
@@ -111,11 +151,38 @@ export default function ConsultantApplicationsScreen() {
         }
       });
 
-      const enrichedApps: ConsultantApplicationWithTitle[] = apps.map(app => ({
-        ...app,
-        existingServiceTitle:
-          app.type === 'existing' && app.serviceId ? serviceMap.get(app.serviceId) : undefined,
-      }));
+      let consultantServices: any[] = [];
+      if (user?.uid) {
+        try {
+          const consultantServicesResponse = await ConsultantService.getConsultantServices(user.uid);
+          consultantServices = consultantServicesResponse?.services || [];
+        } catch (consultantServicesError) {
+          console.error('Error fetching consultant services for linkage:', consultantServicesError);
+        }
+      }
+
+      const serviceByApplication = new Map<string, any>();
+      consultantServices.forEach(service => {
+        if (service?.fromApplication) {
+          serviceByApplication.set(service.fromApplication, service);
+        }
+        if (service?.id) {
+          serviceByApplication.set(service.id, service);
+        }
+      });
+
+      const enrichedApps: ConsultantApplicationWithTitle[] = apps.map(app => {
+        const linkedService =
+          serviceByApplication.get(app.id) ||
+          (app.serviceId ? serviceByApplication.get(app.serviceId) : undefined);
+        return {
+          ...app,
+          existingServiceTitle:
+            app.type === 'existing' && app.serviceId ? serviceMap.get(app.serviceId) : undefined,
+          linkedServiceId: linkedService?.id || app.serviceId,
+          linkedService,
+        };
+      });
 
       setApplications(enrichedApps);
     } catch (error) {
@@ -136,6 +203,7 @@ export default function ConsultantApplicationsScreen() {
     const params = route.params as any;
     if (params?.openCreateModal) {
       console.log('ConsultantApplicationsScreen - Auto-opening create modal from route params');
+      setIsEditing(false);
       setShowModal(true);
       navigation.setParams({ openCreateModal: undefined } as never);
     }
@@ -177,6 +245,14 @@ export default function ConsultantApplicationsScreen() {
   const handleCloseModal = () => {
     setShowModal(false);
     setValidationErrors({});
+    setIsEditing(false);
+    setEditingApplication(null);
+    setEditingServiceId(null);
+    setEditingOriginalValues(null);
+    setIsLoadingServiceDetails(false);
+    setLoadingServiceId(null);
+    setMutatingApplicationId(null);
+    setIsLoadingServiceDetails(false);
     // Reset form
     setServiceTitle('');
     setServiceDescription('');
@@ -198,83 +274,334 @@ export default function ConsultantApplicationsScreen() {
       return;
     }
 
+    const parsedDuration = parseInt(serviceDuration, 10);
+    const parsedPrice = parseFloat(servicePrice);
+
     setIsSubmitting(true);
+    if (isEditing && editingApplication) {
+      setMutatingApplicationId(editingApplication.id);
+    }
     try {
-      await createConsultantApplication({
-        consultantId: user.uid,
-        type: 'new',
-        customService: {
-          title: serviceTitle,
-          description: serviceDescription,
-          duration: parseInt(serviceDuration, 10),
-          price: parseFloat(servicePrice),
-          imageUrl: serviceImage || undefined,
-          imagePublicId: serviceImagePublicId || undefined,
-        },
-      });
+      if (isEditing && editingApplication) {
+        if (editingApplication.status === 'pending') {
+          await updateConsultantApplication(editingApplication.id, {
+            type: 'new',
+            customService: {
+              title: serviceTitle,
+              description: serviceDescription,
+              duration: parsedDuration,
+              price: parsedPrice,
+              imageUrl: serviceImage || undefined,
+              imagePublicId: serviceImagePublicId || undefined,
+            },
+          });
 
-      Alert.alert(
-        'Success', 
-        'Application submitted! It will be reviewed by admin.',
-        [
-          {
-            text: 'OK',
-            onPress: async () => {
-              await refreshConsultantStatus();
-              
+          Alert.alert('Updated', 'Application details updated successfully.');
+          handleCloseModal();
+          await loadApplications();
+          return;
+        }
 
-              try {
-                const applications = await getConsultantApplications();
-                const approvedServices = applications.filter(app => app.status === 'approved');
-                
-                if (approvedServices.length > 0) {
-                  console.log('ConsultantApplicationsScreen - Has approved services, staying on app');
-                  navigation.goBack();
-                } else {
-                  console.log('ConsultantApplicationsScreen - No approved services, going to pending approval');
+        const targetServiceId =
+          editingServiceId || editingApplication.linkedServiceId || editingApplication.serviceId || null;
+
+        const payload: {
+          type?: 'new' | 'existing' | 'update';
+          serviceId?: string | null;
+          customService: {
+            title: string;
+            description: string;
+            duration: number;
+            price: number;
+            imageUrl: string | null;
+            imagePublicId: string | null;
+          };
+        } = {
+          customService: {
+            title: serviceTitle,
+            description: serviceDescription,
+            duration: parsedDuration,
+            price: parsedPrice,
+            imageUrl: serviceImage ?? null,
+            imagePublicId: serviceImagePublicId ?? null,
+          },
+        };
+
+        if (editingApplication.status === 'approved') {
+          if (!targetServiceId) {
+            Alert.alert('Service Not Found', 'Unable to locate the approved service for this application.');
+            return;
+          }
+          payload.type = 'update';
+          payload.serviceId = targetServiceId;
+        } else {
+          payload.type = editingApplication.type;
+          if (targetServiceId) {
+            payload.serviceId = targetServiceId;
+          }
+        }
+
+        setMutatingApplicationId(editingApplication.id);
+        await updateConsultantApplication(editingApplication.id, payload);
+
+        const successMessage =
+          editingApplication.status === 'approved'
+            ? 'Your update has been submitted to the admin for approval. This service will remain pending until it is reviewed.'
+            : 'Application updated successfully and remains pending review.';
+
+        Alert.alert('Submitted for Approval', successMessage);
+        handleCloseModal();
+        await loadApplications();
+        return;
+      } else {
+        await createConsultantApplication({
+          consultantId: user.uid,
+          type: 'new',
+          customService: {
+            title: serviceTitle,
+            description: serviceDescription,
+            duration: parsedDuration,
+            price: parsedPrice,
+            imageUrl: serviceImage ?? null,
+            imagePublicId: serviceImagePublicId ?? null,
+          },
+        });
+
+        Alert.alert(
+          'Success',
+          'Application submitted! It will be reviewed by admin.',
+          [
+            {
+              text: 'OK',
+              onPress: async () => {
+                await refreshConsultantStatus();
+
+                try {
+                  const applications = await getConsultantApplications();
+                  const approvedServices = applications.filter(app => app.status === 'approved');
+
+                  if (approvedServices.length > 0) {
+                    navigation.goBack();
+                  } else {
+                    navigation.navigate('PendingApproval' as never);
+                  }
+                } catch (error) {
+                  console.error('Error checking approved services:', error);
                   navigation.navigate('PendingApproval' as never);
                 }
-              } catch (error) {
-                console.error('Error checking approved services:', error);
-                navigation.navigate('PendingApproval' as never);
-              }
+              },
             },
-          },
-        ]
-      );
-      setShowModal(false);
-      resetForm();
-      await loadApplications();
+          ],
+        );
+        setShowModal(false);
+        resetForm();
+        await loadApplications();
+      }
     } catch (error: any) {
       console.error('Error submitting application:', error);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to submit application');
+      Alert.alert('Error', error.response?.data?.error || 'Failed to process request');
     } finally {
       setIsSubmitting(false);
+      setMutatingApplicationId(null);
     }
   };
 
-  const handleDeleteApplication = (app: ConsultantApplication) => {
-    Alert.alert(
+  const handleDeleteApplication = async (app: ConsultantApplicationWithTitle) => {
+    if (app.status === 'approved') {
+      if (!app.linkedServiceId) {
+        Alert.alert('Service Not Found', 'Unable to locate the approved service for this application.');
+        return;
+      }
+
+      let bookingsCount = 0;
+      try {
+        const bookingsResponse = await ConsultantService.getServiceBookings(app.linkedServiceId);
+        bookingsCount = bookingsResponse?.count ?? bookingsResponse?.bookings?.length ?? 0;
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          bookingsCount = 0;
+        } else {
+          console.error('Error fetching bookings before deletion:', error);
+        }
+      }
+
+      const proceed = await confirmAction(
+        'Delete Approved Service',
+        bookingsCount > 0
+          ? `This service has ${bookingsCount} active booking${bookingsCount > 1 ? 's' : ''}. Deleting will cancel and refund those bookings automatically. Continue?`
+          : 'Deleting this service will remove it from your catalog. Continue?',
+        'Delete & Refund',
+        'Cancel',
+      );
+
+      if (!proceed) {
+        return;
+      }
+
+      try {
+        setMutatingApplicationId(app.id);
+        setIsSubmitting(true);
+        await ConsultantService.deleteService(app.linkedServiceId, { cancelBookings: true });
+        Alert.alert('Service Deleted', 'The service and its bookings have been handled successfully.');
+        await loadApplications();
+      } catch (error: any) {
+        console.error('Error deleting approved service:', error);
+        Alert.alert(
+          'Deletion Failed',
+          error?.response?.data?.error || 'Unable to delete service. Please try again.',
+        );
+      } finally {
+        setIsSubmitting(false);
+        setMutatingApplicationId(null);
+      }
+      return;
+    }
+
+    const confirmed = await confirmAction(
       'Delete Application',
       'Are you sure you want to delete this application?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteConsultantApplication(app.id);
-              Alert.alert('Success', 'Application deleted');
-              await loadApplications();
-            } catch {
-              Alert.alert('Error', 'Failed to delete application');
-            }
-          },
-        },
-      ]
+      'Delete',
+      'Cancel',
     );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setMutatingApplicationId(app.id);
+      setIsSubmitting(true);
+      await deleteConsultantApplication(app.id);
+      Alert.alert('Success', 'Application deleted');
+      await loadApplications();
+    } catch (error: any) {
+      console.error('Error deleting application:', error);
+      Alert.alert('Error', 'Failed to delete application');
+    } finally {
+      setIsSubmitting(false);
+      setMutatingApplicationId(null);
+    }
   };
+
+  const handleEditApplication = useCallback(
+    async (app: ConsultantApplicationWithTitle) => {
+      if (!user?.uid) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      if (app.type !== 'new') {
+        Alert.alert('Unsupported', 'Editing platform service applications is not supported yet.');
+        return;
+      }
+
+      setLoadingServiceId(app.id);
+      setIsLoadingServiceDetails(true);
+      setValidationErrors({});
+
+      try {
+        if (app.status === 'pending') {
+          if (!app.customService) {
+            Alert.alert('Error', 'Application data is incomplete.');
+            return;
+          }
+
+          setServiceTitle(app.customService.title);
+          setServiceDescription(app.customService.description);
+          setServiceDuration(String(app.customService.duration));
+          setServicePrice(String(app.customService.price));
+        setServiceImage(app.customService.imageUrl || null);
+        setServiceImagePublicId(app.customService.imagePublicId || null);
+
+          setEditingApplication(app);
+          setEditingServiceId(null);
+          setEditingOriginalValues({
+            title: app.customService.title,
+            description: app.customService.description,
+            duration: app.customService.duration,
+            price: app.customService.price,
+            imageUrl: app.customService.imageUrl || null,
+          });
+          setServiceBookings([]);
+          setIsEditing(true);
+          setShowModal(true);
+          return;
+        }
+
+        if (app.status === 'approved') {
+          let linkedService = app.linkedService;
+
+        if (!linkedService && app.linkedServiceId) {
+          try {
+            const serviceResponse = await ConsultantService.getServiceById(app.linkedServiceId);
+            linkedService = serviceResponse?.service;
+          } catch (serviceError) {
+            if (!(axios.isAxiosError(serviceError) && serviceError.response?.status === 404)) {
+              console.error('Error fetching linked service by ID:', serviceError);
+            }
+          }
+        }
+
+        if (!linkedService) {
+          try {
+            const consultantServicesResponse = await ConsultantService.getConsultantServices(user.uid);
+            const matching = consultantServicesResponse?.services?.find((service: any) => {
+              if (service.fromApplication && service.fromApplication === app.id) {
+                return true;
+              }
+              if (app.linkedServiceId && service.id === app.linkedServiceId) {
+                return true;
+              }
+              if (app.customService?.title && service.title === app.customService.title) {
+                return true;
+              }
+              return false;
+            });
+            if (matching) {
+              linkedService = matching;
+              app.linkedServiceId = matching.id;
+              app.linkedService = matching;
+            }
+          } catch (consultantFetchError) {
+            console.error('Error fetching consultant services while editing:', consultantFetchError);
+          }
+        }
+
+        if (!linkedService) {
+          Alert.alert(
+            'Service Not Found',
+            'Unable to locate the service associated with this application. Please try again or contact support.',
+          );
+          return;
+        }
+
+          setServiceTitle(linkedService.title || '');
+          setServiceDescription(linkedService.description || '');
+          setServiceDuration(String(linkedService.duration || 60));
+          setServicePrice(String(linkedService.price || 0));
+          setServiceImage(linkedService.imageUrl || null);
+          setServiceImagePublicId(linkedService.imagePublicId || null);
+
+          setEditingApplication(app);
+          setEditingServiceId(linkedService.id);
+          setEditingOriginalValues({
+            title: linkedService.title || '',
+            description: linkedService.description || '',
+            duration: linkedService.duration || 60,
+            price: linkedService.price || 0,
+            imageUrl: linkedService.imageUrl || null,
+          });
+
+          setIsEditing(true);
+          setShowModal(true);
+        }
+      } finally {
+        setIsLoadingServiceDetails(false);
+        setLoadingServiceId(null);
+      }
+    },
+    [user?.uid, confirmAction],
+  );
 
   const resetForm = () => {
     setServiceTitle('');
@@ -283,6 +610,13 @@ export default function ConsultantApplicationsScreen() {
     setServicePrice('150');
     setServiceImage(null);
     setServiceImagePublicId(null);
+    setIsEditing(false);
+    setEditingApplication(null);
+    setEditingServiceId(null);
+    setEditingOriginalValues(null);
+  setIsLoadingServiceDetails(false);
+  setLoadingServiceId(null);
+  setMutatingApplicationId(null);
   };
 
   const getStatusColor = (status: string) => {
@@ -326,7 +660,12 @@ export default function ConsultantApplicationsScreen() {
           <ChevronLeft size={24} color={COLORS.black} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Applications</Text>
-        <TouchableOpacity onPress={() => setShowModal(true)}>
+        <TouchableOpacity
+          onPress={() => {
+            resetForm();
+            setShowModal(true);
+          }}
+        >
           <Plus size={24} color={COLORS.green} />
         </TouchableOpacity>
       </View>
@@ -356,7 +695,10 @@ export default function ConsultantApplicationsScreen() {
             <Text style={styles.emptyText}>Submit your first service application</Text>
             <TouchableOpacity
               style={styles.emptyButton}
-              onPress={() => setShowModal(true)}
+              onPress={() => {
+                resetForm();
+                setShowModal(true);
+              }}
             >
               <Plus size={20} color={COLORS.white} />
               <Text style={styles.emptyButtonText}>New Application</Text>
@@ -413,14 +755,49 @@ export default function ConsultantApplicationsScreen() {
                   </View>
                 )}
 
-                {app.status === 'pending' && (
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteApplication(app)}
-                  >
-                    <Trash2 size={16} color={COLORS.red} />
-                    <Text style={styles.deleteButtonText}>Delete</Text>
-                  </TouchableOpacity>
+                {(app.status === 'pending' || app.status === 'approved') && (
+                  <View style={styles.cardActions}>
+                    {app.type === 'new' && (
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => handleEditApplication(app)}
+                        disabled={isLoadingServiceDetails || isSubmitting}
+                      >
+                        {loadingServiceId === app.id && isLoadingServiceDetails ? (
+                          <ActivityIndicator size="small" color={COLORS.green} />
+                        ) : (
+                          <>
+                            <Pencil size={16} color={COLORS.green} />
+                            <Text style={styles.editButtonText}>Edit</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[
+                        styles.deleteButton,
+                        app.status === 'approved' && styles.deleteButtonEmphasis,
+                      ]}
+                      onPress={() => handleDeleteApplication(app)}
+                      disabled={isSubmitting}
+                    >
+                      {mutatingApplicationId === app.id && isSubmitting ? (
+                        <ActivityIndicator size="small" color={COLORS.red} />
+                      ) : (
+                        <>
+                          <Trash2 size={16} color={COLORS.red} />
+                          <Text
+                            style={[
+                              styles.deleteButtonText,
+                              app.status === 'approved' && styles.deleteButtonTextStrong,
+                            ]}
+                          >
+                            Delete
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             ))}
@@ -435,7 +812,7 @@ export default function ConsultantApplicationsScreen() {
         visible={showModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowModal(false)}
+        onRequestClose={handleCloseModal}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -444,8 +821,8 @@ export default function ConsultantApplicationsScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Application</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
+              <Text style={styles.modalTitle}>{isEditing ? 'Edit Service' : 'New Application'}</Text>
+              <TouchableOpacity onPress={handleCloseModal}>
                 <X size={24} color={COLORS.gray} />
               </TouchableOpacity>
             </View>
@@ -484,11 +861,13 @@ export default function ConsultantApplicationsScreen() {
                     onImageDeleted={() => {
                       setServiceImage(null);
                       setServiceImagePublicId(null);
+                      clearFieldError('serviceImage');
                     }}
                     placeholder="Upload service image"
                     style={styles.imageUpload}
                     required={true}
                     error={validationErrors.serviceImage}
+                    uploadType="consultant"
                   />
                 </View>
 
@@ -576,7 +955,9 @@ export default function ConsultantApplicationsScreen() {
                 {isSubmitting ? (
                   <ActivityIndicator color={COLORS.white} />
                 ) : (
-                  <Text style={styles.submitButtonText}>Submit</Text>
+                  <Text style={styles.submitButtonText}>
+                    {isEditing ? 'Save Changes' : 'Submit'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -780,20 +1161,49 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.black,
   },
-  deleteButton: {
+  cardActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  editButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: COLORS.red,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#E6F7EE',
     gap: 6,
   },
-  deleteButtonText: {
-    color: COLORS.white,
+  editButtonText: {
+    color: COLORS.green,
     fontSize: 14,
     fontWeight: '500',
+  },
+  deleteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  deleteButtonEmphasis: {
+    backgroundColor: '#F87171',
+    borderColor: '#F87171',
+  },
+  deleteButtonText: {
+    color: COLORS.red,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  deleteButtonTextStrong: {
+    color: COLORS.white,
   },
   modalOverlay: {
     flex: 1,

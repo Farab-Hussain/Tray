@@ -18,6 +18,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   title,
   description,
   imageUri,
+  price,
   duration,
   consultantName,
   consultantCategory,
@@ -48,6 +49,15 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         {/* Text Content */}
         <View style={styles.textContent}>
           <Text style={styles.title}>{title}</Text>
+
+          {typeof price === 'number' && (
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Price</Text>
+              <Text style={styles.priceValue}>
+                ${price.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+              </Text>
+            </View>
+          )}
           
           {consultantName && (
             <View style={styles.consultantInfo}>
@@ -174,6 +184,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
     width: '100%',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    fontWeight: '500',
+  },
+  priceValue: {
+    fontSize: 16,
+    color: COLORS.green,
+    fontWeight: '700',
   },
   consultantInfoExpanded: {
     flexDirection: 'column',

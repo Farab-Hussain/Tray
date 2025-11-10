@@ -67,79 +67,103 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
   const isFetchingRef = useRef(false);
 
   // Debounced fetch function to prevent rapid successive calls
-  const fetchBookings = useCallback(async (forceRefresh = false) => {
-    if (!consultantId || isFetchingRef.current) return;
+  const fetchBookings = useCallback(
+    async (forceRefresh = false) => {
+      if (!consultantId || isFetchingRef.current) return;
 
-    // Prevent rapid successive calls (debounce)
-    const now = Date.now();
-    if (!forceRefresh && now - lastFetchTime < 3000) {
-      console.log('🚫 [ConsultantBookings] Skipping fetch - too soon since last fetch');
-      return;
-    }
+      // Prevent rapid successive calls (debounce)
+      const now = Date.now();
+      if (!forceRefresh && now - lastFetchTime < 3000) {
+        console.log(
+          '🚫 [ConsultantBookings] Skipping fetch - too soon since last fetch',
+        );
+        return;
+      }
 
-    isFetchingRef.current = true;
-    setLastFetchTime(now);
+      isFetchingRef.current = true;
+      setLastFetchTime(now);
 
-    try {
-      setLoading(true);
-      console.log('📅 [ConsultantBookings] Fetching all bookings...');
-      const response = await BookingService.getMyBookings();
-      console.log('✅ [ConsultantBookings] Bookings response:', response);
+      try {
+        setLoading(true);
+        console.log('📅 [ConsultantBookings] Fetching all bookings...');
+        const response = await BookingService.getMyBookings();
+        console.log('✅ [ConsultantBookings] Bookings response:', response);
 
-      // Filter bookings for this consultant
-      const allBookings = response?.bookings || [];
-      const consultantBookings = allBookings.filter(
-        (booking: Booking) => booking.consultantId === consultantId,
-      );
+        // Filter bookings for this consultant
+        const allBookings = response?.bookings || [];
+        const consultantBookings = allBookings.filter(
+          (booking: Booking) => booking.consultantId === consultantId,
+        );
 
-      console.log(`📊 [ConsultantBookings] Found ${consultantBookings.length} bookings for consultant ${consultantId}`);
+        console.log(
+          `📊 [ConsultantBookings] Found ${consultantBookings.length} bookings for consultant ${consultantId}`,
+        );
 
-      // Batch fetch service details to reduce API calls
-      const serviceIds = [...new Set(consultantBookings.map((b: Booking) => b.serviceId))];
-      const serviceDetailsMap = new Map();
+        // Batch fetch service details to reduce API calls
+        const serviceIds = [
+          ...new Set(consultantBookings.map((b: Booking) => b.serviceId)),
+        ];
+        const serviceDetailsMap = new Map();
 
-      // Fetch all service details in parallel
-      const servicePromises = serviceIds.map(async (serviceId) => {
-        try {
-          if (serviceId && consultantId) {
-            const serviceData = await ConsultantService.getConsultantServices(consultantId);
-            const service = serviceData.services?.find((s: { id: string; title: string }) => s.id === serviceId);
-            if (service) {
-              serviceDetailsMap.set(serviceId, service.title);
+        // Fetch all service details in parallel
+        const servicePromises = serviceIds.map(async serviceId => {
+          try {
+            if (serviceId && consultantId) {
+              const serviceData = await ConsultantService.getConsultantServices(
+                consultantId,
+              );
+              const service = serviceData.services?.find(
+                (s: { id: string; title: string }) => s.id === serviceId,
+              );
+              if (service) {
+                serviceDetailsMap.set(serviceId, service.title);
+              }
             }
+          } catch {
+            console.log(
+              `⚠️ [ConsultantBookings] Could not fetch service details for ${serviceId}`,
+            );
           }
-        } catch {
-          console.log(`⚠️ [ConsultantBookings] Could not fetch service details for ${serviceId}`);
-        }
-      });
+        });
 
-      // Wait for all service requests to complete
-      await Promise.all(servicePromises);
+        // Wait for all service requests to complete
+        await Promise.all(servicePromises);
 
-      // Transform bookings using cached service data
-      const bookingsWithServiceDetails = consultantBookings.map((booking: Booking) => ({
-        ...booking,
-        serviceTitle: serviceDetailsMap.get(booking.serviceId) || 'Consultation Service',
-      }));
+        // Transform bookings using cached service data
+        const bookingsWithServiceDetails = consultantBookings.map(
+          (booking: Booking) => ({
+            ...booking,
+            serviceTitle:
+              serviceDetailsMap.get(booking.serviceId) ||
+              'Consultation Service',
+          }),
+        );
 
-      // Sort by date (most recent first)
-      bookingsWithServiceDetails.sort((a: Booking, b: Booking) => {
-        const dateA = new Date(`${a.date} ${a.time}`);
-        const dateB = new Date(`${b.date} ${b.time}`);
-        return dateB.getTime() - dateA.getTime();
-      });
+        // Sort by date (most recent first)
+        bookingsWithServiceDetails.sort((a: Booking, b: Booking) => {
+          const dateA = new Date(`${a.date} ${a.time}`);
+          const dateB = new Date(`${b.date} ${b.time}`);
+          return dateB.getTime() - dateA.getTime();
+        });
 
-      setBookings(bookingsWithServiceDetails);
-      console.log(`✅ [ConsultantBookings] Successfully loaded ${bookingsWithServiceDetails.length} bookings`);
-    } catch (error: unknown) {
-      console.error('❌ [ConsultantBookings] Error fetching bookings:', error);
-      showError('Failed to load bookings');
-      setBookings([]);
-    } finally {
-      setLoading(false);
-      isFetchingRef.current = false;
-    }
-  }, [consultantId, lastFetchTime]);
+        setBookings(bookingsWithServiceDetails);
+        console.log(
+          `✅ [ConsultantBookings] Successfully loaded ${bookingsWithServiceDetails.length} bookings`,
+        );
+      } catch (error: unknown) {
+        console.error(
+          '❌ [ConsultantBookings] Error fetching bookings:',
+          error,
+        );
+        showError('Failed to load bookings');
+        setBookings([]);
+      } finally {
+        setLoading(false);
+        isFetchingRef.current = false;
+      }
+    },
+    [consultantId, lastFetchTime],
+  );
 
   // Load data on component mount only
   useEffect(() => {
@@ -203,11 +227,24 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
       );
       console.log('✅ Cancellation response:', response);
 
-      showSuccess(
-        `Booking cancelled successfully! Refund: $${response.refundAmount.toFixed(
-          2,
-        )} (${response.refundPercentage}%)`,
-      );
+      const refundAmount =
+        typeof response.refundAmount === 'number'
+          ? response.refundAmount
+          : undefined;
+      const refundPercentage =
+        typeof response.refundPercentage === 'number'
+          ? response.refundPercentage
+          : undefined;
+
+      if (refundAmount !== undefined && refundPercentage !== undefined) {
+        showSuccess(
+          `Booking cancelled successfully! Refund: $${refundAmount.toFixed(
+            2,
+          )} (${refundPercentage}%)`,
+        );
+      } else {
+        showSuccess(response.message || 'Booking cancelled successfully.');
+      }
 
       // Refresh bookings list
       await fetchBookings(true);
@@ -217,18 +254,27 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
     } catch (error: unknown) {
       console.error('❌ Error cancelling booking:', error);
       let errorMessage = 'Failed to cancel booking';
-      
+
       if (error && typeof error === 'object') {
-        if ('response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
+        if (
+          'response' in error &&
+          error.response &&
+          typeof error.response === 'object' &&
+          'data' in error.response
+        ) {
           const responseData = error.response.data;
-          if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+          if (
+            responseData &&
+            typeof responseData === 'object' &&
+            'error' in responseData
+          ) {
             errorMessage = String(responseData.error);
           }
         } else if ('message' in error) {
           errorMessage = String(error.message);
         }
       }
-      
+
       showError(errorMessage);
     }
   };
@@ -237,8 +283,9 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
     const refundPercentage = getRefundPercentage(booking);
     const cancellationFee = 100 - refundPercentage;
     const refundAmount = (booking.amount * refundPercentage) / 100;
-    
-    let details = `Service: ${booking.serviceTitle || 'Consultation Service'}\n` +
+
+    let details =
+      `Service: ${booking.serviceTitle || 'Consultation Service'}\n` +
       `Date: ${formatDate(booking.date)}\n` +
       `Time: ${booking.time}\n` +
       `Amount: $${booking.amount.toFixed(2)}\n` +
@@ -249,23 +296,22 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
         booking.paymentStatus.charAt(0).toUpperCase() +
         booking.paymentStatus.slice(1)
       }`;
-    
+
     // Add refund information if booking is cancelled
     if (booking.status === 'cancelled') {
-      details += `\n\nRefund Information:\n` +
+      details +=
+        `\n\nRefund Information:\n` +
         `Refund Amount: $${refundAmount.toFixed(2)}\n` +
-        `Cancellation Fee: $${(booking.amount - refundAmount).toFixed(2)} (${cancellationFee}%)\n` +
+        `Cancellation Fee: $${(booking.amount - refundAmount).toFixed(
+          2,
+        )} (${cancellationFee}%)\n` +
         `Refund Percentage: ${refundPercentage}%`;
     }
-    
-    Alert.alert(
-      'Booking Details',
-      details,
-      [
-        { text: 'Book Again', onPress: () => handleBookAgain(booking) },
-        { text: 'Close', style: 'cancel' },
-      ],
-    );
+
+    Alert.alert('Booking Details', details, [
+      { text: 'Book Again', onPress: () => handleBookAgain(booking) },
+      { text: 'Close', style: 'cancel' },
+    ]);
   };
 
   const handleBookAgain = (booking: Booking) => {
@@ -287,10 +333,10 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
         showError('Unable to open chat');
         return;
       }
-      
+
       // Create or open chat with consultant
       const chatId = await openChatWith(booking.consultantId);
-      
+
       // Navigate to ChatScreen with the chat details
       navigation.navigate('ChatScreen', {
         chatId,
@@ -431,8 +477,7 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
 
                   {/* Refund Info (if cancellable) */}
                   {isCancellable && booking.status !== 'cancelled' && (
-                    <TouchableOpacity style={styles.refundInfo}>
-                      <AlertCircle size={16} color={COLORS.white} />
+                    <View style={styles.refundInfo}>
                       <Text style={styles.refundText}>
                         {refundPercentage === 100
                           ? 'Full refund available'
@@ -440,21 +485,21 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
                               100 - refundPercentage
                             }% cancellation fee)`}
                       </Text>
-                    </TouchableOpacity>
+                    </View>
                   )}
 
                   {/* Action Buttons Container */}
                   <View style={styles.actionButtonsContainer}>
                     {/* Chat Button - Only show for accepted bookings */}
-                    {(booking.status === 'accepted' || booking.status === 'approved' || booking.status === 'confirmed') && (
+                    {(booking.status === 'accepted' ||
+                      booking.status === 'approved' ||
+                      booking.status === 'confirmed') && (
                       <TouchableOpacity
                         style={styles.chatButton}
                         onPress={() => handleOpenChat(booking)}
                       >
                         <MessageCircle size={16} color={COLORS.white} />
-                        <Text style={styles.chatButtonText}>
-                          Open Chat
-                        </Text>
+                        <Text style={styles.chatButtonText}>Open Chat</Text>
                       </TouchableOpacity>
                     )}
 

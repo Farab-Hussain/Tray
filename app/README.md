@@ -1,97 +1,159 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Tray Mobile App
 
-# Getting Started
+React Native application that delivers Tray’s cross-platform mobile experience for students, consultants, and admin staff. The app provides scheduling, video sessions, real-time messaging, notifications, payments, and role-based navigation backed by Firebase services.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Highlights
 
-## Step 1: Start Metro
+- Multi-role experience with dedicated stacks for students, consultants, and administrators.
+- React Navigation-powered routing with nested stacks and bottom tabs (`src/navigator`).
+- WebRTC calling flow (`src/Screen/common/Calling`, `src/webrtc`) with configurable TURN/STUN.
+- Firebase authentication, Firestore, and Realtime Database integration (`src/lib/firebase`).
+- Stripe payments and Apple/Google/Facebook social logins.
+- Offline-aware chat queue and network status handling (`src/services/offline-message-queue.service.ts`, `src/contexts/NetworkContext.tsx`).
+- Notification handling with Firebase Cloud Messaging and custom toast system.
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Tech Stack
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- React Native 0.82 (Hermes) with React 19 and TypeScript 5.
+- State handled through React Context providers (`AuthProvider`, `ChatProvider`, `NotificationProvider`, `NetworkProvider`).
+- API/data access via Axios + SWR, Firebase modular SDK, and custom service layer (`src/services`).
+- UI components and shared design tokens under `src/components` and `src/constants/styles`.
+- Tooling: Metro, ESLint, Prettier, Jest, patch-package.
+
+## Prerequisites
+
+- Node.js ≥ 20 and npm (recommended with nvm).
+- Watchman (macOS) for Metro.
+- Xcode 15+ with Cocoapods (`brew install cocoapods`) for iOS builds.
+- Android Studio with SDK 34, Android NDK, and properly configured emulator or USB debugging.
+- Ruby (via rbenv/asdf) to install bundler for iOS pods.
+- Java 17 (required by React Native 0.82 Gradle tooling).
+
+## Project Structure
+
+```
+app/
+├── src/
+│   ├── App.tsx                  # App bootstrap, providers, navigation container
+│   ├── navigator/               # Root, auth, tab, and stack navigators
+│   ├── Screen/                  # Role-based screens (Student, Consultant, Admin, common flows)
+│   ├── contexts/                # Auth, chat, notification, and network providers
+│   ├── services/                # API integrations (booking, payment, chat, notifications, WebRTC)
+│   ├── webrtc/                  # Peer configuration and ICE server helpers
+│   ├── components/              # Reusable UI + domain-specific components
+│   ├── constants/               # Style tokens, mock data, global config
+│   ├── hooks/                   # Auth/chat hooks
+│   ├── lib/firebase.ts          # Firebase bootstrap
+│   └── utils/                   # Helpers (password validation, toast, time formatting)
+├── android/                     # Native Android project (includes google-services.json)
+├── ios/                         # Native iOS project (includes GoogleService-Info.plist, Pods/)
+├── connect-device.sh            # Helper to pair Android device with Metro
+└── patches/                     # patch-package overrides (react-native-incall-manager)
+```
+
+## Environment Configuration
+
+Create an `.env` file in `app/` (same level as `package.json`) and populate the required values. The file is typed by `src/types/env.d.ts` and consumed via `react-native-dotenv`.
+
+Example:
+
+```env
+API_URL=https://api.yourdomain.com
+FIREBASE_API_KEY=...
+FIREBASE_AUTH_DOMAIN=...
+FIREBASE_PROJECT_ID=...
+FIREBASE_STORAGE_BUCKET=...
+FIREBASE_MESSAGING_SENDER_ID=...
+FIREBASE_APP_ID=...
+FIREBASE_DATABASE_URL=...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+GOOGLE_WEB_CLIENT_ID=...
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_UPLOAD_PRESET=...
+```
+
+Additional configuration:
+
+- **Firebase native files**: keep `android/app/google-services.json` and `ios/GoogleService-Info.plist` aligned with the `.env` values.
+- **WebRTC**: update `src/config/webrtc.config.ts` or set `REACT_NATIVE_TURN_*` environment variables to point to your Coturn deployment (`docs/COTURN_SETUP.md` explains the setup).
+- **Patch updates**: when upgrading dependencies, re-run `npx patch-package` if the fix in `patches/` needs adjustment.
+
+## Installation
+
+1. Install JS dependencies:
+   ```sh
+   npm install
+   ```
+   `postinstall` automatically runs `patch-package`.
+
+2. iOS native deps (first run and whenever Pods change):
+   ```sh
+   cd ios
+   bundle install          # once
+   bundle exec pod install
+   cd ..
+   ```
+
+3. Ensure environment variables and Firebase native files are in place before launching.
+
+## Development Workflow
+
+Start Metro in the project root:
 
 ```sh
-# Using npm
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+### Run on Android
 
 ```sh
-# Using npm
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+- Use `connect-device.sh` to pair a physical device with Metro if USB debugging is enabled:
+  ```sh
+  ./connect-device.sh
+  ```
+- For Gradle cache issues clear with `cd android && ./gradlew clean`.
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
+### Run on iOS
 
 ```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+- Launches the default simulator. To target a device specify `--device "Device Name"`.
+- If you hit build errors, open `ios/app.xcworkspace` in Xcode, ensure signing teams are configured, and re-run Pods.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+### Debugging & Dev Tools
 
-## Step 3: Modify your app
+- Shake device / `Cmd+D` (iOS) / `Cmd+M` (Android emulator) for the React Native dev menu.
+- Network logs and offline status surface in the Metro console from the Network Context.
+- Use Reactotron/Flipper if desired (not preconfigured).
 
-Now that you have successfully run the app, let's make changes!
+## Testing & Quality
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+- Lint: `npm run lint`
+- Unit tests: `npm test` (Jest). The suite currently covers app bootstrapping; expand with screen/service tests as features evolve.
+- Formatting: Prettier shares config via `.prettierrc.js`. Integrate with editors or run `npx prettier --write .`.
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## Release Notes
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+- **Android**: update versioning in `android/app/build.gradle`. Bundle via `cd android && ./gradlew bundleRelease`.
+- **iOS**: adjust version/build in Xcode. Archive from `app.xcworkspace`.
+- Ensure Stripe keys, Firebase configs, and TURN server credentials are production-ready before building release artifacts.
 
-## Congratulations! :tada:
+## Troubleshooting
 
-You've successfully run and modified your React Native App. :partying_face:
+- **Firebase config errors**: the app throws descriptive errors in dev if required keys are missing. Verify `.env` and native config files.
+- **WebRTC connection issues**: confirm your TURN server credentials and that `TURN_SERVER.enabled = true`.
+- **Notifications**: FCM requires APNs certificates for iOS; ensure `ios/GoogleService-Info.plist` includes the correct bundle identifier.
+- **Metro bundler not reachable on device**: re-run `./connect-device.sh` or manually set the debug server host in the dev menu.
 
-### Now what?
+## Conventions & Next Steps
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+- Keep new modules typed; export types under `src/types`.
+- Surface new domain logic through the `services/` layer so UI stays declarative.
+- Extend Jest coverage for services (mocks for Firebase/Stripe) and add Detox/E2E when readiness permits.
 
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+For deeper context on roadmap and cross-platform alignment, coordinate with the backend and web teams and keep this README up to date as architecture or setup steps evolve.

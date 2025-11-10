@@ -1,20 +1,21 @@
 // src/routes/consultant.routes.ts
 import express from "express";
 import {
-    // Consultant endpoints
-    getAllConsultants,
-    getConsultantById,
-    getTopConsultants,
-    setTopConsultant,
-    // Service endpoints
-    addService,
-    getServiceById,
-    getConsultantServices,
-    updateService,
-    deleteService,
-    getAllServicesWithConsultants,
-    getDefaultServices,
-    getAvailablePlatformServices,
+  // Consultant endpoints
+  getAllConsultants,
+  getConsultantById,
+  getTopConsultants,
+  setTopConsultant,
+  // Service endpoints
+  addService,
+  getServiceById,
+  getConsultantServices,
+  updateService,
+  deleteService,
+  getAllServicesWithConsultants,
+  getDefaultServices,
+  getAvailablePlatformServices,
+  getServiceBookings,
 } from "../controllers/consultant.controller";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
 
@@ -31,6 +32,11 @@ router.post("/services", authenticateUser, addService);           // POST /consu
 router.get("/services/default", getDefaultServices);             // GET /consultants/services/default - Get default platform services
 router.get("/services/available", getAvailablePlatformServices);  // GET /consultants/services/available - Get services consultants can apply for
 router.get("/services/all", getAllServicesWithConsultants);      // GET /consultants/services/all - Get ALL services from ALL consultants
+router.get(
+  "/services/:serviceId/bookings",
+  authenticateUser,
+  getServiceBookings,
+); // GET /consultants/services/:serviceId/bookings - Get active bookings for a service
 router.get("/services/:serviceId", getServiceById);               // GET /consultants/services/:serviceId - Get service by ID
 router.get("/:consultantId/services", getConsultantServices);    // GET /consultants/:consultantId/services - Get consultant services
 router.put("/services/:serviceId", authenticateUser, updateService);    // PUT /consultants/services/:serviceId - Update service

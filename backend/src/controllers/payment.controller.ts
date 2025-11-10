@@ -1,10 +1,9 @@
 import { Request, Response } from "express";
-import Stripe from "stripe";
 import dotenv from "dotenv";
 import { db } from "../config/firebase";
+import { stripeClient } from "../utils/stripeClient";
 
 dotenv.config();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
 export const createPaymentIntent = async (req: Request, res: Response) => {
   try {
@@ -34,7 +33,7 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
     // and provide better error messages if it fails
 
     // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await stripeClient.paymentIntents.create({
       amount: amountInCents,
       currency: currency || "usd",
       metadata: { bookingId, studentId, consultantId },
@@ -103,7 +102,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   try {
-    const event = stripe.webhooks.constructEvent(
+    const event = stripeClient.webhooks.constructEvent(
       req.body,
       sig as string,
       endpointSecret as string
@@ -167,7 +166,7 @@ export const createConnectAccount = async (req: Request, res: Response) => {
     }
     
     // Create Stripe Connect account
-    const account = await stripe.accounts.create({
+    const account = await stripeClient.accounts.create({
       type: 'express', // Express accounts for easier onboarding
       country: 'US', // Default to US, can be made dynamic
       email: consultantData?.email,
@@ -188,7 +187,7 @@ export const createConnectAccount = async (req: Request, res: Response) => {
     const returnUrl = process.env.MOBILE_RETURN_URL ? mobileReturnUrl : webReturnUrl;
     const refreshUrl = process.env.MOBILE_REFRESH_URL ? mobileRefreshUrl : webRefreshUrl;
     
-    const accountLink = await stripe.accountLinks.create({
+    const accountLink = await stripeClient.accountLinks.create({
       account: account.id,
       refresh_url: refreshUrl,
       return_url: returnUrl,
@@ -276,7 +275,7 @@ export const getConnectAccountStatus = async (req: Request, res: Response) => {
     }
     
     // Get account details from Stripe
-    const account = await stripe.accounts.retrieve(stripeAccountId);
+    const account = await stripeClient.accounts.retrieve(stripeAccountId);
     
     // Check if details are submitted
     const detailsSubmitted = account.details_submitted || false;
@@ -296,7 +295,7 @@ export const getConnectAccountStatus = async (req: Request, res: Response) => {
       const returnUrl = process.env.MOBILE_RETURN_URL ? mobileReturnUrl : webReturnUrl;
       const refreshUrl = process.env.MOBILE_REFRESH_URL ? mobileRefreshUrl : webRefreshUrl;
       
-      const accountLink = await stripe.accountLinks.create({
+      const accountLink = await stripeClient.accountLinks.create({
         account: stripeAccountId,
         refresh_url: refreshUrl,
         return_url: returnUrl,
@@ -372,7 +371,7 @@ export const transferToConsultant = async (req: Request, res: Response) => {
     }
     
     // Verify account is active and ready to receive transfers
-    const account = await stripe.accounts.retrieve(stripeAccountId);
+    const account = await stripeClient.accounts.retrieve(stripeAccountId);
     if (!account.details_submitted || !account.charges_enabled || !account.payouts_enabled) {
       return res.status(400).json({ 
         error: "Consultant's Stripe account is not fully set up. Please complete onboarding.",
@@ -387,7 +386,7 @@ export const transferToConsultant = async (req: Request, res: Response) => {
     const transferAmount = Math.round(amount * 100) - platformFeeAmount;
     
     // Create transfer to consultant
-    const transfer = await stripe.transfers.create({
+    const transfer = await stripeClient.transfers.create({
       amount: transferAmount,
       currency: "usd",
       destination: stripeAccountId,

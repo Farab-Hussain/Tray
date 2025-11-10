@@ -5,7 +5,7 @@ export interface ConsultantApplication {
   id: string;
   consultantId: string;
   consultantName?: string; // Populated when fetching applications
-  type: "existing" | "new";
+  type: "existing" | "new" | "update";
   serviceId?: string; // only for existing service type
   customService?: {
     title: string;
@@ -24,7 +24,7 @@ export interface ConsultantApplication {
 // Type for creating consultant applications
 export interface ConsultantApplicationInput {
   consultantId: string;
-  type: "existing" | "new";
+  type: "existing" | "new" | "update";
   serviceId?: string;
   customService?: {
     title: string;

@@ -742,14 +742,6 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
             <Text style={cleanStyles.emptyStateSubtitle}>
               Use the + button to create your first availability slot.
             </Text>
-            <TouchableOpacity
-              style={cleanStyles.emptyStateButton}
-              onPress={handleOpenAvailabilityModal}
-            >
-              <Text style={cleanStyles.emptyStateButtonText}>
-                Set Availability
-              </Text>
-            </TouchableOpacity>
           </View>
         ) : (
           <View style={cleanStyles.availabilityList}>
@@ -1228,18 +1220,7 @@ const cleanStyles = StyleSheet.create({
     fontSize: 14,
     color: '#666666',
     textAlign: 'center',
-    marginBottom: 20,
-  },
-  emptyStateButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  emptyStateButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    marginBottom: 0,
   },
   timeInputSection: {
     backgroundColor: '#FFFFFF',

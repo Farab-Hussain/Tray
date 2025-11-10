@@ -2,11 +2,134 @@
 import { Request, Response } from "express";
 import { db } from "../config/firebase";
 import { emailBookingConfirmation, emailConsultantNewBooking } from "../utils/email";
+import { stripeClient } from "../utils/stripeClient";
+
+export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "accepted", "approved"];
+
+type BookingRecord = {
+  id: string;
+  consultantId: string;
+  studentId: string;
+  serviceId: string;
+  status: string;
+  paymentStatus?: string;
+  paymentIntentId?: string;
+  amount?: number;
+  [key: string]: any;
+};
+
+export interface CancelBookingOptions {
+  reason?: string;
+  initiatedBy?: string;
+}
+
+export interface CancelBookingResult {
+  bookingId: string;
+  refunded: boolean;
+  refundId?: string | null;
+  message: string;
+  status: string;
+  paymentStatus: string;
+}
+
+export const cancelBookingInternally = async (
+  bookingId: string,
+  { reason, initiatedBy }: CancelBookingOptions = {},
+): Promise<CancelBookingResult> => {
+  const bookingRef = db.collection("bookings").doc(bookingId);
+  const bookingDoc = await bookingRef.get();
+
+  if (!bookingDoc.exists) {
+    throw new Error("Booking not found");
+  }
+
+  const booking = bookingDoc.data() as BookingRecord;
+
+  if (booking.status === "cancelled") {
+    return {
+      bookingId,
+      refunded: booking.paymentStatus === "refunded",
+      refundId: booking.refundId || null,
+      message: "Booking already cancelled",
+      status: booking.status,
+      paymentStatus: booking.paymentStatus || "cancelled",
+    };
+  }
+
+  let refundId: string | null = null;
+  let paymentStatus = booking.paymentStatus || "cancelled";
+  let refundProcessed = false;
+
+  if (booking.paymentStatus === "paid" && booking.paymentIntentId) {
+    try {
+      const amountValue =
+        typeof booking.amount === "number"
+          ? booking.amount
+          : typeof booking.amount === "string"
+          ? parseFloat(booking.amount)
+          : undefined;
+
+      const refund = await stripeClient.refunds.create({
+        payment_intent: booking.paymentIntentId,
+        reason: "requested_by_customer",
+        amount:
+          amountValue && !Number.isNaN(amountValue)
+            ? Math.round(amountValue * 100)
+            : undefined,
+        metadata: {
+          bookingId,
+          initiatedBy: initiatedBy || "system",
+        },
+      });
+
+      refundId = refund.id;
+      paymentStatus = "refunded";
+      refundProcessed = true;
+    } catch (error: any) {
+      console.error(`❌ [cancelBookingInternally] Failed to refund booking ${bookingId}:`, error);
+      // Mark as refund_failed but continue so caller can notify support
+      paymentStatus = "refund_failed";
+    }
+  }
+
+  await bookingRef.update({
+    status: "cancelled",
+    paymentStatus,
+    refundId: refundId ?? null,
+    cancelledAt: new Date().toISOString(),
+    cancelledBy: initiatedBy || "system",
+    cancelReason: reason || null,
+    updatedAt: new Date().toISOString(),
+  });
+
+  return {
+    bookingId,
+    refunded: refundProcessed,
+    refundId,
+    message: refundProcessed
+      ? "Booking cancelled and payment refunded successfully"
+      : paymentStatus === "refund_failed"
+      ? "Booking cancelled but refund failed. Manual review required."
+      : "Booking cancelled",
+    status: "cancelled",
+    paymentStatus,
+  };
+};
 
 // ✅ Create new booking
 export const createBooking = async (req: Request, res: Response) => {
   try {
-    const { consultantId, serviceId, date, time, amount, quantity, status, paymentStatus } = req.body;
+    const {
+      consultantId,
+      serviceId,
+      date,
+      time,
+      amount,
+      quantity,
+      status,
+      paymentStatus,
+      paymentIntentId,
+    } = req.body;
     const studentId = (req as any).user.uid;
 
     console.log('🔍 [createBooking] Creating booking with data:', {
@@ -39,6 +162,7 @@ export const createBooking = async (req: Request, res: Response) => {
       quantity: quantity || 1,
       status: status || "pending",
       paymentStatus: paymentStatus || "unpaid",
+      paymentIntentId: paymentIntentId || null,
       createdAt: new Date().toISOString(),
     };
 
@@ -173,6 +297,31 @@ export const getConsultantBookedSlots = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ [getConsultantBookedSlots] Error:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const cancelBooking = async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason } = req.body;
+    const user = (req as any).user;
+
+    const result = await cancelBookingInternally(bookingId, {
+      reason,
+      initiatedBy: user?.uid,
+    });
+
+    res.status(200).json({
+      message: result.message,
+      bookingId: result.bookingId,
+      refunded: result.refunded,
+      refundId: result.refundId,
+      status: result.status,
+      paymentStatus: result.paymentStatus,
+    });
+  } catch (error: any) {
+    console.error("❌ [cancelBooking] Error cancelling booking:", error);
+    res.status(500).json({ error: error.message || "Failed to cancel booking" });
   }
 };
 
@@ -478,6 +627,16 @@ export const getMyConsultants = async (req: Request, res: Response) => {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
 
+        const activeConsultantBookings = consultantBookings.filter((booking: any) => {
+          const bookingStatus = (booking.status || '').toLowerCase();
+          return ACTIVE_BOOKING_STATUSES.includes(bookingStatus as any);
+        });
+
+        if (activeConsultantBookings.length === 0) {
+          console.log('ℹ️ [getMyConsultants] Skipping consultant with no active bookings:', consultantId);
+          continue;
+        }
+
         consultantsData.push({
           uid: consultantId,
           name: consultant?.name,
@@ -485,9 +644,9 @@ export const getMyConsultants = async (req: Request, res: Response) => {
           profileImage: consultant?.profileImage || null,
           rating: consultant?.rating,
           totalReviews: consultant?.totalReviews,
-          totalBookings: consultantBookings.length,
-          lastBookingDate: consultantBookings[0]?.date,
-          lastBookingStatus: consultantBookings[0]?.status
+          totalBookings: activeConsultantBookings.length,
+          lastBookingDate: activeConsultantBookings[0]?.date,
+          lastBookingStatus: activeConsultantBookings[0]?.status
         });
       } else {
         console.log('❌ [getMyConsultants] Consultant not found:', consultantId);

@@ -25,6 +25,24 @@ export const ConsultantService = {
     return await fetcher('/consultants/services/all');
   },
 
+  async getServiceBookings(serviceId: string) {
+    const response = await api.get(`/consultants/services/${serviceId}/bookings`);
+    return response.data;
+  },
+
+  async updateService(serviceId: string, data: any) {
+    const response = await api.put(`/consultants/services/${serviceId}`, data);
+    return response.data;
+  },
+
+  async deleteService(serviceId: string, options?: { cancelBookings?: boolean }) {
+    const response = await api.delete(`/consultants/services/${serviceId}`, {
+      data: options,
+      params: options,
+    });
+    return response.data;
+  },
+
   // Get consultant availability (gracefully handle 404 as no availability)
   async getConsultantAvailability(consultantId: string) {
     try {

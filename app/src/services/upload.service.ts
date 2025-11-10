@@ -79,6 +79,19 @@ const UploadService = {
     }
   },
 
+  async deleteConsultantImage(publicId: string): Promise<{ message: string }> {
+    try {
+      const response = await api.delete('/upload/consultant-image', {
+        data: { publicId },
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error deleting consultant image:', error);
+      throw new Error(error.response?.data?.error || 'Failed to delete image');
+    }
+  },
+
   /**
    * Get upload signature for direct Cloudinary upload (optional - for advanced use cases)
    * @param folder - Cloudinary folder path (default: 'tray/profile-images')

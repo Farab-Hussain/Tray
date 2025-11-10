@@ -311,6 +311,14 @@ const Services = ({ navigation, route }: any) => {
                 console.log('🖼️ Service imageUrl:', item.imageUrl);
                 console.log('🖼️ Service image:', item.image);
                 console.log('🖼️ Service imageUri:', item.imageUri);
+
+                const rawPrice = item.price ?? item.cost ?? item.fee;
+                const priceValue =
+                  typeof rawPrice === 'number'
+                    ? rawPrice
+                    : typeof rawPrice === 'string'
+                      ? parseFloat(rawPrice)
+                      : undefined;
                 
                 // Create proper imageUri with fallback
                 let imageUri;
@@ -332,6 +340,7 @@ const Services = ({ navigation, route }: any) => {
                     title={item.title}
                     description={item.description}
                     duration={item.duration || 60} // Default 60 minutes
+                    price={Number.isFinite(priceValue) ? priceValue : undefined}
                     imageUri={imageUri}
                     consultantName={!consultantId && item.consultant?.name ? item.consultant.name : undefined}
                     consultantCategory={!consultantId && item.consultant?.category ? item.consultant.category : undefined}
@@ -359,7 +368,7 @@ const Services = ({ navigation, route }: any) => {
                       serviceId: item.id,
                       serviceTitle: item.title,
                       serviceImageUrl: item.imageUrl, // Pass service image URL
-                      servicePrice: item.price || 100, // Default price if not provided
+                      servicePrice: Number.isFinite(priceValue) ? priceValue : 100, // Default price if not provided
                       serviceDuration: item.duration || 60 // Default 60 minutes if not provided
                     });
                 }}

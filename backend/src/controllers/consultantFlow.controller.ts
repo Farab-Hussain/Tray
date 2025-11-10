@@ -12,6 +12,7 @@ import {
 } from "../utils/email";
 import { Logger } from "../utils/logger";
 import { db } from "../config/firebase";
+import { Timestamp, DocumentData } from "firebase-admin/firestore";
 
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@tray.com";
@@ -393,6 +394,139 @@ export const createConsultantApplication = async (req: Request, res: Response) =
   }
 };
 
+export const updateConsultantApplication = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = (req as any).user;
+    const { customService, serviceId, type } = req.body;
+
+    const routeLabel = `PUT /consultant-flow/applications/${id}`;
+    Logger.info("ConsultantApplication", user?.uid || "unknown", `[${routeLabel}] Received`);
+
+    const applicationRef = db.collection("consultantApplications").doc(id);
+    const applicationDoc = await applicationRef.get();
+
+    if (!applicationDoc.exists) {
+      Logger.warn("ConsultantApplication", user?.uid || "unknown", `[${routeLabel}] Application not found`);
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const application = applicationDoc.data();
+
+    if (!application) {
+      return res.status(500).json({ error: "Application data is missing" });
+    }
+
+    if (!application || application.consultantId !== user?.uid) {
+      Logger.warn(
+        "ConsultantApplication",
+        user?.uid || "unknown",
+        `[${routeLabel}] Unauthorized update attempt by ${user?.uid}, owner ${application?.consultantId}`,
+      );
+      return res.status(403).json({ error: "Unauthorized to update this application" });
+    }
+
+    const nowIso = new Date().toISOString();
+    const updateData: any = {
+      updatedAt: nowIso,
+    };
+
+    const nextCustomService =
+      customService !== undefined
+        ? {
+            title: customService?.title,
+            description: customService?.description,
+            duration: customService?.duration,
+            price: customService?.price,
+            imageUrl:
+              customService?.imageUrl !== undefined
+                ? customService.imageUrl
+                : application.customService?.imageUrl ?? null,
+            imagePublicId:
+              customService?.imagePublicId !== undefined
+                ? customService.imagePublicId
+                : application.customService?.imagePublicId ?? null,
+          }
+        : application.customService;
+
+    if (application.status === "approved") {
+      const targetServiceId = serviceId || application.serviceId;
+
+      if (!targetServiceId) {
+        return res.status(400).json({
+          error: "Unable to determine serviceId for update. Please contact support.",
+        });
+      }
+
+      if (!nextCustomService?.title || !nextCustomService?.description || !nextCustomService?.duration || !nextCustomService?.price) {
+        return res.status(400).json({ error: "Missing required service fields for update" });
+      }
+
+      updateData.status = "pending";
+      updateData.type = "update";
+      updateData.serviceId = targetServiceId;
+      updateData.reviewNotes = null;
+      updateData.reviewedAt = null;
+      updateData.customService = nextCustomService;
+
+      await applicationRef.update(updateData);
+
+      await db.collection("services").doc(targetServiceId).set(
+        {
+          approvalStatus: "pending",
+          pendingUpdate: nextCustomService,
+          updatedAt: nowIso,
+        },
+        { merge: true },
+      );
+
+      const updatedDoc = await applicationRef.get();
+      Logger.success(
+        "ConsultantApplication",
+        user?.uid || "unknown",
+        `[${routeLabel}] Submitted update for admin approval`,
+      );
+      return res.status(200).json({
+        message: "Service update submitted for admin approval",
+        application: updatedDoc.data(),
+      });
+    }
+
+    if (type) {
+      updateData.type = type;
+    }
+
+    if (nextCustomService) {
+      if (!nextCustomService.title || !nextCustomService.description || !nextCustomService.duration || !nextCustomService.price) {
+        return res.status(400).json({ error: "Missing required custom service fields" });
+      }
+
+      updateData.customService = nextCustomService;
+    }
+
+    if (serviceId) {
+      updateData.serviceId = serviceId;
+    }
+
+    await applicationRef.update(updateData);
+
+    const updatedDoc = await applicationRef.get();
+    Logger.success(
+      "ConsultantApplication",
+      user?.uid || "unknown",
+      `[${routeLabel}] Application updated (status: ${updatedDoc.data()?.status})`,
+    );
+
+    res.status(200).json({
+      message: "Application updated successfully",
+      application: updatedDoc.data(),
+    });
+  } catch (error: any) {
+    Logger.error("ConsultantApplication", (req as any)?.user?.uid || "unknown", "[updateConsultantApplication] Error", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const getConsultantApplication = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -444,11 +578,80 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
     const { id } = req.params;
     const { reviewNotes } = req.body;
 
-    const application = await consultantFlowService.updateApplicationStatus(id, "approved", reviewNotes);
+    const applicationRef = db.collection("consultantApplications").doc(id);
+    const applicationDoc = await applicationRef.get();
+
+    if (!applicationDoc.exists) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const application = applicationDoc.data();
+    const now = Timestamp.now();
+    let createdServiceId: string | null = application?.serviceId || null;
+
+    if (!application) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    if (application.type === "update") {
+      if (!application.serviceId) {
+        return res.status(400).json({ error: "Missing serviceId for update" });
+      }
+      if (!application.customService) {
+        return res.status(400).json({ error: "Missing updated service details" });
+      }
+
+      const serviceUpdate: any = {
+        title: application.customService.title,
+        description: application.customService.description || "",
+        duration: application.customService.duration,
+        price: application.customService.price,
+        approvalStatus: "approved",
+        pendingUpdate: null,
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (application.customService.imageUrl !== undefined) {
+        serviceUpdate.imageUrl = application.customService.imageUrl || "";
+      }
+      if (application.customService.imagePublicId !== undefined) {
+        serviceUpdate.imagePublicId = application.customService.imagePublicId || null;
+      }
+
+      await db.collection("services").doc(application.serviceId).set(serviceUpdate, { merge: true });
+
+      await applicationRef.update({
+        status: "approved",
+        reviewedAt: now,
+        reviewNotes: reviewNotes || null,
+        type: "update",
+      });
+
+      const updatedApplication = await applicationRef.get();
+
+      try {
+        const consultantProfile = await consultantFlowService.getProfileByUid(application.consultantId);
+        const consultantEmail = consultantProfile.personalInfo?.email;
+        const consultantName = consultantProfile.personalInfo?.fullName;
+        const serviceTitle = application.customService?.title || "Service Update";
+
+        if (consultantEmail && consultantName) {
+          emailApplicationApproved(consultantName, consultantEmail, serviceTitle, reviewNotes).catch((error) => {
+            Logger.error("Email", application.consultantId, "Failed to send service update approval email", error);
+          });
+        }
+      } catch (profileError) {
+        Logger.error("Email", application.consultantId, "Could not fetch consultant profile for update approval email", profileError);
+      }
+
+      return res.status(200).json({
+        message: "Service update approved successfully",
+        application: updatedApplication.data(),
+        serviceId: application.serviceId,
+      });
+    }
 
     // 🔥 Automatically create service after approval
-    let createdServiceId = null;
-
     if (application.type === "new" && application.customService) {
       // Create new service from custom service data
       const newServiceRef = db.collection("services").doc();
@@ -463,6 +666,8 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
         fromApplication: id,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        approvalStatus: "approved",
+        pendingUpdate: null,
       };
 
       // Include image fields if they exist
@@ -478,8 +683,7 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
       createdServiceId = newServiceRef.id;
       Logger.success("Service Creation", application.consultantId,
         `New service created from approved application: ${newServiceRef.id} - ${application.customService.title}`);
-    }
-    else if (application.type === "existing" && application.serviceId) {
+    } else if (application.type === "existing" && application.serviceId) {
       // Get default service details
       const defaultServiceDoc = await db.collection("services").doc(application.serviceId).get();
 
@@ -500,6 +704,8 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
           fromApplication: id,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          approvalStatus: "approved",
+          pendingUpdate: null,
         };
 
         if (serviceData?.imageUrl) {
@@ -521,26 +727,33 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
       }
     }
 
+    await applicationRef.update({
+      status: "approved",
+      reviewedAt: now,
+      reviewNotes: reviewNotes || null,
+      serviceId: createdServiceId,
+    });
+
+    const updatedApplication = await applicationRef.get();
+
     try {
-      const consultantProfile = await consultantFlowService.getProfileByUid(application.consultantId);
+      const consultantProfile = await consultantFlowService.getProfileByUid(updatedApplication.data()?.consultantId);
       const consultantEmail = consultantProfile.personalInfo?.email;
       const consultantName = consultantProfile.personalInfo?.fullName;
-      const serviceTitle = application.type === "new"
-        ? application.customService?.title || "Service"
-        : "Service Application";
+      const serviceTitle = updatedApplication.data()?.customService?.title || "Service";
 
       if (consultantEmail && consultantName) {
         emailApplicationApproved(consultantName, consultantEmail, serviceTitle, reviewNotes).catch((error) => {
-          Logger.error("Email", application.consultantId, "Failed to send application approval email", error);
+          Logger.error("Email", updatedApplication.data()?.consultantId, "Failed to send application approval email", error);
         });
       }
     } catch (profileError) {
-      Logger.error("Email", application.consultantId, "Could not fetch consultant profile for email notification", profileError);
+      Logger.error("Email", updatedApplication.data()?.consultantId, "Could not fetch consultant profile for email notification", profileError);
     }
 
     res.status(200).json({
       message: "Application approved and service created successfully",
-      application,
+      application: updatedApplication.data(),
       serviceId: createdServiceId
     });
   } catch (error: any) {
@@ -553,8 +766,35 @@ export const rejectConsultantApplication = async (req: Request, res: Response) =
     const { id } = req.params;
     const { reviewNotes } = req.body;
 
-    const application = await consultantFlowService.updateApplicationStatus(id, "rejected", reviewNotes);
+    const applicationRef = db.collection("consultantApplications").doc(id);
+    const applicationDoc = await applicationRef.get();
 
+    if (!applicationDoc.exists) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const application = applicationDoc.data() as DocumentData | undefined;
+
+    if (!application) {
+      return res.status(500).json({ error: "Application data is missing" });
+    }
+
+    await applicationRef.update({
+      status: "rejected",
+      reviewedAt: Timestamp.now(),
+      reviewNotes: reviewNotes || null,
+    });
+
+    if (application.type === "update" && application.serviceId) {
+      await db.collection("services").doc(application.serviceId).set(
+        {
+          approvalStatus: "approved",
+          pendingUpdate: null,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true },
+      );
+    }
 
     try {
       const consultantProfile = await consultantFlowService.getProfileByUid(application.consultantId);

@@ -1,633 +1,196 @@
 # Tray Backend API
 
-Express.js REST API server providing backend services for the Tray platform.
+Node.js/TypeScript service that powers Tray’s core platform features: authentication, consultant onboarding, bookings, Stripe payments, reminders, analytics, notifications, and content storage. The API is stateless, uses Firebase Admin as the system of record, and exposes a REST surface for mobile and web clients.
 
-## 🎯 Overview
+## Highlights
 
-The Tray backend API handles user authentication, booking management, consultant profiles, real-time chat coordination, FCM token management, file uploads, payments, and email services.
+- Express 5 + TypeScript running on Node 20 with strict linting via the TypeScript compiler.
+- Firebase Admin SDK for auth, Firestore, Realtime Database, Storage, and FCM token distribution.
+- Domain-driven controllers/services covering auth, consultant workflows, bookings, payouts, notifications, and reporting.
+- Stripe integration for payment intents plus automated consultant payouts with configurable platform fees.
+- Cloudinary-backed media uploads with multer storage, and transactional email templates via Nodemailer.
+- Reminder engine that emails + pushes 24 hr appointment notices, and analytics endpoints for consultants/admins.
+- Drop-in logging middleware (`requestLogger`) and structured `Logger` utility to trace routes and user actions.
 
-## 🛠️ Tech Stack
+## Project Layout
 
-- **Framework:** Express.js 5.1
-- **Language:** TypeScript
-- **Database:** Firebase Firestore
-- **Authentication:** Firebase Admin SDK
-- **File Storage:** Cloudinary
-- **Payments:** Stripe
-- **Email:** Nodemailer (SMTP)
-- **Cloud Storage:** Google Cloud Storage
+```
+backend/
+├── src/
+│   ├── app.ts                 # Express app + middleware and route wiring
+│   ├── server.ts              # HTTP server bootstrap
+│   ├── config/firebase.ts     # Firebase Admin initialization (service account aware)
+│   ├── controllers/           # Route handlers grouped by domain
+│   ├── services/              # Business logic (analytics, reminders, payouts, etc.)
+│   ├── routes/                # Express routers mounted under /auth, /bookings, ...
+│   ├── middleware/            # Authentication + role guards
+│   ├── models/                # Firestore data helpers/types
+│   ├── utils/                 # Logger + email helpers
+│   └── functions/             # Optional Firebase Cloud Function samples
+├── scripts/                   # Operational scripts (e.g. create-admin placeholder)
+├── dist/                      # Compiled JavaScript output (created by `npm run build`)
+├── package.json               # Scripts and dependency manifest
+└── tsconfig.json              # TypeScript build settings
+```
 
-## 📦 Installation
+Key entry points:
 
-### Prerequisites
+- `src/app.ts` wires CORS, JSON parsing, request logging, health checks, and feature routers.
+- `src/config/firebase.ts` loads a service account JSON path from `SERVICE_ACCOUNT_PATH` or falls back to the bundled key; exports Firestore/Storage/Auth handles.
+- `src/utils/logger.ts` supplies `Logger.info/success/error/warn` and an Express `requestLogger`.
+- `src/services/` encapsulate longer-running processes (analytics, reminders, payouts, consultant flow orchestration).
 
-- Node.js 20+
-- npm or yarn
-- Firebase project credentials
-- Cloudinary account (for image uploads)
-- Stripe account (for payments)
-- SMTP email credentials
+## Prerequisites
 
-### Setup
+- Node.js ≥ 20 and npm (nvm recommended).
+- Firebase project with Admin service account (Firestore + Realtime Database enabled).
+- Stripe account with secret key and connected accounts enabled for payouts.
+- Cloudinary credentials (or alternative storage if you swap out the uploader).
+- SMTP credentials (Gmail, SES, etc.) for transactional email; when absent, emails are logged but not sent.
+- Optionally, Google Cloud Storage auth if you extend file handling.
 
-```bash
-# Install dependencies
+## Environment Variables
+
+Create `backend/.env` before running locally. The runtime reads the following keys (defaults indicated where applicable):
+
+| Category | Variable | Notes |
+| --- | --- | --- |
+| Server | `PORT` (default `4000`), `NODE_ENV`, `BASE_URL` | `PORT` must be open for the API; `BASE_URL` is used in emails/links |
+| Firebase | `SERVICE_ACCOUNT_PATH` | Absolute/relative path to service account JSON; falls back to `src/config/*.json` |
+| Stripe | `STRIPE_SECRET_KEY`, `PLATFORM_FEE_PERCENT` (default `10`), `MINIMUM_PAYOUT_AMOUNT` (default `10`) | Required for payments and automated payouts |
+| Cloudinary | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Used by `upload.controller.ts` |
+| Email | `SMTP_HOST` (`smtp.gmail.com`), `SMTP_PORT` (`587`), `SMTP_EMAIL`/`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Without credentials, email helpers no-op |
+| Notifications | `FCM_SERVER_KEY` (optional – Firebase Admin handles most push duties) | Useful if you integrate REST FCM calls |
+| Misc | `GOOGLE_APPLICATION_CREDENTIALS` (if running on GCP) | Honors standard GOOGLE_APPLICATION_CREDENTIALS semantics |
+
+Copy `src/config/tray-ed2f7-firebase-adminsdk-*.json` to a secure location or supply your own service account path. Keep secrets out of version control.
+
+## Installation & Runbook
+
+```sh
+# 1. Install dependencies
 npm install
 
-# Build TypeScript
-npm run build
-
-# Development mode (with auto-reload)
+# 2. Run locally with ts-node-dev autoreload
 npm run dev
 
-# Production mode
-npm run start:prod
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create `.env` file in the root directory:
-
-   ```env
-   # Server Configuration
-PORT=4000
-NODE_ENV=development
-BASE_URL=http://localhost:4000
-
-# Email Configuration
-SMTP_EMAIL=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-
-# Stripe Configuration
-STRIPE_SECRET_KEY=sk_test_...
-
-# Cloudinary Configuration
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Google Cloud Storage (optional)
-GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
-```
-
-## 📁 Project Structure
-
-```
-src/
-├── app.ts                  # Express app configuration
-├── server.ts               # Server entry point
-├── config/
-│   └── firebase.ts        # Firebase Admin initialization
-├── controllers/           # Request handlers
-│   ├── auth.controller.ts
-│   ├── booking.controller.ts
-│   ├── consultant.controller.ts
-│   ├── consultantFlow.controller.ts
-│   ├── fcm.controller.ts
-│   ├── payment.controller.ts
-│   ├── review.controller.ts
-│   └── upload.controller.ts
-├── routes/                # API route definitions
-│   ├── auth.routes.ts
-│   ├── booking.routes.ts
-│   ├── consultant.routes.ts
-│   ├── consultantFlow.routes.ts
-│   ├── fcm.routes.ts
-│   ├── payment.routes.ts
-│   ├── review.routes.ts
-│   └── upload.routes.ts
-├── middleware/            # Express middleware
-│   ├── authMiddleware.ts
-│   └── consultantMiddleware.ts
-├── models/                # Data models/interfaces
-│   ├── consultant.model.ts
-│   ├── consultantApplication.model.ts
-│   ├── consultantProfile.model.ts
-│   └── review.model.ts
-├── services/              # Business logic services
-│   ├── email.service.ts
-│   ├── storage.service.ts
-│   └── stripe.service.ts
-└── utils/                 # Utility functions
-    ├── email.ts
-    └── logger.ts
-```
-
-## 🌐 API Endpoints
-
-### Authentication (`/auth`)
-
-#### Register User
-```
-POST /auth/register
-Body: { uid, name, role, email }
-Response: { message, user }
-```
-
-#### Login
-```
-POST /auth/login
-Body: { idToken }
-Response: { valid, user }
-```
-
-#### Get Current User
-```
-GET /auth/me
-Headers: Authorization: Bearer <token>
-Response: { uid, email, ...profile }
-```
-
-#### Get User by ID
-```
-GET /auth/users/:uid
-Response: { uid, name, email, role, profileImage }
-```
-
-#### Update Profile
-```
-PUT /auth/profile
-Headers: Authorization: Bearer <token>
-Body: { name?, profileImage? }
-Response: { message }
-```
-
-#### Forgot Password
-```
-POST /auth/forgot-password
-Body: { email }
-Response: { message, resetSessionId }
-```
-
-#### Verify OTP
-```
-POST /auth/verify-otp
-Body: { resetSessionId, otp }
-Response: { message, resetSessionId }
-```
-
-#### Reset Password
-```
-POST /auth/reset-password
-Body: { resetSessionId, newPassword }
-Response: { message }
-```
-
-### Bookings (`/bookings`)
-
-#### Create Booking
-```
-POST /bookings
-Headers: Authorization: Bearer <token>
-Body: { consultantId, studentId, serviceId, date, time, amount, quantity }
-Response: { booking }
-```
-
-#### Get Student Bookings
-```
-GET /bookings/student
-Headers: Authorization: Bearer <token>
-Response: { bookings: [...] }
-```
-
-#### Get Consultant Bookings
-```
-GET /bookings/consultant
-Headers: Authorization: Bearer <token>
-Response: { bookings: [...] }
-```
-
-#### Update Booking Status
-```
-PUT /bookings/:id/status
-Headers: Authorization: Bearer <token>
-Body: { status, paymentStatus? }
-Response: { booking }
-```
-
-#### Cancel Booking
-```
-POST /bookings/:id/cancel
-Headers: Authorization: Bearer <token>
-Body: { reason? }
-Response: { message, refundAmount, refundPercentage }
-```
-
-### Consultants (`/consultants`)
-
-#### Get All Consultants
-```
-GET /consultants
-Response: { consultants: [...] }
-```
-
-#### Get Top Consultants
-```
-GET /consultants/top
-Response: { topConsultants: [...] }
-```
-
-#### Get Consultant Services
-```
-GET /consultants/:id/services
-Response: { services: [...] }
-```
-
-### Consultant Flow (`/consultant-flow`)
-
-#### Get Consultant Profile
-```
-GET /consultant-flow/profiles/:id
-Headers: Authorization: Bearer <token>
-Response: { profile }
-```
-
-#### Get Availability
-```
-GET /consultant-flow/profiles/:id/availability
-Headers: Authorization: Bearer <token>
-Response: { availability, availabilitySlots }
-```
-
-#### Set Availability Slots
-```
-PUT /consultant-flow/profiles/:id/availability-slots
-Headers: Authorization: Bearer <token>
-Body: { availabilitySlots: [...] }
-Response: { message }
-```
-
-### FCM (Push Notifications) (`/fcm`)
-
-#### Register FCM Token
-```
-POST /fcm/token
-Headers: Authorization: Bearer <token>
-Body: { fcmToken, deviceType? }
-Response: { success, message }
-```
-
-#### Delete FCM Token
-```
-DELETE /fcm/token
-Headers: Authorization: Bearer <token>
-Body: { fcmToken? }
-Response: { success, message }
-```
-
-### Payments (`/payment`)
-
-#### Create Payment Intent
-```
-POST /payment/create-intent
-Headers: Authorization: Bearer <token>
-Body: { amount, currency, bookingId }
-Response: { clientSecret }
-```
-
-### Reviews (`/reviews`)
-
-#### Create Review
-```
-POST /reviews
-Headers: Authorization: Bearer <token>
-Body: { consultantId, rating, comment }
-Response: { review }
-```
-
-#### Get Consultant Reviews
-```
-GET /reviews/consultant/:id
-Response: { reviews: [...] }
-```
-
-### Upload (`/upload`)
-
-#### Upload Image
-```
-POST /upload/image
-Headers: Authorization: Bearer <token>
-Body: FormData (multipart/form-data)
-Response: { url, publicId }
-```
-
-## 🔐 Authentication
-
-All protected routes require Firebase ID token:
-
-```http
-Authorization: Bearer <firebase-id-token>
-```
-
-### Middleware
-
-```typescript
-import { authenticateUser } from './middleware/authMiddleware';
-
-router.get('/protected', authenticateUser, controller.handler);
-```
-
-## 🗄️ Database Schema
-
-### Firestore Collections
-
-```typescript
-// Users
-/users/{userId}
-  - name: string
-  - email: string
-  - role: 'student' | 'consultant' | 'admin'
-  - profileImage: string | null
-  - isActive: boolean
-  - createdAt: timestamp
-  - updatedAt: timestamp
-
-// FCM Tokens
-/users/{userId}/fcmTokens/{tokenId}
-  - fcmToken: string
-  - deviceType: 'ios' | 'android'
-  - createdAt: timestamp
-  - updatedAt: timestamp
-
-// Bookings
-/bookings/{bookingId}
-  - studentId: string
-  - consultantId: string
-  - serviceId: string
-  - date: string
-  - time: string
-  - amount: number
-  - status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled'
-  - paymentStatus: 'pending' | 'paid' | 'refunded'
-  - createdAt: timestamp
-  - updatedAt: timestamp
-
-// Consultant Profiles
-/consultantProfiles/{profileId}
-  - uid: string
-  - personalInfo: { fullName, email, bio, experience, profileImage }
-  - professionalInfo: { category, title, specialties }
-  - status: 'pending' | 'approved' | 'rejected'
-  - createdAt: timestamp
-```
-
-## 📝 Key Features
-
-### FCM Token Management
-
-Store and manage FCM tokens for push notifications:
-
-```typescript
-// Register token
-POST /fcm/token
-{
-  "fcmToken": "device-token",
-  "deviceType": "ios"
-}
-
-// Delete token (on logout)
-DELETE /fcm/token
-{
-  "fcmToken": "device-token"  // optional, deletes all if omitted
-}
-```
-
-### Booking Management
-
-Complete booking lifecycle:
-
-1. Student creates booking → `POST /bookings`
-2. Consultant views requests → `GET /bookings/consultant`
-3. Consultant accepts → `PUT /bookings/:id/status`
-4. Chat automatically enabled
-5. Student can cancel → `POST /bookings/:id/cancel`
+# 3. Build TypeScript -> dist/
+npm run build        # or npm run build:clean
 
-### Image Upload
-
-Handles image uploads via Cloudinary:
-
-```typescript
-POST /upload/image
-Content-Type: multipart/form-data
-Body: { file: <image-file> }
-Response: { url: "https://cloudinary.com/...", publicId: "..." }
-```
-
-## 🧪 Testing
-
-```bash
-# Run tests (if configured)
-npm test
-
-# Test authentication
-npm run test-auth
-```
-
-## 🚀 Development
-
-### Start Development Server
-
-```bash
-npm run dev
-```
-
-Server runs on: `http://localhost:4000`
-
-### Build for Production
-
-```bash
-npm run build
-npm run start:prod
-```
-
-### Health Check
-
-```bash
-GET /health
-Response: { status: "healthy", firebase: "connected" }
-```
-
-## 🐛 Troubleshooting
-
-### Port Already in Use
-
-```bash
-# Kill process on port 4000
-lsof -ti:4000 | xargs kill
-
-# Or change PORT in .env
-PORT=4001 npm run dev
-```
-
-### Firebase Connection Issues
-
-1. Check service account key path in `src/config/firebase.ts`
-2. Verify Firebase project ID matches
-3. Ensure service account has proper permissions
-
-### Build Errors
-
-```bash
-# Clean and rebuild
-rm -rf dist node_modules
-npm install
-npm run build
-```
-
-### CORS Issues
-
-CORS is configured to allow all origins in development. For production, update `src/app.ts`:
-
-```typescript
-app.use(cors({
-  origin: 'https://your-frontend-domain.com',
-  credentials: true
-}));
+# 4. Start compiled server
+npm run start        # uses dist/server.js
+npm run start:prod   # sets NODE_ENV=production
 ```
 
-## 🔒 Security
+Helpful scripts:
 
-### Authentication Middleware
+- `npm run create-admin` (placeholder script to seed admin users; extend `scripts/createAdmin.ts`).
+- `npm run copy-files` runs postbuild to ensure service-account JSON lands in `dist/config/`.
+- `npm run test-auth` executes a quick token-verification sanity check (no formal test suite yet).
 
-All protected routes use `authenticateUser` middleware:
+Server exposes:
 
-```typescript
-router.get('/protected', authenticateUser, (req, res) => {
-  const user = req.user; // Decoded Firebase token
-  // Handle request
-});
-```
-
-### Role Authorization
-
-Use `authorizeRole` for role-based access:
-
-```typescript
-router.get('/admin', 
-  authenticateUser, 
-  authorizeRole(['admin']), 
-  (req, res) => {
-    // Admin-only endpoint
-  }
-);
-```
+- `GET /` – sanity response.
+- `GET /health` – verifies Firestore connectivity and returns timestamp/status.
 
-## 📊 Logging
+## Feature Modules
 
-The backend uses a custom logger:
+### Authentication & Users (`/auth`)
 
-```typescript
-import { Logger } from './utils/logger';
+- Registration persists user metadata in Firestore and validates role assignments.
+- Login verifies Firebase ID tokens and returns merged profile data.
+- Profile updates allow name/avatar changes; soft-delete flips `isActive`.
+- Password recovery implements OTP email with Firestore-backed reset sessions (`/auth/forgot-password`, `/auth/verify-otp`, `/auth/reset-password`).
 
-Logger.info('route', 'userId', 'message');
-Logger.error('route', 'userId', 'error message', error);
-Logger.success('route', 'userId', 'success message');
-```
+### Consultant Lifecycle (`/consultants`, `/consultant-flow`)
 
-All requests are automatically logged via `requestLogger` middleware.
+- CRUD endpoints for consultant listings, top consultants, and service catalogs.
+- Onboarding flow stores profile drafts, handles approvals/rejections, and emails updates.
+- Availability, applications, verification, and payout metadata live under `consultantFlow` controllers/services.
 
-## 🚢 Deployment
+### Bookings & Sessions (`/bookings`)
 
-### Build for Production
+- Full lifecycle endpoints for students and consultants: create, list, status updates, cancellations.
+- Refund calculations, payment status tracking, and last-message metadata updates feed downstream services.
+- Reminder service (`src/services/reminder.service.ts`) sends 24 hr email/push notifications and marks `reminderSent` flags.
 
-```bash
-npm run build:clean
-```
+### Payments & Payouts (`/payment`, `payout.service.ts`)
 
-### Environment Setup
+- Stripe payment intents created via `/payment/create-intent`.
+- Automated consultant payouts aggregate completed, paid bookings, apply platform fees, create Stripe transfers, and persist payout documents (call `processAutomatedPayouts()` from cron or admin tooling).
 
-Set environment variables on your hosting platform:
-- Heroku: `heroku config:set KEY=value`
-- AWS: Use environment variables in Lambda/EC2
-- DigitalOcean: Set in `.env` file
+### Notifications (`/fcm`, `/notifications`)
 
-### Recommended Hosting
+- Token registration and removal for device-specific FCM tokens (`/fcm/token`).
+- Explicit push notifications for chat messages and incoming calls (`/notifications/send-message`, `/notifications/send-call`) with device-specific payloads, APNS/Android categories, and invalid-token cleanup.
+- Optional Cloud Function (`functions/sendMessageNotification.function.ts`) if you migrate notifications to Firebase Functions instead of the REST endpoint.
 
-- **Heroku** (Easy setup)
-- **AWS EC2/Lambda** (Scalable)
-- **DigitalOcean App Platform** (Simple)
-- **Railway** (Modern)
+### Reviews & Ratings (`/reviews`)
 
-## 📈 Monitoring
+- Students create reviews, fetch consultant feedback, and update aggregate rating counters referenced in analytics.
 
-### Health Check Endpoint
+### Analytics & Reporting (`/analytics`, `/consultant-flow/admin/analytics`)
 
-```bash
-GET /health
-```
+- Consultant analytics summarise revenue, booking counts, top services, retention, and trends by period (`week|month|year`).
+- Admin analytics return platform-wide metrics (user counts, bookings, revenue, growth deltas, recent activity).
 
-Returns server status and Firebase connection.
+### Reminders (`/reminders/send`)
 
-### Error Handling
+- Authenticated admin endpoint triggers reminder processing manually—ideal for cron jobs, Cloud Scheduler, or testing.
+- Reminders send both email and push notifications to students/consultants, then patch bookings with timestamps.
 
-All errors are caught and returned as JSON:
+### File Uploads (`/upload/image`)
 
-```json
-{
-  "error": "Error message"
-}
-```
+- Handles multipart uploads via multer, streams assets to Cloudinary, and returns URL + public ID.
 
-## 🔗 Integration
+## Data Model Cheatsheet
 
-### With Mobile App
+Primary Firestore collections consumed by the API:
 
-The mobile app communicates with this API via:
-- Base URL: `API_URL` environment variable
-- Authentication: Firebase ID tokens
-- Response format: JSON
+- `/users/{userId}` – core account metadata and nested `/fcmTokens/{tokenId}`.
+- `/consultantProfiles/{profileId}` & `/consultantApplications/{applicationId}` – onboarding records.
+- `/bookings/{bookingId}` – booking details, reminder/payment flags, session metadata.
+- `/payouts/{payoutId}` – Stripe transfer history and booking associations.
+- `/services/{serviceId}` – referenced by bookings/analytics (populated elsewhere).
+- `/chats/{chatId}` – message data for notification triggers (managed by mobile app).
 
-### With Cloud Functions
+Ensure indexes exist for compound queries (e.g., `bookings` filters on `status` and `paymentStatus`). Keep Firestore rules aligned with server logic to prevent unauthorized access.
 
-Cloud Functions read FCM tokens from Firestore:
-- Path: `/users/{userId}/fcmTokens`
-- Created by: This backend API
-- Used by: Cloud Functions for push notifications
+## Observability & Error Handling
 
-## 📚 Additional Resources
+- `requestLogger` logs method, path, status, and duration by default.
+- Use `Logger.info/success/warn/error(route, userId, message, error?)` inside controllers/services for structured breadcrumbs. Consider redirecting output to Stackdriver/CloudWatch when deploying.
+- Standard error responses follow `{ error: string }`. Extend with error codes if clients require more granularity.
 
-- [Express.js Documentation](https://expressjs.com/)
-- [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)
-- [Stripe API](https://stripe.com/docs/api)
-- [Cloudinary Documentation](https://cloudinary.com/documentation)
+## Emails & Messaging
 
-## ✅ Status
+- `src/utils/email.ts` centralizes Nodemailer configuration, verifies credentials on boot, and exposes helper functions for consultant onboarding and application lifecycle.
+- When SMTP creds are missing, the transport logs warnings and returns gracefully (OTP codes fall back to console logging in development).
 
-- ✅ Authentication system complete
-- ✅ Booking management complete
-- ✅ FCM token management complete
-- ✅ Image upload working
-- ✅ Payment integration complete
-- ✅ Email service configured
-- ✅ Consultant flow implemented
+## Deployment Checklist
 
-## 📝 Development Notes
+1. **Secrets:** Provide production `.env`, Stripe key, Cloudinary creds, SMTP account, and secure service account file.
+2. **Build:** `npm run build:clean` to refresh the `dist/` bundle.
+3. **Copy Service Account:** Ensure `dist/config/` contains your service account JSON or set `SERVICE_ACCOUNT_PATH`.
+4. **Start:** `npm run start:prod` (or integrate with PM2, systemd, Docker, etc.).
+5. **Cron / Scheduler:** Schedule reminders (`POST /reminders/send`) and payouts (`processAutomatedPayouts`) using Cloud Scheduler, GitHub Actions, or similar.
+6. **Monitoring:** Ping `/health` and tail logs for `Logger.error` events; optional third-party uptime checks.
 
-### Code Style
+## Extending the API
 
-- Use TypeScript strict mode
-- Follow Express.js conventions
-- Use async/await for async operations
-- Handle errors properly
-- Log all important operations
+- Add new routes under `src/routes/` and pair them with controllers/services; register them in `src/app.ts`.
+- Keep business logic in services; controllers should validate input, call service functions, and shape responses.
+- For long-running jobs, prefer idempotent services that can be invoked via HTTP or scheduled workers.
+- Update this README whenever new modules, env vars, or operational steps are introduced.
 
-### Adding New Endpoints
+## Resources
 
-1. Create controller in `src/controllers/`
-2. Create route in `src/routes/`
-3. Add route to `src/app.ts`
-4. Add authentication middleware if needed
-5. Test endpoint
+- Express 5: https://expressjs.com/
+- Firebase Admin SDK: https://firebase.google.com/docs/admin/setup
+- Stripe Payments & Connect: https://stripe.com/docs/connect
+- Cloudinary Upload API: https://cloudinary.com/documentation
+- Nodemailer: https://nodemailer.com/about/
 
-### Error Handling
+---
 
-```typescript
-try {
-  // Operation
-} catch (error) {
-  Logger.error(route, userId, "Error message", error);
-  res.status(500).json({ error: error.message });
-}
-```
+Questions or gotchas? Check inline comments across `controllers/` and `services/`, and coordinate updates with the mobile (`app/`) and web (`web/`) teams. Keep secrets secure and revisit platform fees/thresholds before going live.

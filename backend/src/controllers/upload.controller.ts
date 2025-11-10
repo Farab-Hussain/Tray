@@ -188,6 +188,46 @@ export const deleteProfileImage = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteConsultantImage = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.uid;
+    const { publicId } = req.body;
+
+    if (!publicId) {
+      return res.status(400).json({ error: "Public ID is required" });
+    }
+
+    console.log('🗑️ [deleteConsultantImage] Deleting consultant image for user:', userId);
+
+    await cloudinary.uploader.destroy(publicId);
+
+    const { db } = await import("../config/firebase");
+
+    await db.collection("consultantProfiles").doc(userId).set(
+      {
+        "personalInfo.profileImage": null,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+
+    await db.collection("consultants").doc(userId).set(
+      {
+        profileImage: null,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+
+    res.status(200).json({
+      message: "Consultant image deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("Delete consultant image error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Get Cloudinary upload signature for direct client upload
 export const getUploadSignature = async (req: Request, res: Response) => {
   try {

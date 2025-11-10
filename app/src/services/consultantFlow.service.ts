@@ -41,13 +41,13 @@ export interface ConsultantProfileInput {
 export interface ConsultantApplication {
   id: string;
   consultantId: string;
-  type: 'new' | 'existing';
+  type: 'new' | 'existing' | 'update';
   serviceId?: string;
   customService?: {
     title: string;
     description: string;
     duration: number;
-    // price: number;
+    price: number;
     imageUrl?: string;
     imagePublicId?: string;
   };
@@ -59,13 +59,13 @@ export interface ConsultantApplication {
 
 export interface ConsultantApplicationInput {
   consultantId: string;
-  type: 'new' | 'existing';
+  type: 'new' | 'existing' | 'update';
   serviceId?: string;
   customService?: {
     title: string;
     description: string;
     duration: number;
-    // price: number;
+    price: number;
     imageUrl?: string;
     imagePublicId?: string;
   };
@@ -118,6 +118,25 @@ export const deleteConsultantApplication = async (
   applicationId: string
 ): Promise<void> => {
   await api.delete(`/consultant-flow/applications/${applicationId}`);
+};
+
+export const updateConsultantApplication = async (
+  applicationId: string,
+  data: {
+    type?: 'new' | 'existing' | 'update';
+    serviceId?: string;
+    customService?: {
+      title: string;
+      description: string;
+      duration: number;
+      price: number;
+      imageUrl?: string | null;
+      imagePublicId?: string | null;
+    };
+  }
+) => {
+  const response = await api.put(`/consultant-flow/applications/${applicationId}`, data);
+  return response.data;
 };
 
 // Get consultant verification status

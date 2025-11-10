@@ -14,6 +14,7 @@ export const BookingService = {
     quantity: number;
     status: string;
     paymentStatus: string;
+    paymentIntentId?: string;
   }) {
     const response = await api.post('/bookings', bookingData);
     return response.data;

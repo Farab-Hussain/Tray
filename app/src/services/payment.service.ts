@@ -10,6 +10,7 @@ export interface PaymentIntentRequest {
 
 export interface PaymentIntentResponse {
   clientSecret: string;
+  paymentIntentId: string;
 }
 
 export interface PaymentIntentError {
