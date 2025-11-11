@@ -6,12 +6,6 @@
       "includeFiles": "src/config/*.json"
     }
   },
-  "builds": [
-    {
-      "src": "serverless.ts",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
     {
       "src": "/(.*)",
@@ -19,4 +13,3 @@
     }
   ]
 }
-
