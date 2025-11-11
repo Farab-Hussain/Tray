@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "functions": {
-    "serverless.ts": {
-      "runtime": "@vercel/node@3",
-      "includeFiles": "src/config/*.json"
+  "builds": [
+    {
+      "src": "dist/index.js",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "serverless.ts"
+      "dest": "dist/index.js"
     }
   ]
 }
