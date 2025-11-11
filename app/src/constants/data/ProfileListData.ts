@@ -1,4 +1,4 @@
-import { BadgeInfo, Bell, LogOut, MessageCircle, User, Star } from "lucide-react-native";
+import { BadgeInfo, Bell, LogOut, MessageCircle, User, Star, ShoppingCart } from "lucide-react-native";
 
 export const ProfileListData = [
     {
@@ -6,6 +6,7 @@ export const ProfileListData = [
         icon: MessageCircle,
         text: "Messages",
         route: "Messages",
+        requiresUnreadCheck: true,
     },
     {
         id: 2,
@@ -15,24 +16,31 @@ export const ProfileListData = [
     },
     {
         id: 3,
+        icon: ShoppingCart,
+        text: "My Cart",
+        route: "Cart",
+    },
+    {
+        id: 4,
         icon: Star,
         text: "My Reviews",
         route: "MyReviews",
     },
     {
-        id: 4,
+        id: 5,
         icon: Bell,
         text: "Notifications",
         route: "Notifications",
+        requiresUnreadCheck: true,
     },
     {
-        id: 5,
+        id: 6,
         icon: BadgeInfo,
         text: "Help & Support",
         route: "Help",
     },
     {
-        id: 6,
+        id: 7,
         icon: LogOut,
         text: "Logout",
         route: "Logout",

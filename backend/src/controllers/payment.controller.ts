@@ -2,6 +2,11 @@ import { Request, Response } from "express";
 import dotenv from "dotenv";
 import { db } from "../config/firebase";
 import { stripeClient } from "../utils/stripeClient";
+import {
+  getPlatformFeePercent,
+  getPlatformSettings,
+  updatePlatformFeePercent,
+} from "../services/platformSettings.service";
 
 dotenv.config();
 
@@ -230,6 +235,50 @@ export const createConnectAccount = async (req: Request, res: Response) => {
   }
 };
 
+export const getPlatformFeeConfig = async (_req: Request, res: Response) => {
+  try {
+    const settings = await getPlatformSettings();
+    res.status(200).json({
+      platformFeePercent: settings.platformFeePercent,
+      updatedAt: settings.updatedAt,
+      updatedBy: settings.updatedBy,
+      source: settings.updatedAt ? "admin" : "default",
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to load platform fee configuration" });
+  }
+};
+
+export const updatePlatformFeeConfig = async (req: Request, res: Response) => {
+  try {
+    const { platformFeePercent } = req.body;
+    const user = (req as any).user;
+
+    if (platformFeePercent === undefined || platformFeePercent === null) {
+      return res.status(400).json({ error: "platformFeePercent is required" });
+    }
+
+    const parsed =
+      typeof platformFeePercent === "number"
+        ? platformFeePercent
+        : parseFloat(platformFeePercent);
+
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+      return res.status(400).json({ error: "platformFeePercent must be a number between 0 and 100" });
+    }
+
+    const updatedBy = user?.uid || "admin";
+    await updatePlatformFeePercent(parsed, updatedBy);
+
+    res.status(200).json({
+      message: "Platform fee updated successfully",
+      platformFeePercent: parsed,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to update platform fee configuration" });
+  }
+};
+
 // Get Stripe Connect account status
 export const getConnectAccountStatus = async (req: Request, res: Response) => {
   try {
@@ -380,8 +429,8 @@ export const transferToConsultant = async (req: Request, res: Response) => {
       });
     }
     
-    // Calculate platform fee (e.g., 10% commission)
-    const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
+    // Calculate platform fee (admin configurable)
+    const platformFeePercent = await getPlatformFeePercent();
     const platformFeeAmount = Math.round(amount * 100 * (platformFeePercent / 100));
     const transferAmount = Math.round(amount * 100) - platformFeeAmount;
     

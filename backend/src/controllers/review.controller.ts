@@ -150,6 +150,18 @@ export const getMyReviews = async (req: Request, res: Response) => {
     const studentId = (req as any).user.uid;
 
     const reviews = await reviewServices.getByStudentId(studentId);
+    const studentDoc = await db.collection("users").doc(studentId).get();
+    const student = studentDoc.data();
+
+    const studentName =
+      student?.name || student?.displayName || student?.email || "You";
+    const studentProfileImage =
+      student?.profileImage ||
+      student?.avatarUrl ||
+      student?.avatar ||
+      student?.profile?.profileImage ||
+      student?.profile?.avatarUrl ||
+      null;
 
     // Populate consultant details
     const reviewsWithDetails = await Promise.all(
@@ -160,6 +172,8 @@ export const getMyReviews = async (req: Request, res: Response) => {
         return {
           ...review,
           consultantName: consultant?.name || "Unknown",
+          studentName,
+          studentProfileImage,
         };
       })
     );

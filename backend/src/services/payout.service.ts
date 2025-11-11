@@ -2,9 +2,9 @@
 import { db } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import Stripe from "stripe";
+import { getPlatformFeePercent } from "./platformSettings.service";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-const PLATFORM_FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
 const MINIMUM_PAYOUT_AMOUNT = parseFloat(process.env.MINIMUM_PAYOUT_AMOUNT || '10'); // Minimum $10 to payout
 
 /**
@@ -14,6 +14,7 @@ const MINIMUM_PAYOUT_AMOUNT = parseFloat(process.env.MINIMUM_PAYOUT_AMOUNT || '1
 export const processAutomatedPayouts = async () => {
   try {
     Logger.info("Payout", "", "Starting automated payout processing...");
+    const platformFeePercent = await getPlatformFeePercent();
 
     // Get all bookings that are:
     // 1. Status: completed or approved
@@ -97,7 +98,7 @@ export const processAutomatedPayouts = async () => {
         }
 
         // Calculate platform fee and transfer amount
-        const platformFeeAmount = Math.round(earnings.totalAmount * 100 * (PLATFORM_FEE_PERCENT / 100));
+        const platformFeeAmount = Math.round(earnings.totalAmount * 100 * (platformFeePercent / 100));
         const transferAmount = Math.round(earnings.totalAmount * 100) - platformFeeAmount;
 
         if (transferAmount <= 0) {

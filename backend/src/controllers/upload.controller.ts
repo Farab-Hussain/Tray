@@ -2,7 +2,7 @@
 import { Request, Response } from "express";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 
 // Configure Cloudinary
 cloudinary.config({
@@ -50,7 +50,7 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
         {
           resource_type: 'image',
           folder: 'tray/profile-images',
-          public_id: `${userId}/${uuidv4()}`,
+          public_id: `${userId}/${randomUUID()}`,
           transformation: [
             { width: 400, height: 400, crop: 'fill', gravity: 'face' },
             { quality: 'auto' }
@@ -102,7 +102,7 @@ export const uploadConsultantImage = async (req: Request, res: Response) => {
         {
           resource_type: 'image',
           folder: 'tray/consultant-images',
-          public_id: `${userId}/${uuidv4()}`,
+          public_id: `${userId}/${randomUUID()}`,
           transformation: [
             { width: 400, height: 400, crop: 'fill', gravity: 'face' },
             { quality: 'auto' }
@@ -236,11 +236,12 @@ export const getUploadSignature = async (req: Request, res: Response) => {
 
     // Generate upload signature for Cloudinary
     const timestamp = Math.round(new Date().getTime() / 1000);
+    const publicId = `${userId}/${randomUUID()}`;
     const signature = cloudinary.utils.api_sign_request(
       {
-        timestamp: timestamp,
-        folder: folder,
-        public_id: `${userId}/${uuidv4()}`,
+        timestamp,
+        folder,
+        public_id: publicId,
       },
       process.env.CLOUDINARY_API_SECRET!
     );
@@ -251,6 +252,7 @@ export const getUploadSignature = async (req: Request, res: Response) => {
       cloudName: process.env.CLOUDINARY_CLOUD_NAME,
       apiKey: process.env.CLOUDINARY_API_KEY,
       folder,
+      publicId,
     });
 
   } catch (error: any) {

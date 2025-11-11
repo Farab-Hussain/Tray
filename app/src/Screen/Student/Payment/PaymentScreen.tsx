@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -59,14 +59,51 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [cartItems] = useState<CartItem[]>(route.params.cartItems);
+  const [platformFeePercent, setPlatformFeePercent] = useState<number>(10);
+  const [platformFeeLoading, setPlatformFeeLoading] = useState<boolean>(true);
+  const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPlatformFee = async () => {
+      try {
+        const config = await PaymentService.getPlatformFeeConfig();
+        if (isMounted && typeof config.platformFeePercent === 'number') {
+          setPlatformFeePercent(config.platformFeePercent);
+        }
+      } catch (error: any) {
+        console.error('❌ Failed to load platform fee configuration:', error);
+        if (isMounted) {
+          setPlatformFeeError(error.message || 'Unable to load platform fee. Using default rate.');
+        }
+      } finally {
+        if (isMounted) {
+          setPlatformFeeLoading(false);
+        }
+      }
+    };
+
+    fetchPlatformFee();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Calculate totals
-  const subtotal = cartItems.reduce((sum, item) => {
-    const itemTotal = item.totalPrice || (item.price || item.pricePerSlot || 0) * item.counter;
-    return sum + itemTotal;
-  }, 0);
-  const tax = subtotal * 0.1; // 10% tax
-  const total = subtotal + tax;
+  const subtotal = useMemo(() => {
+    return cartItems.reduce((sum, item) => {
+      const itemTotal = item.totalPrice || (item.price || item.pricePerSlot || 0) * item.counter;
+      return sum + itemTotal;
+    }, 0);
+  }, [cartItems]);
+
+  const platformFeeAmount = useMemo(() => {
+    const fee = subtotal * (platformFeePercent / 100);
+    return Number.isNaN(fee) ? 0 : Number(fee.toFixed(2));
+  }, [subtotal, platformFeePercent]);
+
+  const total = useMemo(() => Number((subtotal + platformFeeAmount).toFixed(2)), [subtotal, platformFeeAmount]);
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -405,9 +442,17 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             <Text style={styles.summaryValue}>{formatAmount(subtotal)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tax (10%):</Text>
-            <Text style={styles.summaryValue}>{formatAmount(tax)}</Text>
+            <Text style={styles.summaryLabel}>
+              {`Platform Fee (${platformFeePercent % 1 === 0 ? platformFeePercent : platformFeePercent.toFixed(2)}%):`}
+            </Text>
+            <Text style={styles.summaryValue}>{formatAmount(platformFeeAmount)}</Text>
           </View>
+          {platformFeeLoading && (
+            <Text style={styles.platformFeeInfo}>Retrieving latest platform fee...</Text>
+          )}
+          {!platformFeeLoading && platformFeeError && (
+            <Text style={styles.platformFeeWarning}>{platformFeeError}</Text>
+          )}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total:</Text>
             <Text style={styles.totalValue}>{formatAmount(total)}</Text>
@@ -506,6 +551,18 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 16,
     color: COLORS.black,
+  },
+  platformFeeInfo: {
+    marginTop: 2,
+    fontSize: 12,
+    color: COLORS.gray,
+    textAlign: 'right',
+  },
+  platformFeeWarning: {
+    marginTop: 2,
+    fontSize: 12,
+    color: COLORS.orange,
+    textAlign: 'right',
   },
   totalRow: {
     flexDirection: 'row',

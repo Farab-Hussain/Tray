@@ -4,7 +4,7 @@ import { db, auth } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import { sendEmail } from "../utils/email";
 import nodemailer from "nodemailer";
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from "crypto";
 
 
 /**
@@ -263,7 +263,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
   try {
     const userRecord = await auth.getUserByEmail(email);
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
-    const resetSessionId = uuidv4();
+    const resetSessionId = randomUUID();
 
     await db.collection("password_resets").doc(resetSessionId).set({
       uid: userRecord.uid,

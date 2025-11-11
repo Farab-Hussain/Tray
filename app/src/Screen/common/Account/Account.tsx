@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
@@ -9,6 +9,8 @@ import ProfileList from '../../../components/ui/ProfileList';
 import { ProfileListData } from '../../../constants/data/ProfileListData';
 import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useChatContext } from '../../../contexts/ChatContext';
+import { useNotificationContext } from '../../../contexts/NotificationContext';
 import { UserService } from '../../../services/user.service';
 import { Camera, User } from 'lucide-react-native';
 import Loader from '../../../components/ui/Loader';
@@ -18,6 +20,21 @@ const Account = ({ navigation }: any) => {
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const { chats } = useChatContext();
+  const { notifications, unreadCount: notificationUnreadCount } = useNotificationContext();
+
+  const hasUnreadMessages = useMemo(() => {
+    const chatUnreadViaChats =
+      chats?.some(chat => (chat.unreadCount || 0) > 0) ?? false;
+    const chatUnreadViaNotifications =
+      notifications?.some(
+        notification =>
+          !notification.read &&
+          (notification.type === 'chat_message' ||
+            notification.category === 'message'),
+      ) ?? false;
+    return chatUnreadViaChats || chatUnreadViaNotifications;
+  }, [chats, notifications]);
   
   // Memoize the fetch function to prevent unnecessary re-renders
   const fetchBackendProfile = useCallback(async () => {
@@ -75,6 +92,11 @@ const Account = ({ navigation }: any) => {
       return;
     }
 
+    if (route === "Cart") {
+      navigation.navigate("Services", { screen: "Cart" });
+      return;
+    }
+
     // Normal navigation for other routes
     navigation.navigate(route);
   };
@@ -124,14 +146,24 @@ const Account = ({ navigation }: any) => {
         <Text style={Profile.email}>{email}</Text>
         <View style={Profile.listContainer}>
           {ProfileListData.length > 0 && (
-            ProfileListData.map((item) => (
-              <ProfileList
-                key={item.id}
-                icon={<item.icon size={24} color={COLORS.green} strokeWidth={1.5} />}
-                text={item.text}
-                onPress={() => handlePress(item.route)}
-              />
-            ))
+            ProfileListData.map((item) => {
+              const showDot =
+                item.route === 'Messages'
+                  ? hasUnreadMessages
+                  : item.route === 'Notifications'
+                  ? notificationUnreadCount > 0
+                  : false;
+
+              return (
+                <ProfileList
+                  key={item.id}
+                  icon={<item.icon size={24} color={COLORS.green} strokeWidth={1.5} />}
+                  text={item.text}
+                  onPress={() => handlePress(item.route)}
+                  showDot={showDot}
+                />
+              );
+            })
           )}
         </View>
       </View>

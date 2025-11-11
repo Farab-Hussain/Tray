@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { db } from "../config/firebase";
 import { emailBookingConfirmation, emailConsultantNewBooking } from "../utils/email";
 import { stripeClient } from "../utils/stripeClient";
+import { getPlatformFeePercent } from "../services/platformSettings.service";
 
 export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "accepted", "approved"];
 
@@ -409,7 +410,7 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
               
               if (account.details_submitted && account.charges_enabled && account.payouts_enabled) {
                 // Calculate platform fee
-                const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT || '10');
+                const platformFeePercent = await getPlatformFeePercent();
                 const platformFeeAmount = Math.round(bookingData.amount * 100 * (platformFeePercent / 100));
                 const transferAmount = Math.round(bookingData.amount * 100) - platformFeeAmount;
                 

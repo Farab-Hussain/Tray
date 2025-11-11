@@ -55,6 +55,14 @@ export const Profile = StyleSheet.create({
         fontWeight: 'bold',
         color: COLORS.black,
     },
+    listBadgeDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: COLORS.yellow,
+        borderWidth: 2,
+        borderColor: COLORS.white,
+    },
     listIcon: {
         display: 'flex',
         flexDirection: 'row',

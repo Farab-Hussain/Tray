@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   Home,
   BookOpen,
@@ -25,6 +25,8 @@ import Account from '../Screen/common/Account/Account';
 
 
 import { COLORS } from '../constants/core/colors';
+import { useChatContext } from '../contexts/ChatContext';
+import { useNotificationContext } from '../contexts/NotificationContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -35,51 +37,76 @@ const getTabBarVisibility = (route: any) => {
 };
 
 const getTabIcon = (routeName: string, color: string, size: number) => {
-  const iconStyle = {
-    paddingTop: 8,
-  };
-
   switch (routeName) {
     case 'Menu':
       return (
-        <View style={iconStyle}>
-          <Home size={size} color={color} />
-        </View>
+        <Home size={size} color={color} />
       );
     case 'Services':
       return (
-        <View style={iconStyle}>
-          <BookOpen size={size} color={color} />
-        </View>
+        <BookOpen size={size} color={color} />
       );
     case 'Messages':
       return (
-        <View style={iconStyle}>
-          <MessageCircle size={size} color={color} />
-        </View>
+        <MessageCircle size={size} color={color} />
       );
     case 'Notifications':
       return (
-        <View style={iconStyle}>
-          <Bell size={size} color={color} />
-        </View>
+        <Bell size={size} color={color} />
       );
     case 'Account':
       return (
-        <View style={iconStyle}>
-          <CircleUserRound size={size} color={color} />
-        </View>
+        <CircleUserRound size={size} color={color} />
       );
     default:
       return (
-        <View style={iconStyle}>
-          <Home size={size} color={color} />
-        </View>
+        <Home size={size} color={color} />
       );
   }
 };
 
 const BottomTabs = () => {
+  const { chats } = useChatContext();
+  const {
+    unreadCount: notificationUnreadCount,
+    notifications,
+  } = useNotificationContext();
+
+  const hasUnreadMessages = useMemo(() => {
+    const chatUnreadViaChats =
+      chats?.some(chat => (chat.unreadCount || 0) > 0) ?? false;
+    const chatUnreadViaNotifications =
+      notifications?.some(
+        notification =>
+          !notification.read &&
+          (notification.type === 'chat_message' ||
+            notification.category === 'message'),
+      ) ?? false;
+    return chatUnreadViaChats || chatUnreadViaNotifications;
+  }, [chats, notifications]);
+
+  const badgeMap = useMemo(
+    () => ({
+      Messages: hasUnreadMessages,
+      Notifications: (notificationUnreadCount || 0) > 0,
+    }),
+    [hasUnreadMessages, notificationUnreadCount],
+  );
+
+  const renderIconWithBadge = useCallback(
+    (routeName: string, color: string, size: number) => {
+      const showDot = badgeMap[routeName as keyof typeof badgeMap];
+
+      return (
+        <View style={styles.iconWrapper}>
+          {getTabIcon(routeName, color, size)}
+          {showDot ? <View style={styles.badgeDot} /> : null}
+        </View>
+      );
+    },
+    [badgeMap],
+  );
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -91,7 +118,8 @@ const BottomTabs = () => {
           fontSize: 12,
           fontWeight: '500',
         },
-        tabBarIcon: ({ color, size }) => getTabIcon(route.name, color, size),
+        tabBarIcon: ({ color, size }) =>
+          renderIconWithBadge(route.name, color, size),
       })}
     >
       <Tab.Screen
@@ -157,3 +185,23 @@ const BottomTabs = () => {
 };
 
 export default BottomTabs;
+
+const styles = StyleSheet.create({
+  iconWrapper: {
+    paddingTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 12,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.yellow,
+    borderWidth: 1,
+    borderColor: COLORS.white,
+  },
+});

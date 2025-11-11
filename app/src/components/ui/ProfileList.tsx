@@ -8,9 +8,10 @@ type ProfileListProps = {
     icon: React.ReactElement<{ color?: string; size?: number }>;
     text: string;
     onPress: () => void;
+    showDot?: boolean;
 }
 
-const ProfileList = ({ icon, text, onPress }: ProfileListProps) => {
+const ProfileList = ({ icon, text, onPress, showDot = false }: ProfileListProps) => {
     return (
         <TouchableOpacity style={Profile.list} onPress={onPress}>
             <View style={Profile.listIcon}>
@@ -19,7 +20,11 @@ const ProfileList = ({ icon, text, onPress }: ProfileListProps) => {
                 </View>
                 <Text style={Profile.listText}>{text}</Text>
             </View>
-            <ChevronRight size={24} color={COLORS.blackTransparent} />
+            {showDot ? (
+                <View style={Profile.listBadgeDot} />
+            ) : (
+                <ChevronRight size={24} color={COLORS.blackTransparent} />
+            )}
         </TouchableOpacity>
     )
 }

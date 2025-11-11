@@ -29,6 +29,8 @@ const StripePaymentSetup = ({ navigation }: any) => {
     onboardingUrl?: string | null;
   } | null>(null);
   const [creatingAccount, setCreatingAccount] = useState(false);
+  const [platformFeePercent, setPlatformFeePercent] = useState<number | null>(null);
+  const [platformFeeLoading, setPlatformFeeLoading] = useState<boolean>(true);
 
   useEffect(() => {
     checkAccountStatus();
@@ -55,6 +57,30 @@ const StripePaymentSetup = ({ navigation }: any) => {
 
     return () => {
       subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPlatformFee = async () => {
+      try {
+        const config = await PaymentService.getPlatformFeeConfig();
+        if (isMounted && typeof config.platformFeePercent === 'number') {
+          setPlatformFeePercent(config.platformFeePercent);
+        }
+      } catch (error) {
+        console.error('Error fetching platform fee configuration:', error);
+      } finally {
+        if (isMounted) {
+          setPlatformFeeLoading(false);
+        }
+      }
+    };
+
+    loadPlatformFee();
+    return () => {
+      isMounted = false;
     };
   }, []);
 
@@ -138,6 +164,10 @@ const StripePaymentSetup = ({ navigation }: any) => {
   }
 
   const isAccountComplete = accountStatus?.status?.isComplete || false;
+  const platformFeeDisplay =
+    platformFeePercent !== null
+      ? `${platformFeePercent % 1 === 0 ? platformFeePercent : platformFeePercent.toFixed(2)}%`
+      : null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -266,7 +296,11 @@ const StripePaymentSetup = ({ navigation }: any) => {
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>•</Text>
             <Text style={[styles.infoText, styles.infoItemText]}>
-              A small platform fee is deducted from each payment (default: 10%)
+              {platformFeeLoading
+                ? 'A platform fee is deducted from each payment (loading current rate...)'
+                : platformFeeDisplay
+                ? `A platform fee of ${platformFeeDisplay} is deducted from each payment`
+                : 'A platform fee is deducted from each payment.'}
             </Text>
           </View>
         </View>

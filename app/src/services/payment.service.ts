@@ -124,6 +124,31 @@ class PaymentService {
       throw new Error(error.response?.data?.error || 'Failed to get account status');
     }
   }
+
+  async getPlatformFeeConfig(): Promise<{
+    platformFeePercent: number;
+    updatedAt?: string;
+    updatedBy?: string;
+    source?: string;
+  }> {
+    try {
+      const response = await api.get('/payment/platform-fee');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching platform fee config:', error);
+      throw new Error(error.response?.data?.error || 'Failed to load platform fee configuration');
+    }
+  }
+
+  async updatePlatformFeeConfig(platformFeePercent: number) {
+    try {
+      const response = await api.put('/payment/platform-fee', { platformFeePercent });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error updating platform fee config:', error);
+      throw new Error(error.response?.data?.error || 'Failed to update platform fee configuration');
+    }
+  }
 }
 
 export default new PaymentService();

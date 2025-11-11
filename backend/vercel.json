@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "functions": {
+    "serverless.ts": {
+      "runtime": "nodejs18.x",
+      "includeFiles": "src/config/*.json"
+    }
+  },
+  "builds": [
+    {
+      "src": "serverless.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "serverless.ts"
+    }
+  ]
+}
+
