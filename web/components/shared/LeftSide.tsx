@@ -9,16 +9,7 @@ import {
   Shield, 
   MessageSquare,
   Activity,
-  Database,
-  Bell,
-  Search,
   TrendingUp,
-  Calendar,
-  UserCheck,
-  AlertTriangle,
-  Mail,
-  Filter,
-  Download,
   LogOut
 } from "lucide-react";
 import Image from "next/image";

@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Shield, AlertTriangle } from 'lucide-react';
+import { Loader2, Shield } from 'lucide-react';
 
 interface AdminRouteGuardProps {
   children: React.ReactNode;
@@ -49,7 +49,7 @@ const AdminRouteGuard: React.FC<AdminRouteGuardProps> = ({ children }) => {
             Access Denied
           </h2>
           <p className="text-red-700 text-center mb-6">
-            You don't have permission to access the admin dashboard. 
+            You don&apos;t have permission to access the admin dashboard. 
             Admin privileges are required.
           </p>
           <div className="space-y-3">

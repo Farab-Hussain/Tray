@@ -1,26 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import AdminCard from '@/components/admin/AdminCard';
 import AdminSection from '@/components/admin/AdminSection';
 import MobileHeader from '@/components/shared/MobileHeader';
-import { 
-  Settings, 
-  Shield, 
-  Mail, 
-  Bell, 
-  Database,
-  Globe,
-  Key,
-  Users,
-  FileText,
-  Loader2,
-  Save,
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle,
-  Clock
-} from 'lucide-react';
+import { Loader2, Save, RefreshCw } from 'lucide-react';
 
 interface PlatformSettings {
   general: {

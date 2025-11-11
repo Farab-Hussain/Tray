@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { LucideIcon, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface AdminWidgetProps {

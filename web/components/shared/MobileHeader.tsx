@@ -6,7 +6,6 @@ import {
   X, 
   Search, 
   Bell, 
-  Settings,
   LayoutDashboard,
   Users,
   FileText,

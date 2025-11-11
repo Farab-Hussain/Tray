@@ -16,6 +16,7 @@ import {
 import Button from '../custom/Button';
 import { LucideIcon } from 'lucide-react';
 import { consultantFlowAPI } from '@/utils/api';
+import type { DashboardStats } from '@/types';
 
 interface AdminWidget {
   id: string;
@@ -30,11 +31,19 @@ interface AdminWidget {
 }
 
 
+type AdminAnalyticsOverview = {
+  totalRevenue?: number;
+};
+
+type AdminAnalyticsData = {
+  overview?: AdminAnalyticsOverview;
+};
+
 const RightSide = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dashboardStats, setDashboardStats] = useState<any>(null);
-  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AdminAnalyticsData | null>(null);
 
   const handleClick = () => {
     setIsOpen(!isOpen);
@@ -58,7 +67,7 @@ const RightSide = () => {
   const loadDashboardStats = async () => {
     try {
       const response = await consultantFlowAPI.getDashboardStats();
-      setDashboardStats(response.data);
+      setDashboardStats(response.data as DashboardStats);
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
     }
@@ -67,7 +76,7 @@ const RightSide = () => {
   const loadAnalytics = async () => {
     try {
       const response = await consultantFlowAPI.getAnalytics();
-      setAnalyticsData(response.data);
+      setAnalyticsData(response.data as AdminAnalyticsData);
     } catch (error) {
       console.error('Error loading analytics:', error);
     }
@@ -92,14 +101,20 @@ const RightSide = () => {
       id: 'revenue',
       title: 'Revenue',
       icon: TrendingUp,
-      value: analyticsData?.overview?.revenue ? `$${(analyticsData.overview.revenue / 1000).toFixed(1)}K` : '$0K',
+      value: (() => {
+        const totalRevenue = analyticsData?.overview?.totalRevenue ?? 0;
+        if (totalRevenue >= 1000) {
+          return `$${(totalRevenue / 1000).toFixed(1)}K`;
+        }
+        return `$${totalRevenue}`;
+      })(),
       change: { value: 18, isPositive: true },
       color: 'blue'
     }
   ];
 
 
-  const getColorClasses = (color: string) => {
+  const getColorClasses = (color: AdminWidget['color']) => {
     switch (color) {
       case 'green':
         return 'bg-green-50 border-green-200 text-green-600';

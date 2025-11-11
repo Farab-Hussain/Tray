@@ -19,6 +19,15 @@ import {
   Star,
   Crown
 } from 'lucide-react';
+type AxiosErrorLike = {
+  isAxiosError?: boolean;
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+  message?: string;
+};
 
 interface User {
   id: string;
@@ -35,6 +44,17 @@ interface User {
   isTopConsultant?: boolean;
 }
 
+type TopConsultantData = {
+  consultantId?: string;
+  uid?: string;
+  id?: string;
+  userId?: string;
+};
+
+type TopConsultantApiResponse = {
+  topConsultants?: TopConsultantData[];
+};
+
 const UserManagementPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
@@ -47,6 +67,15 @@ const UserManagementPage = () => {
   const [showTopConsultantModal, setShowTopConsultantModal] = useState(false);
   const [selectedConsultant, setSelectedConsultant] = useState<User | null>(null);
   const [isSettingTop, setIsSettingTop] = useState(false);
+
+  const isAxiosError = (error: unknown): error is AxiosErrorLike => {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'isAxiosError' in error &&
+      Boolean((error as AxiosErrorLike).isAxiosError)
+    );
+  };
 
   useEffect(() => {
     loadUsers();
@@ -69,15 +98,15 @@ const UserManagementPage = () => {
   const loadTopConsultants = async () => {
     try {
       const response = await consultantAPI.getTop();
-      const topConsultantsData = (response.data as { topConsultants: any[] }).topConsultants || [];
+      const topConsultantsData = (response.data as TopConsultantApiResponse).topConsultants ?? [];
       // Extract consultant IDs from the response - the structure might vary
       const topIds = new Set(
         topConsultantsData
-          .map((c: any) => {
+          .map((consultant) => {
             // Try different possible field names for consultant ID
-            return c.consultantId || c.uid || c.id || c.userId;
+            return consultant.consultantId ?? consultant.uid ?? consultant.id ?? consultant.userId ?? null;
           })
-          .filter((id: string | undefined) => id !== undefined)
+          .filter((id): id is string => Boolean(id))
       );
       setTopConsultants(topIds);
     } catch (error: unknown) {
@@ -115,9 +144,15 @@ const UserManagementPage = () => {
       setSelectedConsultant(null);
       await loadTopConsultants(); // Reload top consultants
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error setting top consultant:', error);
-      setErrorMessage(error?.response?.data?.error || 'Failed to set top consultant. Please try again.');
+      if (isAxiosError(error)) {
+        setErrorMessage(error.response?.data?.error || error.message || 'Failed to set top consultant. Please try again.');
+      } else if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage('Failed to set top consultant. Please try again.');
+      }
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       setIsSettingTop(false);

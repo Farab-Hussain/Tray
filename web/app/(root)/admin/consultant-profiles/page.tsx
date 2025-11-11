@@ -244,29 +244,35 @@ const AdminConsultantProfilesPage = () => {
                   <div className="text-sm text-gray-500">
                     {(() => {
                       try {
+                        const rawCreatedAt = profile.createdAt as unknown;
                         let date: Date;
                         // Handle Firestore timestamp format {_seconds: number, _nanoseconds: number}
-                        if (profile.createdAt && typeof profile.createdAt === 'object' && '_seconds' in profile.createdAt) {
-                          date = new Date((profile.createdAt as {_seconds: number})._seconds * 1000);
-                        } 
+                        if (
+                          rawCreatedAt &&
+                          typeof rawCreatedAt === 'object' &&
+                          '_seconds' in rawCreatedAt &&
+                          typeof (rawCreatedAt as { _seconds?: number })._seconds === 'number'
+                        ) {
+                          date = new Date((rawCreatedAt as { _seconds: number })._seconds * 1000);
+                        }
                         // Handle ISO string format
-                        else if (typeof profile.createdAt === 'string') {
-                          date = new Date(profile.createdAt);
+                        else if (typeof rawCreatedAt === 'string') {
+                          date = new Date(rawCreatedAt);
                         }
                         // Handle Date object
-                        else if (profile.createdAt instanceof Date) {
-                          date = profile.createdAt;
+                        else if (rawCreatedAt instanceof Date) {
+                          date = rawCreatedAt;
                         }
                         // Fallback to current date if invalid
                         else {
                           date = new Date();
                         }
-                        
+
                         // Check if date is valid
                         if (isNaN(date.getTime())) {
                           return 'N/A';
                         }
-                        
+
                         return date.toLocaleDateString();
                       } catch (error) {
                         console.error('Error parsing date:', error, profile.createdAt);

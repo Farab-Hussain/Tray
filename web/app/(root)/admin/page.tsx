@@ -16,21 +16,14 @@ import {
   XCircle, 
   Loader2,
   TrendingUp,
-  DollarSign,
   MessageSquare,
   Settings,
   Shield,
   BarChart3,
-  Calendar,
   UserCheck,
   AlertTriangle,
   Activity,
   Database,
-  Mail,
-  Bell,
-  Search,
-  Filter,
-  Download,
   RefreshCw
 } from 'lucide-react';
 import { DashboardStats } from '@/types';

@@ -2,36 +2,65 @@
  * Utility functions for the application
  */
 
+type FirestoreSecondsTimestamp = {
+  seconds: number;
+  nanoseconds?: number;
+};
+
+type FirestoreToDateTimestamp = {
+  toDate: () => Date;
+};
+
+type DateInput = string | Date | FirestoreSecondsTimestamp | FirestoreToDateTimestamp | null | undefined;
+
+const hasSeconds = (value: unknown): value is FirestoreSecondsTimestamp => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'seconds' in value &&
+    typeof (value as { seconds: unknown }).seconds === 'number'
+  );
+};
+
+const hasToDate = (value: unknown): value is FirestoreToDateTimestamp => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate: unknown }).toDate === 'function'
+  );
+};
+
 /**
  * Format ISO date string to readable format
- * @param dateString - ISO date string, Date object, or Firestore Timestamp
+ * @param input - ISO date string, Date object, or Firestore Timestamp
  * @returns Formatted date string (e.g., "Jan 15, 2025")
  */
-export function formatDate(dateString: string | Date | any): string {
-  if (!dateString) return '';
+export function formatDate(input: DateInput): string {
+  if (!input) return '';
   
   try {
     let date: Date;
     
     // Handle Firestore Timestamp objects (has seconds and nanoseconds properties)
-    if (dateString && typeof dateString === 'object' && 'seconds' in dateString) {
-      date = new Date(dateString.seconds * 1000);
+    if (hasSeconds(input)) {
+      date = new Date(input.seconds * 1000);
     }
     // Handle Firestore Timestamp with toDate() method
-    else if (dateString && typeof dateString === 'object' && typeof dateString.toDate === 'function') {
-      date = dateString.toDate();
+    else if (hasToDate(input)) {
+      date = input.toDate();
     }
     // Handle string dates
-    else if (typeof dateString === 'string') {
-      date = new Date(dateString);
+    else if (typeof input === 'string') {
+      date = new Date(input);
     }
     // Handle Date objects
-    else if (dateString instanceof Date) {
-      date = dateString;
+    else if (input instanceof Date) {
+      date = input;
     }
     // Unknown format
     else {
-      console.warn('Unknown date format:', dateString);
+      console.warn('Unknown date format:', input);
       return 'Invalid Date';
     }
     
@@ -92,30 +121,30 @@ export function getInitials(name: string): string {
 
 /**
  * Format relative time (e.g., "2 hours ago")
- * @param dateString - ISO date string, Date object, or Firestore Timestamp
+ * @param input - ISO date string, Date object, or Firestore Timestamp
  * @returns Relative time string
  */
-export function formatRelativeTime(dateString: string | Date | any): string {
-  if (!dateString) return '';
+export function formatRelativeTime(input: DateInput): string {
+  if (!input) return '';
   
   try {
     let date: Date;
     
     // Handle Firestore Timestamp objects
-    if (dateString && typeof dateString === 'object' && 'seconds' in dateString) {
-      date = new Date(dateString.seconds * 1000);
+    if (hasSeconds(input)) {
+      date = new Date(input.seconds * 1000);
     }
     // Handle Firestore Timestamp with toDate() method
-    else if (dateString && typeof dateString === 'object' && typeof dateString.toDate === 'function') {
-      date = dateString.toDate();
+    else if (hasToDate(input)) {
+      date = input.toDate();
     }
     // Handle string dates
-    else if (typeof dateString === 'string') {
-      date = new Date(dateString);
+    else if (typeof input === 'string') {
+      date = new Date(input);
     }
     // Handle Date objects
-    else if (dateString instanceof Date) {
-      date = dateString;
+    else if (input instanceof Date) {
+      date = input;
     }
     // Unknown format
     else {

@@ -16,6 +16,15 @@ import {
   FileText,
   XCircle
 } from 'lucide-react';
+type AxiosErrorLike = {
+  isAxiosError?: boolean;
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+  message?: string;
+};
 
 interface AdminAnalytics {
   overview: {
@@ -47,16 +56,31 @@ const AnalyticsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [analyticsData, setAnalyticsData] = useState<AdminAnalytics | null>(null);
 
+  const isAxiosError = (error: unknown): error is AxiosErrorLike => {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'isAxiosError' in error &&
+      Boolean((error as AxiosErrorLike).isAxiosError)
+    );
+  };
+
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
         setIsLoading(true);
         setError(null);
         const response = await consultantFlowAPI.getAnalytics();
-        setAnalyticsData(response.data);
-      } catch (err: any) {
+        setAnalyticsData(response.data as AdminAnalytics);
+      } catch (err: unknown) {
         console.error('Error fetching analytics:', err);
-        setError(err?.response?.data?.error || 'Failed to load analytics');
+        if (isAxiosError(err)) {
+          setError(err.response?.data?.error || err.message || 'Failed to load analytics');
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Failed to load analytics');
+        }
       } finally {
         setIsLoading(false);
       }

@@ -8,8 +8,8 @@ export const useKeyboardAvoidance = (
   inputRefs: Array<RefObject<HTMLInputElement | HTMLTextAreaElement | null>>
 ) => {
   useEffect(() => {
-    const handleInputFocus = (e: FocusEvent) => {
-      const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+    const handleInputFocus = (event: Event) => {
+      const target = event.target as HTMLInputElement | HTMLTextAreaElement | null;
       
       // Check if the focused element is one of our tracked inputs
       const isTrackedInput = inputRefs.some(ref => ref.current === target);
