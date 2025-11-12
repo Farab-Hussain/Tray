@@ -56,15 +56,7 @@ const Register = ({ navigation, route }: any) => {
     }
     
 
-    const validation = validatePassword(password);
-    if (!validation.isValid) {
-      Alert.alert(
-        'Password Requirements Not Met',
-        validation.errors.join('\n\n') + '\n\nPlease improve your password and try again.'
-      );
-      return;
-    }
-    
+    // Password validation is now optional - just check if passwords match
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Password and confirm password do not match');
       return;
@@ -370,7 +362,7 @@ const Register = ({ navigation, route }: any) => {
             {passwordValidation && (
               <PasswordStrengthIndicator
                 strength={passwordValidation.strength}
-                showFeedback={true}
+                showFeedback={false}
               />
             )}
 

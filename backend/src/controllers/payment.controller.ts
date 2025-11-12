@@ -3,9 +3,9 @@ import dotenv from "dotenv";
 import { db } from "../config/firebase";
 import { stripeClient } from "../utils/stripeClient";
 import {
-  getPlatformFeePercent,
+  getPlatformFeeAmount,
   getPlatformSettings,
-  updatePlatformFeePercent,
+  updatePlatformFeeAmount,
 } from "../services/platformSettings.service";
 
 dotenv.config();
@@ -100,6 +100,24 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
       code: error.code || 'PAYMENT_ERROR'
     });
   }
+};
+
+export const getStripeConfig = (_req: Request, res: Response) => {
+  const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+
+  if (!publishableKey || typeof publishableKey !== 'string' || publishableKey.trim() === '') {
+    return res.status(500).json({
+      error: 'Stripe publishable key is not configured',
+      code: 'STRIPE_PUBLISHABLE_KEY_MISSING',
+    });
+  }
+
+  const mode = publishableKey.startsWith('pk_live') ? 'live' : publishableKey.startsWith('pk_test') ? 'test' : 'unknown';
+
+  res.status(200).json({
+    publishableKey: publishableKey.trim(),
+    mode,
+  });
 };
 
 export const handleWebhook = async (req: Request, res: Response) => {
@@ -239,7 +257,7 @@ export const getPlatformFeeConfig = async (_req: Request, res: Response) => {
   try {
     const settings = await getPlatformSettings();
     res.status(200).json({
-      platformFeePercent: settings.platformFeePercent,
+      platformFeeAmount: settings.platformFeeAmount,
       updatedAt: settings.updatedAt,
       updatedBy: settings.updatedBy,
       source: settings.updatedAt ? "admin" : "default",
@@ -251,28 +269,28 @@ export const getPlatformFeeConfig = async (_req: Request, res: Response) => {
 
 export const updatePlatformFeeConfig = async (req: Request, res: Response) => {
   try {
-    const { platformFeePercent } = req.body;
+    const { platformFeeAmount } = req.body;
     const user = (req as any).user;
 
-    if (platformFeePercent === undefined || platformFeePercent === null) {
-      return res.status(400).json({ error: "platformFeePercent is required" });
+    if (platformFeeAmount === undefined || platformFeeAmount === null) {
+      return res.status(400).json({ error: "platformFeeAmount is required" });
     }
 
     const parsed =
-      typeof platformFeePercent === "number"
-        ? platformFeePercent
-        : parseFloat(platformFeePercent);
+      typeof platformFeeAmount === "number"
+        ? platformFeeAmount
+        : parseFloat(platformFeeAmount);
 
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
-      return res.status(400).json({ error: "platformFeePercent must be a number between 0 and 100" });
+    if (Number.isNaN(parsed) || parsed < 0) {
+      return res.status(400).json({ error: "platformFeeAmount must be a non-negative number" });
     }
 
     const updatedBy = user?.uid || "admin";
-    await updatePlatformFeePercent(parsed, updatedBy);
+    await updatePlatformFeeAmount(parsed, updatedBy);
 
     res.status(200).json({
       message: "Platform fee updated successfully",
-      platformFeePercent: parsed,
+      platformFeeAmount: parsed,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to update platform fee configuration" });
@@ -429,9 +447,9 @@ export const transferToConsultant = async (req: Request, res: Response) => {
       });
     }
     
-    // Calculate platform fee (admin configurable)
-    const platformFeePercent = await getPlatformFeePercent();
-    const platformFeeAmount = Math.round(amount * 100 * (platformFeePercent / 100));
+    // Calculate platform fee (admin configurable - fixed amount)
+    const platformFeeAmountDollars = await getPlatformFeeAmount();
+    const platformFeeAmount = Math.round(platformFeeAmountDollars * 100); // Convert to cents
     const transferAmount = Math.round(amount * 100) - platformFeeAmount;
     
     // Create transfer to consultant

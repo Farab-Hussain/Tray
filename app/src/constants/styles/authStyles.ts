@@ -21,7 +21,7 @@ export const authStyles = StyleSheet.create({
     formContainer: {
         width: '100%',
         flexGrow: 1,
-        // paddingHorizontal: 20,
+        paddingHorizontal: 20,
         paddingTop: 10,
         paddingBottom: 20,
     },
@@ -33,7 +33,6 @@ export const authStyles = StyleSheet.create({
         width: '100%',
     },
     scrollContentContainer: {
-        // paddingHorizontal: 20,
         paddingTop: 20,
         paddingBottom: 40,
         flexGrow: 1,

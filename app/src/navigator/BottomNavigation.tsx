@@ -138,11 +138,24 @@ const BottomTabs = () => {
         name="Services"
         component={ServicesStackNavigator}
         options={({ route }) => ({
+          unmountOnBlur: true,
           tabBarStyle: {
             backgroundColor: COLORS.green,
             display: getTabBarVisibility(route),
             borderTopWidth: 0,
             elevation: 0,
+          },
+        })}
+        listeners={({ navigation, route }) => ({
+          tabPress: e => {
+            const state = navigation.getState();
+            const tabRoute = state.routes.find(r => r.key === route.key);
+            const stackState = tabRoute?.state as any;
+            if (stackState?.index > 0) {
+              navigation.navigate('Services', {
+                screen: 'ServicesScreen',
+              });
+            }
           },
         })}
       />

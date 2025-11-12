@@ -1,4 +1,5 @@
-import * as React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import Toast from 'react-native-toast-message';
@@ -43,6 +44,7 @@ try {
 
 // Stripe publishable key from environment variables
 import { STRIPE_PUBLISHABLE_KEY } from '@env';
+import { api } from './lib/fetcher';
 
 // Suppress React Native deprecation warnings
 // This warning comes from React Navigation library, not our code
@@ -63,17 +65,84 @@ if (typeof console.warn === 'function') {
   };
 }
 
-// Validate Stripe key exists
-if (__DEV__) {
-  if (!STRIPE_PUBLISHABLE_KEY || STRIPE_PUBLISHABLE_KEY === 'pk_test_...' || STRIPE_PUBLISHABLE_KEY.includes('XXXX')) {
-    console.warn('⚠️ STRIPE_PUBLISHABLE_KEY is not properly configured. Payment features may not work.');
+const sanitizeEnvStripeKey = () => {
+  if (!STRIPE_PUBLISHABLE_KEY) {
+    return null;
   }
-}
+
+  const trimmedKey = STRIPE_PUBLISHABLE_KEY.trim();
+
+  if (!trimmedKey || trimmedKey === 'pk_test_...' || trimmedKey.includes('XXXX') || trimmedKey === 'pk_test_missing_key') {
+    return null;
+  }
+
+  return trimmedKey;
+};
 
 export default function App() {
-  // Use a fallback if key is missing to prevent app crash
-  const stripeKey = STRIPE_PUBLISHABLE_KEY || 'pk_test_missing_key';
-  
+  const [stripeKey, setStripeKey] = useState<string | null>(sanitizeEnvStripeKey());
+  const [stripeKeyError, setStripeKeyError] = useState<string | null>(null);
+  const [loadingStripeKey, setLoadingStripeKey] = useState<boolean>(!sanitizeEnvStripeKey());
+
+  useEffect(() => {
+    if (stripeKey) {
+      return;
+    }
+
+    const loadStripeKey = async () => {
+      setLoadingStripeKey(true);
+      try {
+        const response = await api.get<{ publishableKey: string; mode: 'test' | 'live' | 'unknown' }>('/payment/config');
+        const publishableKey = response.data?.publishableKey?.trim();
+        if (!publishableKey) {
+          throw new Error('Missing publishable key in response');
+        }
+        setStripeKey(publishableKey);
+        if (__DEV__) {
+          console.log('✅ Loaded Stripe publishable key from backend:', publishableKey.slice(0, 10) + '…');
+        }
+      } catch (error: any) {
+        const message = error?.message || 'Unable to load payment configuration.';
+        if (__DEV__) {
+          console.error('❌ Error loading Stripe publishable key:', error);
+        }
+        setStripeKeyError(message);
+      } finally {
+        setLoadingStripeKey(false);
+      }
+    };
+
+    loadStripeKey();
+  }, [stripeKey]);
+
+  const stripeUnavailableView = useMemo(() => {
+    if (!stripeKeyError) {
+      return null;
+    }
+
+    return (
+      <View style={styles.centeredContainer}>
+        <Text style={styles.errorTitle}>Payments Unavailable</Text>
+        <Text style={styles.errorMessage}>
+          {stripeKeyError}
+        </Text>
+      </View>
+    );
+  }, [stripeKeyError]);
+
+  if (loadingStripeKey) {
+    return (
+      <View style={styles.centeredContainer}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.loadingText}>Preparing secure payments…</Text>
+      </View>
+    );
+  }
+
+  if (!stripeKey) {
+    return stripeUnavailableView;
+  }
+
   return (
     <StripeProvider publishableKey={stripeKey}>
       <NetworkProvider>
@@ -92,3 +161,31 @@ export default function App() {
     </StripeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  centeredContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#ffffff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#333333',
+    textAlign: 'center',
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#b91c1c',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#4b5563',
+    textAlign: 'center',
+  },
+});

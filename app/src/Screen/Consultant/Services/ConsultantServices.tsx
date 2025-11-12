@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, ActivityIndicator, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  ScrollView,
+  View,
+  Text,
+  ActivityIndicator,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -28,6 +36,8 @@ interface Service {
     endTime: string;
     timezone: string;
   };
+  approvalStatus?: string;
+  pendingUpdate?: any;
 }
 
 const ConsultantServices = ({ navigation }: any) => {
@@ -49,8 +59,11 @@ const ConsultantServices = ({ navigation }: any) => {
       // Get consultant's profile to get their UID
       console.log('📡 Fetching consultant status...');
       const statusResponse = await getConsultantVerificationStatus();
-      console.log('📊 Status response:', JSON.stringify(statusResponse, null, 2));
-      
+      console.log(
+        '📊 Status response:',
+        JSON.stringify(statusResponse, null, 2),
+      );
+
       if (!statusResponse.profile?.uid) {
         console.error('❌ No profile UID found in response');
         setError('Consultant profile not found. Please complete your profile.');
@@ -64,9 +77,14 @@ const ConsultantServices = ({ navigation }: any) => {
       console.log('✅ Got consultant UID:', uid);
 
       console.log('📡 Fetching services for consultant:', uid);
-      const servicesResponse = await ConsultantService.getConsultantServices(uid);
-      console.log('📊 Services response:', JSON.stringify(servicesResponse, null, 2));
-      
+      const servicesResponse = await ConsultantService.getConsultantServices(
+        uid,
+      );
+      console.log(
+        '📊 Services response:',
+        JSON.stringify(servicesResponse, null, 2),
+      );
+
       const servicesData = servicesResponse?.services || servicesResponse || [];
 
       const enrichedServices = await Promise.all(
@@ -76,10 +94,12 @@ const ConsultantServices = ({ navigation }: any) => {
             service.basedOnDefaultService
           ) {
             try {
-              const defaultServiceResponse = await ConsultantService.getServiceById(
-                service.basedOnDefaultService,
-              );
-              const defaultService = defaultServiceResponse?.service || defaultServiceResponse;
+              const defaultServiceResponse =
+                await ConsultantService.getServiceById(
+                  service.basedOnDefaultService,
+                );
+              const defaultService =
+                defaultServiceResponse?.service || defaultServiceResponse;
               if (defaultService?.imageUrl) {
                 console.log(
                   `🖼️ [ConsultantServices] Using fallback image for ${service.title} from default service ${service.basedOnDefaultService}`,
@@ -99,39 +119,61 @@ const ConsultantServices = ({ navigation }: any) => {
           return service;
         }),
       );
-      
+
       // Debug: Log service data to see imageUrl values
-      console.log('🔍 [ConsultantServices] Services data:', JSON.stringify(servicesData, null, 2));
+      console.log(
+        '🔍 [ConsultantServices] Services data:',
+        JSON.stringify(servicesData, null, 2),
+      );
       servicesData.forEach((service: any, index: number) => {
         console.log(`🔍 [ConsultantServices] Service ${index + 1}:`, {
           title: service.title,
           imageUrl: service.imageUrl,
           hasImageUrl: !!service.imageUrl,
-          imageUrlLength: service.imageUrl?.length || 0
+          imageUrlLength: service.imageUrl?.length || 0,
         });
       });
-      
+
       // Debug: Log service data to see imageUrl values
-      console.log('🔍 [ConsultantServices] Services data:', JSON.stringify(servicesData, null, 2));
+      console.log(
+        '🔍 [ConsultantServices] Services data:',
+        JSON.stringify(servicesData, null, 2),
+      );
       servicesData.forEach((service: any, index: number) => {
         console.log(`🔍 [ConsultantServices] Service ${index + 1}:`, {
           title: service.title,
           imageUrl: service.imageUrl,
           hasImageUrl: !!service.imageUrl,
-          imageUrlLength: service.imageUrl?.length || 0
+          imageUrlLength: service.imageUrl?.length || 0,
         });
       });
 
-      setServices(enrichedServices);
-      setFilteredServices(enrichedServices);
+      const activeServices = enrichedServices.filter(service => {
+        const status = service.approvalStatus
+          ? service.approvalStatus.toLowerCase()
+          : 'approved';
+        return status !== 'withdrawn' && status !== 'deleted';
+      });
 
-      console.log('✅ Loaded', enrichedServices.length, 'services for consultant:', uid);
+      setServices(activeServices);
+      setFilteredServices(activeServices);
+
+      console.log(
+        '✅ Loaded',
+        enrichedServices.length,
+        'services for consultant:',
+        uid,
+      );
     } catch (err: any) {
       console.error('❌ Error fetching consultant services:', err);
       console.error('❌ Error response:', err.response?.data);
       console.error('❌ Error status:', err.response?.status);
       console.error('❌ Error message:', err.message);
-      setError(err.response?.data?.error || err.message || 'Failed to load services. Please try again.');
+      setError(
+        err.response?.data?.error ||
+          err.message ||
+          'Failed to load services. Please try again.',
+      );
       setServices([]);
       setFilteredServices([]);
     } finally {
@@ -139,26 +181,25 @@ const ConsultantServices = ({ navigation }: any) => {
     }
   }, [user?.uid]);
 
-  // Auto-refresh services when screen comes into focus (e.g., after service approval)
-  // This runs on initial mount AND when navigating back to the screen
   useFocusEffect(
     useCallback(() => {
       if (user?.uid) {
-        console.log('🔄 [ConsultantServices] Screen focused, refreshing services...');
+        console.log(
+          '🔄 [ConsultantServices] Screen focused, refreshing services...',
+        );
         fetchConsultantServices();
       }
-    }, [user?.uid, fetchConsultantServices])
+    }, [user?.uid, fetchConsultantServices]),
   );
 
   useEffect(() => {
-
     if (searchQuery.trim() === '') {
       setFilteredServices(services);
     } else {
       const filtered = services.filter(
         service =>
           service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          service.description.toLowerCase().includes(searchQuery.toLowerCase())
+          service.description.toLowerCase().includes(searchQuery.toLowerCase()),
       );
       setFilteredServices(filtered);
     }
@@ -182,9 +223,9 @@ const ConsultantServices = ({ navigation }: any) => {
   if (isLoading) {
     return (
       <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
-        <ScreenHeader 
-          title="My Services" 
-          onBackPress={() => navigation.goBack()} 
+        <ScreenHeader
+          title="My Services"
+          onBackPress={() => navigation.goBack()}
         />
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={COLORS.green} />
@@ -197,17 +238,14 @@ const ConsultantServices = ({ navigation }: any) => {
   if (error) {
     return (
       <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
-        <ScreenHeader 
-          title="My Services" 
-          onBackPress={() => navigation.goBack()} 
+        <ScreenHeader
+          title="My Services"
+          onBackPress={() => navigation.goBack()}
         />
         <View style={styles.centerContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorText}>{error}</Text>
-          <Text 
-            style={styles.retryButton}
-            onPress={fetchConsultantServices}
-          >
+          <Text style={styles.retryButton} onPress={fetchConsultantServices}>
             Retry
           </Text>
         </View>
@@ -217,12 +255,12 @@ const ConsultantServices = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
-      <ScreenHeader 
-        title="My Services" 
-        onBackPress={() => navigation.goBack()} 
+      <ScreenHeader
+        title="My Services"
+        onBackPress={() => navigation.goBack()}
       />
 
-      <ScrollView 
+      <ScrollView
         style={screenStyles.scrollViewContainer}
         contentContainerStyle={screenStyles.scrollViewContent}
         showsVerticalScrollIndicator={false}
@@ -238,12 +276,13 @@ const ConsultantServices = ({ navigation }: any) => {
         {/* Header Stats */}
         <View style={styles.statsContainer}>
           <Text style={styles.statsText}>
-            {services.length} Service{services.length !== 1 ? 's' : ''} in Your Catalog
+            {services.length} Service{services.length !== 1 ? 's' : ''} in Your
+            Catalog
           </Text>
         </View>
 
         {/* Search Bar */}
-        <SearchBar 
+        <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search your services"
@@ -265,7 +304,7 @@ const ConsultantServices = ({ navigation }: any) => {
               {searchQuery ? 'No services found' : 'No services yet'}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {searchQuery 
+              {searchQuery
                 ? 'Try adjusting your search terms'
                 : 'Apply for services or create your own to get started'}
             </Text>
@@ -276,13 +315,16 @@ const ConsultantServices = ({ navigation }: any) => {
         {filteredServices.length > 0 && (
           <View style={screenStyles.consultantList}>
             {filteredServices.map(item => {
-              const imageUri = item.imageUrl && item.imageUrl.trim() !== '' ? { uri: item.imageUrl } : undefined;
+              const imageUri =
+                item.imageUrl && item.imageUrl.trim() !== ''
+                  ? { uri: item.imageUrl }
+                  : undefined;
               console.log(`🔍 [ConsultantServices] Rendering ${item.title}:`, {
                 imageUrl: item.imageUrl,
                 imageUri: imageUri,
-                hasImageUri: !!imageUri
+                hasImageUri: !!imageUri,
               });
-              
+
               return (
                 <View key={item.id} style={screenStyles.consultantCardWrapper}>
                   <ConsultantServiceCard

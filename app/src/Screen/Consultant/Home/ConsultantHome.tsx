@@ -39,6 +39,7 @@ const ConsultantHome = ({ navigation }: any) => {
   const [totalSlots, setTotalSlots] = useState(0);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const isFetchingRef = useRef(false);
+  const recentlyAcceptedRef = useRef<Set<string>>(new Set());
 
   // Debounced fetch function to prevent rapid successive calls
   const fetchBookingRequests = useCallback(async (forceRefresh = false) => {
@@ -95,12 +96,14 @@ const ConsultantHome = ({ navigation }: any) => {
       
       console.log('📊 [ConsultantHome] Found', bookings.length, 'total bookings');
 
-      // Filter bookings - show paid bookings that are not completed/cancelled/approved
+      // Filter bookings - show paid bookings that are not completed/cancelled/accepted/approved
+      // Also filter out recently accepted bookings to prevent them from reappearing
       const actionableBookings = bookings.filter(booking => {
         const isPaid = booking.paymentStatus === 'paid';
-        const isActionable = !['completed', 'cancelled', 'rejected', 'approved'].includes(booking.status);
+        const isActionable = !['completed', 'cancelled', 'rejected', 'accepted', 'approved'].includes(booking.status);
+        const isRecentlyAccepted = recentlyAcceptedRef.current.has(booking.id);
         
-        return isPaid && isActionable;
+        return isPaid && isActionable && !isRecentlyAccepted;
       });
 
       console.log('📊 [ConsultantHome] Found', actionableBookings.length, 'actionable bookings');
@@ -256,14 +259,22 @@ const ConsultantHome = ({ navigation }: any) => {
     try {
       console.log('🔍 [ConsultantHome] Accepting booking request:', request.id);
       
-      // Update booking status to approved
+      // Mark as recently accepted to prevent it from reappearing
+      recentlyAcceptedRef.current.add(request.id);
+      
+      // Remove from the list immediately (optimistic update)
+      setBookingRequests(prev => prev.filter(req => req.id !== request.id));
+      
+      // Update booking status to accepted
       await BookingService.updateBookingStatus(request.id, { 
-        status: 'approved',
+        status: 'accepted',
         paymentStatus: 'paid' // Ensure payment status is set
       });
       
-      // Remove from the list
-      setBookingRequests(prev => prev.filter(req => req.id !== request.id));
+      // Clear from recently accepted after 5 seconds (in case of refetch)
+      setTimeout(() => {
+        recentlyAcceptedRef.current.delete(request.id);
+      }, 5000);
       
       // Create chat between consultant and student
       if (user?.uid && request.studentId) {

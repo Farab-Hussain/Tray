@@ -38,17 +38,7 @@ const PasswordStrengthIndicator: React.FC<PasswordStrengthIndicatorProps> = ({
         </View>
       </View>
 
-      {/* Feedback */}
-      {showFeedback && strength.feedback.length > 0 && (
-        <View style={styles.feedbackContainer}>
-          <Text style={styles.feedbackTitle}>To improve your password:</Text>
-          {strength.feedback.map((item, index) => (
-            <Text key={index} style={styles.feedbackItem}>
-              • {item}
-            </Text>
-          ))}
-        </View>
-      )}
+      {/* Feedback removed - only show strength indicator */}
     </View>
   );
 };

@@ -17,6 +17,8 @@ import CallingScreen from '../Screen/common/Calling/CallingScreen';
 import VideoCallingScreen from '../Screen/common/Calling/VideoCallingScreen';
 import ReviewEmployer from '../Screen/Student/Review/ReviewEmployer';
 import EditProfile from '../Screen/common/Account/EditProfile';
+import ChangePassword from '../Screen/common/Account/ChangePassword';
+import ChangeUsername from '../Screen/common/Account/ChangeUsername';
 import MyReviews from '../Screen/Student/Review/MyReviews';
 import ConsultantReviews from '../Screen/Consultant/Reviews/ConsultantReviews';
 import EditReview from '../Screen/Student/Review/EditReview';
@@ -60,7 +62,7 @@ const RoleBasedTabs = () => {
   
   // For consultants, always show verification flow first
   if (role === 'consultant') {
-    return <ConsultantVerificationFlow />;
+    return <ConsultantBottomTabs />;
   }
   
   return <BottomTabs />;
@@ -192,6 +194,24 @@ const ScreenNavigator = () => {
       <Stack.Screen 
         name="EditProfile" 
         component={EditProfile}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Change Password Screen */}
+      <Stack.Screen
+        name="ChangePassword"
+        component={ChangePassword}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Change Username Screen */}
+      <Stack.Screen
+        name="ChangeUsername"
+        component={ChangeUsername}
         options={{
           cardStyleInterpolator: slideFromRight,
         }}

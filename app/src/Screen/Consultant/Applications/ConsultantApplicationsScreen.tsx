@@ -62,6 +62,7 @@ export default function ConsultantApplicationsScreen() {
   const [isLoadingServiceDetails, setIsLoadingServiceDetails] = useState(false);
   const [loadingServiceId, setLoadingServiceId] = useState<string | null>(null);
   const [mutatingApplicationId, setMutatingApplicationId] = useState<string | null>(null);
+const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<number | null>(null);
 
   const confirmAction = useCallback(
     (
@@ -249,10 +250,12 @@ export default function ConsultantApplicationsScreen() {
     setEditingApplication(null);
     setEditingServiceId(null);
     setEditingOriginalValues(null);
+  setCurrentServiceBookingsCount(null);
     setIsLoadingServiceDetails(false);
     setLoadingServiceId(null);
     setMutatingApplicationId(null);
     setIsLoadingServiceDetails(false);
+  setCurrentServiceBookingsCount(null);
     // Reset form
     setServiceTitle('');
     setServiceDescription('');
@@ -277,6 +280,29 @@ export default function ConsultantApplicationsScreen() {
     const parsedDuration = parseInt(serviceDuration, 10);
     const parsedPrice = parseFloat(servicePrice);
 
+  const requiresBookingWarning =
+    isEditing &&
+    editingApplication &&
+    editingApplication.status === 'approved' &&
+    editingOriginalValues &&
+    (parsedPrice !== editingOriginalValues.price || parsedDuration !== editingOriginalValues.duration) &&
+    (currentServiceBookingsCount ?? 0) > 0;
+
+  if (requiresBookingWarning) {
+    const proceed = await confirmAction(
+      'Active Bookings Detected',
+      `This service currently has ${currentServiceBookingsCount} active booking${
+        (currentServiceBookingsCount ?? 0) === 1 ? '' : 's'
+      }. Updating the price or duration will only apply to future bookings. Do you want to continue?`,
+      'Continue',
+      'Cancel',
+    );
+
+    if (!proceed) {
+      return;
+    }
+  }
+
     setIsSubmitting(true);
     if (isEditing && editingApplication) {
       setMutatingApplicationId(editingApplication.id);
@@ -284,8 +310,20 @@ export default function ConsultantApplicationsScreen() {
     try {
       if (isEditing && editingApplication) {
         if (editingApplication.status === 'pending') {
-          await updateConsultantApplication(editingApplication.id, {
-            type: 'new',
+          const nextType = editingApplication.type || 'new';
+          const pendingPayload: {
+            type?: 'new' | 'existing' | 'update';
+            serviceId?: string;
+            customService: {
+              title: string;
+              description: string;
+              duration: number;
+              price: number;
+              imageUrl?: string;
+              imagePublicId?: string;
+            };
+          } = {
+            type: nextType,
             customService: {
               title: serviceTitle,
               description: serviceDescription,
@@ -294,7 +332,24 @@ export default function ConsultantApplicationsScreen() {
               imageUrl: serviceImage || undefined,
               imagePublicId: serviceImagePublicId || undefined,
             },
-          });
+          };
+
+          if (nextType === 'update') {
+            const targetServiceId =
+              editingServiceId || editingApplication.serviceId || editingApplication.linkedServiceId || null;
+
+            if (!targetServiceId) {
+              Alert.alert(
+                'Service Not Found',
+                'Unable to locate the approved service associated with this application. Please try again or contact support.',
+              );
+              return;
+            }
+
+            pendingPayload.serviceId = targetServiceId;
+          }
+
+          await updateConsultantApplication(editingApplication.id, pendingPayload);
 
           Alert.alert('Updated', 'Application details updated successfully.');
           handleCloseModal();
@@ -307,14 +362,14 @@ export default function ConsultantApplicationsScreen() {
 
         const payload: {
           type?: 'new' | 'existing' | 'update';
-          serviceId?: string | null;
+          serviceId?: string;
           customService: {
             title: string;
             description: string;
             duration: number;
             price: number;
-            imageUrl: string | null;
-            imagePublicId: string | null;
+            imageUrl?: string;
+            imagePublicId?: string;
           };
         } = {
           customService: {
@@ -322,8 +377,8 @@ export default function ConsultantApplicationsScreen() {
             description: serviceDescription,
             duration: parsedDuration,
             price: parsedPrice,
-            imageUrl: serviceImage ?? null,
-            imagePublicId: serviceImagePublicId ?? null,
+            imageUrl: serviceImage ?? undefined,
+            imagePublicId: serviceImagePublicId ?? undefined,
           },
         };
 
@@ -362,8 +417,8 @@ export default function ConsultantApplicationsScreen() {
             description: serviceDescription,
             duration: parsedDuration,
             price: parsedPrice,
-            imageUrl: serviceImage ?? null,
-            imagePublicId: serviceImagePublicId ?? null,
+            imageUrl: serviceImage ?? undefined,
+            imagePublicId: serviceImagePublicId ?? undefined,
           },
         });
 
@@ -490,7 +545,7 @@ export default function ConsultantApplicationsScreen() {
         return;
       }
 
-      if (app.type !== 'new') {
+      if (app.type === 'existing') {
         Alert.alert('Unsupported', 'Editing platform service applications is not supported yet.');
         return;
       }
@@ -510,11 +565,11 @@ export default function ConsultantApplicationsScreen() {
           setServiceDescription(app.customService.description);
           setServiceDuration(String(app.customService.duration));
           setServicePrice(String(app.customService.price));
-        setServiceImage(app.customService.imageUrl || null);
-        setServiceImagePublicId(app.customService.imagePublicId || null);
+          setServiceImage(app.customService.imageUrl || null);
+          setServiceImagePublicId(app.customService.imagePublicId || null);
 
           setEditingApplication(app);
-          setEditingServiceId(null);
+          setEditingServiceId(app.serviceId ?? null);
           setEditingOriginalValues({
             title: app.customService.title,
             description: app.customService.description,
@@ -522,7 +577,7 @@ export default function ConsultantApplicationsScreen() {
             price: app.customService.price,
             imageUrl: app.customService.imageUrl || null,
           });
-          setServiceBookings([]);
+          setCurrentServiceBookingsCount(null);
           setIsEditing(true);
           setShowModal(true);
           return;
@@ -591,6 +646,17 @@ export default function ConsultantApplicationsScreen() {
             price: linkedService.price || 0,
             imageUrl: linkedService.imageUrl || null,
           });
+          try {
+            const bookingsResponse = await ConsultantService.getServiceBookings(linkedService.id);
+            const bookingsCount =
+              bookingsResponse?.count ?? bookingsResponse?.bookings?.length ?? 0;
+            setCurrentServiceBookingsCount(bookingsCount);
+          } catch (bookingsError) {
+            if (!(axios.isAxiosError(bookingsError) && bookingsError.response?.status === 404)) {
+              console.error('Error fetching service bookings for edit warning:', bookingsError);
+            }
+            setCurrentServiceBookingsCount(0);
+          }
 
           setIsEditing(true);
           setShowModal(true);
@@ -721,12 +787,12 @@ export default function ConsultantApplicationsScreen() {
                 </View>
 
                 <Text style={styles.cardTitle}>
-                  {app.type === 'new'
+                  {app.type === 'new' || app.type === 'update'
                     ? app.customService?.title
                     : app.existingServiceTitle || 'Service Application'}
                 </Text>
                 
-                {app.type === 'new' && app.customService && (
+                {(app.type === 'new' || app.type === 'update') && app.customService && (
                   <>
                     {app.customService.imageUrl && (
                       <View style={styles.serviceImageContainer}>
@@ -757,7 +823,7 @@ export default function ConsultantApplicationsScreen() {
 
                 {(app.status === 'pending' || app.status === 'approved') && (
                   <View style={styles.cardActions}>
-                    {app.type === 'new' && (
+                    {(app.type === 'new' || app.type === 'update') && (
                       <TouchableOpacity
                         style={styles.editButton}
                         onPress={() => handleEditApplication(app)}

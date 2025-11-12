@@ -19,6 +19,7 @@ type FirestoreTimestamp =
 type AdminApplication = ConsultantApplication & {
   existingServiceTitle?: string;
   existingServiceDescription?: string;
+  existingServiceImageUrl?: string;
   submittedDate?: Date | null;
 };
 
@@ -69,9 +70,9 @@ const AdminServiceApplicationsPage = () => {
   const fetchPlatformServices = useCallback(async () => {
     try {
       const servicesResponse = await api.get<{
-        services?: Array<{ id: string; title?: string; description?: string }>;
+        services?: Array<{ id: string; title?: string; description?: string; imageUrl?: string }>;
       }>('/consultants/services/available');
-      let services: Array<{ id: string; title?: string; description?: string }> =
+      let services: Array<{ id: string; title?: string; description?: string; imageUrl?: string }> =
         servicesResponse.data?.services ?? [];
 
       if (services.length > 0) {
@@ -98,7 +99,7 @@ const AdminServiceApplicationsPage = () => {
       );
 
       const consultantServicesResponse = await api.get<{
-        services?: Array<{ id: string; title?: string; description?: string }>;
+        services?: Array<{ id: string; title?: string; description?: string; imageUrl?: string }>;
       }>(`/consultants/${selectedTopConsultant?.uid}/services`);
 
       services = consultantServicesResponse.data?.services ?? [];
@@ -117,20 +118,30 @@ const AdminServiceApplicationsPage = () => {
         .applications;
 
       const services = await fetchPlatformServices();
-      const serviceMap = new Map<string, { title?: string; description?: string }>();
+      const serviceMap = new Map<string, { title?: string; description?: string; imageUrl?: string }>();
       services.forEach(service => {
         if (service.id) {
-          serviceMap.set(service.id, { title: service.title, description: service.description });
+          serviceMap.set(service.id, { 
+            title: service.title, 
+            description: service.description,
+            imageUrl: (service as any).imageUrl 
+          });
         }
       });
 
       const enrichedApplications: AdminApplication[] = rawApplications.map(app => ({
         ...app,
         existingServiceTitle:
-          app.type === 'existing' && app.serviceId ? serviceMap.get(app.serviceId)?.title : undefined,
+          (app.type === 'existing' || app.type === 'update') && app.serviceId
+            ? serviceMap.get(app.serviceId)?.title
+            : undefined,
         existingServiceDescription:
-          app.type === 'existing' && app.serviceId
+          (app.type === 'existing' || app.type === 'update') && app.serviceId
             ? serviceMap.get(app.serviceId)?.description
+            : undefined,
+        existingServiceImageUrl:
+          (app.type === 'existing' || app.type === 'update') && app.serviceId
+            ? serviceMap.get(app.serviceId)?.imageUrl
             : undefined,
         submittedDate: parseTimestamp(app.submittedAt as FirestoreTimestamp),
       }));
@@ -187,17 +198,42 @@ const AdminServiceApplicationsPage = () => {
   };
 
   const getServiceTitle = (app: AdminApplication) => {
-    if (app.type === 'new' && app.customService) {
+    if ((app.type === 'new' || app.type === 'update') && app.customService?.title) {
       return app.customService.title;
     }
-    return app.existingServiceTitle || app.serviceId || 'Existing platform service';
+    if (app.existingServiceTitle) {
+      return app.existingServiceTitle;
+    }
+    return app.serviceId || 'Existing platform service';
   };
 
   const getServiceDescription = (app: AdminApplication) => {
-    if (app.type === 'new' && app.customService) {
+    if ((app.type === 'new' || app.type === 'update') && app.customService?.description) {
       return app.customService.description;
     }
     return app.existingServiceDescription || 'Existing platform service';
+  };
+
+  const getApplicationTypeBadge = (app: AdminApplication) => {
+    const badgeStyles: Record<AdminApplication['type'], string> = {
+      new: 'bg-blue-100 text-blue-800',
+      existing: 'bg-purple-100 text-purple-800',
+      update: 'bg-orange-100 text-orange-800',
+    };
+
+    const labels: Record<AdminApplication['type'], string> = {
+      new: 'New Service',
+      existing: 'Existing Service',
+      update: 'Update Request',
+    };
+
+    return (
+      <span
+        className={`px-2 py-1 text-xs font-medium rounded ${badgeStyles[app.type]}`}
+      >
+        {labels[app.type]}
+      </span>
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -321,30 +357,38 @@ const AdminServiceApplicationsPage = () => {
                 </div>
                 
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <span className={`px-2 py-1 text-xs font-medium rounded ${
-                    application.type === 'new' 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : 'bg-purple-100 text-purple-800'
-                  }`}>
-                    {application.type === 'new' ? 'New Service' : 'Existing Service'}
-                  </span>
+                  {getApplicationTypeBadge(application)}
                   {getStatusBadge(application.status)}
                 </div>
                 
                 <p className="text-sm text-gray-600 mb-3">{getServiceDescription(application)}</p>
                 
                 {/* Service Image */}
-                {application.type === 'new' && application.customService?.imageUrl && (
-                  <div className="mb-3">
-                    <Image
-                      src={application.customService.imageUrl} 
-                      alt={getServiceTitle(application)}
-                      width={128}
-                      height={96}
-                      className="w-32 h-24 object-cover rounded-lg border border-gray-200"
-                    />
-                  </div>
-                )}
+                {(() => {
+                  let imageUrl: string | undefined;
+                  
+                  if (application.type === 'new' && application.customService?.imageUrl) {
+                    imageUrl = application.customService.imageUrl;
+                  } else if ((application.type === 'existing' || application.type === 'update') && (application as AdminApplication).existingServiceImageUrl) {
+                    imageUrl = (application as AdminApplication).existingServiceImageUrl;
+                  }
+                  
+                  return imageUrl ? (
+                    <div className="mb-3">
+                      <Image
+                        src={imageUrl} 
+                        alt={getServiceTitle(application)}
+                        width={128}
+                        height={96}
+                        className="w-32 h-24 object-cover rounded-lg border border-gray-200"
+                        onError={(e) => {
+                          console.error('Failed to load service image:', imageUrl);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  ) : null;
+                })()}
                 
                 {application.type === 'new' && application.customService && (
                   <div className="flex gap-4 text-sm text-gray-600 mb-3">

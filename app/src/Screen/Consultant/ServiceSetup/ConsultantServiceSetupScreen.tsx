@@ -30,7 +30,7 @@ import { COLORS } from '../../../constants/core/colors';
 
 export default function ConsultantServiceSetupScreen() {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, activeRole, switchRole } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [applications, setApplications] = useState<ConsultantApplication[]>([]);
   const isLoadingRef = useRef(false);
@@ -75,8 +75,25 @@ export default function ConsultantServiceSetupScreen() {
       console.log('ServiceSetup - Approved applications:', approvedApps.length);
       
       if (approvedApps.length > 0) {
-        console.log('ServiceSetup - Approved services found, but not auto-redirecting to prevent navigation issues');
+        console.log('ServiceSetup - Approved services found, automatically switching to consultant role');
         
+        // Automatically switch to consultant role if not already
+        if (activeRole !== 'consultant') {
+          try {
+            await switchRole('consultant');
+            console.log('ServiceSetup - Successfully switched to consultant role');
+          } catch (error: any) {
+            console.error('ServiceSetup - Error switching to consultant role:', error);
+            // Continue navigation even if role switch fails
+          }
+        }
+        
+        // Navigate to consultant tabs
+        console.log('ServiceSetup - Navigating to consultant dashboard');
+        (navigation as any).reset({
+          index: 0,
+          routes: [{ name: 'ConsultantTabs' as never }],
+        });
       } else {
         console.log('ServiceSetup - No approved services found, consultant must apply for services');
         // Don't redirect - consultant must apply for services first
@@ -87,7 +104,7 @@ export default function ConsultantServiceSetupScreen() {
       isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, activeRole, switchRole, navigation]);
 
   useEffect(() => {
     if (user) {

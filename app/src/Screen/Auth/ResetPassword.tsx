@@ -33,15 +33,7 @@ const ResetPassword = ({ navigation, route }: any) => {
     if (!newPassword || !confirmPassword)
       return Alert.alert('Error', 'Please fill all fields');
     
-    // Validate password strength
-    const validation = validatePassword(newPassword);
-    if (!validation.isValid) {
-      Alert.alert(
-        'Password Requirements Not Met',
-        validation.errors.join('\n\n') + '\n\nPlease improve your password and try again.'
-      );
-      return;
-    }
+    // Password validation is now optional - allow any password
     
     if (newPassword !== confirmPassword)
       return Alert.alert('Error', 'Passwords do not match');
@@ -116,11 +108,11 @@ const ResetPassword = ({ navigation, route }: any) => {
           </TouchableOpacity>
         </View>
         
-        {/* Password Strength Indicator with feedback */}
+        {/* Password Strength Indicator */}
         {passwordValidation && (
           <PasswordStrengthIndicator 
             strength={passwordValidation.strength}
-            showFeedback={true}
+            showFeedback={false}
           />
         )}
 

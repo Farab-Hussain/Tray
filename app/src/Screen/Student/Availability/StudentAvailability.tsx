@@ -208,6 +208,7 @@ const StudentAvailability = ({ navigation, route }: any) => {
           <Text style={customStyles.calendarSubtitle}>Tap multiple available dates to select them</Text>
           <Calendar
             current={activeDate}
+            minDate={new Date().toISOString().split('T')[0]} // Disable past dates
             onDayPress={(day) => {
               if (!isDateAvailable(day.dateString)) {
                 Alert.alert('Not Available', 'This date is not available for booking');

@@ -389,7 +389,7 @@ export default function BrowseServicesScreen() {
               {/* Service Header */}
               <View style={styles.serviceHeader}>
                 <Text style={styles.serviceTitle}>{service.title}</Text>
-                {service.rating && (
+                {service.rating != null && service.rating > 0 && (
                   <View style={styles.ratingBadge}>
                     <Text style={styles.ratingText}>⭐ {service.rating}</Text>
                   </View>
@@ -418,7 +418,7 @@ export default function BrowseServicesScreen() {
 
               {/* Service Description */}
               <Text style={styles.serviceDescription} numberOfLines={3}>
-                {service.description}
+                {service.description || 'No description available'}
               </Text>
 
               {/* Service Details */}

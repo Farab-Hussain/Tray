@@ -126,7 +126,7 @@ class PaymentService {
   }
 
   async getPlatformFeeConfig(): Promise<{
-    platformFeePercent: number;
+    platformFeeAmount: number;
     updatedAt?: string;
     updatedBy?: string;
     source?: string;
@@ -140,9 +140,9 @@ class PaymentService {
     }
   }
 
-  async updatePlatformFeeConfig(platformFeePercent: number) {
+  async updatePlatformFeeConfig(platformFeeAmount: number) {
     try {
-      const response = await api.put('/payment/platform-fee', { platformFeePercent });
+      const response = await api.put('/payment/platform-fee', { platformFeeAmount });
       return response.data;
     } catch (error: any) {
       console.error('Error updating platform fee config:', error);

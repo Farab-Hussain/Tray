@@ -4,7 +4,7 @@ import axios from 'axios';
 // Type definitions for API requests
 interface ApplicationInput {
   consultantId: string;
-  type: 'existing' | 'new';
+  type: 'existing' | 'new' | 'update';
   serviceId?: string;
   customService?: {
     title: string;

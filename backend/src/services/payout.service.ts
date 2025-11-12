@@ -2,7 +2,7 @@
 import { db } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import Stripe from "stripe";
-import { getPlatformFeePercent } from "./platformSettings.service";
+import { getPlatformFeeAmount } from "./platformSettings.service";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 const MINIMUM_PAYOUT_AMOUNT = parseFloat(process.env.MINIMUM_PAYOUT_AMOUNT || '10'); // Minimum $10 to payout
@@ -14,7 +14,8 @@ const MINIMUM_PAYOUT_AMOUNT = parseFloat(process.env.MINIMUM_PAYOUT_AMOUNT || '1
 export const processAutomatedPayouts = async () => {
   try {
     Logger.info("Payout", "", "Starting automated payout processing...");
-    const platformFeePercent = await getPlatformFeePercent();
+    const platformFeeAmountDollars = await getPlatformFeeAmount();
+    const platformFeeAmountCents = Math.round(platformFeeAmountDollars * 100); // Convert to cents
 
     // Get all bookings that are:
     // 1. Status: completed or approved
@@ -33,6 +34,7 @@ export const processAutomatedPayouts = async () => {
       consultantId: string;
       bookings: any[];
       totalAmount: number;
+      totalPlatformFee: number;
     }> = {};
 
     for (const doc of bookingsSnapshot.docs) {
@@ -50,6 +52,7 @@ export const processAutomatedPayouts = async () => {
           consultantId,
           bookings: [],
           totalAmount: 0,
+          totalPlatformFee: 0,
         };
       }
 
@@ -58,6 +61,7 @@ export const processAutomatedPayouts = async () => {
         ...booking,
       });
       consultantEarnings[consultantId].totalAmount += booking.amount || 0;
+      consultantEarnings[consultantId].totalPlatformFee += platformFeeAmountDollars; // Fixed fee per booking
     }
 
     let payoutsProcessed = 0;
@@ -97,9 +101,9 @@ export const processAutomatedPayouts = async () => {
           continue;
         }
 
-        // Calculate platform fee and transfer amount
-        const platformFeeAmount = Math.round(earnings.totalAmount * 100 * (platformFeePercent / 100));
-        const transferAmount = Math.round(earnings.totalAmount * 100) - platformFeeAmount;
+        // Calculate platform fee and transfer amount (fixed fee per booking)
+        const totalPlatformFeeCents = Math.round(earnings.totalPlatformFee * 100);
+        const transferAmount = Math.round(earnings.totalAmount * 100) - totalPlatformFeeCents;
 
         if (transferAmount <= 0) {
           Logger.warn("Payout", consultantId, "Transfer amount is zero or negative");
@@ -115,7 +119,7 @@ export const processAutomatedPayouts = async () => {
           metadata: {
             consultantId,
             bookingCount: earnings.bookings.length.toString(),
-            platformFee: platformFeeAmount.toString(),
+            platformFee: totalPlatformFeeCents.toString(),
           },
         });
 
@@ -125,7 +129,7 @@ export const processAutomatedPayouts = async () => {
           id: payoutRef.id,
           consultantId,
           amount: transferAmount / 100,
-          platformFee: platformFeeAmount / 100,
+          platformFee: earnings.totalPlatformFee,
           totalEarnings: earnings.totalAmount,
           bookingIds: earnings.bookings.map(b => b.id),
           transferId: transfer.id,
@@ -142,7 +146,7 @@ export const processAutomatedPayouts = async () => {
             transferId: transfer.id,
             payoutId: payoutRef.id,
             transferAmount: transferAmount / 100,
-            platformFee: platformFeeAmount / 100,
+            platformFee: platformFeeAmountDollars,
             transferredAt: new Date().toISOString(),
           })
         );

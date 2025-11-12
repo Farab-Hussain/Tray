@@ -166,12 +166,40 @@ export const getMyReviews = async (req: Request, res: Response) => {
     // Populate consultant details
     const reviewsWithDetails = await Promise.all(
       reviews.map(async (review) => {
-        const consultantDoc = await db.collection("consultants").doc(review.consultantId).get();
-        const consultant = consultantDoc.data();
+        let consultantDoc = await db
+          .collection("consultants")
+          .doc(review.consultantId)
+          .get();
+        let consultant = consultantDoc.data();
+
+        if (!consultant) {
+          const consultantProfileDoc = await db
+            .collection("consultantProfiles")
+            .doc(review.consultantId)
+            .get();
+          consultant = consultantProfileDoc.data() || undefined;
+        }
+
+        const consultantName =
+          consultant?.name ||
+          consultant?.displayName ||
+          consultant?.profile?.name ||
+          consultant?.profile?.displayName ||
+          "Unknown";
+
+        const consultantProfileImage =
+          consultant?.profileImage ||
+          consultant?.avatarUrl ||
+          consultant?.avatar ||
+          consultant?.photoURL ||
+          consultant?.profile?.profileImage ||
+          consultant?.profile?.avatarUrl ||
+          null;
 
         return {
           ...review,
-          consultantName: consultant?.name || "Unknown",
+          consultantName,
+          consultantProfileImage,
           studentName,
           studentProfileImage,
         };

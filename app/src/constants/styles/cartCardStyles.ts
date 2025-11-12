@@ -6,81 +6,68 @@ const { width: screenWidth } = Dimensions.get('window');
 export const cartCardStyles = StyleSheet.create({
     cartCard: {
         width: '100%',
-        minHeight: 120, // Increased height
+        minHeight: 130,
         backgroundColor: COLORS.white,
-        borderRadius: 10,
+        borderRadius: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 12,
-        paddingHorizontal: screenWidth * 0.04,
-        paddingVertical: screenWidth * 0.03,
+        marginBottom: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         // Shadow for iOS
         shadowColor: COLORS.blackTransparent,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
         // Shadow for Android
-        elevation: 4,
+        elevation: 3,
     },
     Card: {
         flexDirection: 'row',
         alignItems: 'center',
         flex: 1,
-        marginRight: screenWidth * 0.02, // Reduced margin
+        marginRight: 12,
     },
     Info: {
         flexDirection: 'column',
         alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        flex: 0.6, // Reduced from 1 to 0.6
-        marginLeft: screenWidth * 0.02, // Reduced margin
-        paddingVertical: 5,
+        justifyContent: 'center',
+        flex: 1,
+        marginLeft: 12,
+        paddingVertical: 4,
     },
     Image: {
-        width: screenWidth * 0.18, // Slightly smaller
-        height: screenWidth * 0.18,
-        maxWidth: 70,
-        maxHeight: 70,
-        minWidth: 60,
-        minHeight: 60,
-        borderRadius: 8,
+        width: 80,
+        height: 80,
+        borderRadius: 10,
         resizeMode: 'cover',
+        backgroundColor: COLORS.lightGray,
     },
-    title: {
-        fontSize: screenWidth * 0.04,
-        fontWeight: 'bold',
+    consultantName: {
+        fontSize: 16,
+        fontWeight: '700',
         color: COLORS.black,
-        paddingVertical: 2,
-        maxWidth: screenWidth * 0.3, // Further reduced from 0.4
+        marginBottom: 4,
+        width: '100%',
     },
-    desc: {
-        fontSize: screenWidth * 0.032,
-        fontWeight: 'normal',
+    serviceName: {
+        fontSize: 14,
+        fontWeight: '400',
         color: COLORS.blackTransparent,
-        paddingVertical: 2,
-        maxWidth: screenWidth * 0.3, // Further reduced from 0.4
-        lineHeight: screenWidth * 0.04,
+        marginBottom: 6,
+        width: '100%',
     },
     price: {
-        fontSize: screenWidth * 0.032,
-        fontWeight: 'normal',
+        fontSize: 16,
+        fontWeight: '600',
         color: COLORS.blackTransparent,
-        paddingVertical: 2,
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: screenWidth * 0.015, // Reduced gap
-        minWidth: screenWidth * 0.3, // Increased minimum width
-        paddingLeft: screenWidth * 0.02,
     },
     button: {
         borderWidth: 0.5,
         borderColor: COLORS.blackTransparent,
         borderRadius: 2,
-        width: screenWidth * 0.07, // Slightly larger
+        width: screenWidth * 0.07,
         height: screenWidth * 0.07,
         minWidth: 28,
         minHeight: 28,
@@ -97,8 +84,9 @@ export const cartCardStyles = StyleSheet.create({
         textAlign: 'center',
     },
     deleteButton: {
-        padding: 5,
+        padding: 8,
         alignItems: 'center',
         justifyContent: 'center',
+        marginLeft: 8,
     },
 })

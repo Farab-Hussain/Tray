@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Phone, Mic, MicOff, FlipHorizontal } from 'lucide-react-native';
+import { Phone, Mic, MicOff, Camera } from 'lucide-react-native';
 // Safely import InCallManager - may not be available until native module is linked
 let InCallManager: any = null;
 try {
@@ -38,7 +38,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const RTCViewRef = useRef<any>(null);
   const iceCandidateQueueRef = useRef<Array<{ senderId: string; candidate: any }>>([]);
   const isMutedRef = useRef<boolean>(false);
-  const { callId, isCaller, callerId, receiverId } = route?.params || {};
+  const { callId, isCaller, callerId, receiverId, switchingFromAudio } = route?.params || {};
 
   // Prevent back navigation while call is active
   useFocusEffect(
@@ -619,6 +619,23 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       }
 
       if (isCaller) {
+        // If switching from audio call, check if call is already active
+        // If active, we should reuse the existing call instead of creating a new one
+        if (switchingFromAudio) {
+          const callDoc = await getCallOnce(callId);
+          if (callDoc.exists()) {
+            const callData = callDoc.data() as CallDocument;
+            // If call is already active, don't create a new call - just set up video
+            if (callData.status === 'active') {
+              console.log('📞 Switching from audio to video - call already active, setting up video...');
+              // We'll create a new peer connection for video, but won't overwrite the call document
+              // The call document type will remain as 'audio' but we'll add video tracks
+            } else {
+              console.log('📞 Switching from audio to video - call not active yet, creating video call...');
+            }
+          }
+        }
+        
         console.log('📞 Caller: Creating video peer connection...');
         const { pc, localDescription } = await createPeer({
           isCaller: true,
@@ -739,8 +756,38 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           }
         });
         
-        console.log('📞 Creating video call document...');
-        await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
+        // Only create/update call document if not switching from active audio call
+        if (switchingFromAudio) {
+          const callDoc = await getCallOnce(callId);
+          if (callDoc.exists()) {
+            const callData = callDoc.data() as CallDocument;
+            if (callData.status === 'active') {
+              // Call is already active - just update the offer for video, don't reset status
+              console.log('📞 Updating existing active call to video...');
+              const { updateDoc, doc } = require('firebase/firestore');
+              const { firestore } = require('../../../lib/firebase');
+              const ref = doc(firestore, 'calls', callId);
+              await updateDoc(ref, { 
+                type: 'video', 
+                offer: localDescription.toJSON ? localDescription.toJSON() : {
+                  type: localDescription.type,
+                  sdp: localDescription.sdp,
+                }
+              });
+            } else {
+              // Call is still ringing - create video call (will overwrite audio call)
+              console.log('📞 Creating video call document (replacing audio call)...');
+              await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
+            }
+          } else {
+            // Call document doesn't exist - create new video call
+            console.log('📞 Creating new video call document...');
+            await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
+          }
+        } else {
+          console.log('📞 Creating video call document...');
+          await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
+        }
         
         // Send push notification to receiver
         try {
@@ -756,6 +803,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           console.warn('⚠️ Failed to send call notification:', error);
         }
 
+        let lastAnswerSdp: string | null = null;
         unsubCall = listenCall(callId, async (data) => {
           const callStatus = data.status;
           setStatus((prevStatus) => {
@@ -774,6 +822,14 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
               console.log('⚠️ Caller: Answer already applied, skipping');
               return;
             }
+            
+            // Check if this is the same answer we already tried to apply
+            const currentAnswerSdp = typeof data.answer === 'string' ? data.answer : data.answer.sdp || '';
+            if (lastAnswerSdp === currentAnswerSdp) {
+              console.log('⚠️ Caller: Same answer already processed, skipping');
+              return;
+            }
+            lastAnswerSdp = currentAnswerSdp;
             
             try {
               console.log('📞 Caller: Received answer, applying...');
@@ -897,6 +953,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         });
       } else {
         // Receiver: Wait for user to accept/decline - don't auto-answer
+        let lastOfferSdp: string | null = null;
         unsubCall = listenCall(callId, async (data) => {
           setStatus((prevStatus) => {
             // Only update if status actually changed
@@ -905,6 +962,73 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             }
             return prevStatus;
           });
+          
+          // Detect if offer has changed (e.g., switching from audio to video)
+          if (data.offer && pcRef.current && data.status === 'active') {
+            const currentOfferSdp = typeof data.offer === 'string' ? data.offer : data.offer.sdp || '';
+            if (lastOfferSdp && lastOfferSdp !== currentOfferSdp) {
+              console.log('🔄 [Receiver] Offer changed during active call - recreating peer connection for video');
+              try {
+                // Close old peer connection
+                if (pcRef.current) {
+                  pcRef.current.getSenders().forEach((s: any) => s.track && s.track.stop());
+                  pcRef.current.close();
+                  pcRef.current = null;
+                }
+                if (localStreamRef.current) {
+                  localStreamRef.current.getTracks().forEach((track: any) => track.stop());
+                  localStreamRef.current = null;
+                }
+                
+                // Recreate peer connection with new offer (video)
+                console.log('📞 [Receiver] Creating new peer connection with video offer...');
+                const { pc, localDescription } = await createPeer({
+                  isCaller: false,
+                  audioOnly: false,
+                  onLocalStream: (stream) => {
+                    console.log('✅ [Receiver] New local stream created for video');
+                    setLocal(stream);
+                    localStreamRef.current = stream;
+                    const hasVideoTrack = stream.getVideoTracks().length > 0;
+                    if (hasVideoTrack) {
+                      setIsVideoEnabled(true);
+                    }
+                  },
+                  onRemoteStream: (stream) => {
+                    console.log('✅ [Receiver] New remote stream received for video');
+                    const videoTracks = stream.getVideoTracks();
+                    videoTracks.forEach((track: any) => {
+                      track.enabled = true;
+                    });
+                    if (videoTracks.length > 0) {
+                      setIsVideoEnabled(true);
+                    }
+                    setRemote(stream);
+                  },
+                  onIce: (c: any) => {
+                    addIceCandidate(callId, receiverId, c);
+                  },
+                  offerSdp: data.offer,
+                });
+                
+                pcRef.current = pc;
+                
+                // Create new answer
+                const answerToStore = localDescription.toJSON ? localDescription.toJSON() : {
+                  type: localDescription.type,
+                  sdp: localDescription.sdp,
+                };
+                await answerCall(callId, answerToStore);
+                console.log('✅ [Receiver] New answer created and sent for video call');
+              } catch (error: any) {
+                console.error('❌ [Receiver] Error recreating peer connection:', error.message || error);
+              }
+            }
+            lastOfferSdp = currentOfferSdp;
+          } else if (data.offer) {
+            const currentOfferSdp = typeof data.offer === 'string' ? data.offer : data.offer.sdp || '';
+            lastOfferSdp = currentOfferSdp;
+          }
           
           // Don't auto-answer - wait for user to press accept button
           
@@ -1193,7 +1317,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                 onPress={handleSwitchCamera}
                 disabled={!isVideoEnabled}
               >
-                <FlipHorizontal size={24} color={isVideoEnabled ? COLORS.black : COLORS.gray} />
+                <Camera size={24} color={isVideoEnabled ? COLORS.black : COLORS.gray} />
               </TouchableOpacity>
             )}
         <TouchableOpacity

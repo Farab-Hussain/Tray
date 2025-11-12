@@ -44,30 +44,20 @@ export const getTopConsultants = async (req: Request, res: Response) => {
   try {
     const consultants = await consultantServices.getAll();
     
-    // Get manually designated top consultant first
+    // Get manually designated top consultant - only one can be top consultant
     const topConsultant = consultants.find((c: any) => c.isTopConsultant === true);
     
-    // Get other consultants sorted by rating
-    const otherConsultants = consultants
-      .filter((c: any) => !c.isTopConsultant)
-      .sort((a: any, b: any) => {
-        const aRating = a.rating || 0;
-        const bRating = b.rating || 0;
-        return bRating - aRating;
-      });
+    // Only return the one top consultant if it exists
+    const topConsultants: ConsultantCard[] = topConsultant ? [{
+      uid: topConsultant.uid,
+      name: topConsultant.name,
+      category: topConsultant.category,
+      rating: topConsultant.rating,
+      totalReviews: topConsultant.totalReviews,
+      profileImage: topConsultant.profileImage
+    }] : [];
     
-    // Combine: top consultant first, then others sorted by rating
-    const topConsultants = topConsultant ? [topConsultant] : [];
-    const cardData: ConsultantCard[] = [...topConsultants, ...otherConsultants].map((consultant: any) => ({
-      uid: consultant.uid,
-      name: consultant.name,
-      category: consultant.category,
-      rating: consultant.rating,
-      totalReviews: consultant.totalReviews,
-      profileImage: consultant.profileImage
-    }));
-    
-    res.status(200).json({ topConsultants: cardData });
+    res.status(200).json({ topConsultants });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

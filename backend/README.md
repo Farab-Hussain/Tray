@@ -57,7 +57,7 @@ Create `backend/.env` before running locally. The runtime reads the following ke
 | --- | --- | --- |
 | Server | `PORT` (default `4000`), `NODE_ENV`, `BASE_URL` | `PORT` must be open for the API; `BASE_URL` is used in emails/links |
 | Firebase | `SERVICE_ACCOUNT_PATH` | Absolute/relative path to service account JSON; falls back to `src/config/*.json` |
-| Stripe | `STRIPE_SECRET_KEY`, `PLATFORM_FEE_PERCENT` (default `10`), `MINIMUM_PAYOUT_AMOUNT` (default `10`) | Required for payments and automated payouts |
+| Stripe | `STRIPE_SECRET_KEY`, `PLATFORM_FEE_AMOUNT` (default `5.00`), `MINIMUM_PAYOUT_AMOUNT` (default `10`) | Required for payments and automated payouts |
 | Cloudinary | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Used by `upload.controller.ts` |
 | Email | `SMTP_HOST` (`smtp.gmail.com`), `SMTP_PORT` (`587`), `SMTP_EMAIL`/`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Without credentials, email helpers no-op |
 | Notifications | `FCM_SERVER_KEY` (optional – Firebase Admin handles most push duties) | Useful if you integrate REST FCM calls |

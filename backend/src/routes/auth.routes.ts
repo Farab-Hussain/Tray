@@ -1,6 +1,7 @@
 // src/routes/auth.ts
 import { Router } from "express";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
+import { validateRegister, validateLogin, validateForgotPassword, validateVerifyOTP, validateResetPassword, validateUpdateProfile } from "../middleware/validation";
 import * as authController from "../controllers/auth.Controller";
 
 const router = Router();
@@ -9,13 +10,13 @@ const router = Router();
  * POST /auth/register
  * Register user (Firebase handles signup, we just store extra info)
  */
-router.post("/register", authController.register);
+router.post("/register", validateRegister, authController.register);
 
 /**
  * POST /auth/login
  * Login with Firebase ID token and return user info
  */
-router.post("/login", authController.login);
+router.post("/login", validateLogin, authController.login);
 
 /**
  * GET /auth/me
@@ -42,7 +43,7 @@ router.get("/users/:uid", authController.getUserById);
  * PUT /auth/profile
  * Update user profile
  */
-router.put("/profile", authenticateUser, authController.updateProfile);
+router.put("/profile", authenticateUser, validateUpdateProfile, authController.updateProfile);
 
 /**
  * DELETE /auth/account
@@ -54,19 +55,19 @@ router.delete("/account", authenticateUser, authController.deleteAccount);
  * POST /auth/forgot-password
  * Send OTP to user's email for password reset
  */
-router.post("/forgot-password", authController.forgotPassword);
+router.post("/forgot-password", validateForgotPassword, authController.forgotPassword);
 
 /**
  * POST /auth/verify-otp
  * Verify OTP sent to user's email
  */
-router.post("/verify-otp", authController.verifyOTP);
+router.post("/verify-otp", validateVerifyOTP, authController.verifyOTP);
 
 /**
  * POST /auth/reset-password
  * Reset user's password after OTP verification
  */
-router.post("/reset-password", authController.resetPassword);
+router.post("/reset-password", validateResetPassword, authController.resetPassword);
 
 /**
  * POST /auth/resend-verification-email
@@ -79,5 +80,17 @@ router.post("/resend-verification-email", authController.resendVerificationEmail
  * Verify email directly (fallback when client-side verification fails)
  */
 router.post("/verify-email", authenticateUser, authController.verifyEmail);
+
+/**
+ * POST /auth/request-consultant-role
+ * Request access to consultant role
+ */
+router.post("/request-consultant-role", authenticateUser, authController.requestConsultantRole);
+
+/**
+ * POST /auth/switch-role
+ * Switch active role (requires consultant verification if switching to consultant)
+ */
+router.post("/switch-role", authenticateUser, authController.switchRole);
 
 export default router;

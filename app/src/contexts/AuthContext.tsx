@@ -6,7 +6,9 @@ import { api } from '../lib/fetcher';
 
 interface AuthContextType {
   user: User | null;
-  role: string | null;
+  role: string | null; // Keep for backward compatibility (maps to activeRole)
+  activeRole: string | null; // Currently active role
+  roles: string[]; // Array of roles user has access to
   intendedRole: string | null;
   loading: boolean;
   consultantVerificationStatus: 'incomplete' | 'pending' | 'approved' | 'rejected' | null;
@@ -14,12 +16,16 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   refreshConsultantStatus: () => Promise<void>;
   setIntendedRole: (role: string) => void;
+  requestConsultantRole: () => Promise<void>;
+  switchRole: (newRole: string) => Promise<void>;
   logout: () => Promise<void>;
   }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
+  activeRole: null,
+  roles: [],
   intendedRole: null,
   loading: true,
   consultantVerificationStatus: null,
@@ -27,6 +33,8 @@ const AuthContext = createContext<AuthContextType>({
   refreshUser: async () => {},
   refreshConsultantStatus: async () => {},
   setIntendedRole: () => {},
+  requestConsultantRole: async () => {},
+  switchRole: async () => {},
   logout: async () => {},
 });
 
@@ -40,7 +48,9 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null); // Keep for backward compatibility
+  const [activeRole, setActiveRole] = useState<string | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
   const [intendedRole, setIntendedRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [consultantVerificationStatus, setConsultantVerificationStatus] = useState<'incomplete' | 'pending' | 'approved' | 'rejected' | null>(null);
@@ -57,9 +67,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signOut(auth);
       await AsyncStorage.removeItem("role");
+      await AsyncStorage.removeItem("activeRole");
+      await AsyncStorage.removeItem("roles");
       await AsyncStorage.removeItem("consultantVerificationStatus");
       setUser(null);
       setRole(null);
+      setActiveRole(null);
+      setRoles([]);
       setConsultantVerificationStatus(null);
       console.log("User logged out successfully");
     } catch (error) {
@@ -104,30 +118,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear needsProfileCreation flag if profile exists
       setNeedsProfileCreation(false);
       
-      if (res.data?.role) {
-        console.log('Role fetched:', res.data.role);
-        setRole(res.data.role);
-        await AsyncStorage.setItem('role', res.data.role);
+      // Handle new roles array and activeRole structure
+      const userRoles = res.data?.roles || (res.data?.role ? [res.data.role] : ['student']);
+      const userActiveRole = res.data?.activeRole || res.data?.role || 'student';
+      
+      console.log('Roles fetched:', userRoles);
+      console.log('Active role fetched:', userActiveRole);
+      
+      setRoles(userRoles);
+      setActiveRole(userActiveRole);
+      setRole(userActiveRole); // Keep for backward compatibility
+      
+      await AsyncStorage.setItem('roles', JSON.stringify(userRoles));
+      await AsyncStorage.setItem('activeRole', userActiveRole);
+      await AsyncStorage.setItem('role', userActiveRole); // Keep for backward compatibility
 
-        // If consultant, check verification status
-        if (res.data.role === 'consultant') {
-          // Only refresh consultant status if we don't already have it cached
-          const cachedStatus = await AsyncStorage.getItem('consultantVerificationStatus');
-          if (!cachedStatus) {
-            await refreshConsultantStatus();
-          }
-        }
-      } else {
-        console.log('No role found in response. User data:', res.data);
-        // Check AsyncStorage first before defaulting
-        const cachedRole = await AsyncStorage.getItem('role');
-        if (cachedRole) {
-          console.log('Using cached role from AsyncStorage:', cachedRole);
-          setRole(cachedRole);
-        } else {
-          console.log('No cached role, defaulting to student');
-          setRole('student');
-          await AsyncStorage.setItem('role', 'student');
+      // If consultant, check verification status
+      if (userActiveRole === 'consultant') {
+        // Only refresh consultant status if we don't already have it cached
+        const cachedStatus = await AsyncStorage.getItem('consultantVerificationStatus');
+        if (!cachedStatus) {
+          await refreshConsultantStatus();
         }
       }
       
@@ -146,12 +157,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (err?.response?.status === 404) {
         console.log('⚠️  User not found in backend (404). Attempt:', retryCount + 1);
         
-        // Check for cached role first
-        const cachedRole = await AsyncStorage.getItem('role');
-        if (cachedRole) {
-          console.log('✅ Using cached role from AsyncStorage:', cachedRole);
-          setRole(cachedRole);
-          // Don't retry if we have a cached role - user might be registering
+        // Check for cached roles first
+        const cachedActiveRole = await AsyncStorage.getItem('activeRole');
+        const cachedRoles = await AsyncStorage.getItem('roles');
+        
+        if (cachedActiveRole && cachedRoles) {
+          console.log('✅ Using cached roles from AsyncStorage');
+          const parsedRoles = JSON.parse(cachedRoles);
+          setRoles(parsedRoles);
+          setActiveRole(cachedActiveRole);
+          setRole(cachedActiveRole);
+          // Don't retry if we have cached roles - user might be registering
           isFetchingRole.current = false;
           return;
         }
@@ -170,19 +186,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           console.log('❌ Max retries reached, defaulting to student role');
           // Default to student role after max retries
+          const defaultRoles = ['student'];
+          setRoles(defaultRoles);
+          setActiveRole('student');
           setRole('student');
+          await AsyncStorage.setItem('roles', JSON.stringify(defaultRoles));
+          await AsyncStorage.setItem('activeRole', 'student');
           await AsyncStorage.setItem('role', 'student');
         }
       }
       
       // For other errors, check cache before defaulting to student
-      const cachedRole = await AsyncStorage.getItem('role');
-      if (cachedRole) {
-        console.log('Using cached role after error:', cachedRole);
-        setRole(cachedRole);
+      const cachedActiveRole = await AsyncStorage.getItem('activeRole');
+      const cachedRoles = await AsyncStorage.getItem('roles');
+      
+      if (cachedActiveRole && cachedRoles) {
+        console.log('Using cached roles after error');
+        const parsedRoles = JSON.parse(cachedRoles);
+        setRoles(parsedRoles);
+        setActiveRole(cachedActiveRole);
+        setRole(cachedActiveRole);
       } else {
-        console.log('No cached role, defaulting to student');
+        console.log('No cached roles, defaulting to student');
+        const defaultRoles = ['student'];
+        setRoles(defaultRoles);
+        setActiveRole('student');
         setRole('student');
+        await AsyncStorage.setItem('roles', JSON.stringify(defaultRoles));
+        await AsyncStorage.setItem('activeRole', 'student');
         await AsyncStorage.setItem('role', 'student');
       }
     } finally {
@@ -233,6 +264,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  const requestConsultantRole = useCallback(async () => {
+    try {
+      const response = await api.post('/auth/request-consultant-role');
+      console.log('Consultant role requested:', response.data);
+      
+      // Update roles array
+      if (response.data?.roles) {
+        setRoles(response.data.roles);
+        await AsyncStorage.setItem('roles', JSON.stringify(response.data.roles));
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('Error requesting consultant role:', error);
+      throw error;
+    }
+  }, []);
+
+  const switchRole = useCallback(async (newRole: string) => {
+    try {
+      const response = await api.post('/auth/switch-role', { newRole });
+      console.log('Role switched:', response.data);
+      
+      // Update active role and roles array
+      if (response.data?.activeRole) {
+        setActiveRole(response.data.activeRole);
+        setRole(response.data.activeRole); // Keep for backward compatibility
+        await AsyncStorage.setItem('activeRole', response.data.activeRole);
+        await AsyncStorage.setItem('role', response.data.activeRole);
+      }
+      
+      if (response.data?.roles) {
+        setRoles(response.data.roles);
+        await AsyncStorage.setItem('roles', JSON.stringify(response.data.roles));
+      }
+      
+      // If switching to consultant, refresh consultant status
+      if (newRole === 'consultant') {
+        await refreshConsultantStatus();
+      }
+      
+      // Force refresh user role to get latest data
+      await fetchUserRole(true);
+      
+      // Return response data including action if present
+      return response.data;
+    } catch (error: any) {
+      console.error('Error switching role:', error);
+      throw error;
+    }
+  }, [refreshConsultantStatus, fetchUserRole]);
+
   const refreshUser = useCallback(async () => {
     if (auth.currentUser) {
       try {
@@ -240,31 +323,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await auth.currentUser.reload();
         // Update local user state with the refreshed data
         setUser({ ...auth.currentUser });
-        // Note: We don't fetch role again here since it's already cached
-        // Role will only be  on login or when explicitly needed
+        // Refresh role data as well
+        await fetchUserRole(true);
       } catch (error) {
         console.error('Error refreshing user:', error);
       }
     }
-  }, []);
+  }, [fetchUserRole]);
 
   useEffect(() => {
     const initAuth = async () => {
       // Clear any leftover registration flag from previous sessions
       await AsyncStorage.removeItem('isRegistering');
       
-      // Try to load stored role from AsyncStorage
-      const storedRole = await AsyncStorage.getItem('role');
-      if (storedRole) {
-        console.log('Loaded stored role:', storedRole);
-        setRole(storedRole);
+      // Try to load stored roles and activeRole from AsyncStorage
+      const storedRoles = await AsyncStorage.getItem('roles');
+      const storedActiveRole = await AsyncStorage.getItem('activeRole');
+      
+      if (storedRoles && storedActiveRole) {
+        console.log('Loaded stored roles:', storedRoles);
+        console.log('Loaded stored active role:', storedActiveRole);
+        const parsedRoles = JSON.parse(storedRoles);
+        setRoles(parsedRoles);
+        setActiveRole(storedActiveRole);
+        setRole(storedActiveRole); // Keep for backward compatibility
         
         // If consultant, also load verification status
-        if (storedRole === 'consultant') {
+        if (storedActiveRole === 'consultant') {
           const storedStatus = await AsyncStorage.getItem('consultantVerificationStatus');
           if (storedStatus) {
             console.log('Loaded stored consultant status:', storedStatus);
             setConsultantVerificationStatus(storedStatus as any);
+          }
+        }
+      } else {
+        // Fallback to old role storage for backward compatibility
+        const storedRole = await AsyncStorage.getItem('role');
+        if (storedRole) {
+          console.log('Loaded stored role (legacy):', storedRole);
+          const legacyRoles = [storedRole];
+          setRoles(legacyRoles);
+          setActiveRole(storedRole);
+          setRole(storedRole);
+          await AsyncStorage.setItem('roles', JSON.stringify(legacyRoles));
+          await AsyncStorage.setItem('activeRole', storedRole);
+          
+          if (storedRole === 'consultant') {
+            const storedStatus = await AsyncStorage.getItem('consultantVerificationStatus');
+            if (storedStatus) {
+              setConsultantVerificationStatus(storedStatus as any);
+            }
           }
         }
       }
@@ -291,9 +399,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // The fetchUserRole function now has robust retry logic
         await fetchUserRole();
       } else {
-        // User logged out - clear role
+        // User logged out - clear roles
         setRole(null);
+        setActiveRole(null);
+        setRoles([]);
         await AsyncStorage.removeItem('role');
+        await AsyncStorage.removeItem('activeRole');
+        await AsyncStorage.removeItem('roles');
       }
       
       setLoading(false);
@@ -304,7 +416,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = {
     user,
-    role,
+    role, // Keep for backward compatibility (maps to activeRole)
+    activeRole,
+    roles,
     intendedRole,
     loading,
     consultantVerificationStatus,
@@ -312,6 +426,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser,
     refreshConsultantStatus,
     setIntendedRole,
+    requestConsultantRole,
+    switchRole,
     logout,
   };
 

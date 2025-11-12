@@ -14,6 +14,7 @@ import fcmRoutes from './routes/fcm.routes';
 import notificationRoutes from './routes/notification.routes';
 import reminderRoutes from './routes/reminder.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import registerSupportRoutes from './routes/support.routes';
 
 dotenv.config();
 
@@ -42,22 +43,63 @@ app.get("/", (req, res) => {
   res.send("🚀 Backend running with Firebase");
 });
 
-// Health check endpoint
+// Health check endpoint with detailed monitoring
 app.get("/health", async (req, res) => {
+  const startTime = Date.now();
+  const healthCheck: {
+    status: string;
+    timestamp: string;
+    uptime: number;
+    environment: string;
+    services: {
+      firebase: { status: string; responseTime?: number; error?: string };
+    };
+    memory: {
+      used: number;
+      total: number;
+      percentage: number;
+    };
+  } = {
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
+    services: {
+      firebase: { status: "unknown" },
+    },
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      percentage: Math.round(
+        (process.memoryUsage().heapUsed / process.memoryUsage().heapTotal) * 100
+      ),
+    },
+  };
+
+  // Check Firebase connection
   try {
+    const firebaseStart = Date.now();
     await db.collection('_test').doc('health').get();
-    res.json({
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      firebase: "connected"
-    });
+    const firebaseResponseTime = Date.now() - firebaseStart;
+    healthCheck.services.firebase = {
+      status: "connected",
+      responseTime: firebaseResponseTime,
+    };
   } catch (error) {
-    res.status(500).json({
-      status: "unhealthy",
-      timestamp: new Date().toISOString(),
-      error: error instanceof Error ? error.message : "Unknown error"
-    });
+    healthCheck.status = "unhealthy";
+    healthCheck.services.firebase = {
+      status: "disconnected",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
+
+  const responseTime = Date.now() - startTime;
+  const statusCode = healthCheck.status === "healthy" ? 200 : 503;
+
+  res.status(statusCode).json({
+    ...healthCheck,
+    responseTime,
+  });
 });
 
 // Auth routes
@@ -72,7 +114,16 @@ app.use("/fcm", fcmRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/reminders", reminderRoutes);
 app.use("/analytics", analyticsRoutes);
+registerSupportRoutes(app);
 
+// Global error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('❌ Unhandled error:', err);
 
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred',
+  });
+});
 
 export default app;

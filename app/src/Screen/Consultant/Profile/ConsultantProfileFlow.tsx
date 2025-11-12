@@ -24,6 +24,7 @@ import { FormInput, TextArea, CategorySelector, SpecialtyManager } from '../../.
 import ImageUpload from '../../../components/ui/ImageUpload';
 import { consultantFlowStyles } from '../../../constants/styles/consultantFlowStyles';
 import { showSuccess, showError, handleApiError } from '../../../utils/toast';
+import { UserService } from '../../../services/user.service';
 
 const CONSULTANT_CATEGORIES = [
   'Career Consulting',
@@ -94,6 +95,25 @@ export default function ConsultantProfileFlow() {
         const emailName = user.email.split('@')[0];
         setFullName(emailName);
       }
+      
+      // Pre-fill profile image from student profile (Firebase photoURL or backend profileImage)
+      if (user.photoURL) {
+        setProfileImage(user.photoURL);
+        console.log('Pre-filled profile image from Firebase photoURL:', user.photoURL);
+      } else {
+        // Try to get from backend user profile
+        try {
+          const backendProfile = await UserService.getUserProfile();
+          if (backendProfile?.profileImage) {
+            setProfileImage(backendProfile.profileImage);
+            console.log('Pre-filled profile image from backend profile:', backendProfile.profileImage);
+          }
+        } catch (error) {
+          console.log('Could not fetch backend profile for image:', error);
+          // Silently fail - image is optional
+        }
+      }
+      
       console.log('No existing profile, starting fresh');
     } finally {
       setIsLoading(false);

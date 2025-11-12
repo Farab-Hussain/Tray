@@ -59,7 +59,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [cartItems] = useState<CartItem[]>(route.params.cartItems);
-  const [platformFeePercent, setPlatformFeePercent] = useState<number>(10);
+  const [platformFeeAmount, setPlatformFeeAmount] = useState<number>(5.00);
   const [platformFeeLoading, setPlatformFeeLoading] = useState<boolean>(true);
   const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
 
@@ -69,13 +69,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
     const fetchPlatformFee = async () => {
       try {
         const config = await PaymentService.getPlatformFeeConfig();
-        if (isMounted && typeof config.platformFeePercent === 'number') {
-          setPlatformFeePercent(config.platformFeePercent);
+        if (isMounted && typeof config.platformFeeAmount === 'number') {
+          setPlatformFeeAmount(config.platformFeeAmount);
         }
       } catch (error: any) {
         console.error('❌ Failed to load platform fee configuration:', error);
         if (isMounted) {
-          setPlatformFeeError(error.message || 'Unable to load platform fee. Using default rate.');
+          setPlatformFeeError(error.message || 'Unable to load platform fee. Using default amount.');
         }
       } finally {
         if (isMounted) {
@@ -97,11 +97,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       return sum + itemTotal;
     }, 0);
   }, [cartItems]);
-
-  const platformFeeAmount = useMemo(() => {
-    const fee = subtotal * (platformFeePercent / 100);
-    return Number.isNaN(fee) ? 0 : Number(fee.toFixed(2));
-  }, [subtotal, platformFeePercent]);
 
   const total = useMemo(() => Number((subtotal + platformFeeAmount).toFixed(2)), [subtotal, platformFeeAmount]);
 
@@ -442,9 +437,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             <Text style={styles.summaryValue}>{formatAmount(subtotal)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>
-              {`Platform Fee (${platformFeePercent % 1 === 0 ? platformFeePercent : platformFeePercent.toFixed(2)}%):`}
-            </Text>
+            <Text style={styles.summaryLabel}>Platform Fee:</Text>
             <Text style={styles.summaryValue}>{formatAmount(platformFeeAmount)}</Text>
           </View>
           {platformFeeLoading && (

@@ -45,10 +45,12 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    // Create user document
+    // Create user document with roles array and activeRole
     const userData = {
       name: name || null,
-      role,
+      role, // Keep for backward compatibility
+      roles: [role], // New: array of roles user has access to
+      activeRole: role, // New: currently active role
       email,
       profileImage: null, // Will be set later via profile update
       isActive: true,
@@ -87,7 +89,9 @@ export const getMe = async (req: Request, res: Response) => {
       // Note: Firebase decoded token properties: uid, email, email_verified, name, picture
       const defaultUserData = {
         name: user.name || null,
-        role: 'student', // Default role, can be updated later via registration
+        role: 'student', // Keep for backward compatibility
+        roles: ['student'], // New: array of roles user has access to
+        activeRole: 'student', // New: currently active role
         email: user.email || null,
         profileImage: user.picture || null,
         isActive: true,
@@ -713,6 +717,150 @@ export const getAllUsers = async (req: Request, res: Response) => {
     });
   } catch (error) {
     Logger.error(route, "", "Error fetching users", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+};
+
+/**
+ * POST /auth/request-consultant-role
+ * Request access to consultant role (adds consultant to roles array if not present)
+ */
+export const requestConsultantRole = async (req: Request, res: Response) => {
+  const route = "POST /auth/request-consultant-role";
+
+  try {
+    const user = (req as any).user;
+    const userDoc = await db.collection("users").doc(user.uid).get();
+
+    if (!userDoc.exists) {
+      Logger.error(route, user.uid, "User not found");
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userData = userDoc.data();
+    const currentRoles = userData?.roles || [userData?.role || 'student'];
+
+    // Check if user already has consultant role
+    if (currentRoles.includes('consultant')) {
+      return res.status(200).json({
+        message: "You already have consultant role access",
+        roles: currentRoles,
+      });
+    }
+
+    // Add consultant to roles array
+    const updatedRoles = [...currentRoles, 'consultant'];
+    
+    await db.collection("users").doc(user.uid).update({
+      roles: updatedRoles,
+      updatedAt: new Date(),
+    });
+
+    Logger.success(route, user.uid, "Consultant role requested and added to roles array");
+    res.status(200).json({
+      message: "Consultant role access requested. Complete your consultant profile to get verified.",
+      roles: updatedRoles,
+    });
+  } catch (error) {
+    Logger.error(route, "", "Error requesting consultant role", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+};
+
+/**
+ * POST /auth/switch-role
+ * Switch active role
+ * - Switching to consultant: Check email verification, allow creating profile if doesn't exist
+ * - Switching to student: Check email verification
+ */
+export const switchRole = async (req: Request, res: Response) => {
+  const route = "POST /auth/switch-role";
+
+  try {
+    const user = (req as any).user;
+    const { newRole } = req.body;
+
+    if (!newRole) {
+      Logger.error(route, user.uid, "New role not provided");
+      return res.status(400).json({ error: "New role is required" });
+    }
+
+    if (!['student', 'consultant'].includes(newRole)) {
+      Logger.error(route, user.uid, `Invalid role: ${newRole}`);
+      return res.status(400).json({ error: "Invalid role. Must be 'student' or 'consultant'" });
+    }
+
+    // Email verification is already required at login, so no need to check here
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    if (!userDoc.exists) {
+      Logger.error(route, user.uid, "User not found");
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userData = userDoc.data();
+    const currentRoles = userData?.roles || [userData?.role || 'student'];
+    const currentActiveRole = userData?.activeRole || userData?.role || 'student';
+
+    // If switching to consultant
+    if (newRole === 'consultant') {
+      // Add consultant to roles if not already present
+      let updatedRoles = currentRoles;
+      if (!currentRoles.includes('consultant')) {
+        updatedRoles = [...currentRoles, 'consultant'];
+        await db.collection("users").doc(user.uid).update({
+          roles: updatedRoles,
+          updatedAt: new Date(),
+        });
+      }
+
+      // Check if consultant profile exists
+      const consultantProfileDoc = await db.collection("consultantProfiles").doc(user.uid).get();
+      
+      if (!consultantProfileDoc.exists) {
+        // Profile doesn't exist - don't switch role, user must create profile first
+        Logger.info(route, user.uid, `Consultant profile not found - role switch blocked`);
+        return res.status(403).json({
+          error: "Consultant profile is required. Please create your consultant profile first.",
+          action: "create_consultant_profile",
+        });
+      }
+
+      // Profile exists - check status
+      const consultantProfile = consultantProfileDoc.data();
+      const profileStatus = consultantProfile?.status;
+
+      // Allow switching regardless of status (user can see their profile status)
+      await db.collection("users").doc(user.uid).update({
+        activeRole: newRole,
+        role: newRole, // Keep for backward compatibility
+        roles: updatedRoles,
+        updatedAt: new Date(),
+      });
+
+      Logger.success(route, user.uid, `Role switched from ${currentActiveRole} to ${newRole} (profile status: ${profileStatus})`);
+      return res.status(200).json({
+        message: `Role switched to ${newRole} successfully`,
+        activeRole: newRole,
+        roles: updatedRoles,
+        profileStatus: profileStatus,
+      });
+    }
+
+    // If switching to student - just check email verification (already checked above)
+    await db.collection("users").doc(user.uid).update({
+      activeRole: newRole,
+      role: newRole, // Keep for backward compatibility
+      updatedAt: new Date(),
+    });
+
+    Logger.success(route, user.uid, `Role switched from ${currentActiveRole} to ${newRole}`);
+    res.status(200).json({
+      message: `Role switched to ${newRole} successfully`,
+      activeRole: newRole,
+      roles: currentRoles,
+    });
+  } catch (error) {
+    Logger.error(route, "", "Error switching role", error);
     res.status(500).json({ error: (error as Error).message });
   }
 };

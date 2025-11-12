@@ -12,7 +12,7 @@ export const customCard = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  
+
   leftBox: {
     width: '40%',
     padding: 16,
@@ -20,10 +20,8 @@ export const customCard = StyleSheet.create({
   },
   rightBox: {
     width: '60%',
-    padding: 6,
-    paddingLeft: 12,
+    padding: 16,
     justifyContent: 'space-between',
-    // backgroundColor: COLORS.yellow,
   },
   avatar: {
     width: 80,
@@ -73,16 +71,15 @@ export const customCard = StyleSheet.create({
     marginHorizontal: 4,
   },
   badge: {
-    width: 54,
-    height: 74,
+    width: 44,
+    height: 64,
     alignSelf: 'flex-end',
-    marginBottom: 8,
+
   },
   description: {
     fontSize: 14,
     color: COLORS.blackTransparent,
-    marginBottom: 8,
-    lineHeight: 20,
+    marginTop: -20,
   },
   ratingBox: {
     flexDirection: 'row',
@@ -100,5 +97,5 @@ export const customCard = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.black,
   },
-  
+
 });

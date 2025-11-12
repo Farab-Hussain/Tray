@@ -25,7 +25,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export default function PendingApproval() {
   const navigation = useNavigation();
-  const { user, logout, refreshConsultantStatus, consultantVerificationStatus } = useAuth();
+  const { user, logout, refreshConsultantStatus, consultantVerificationStatus, activeRole, switchRole } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const isLoadingRef = useRef(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -45,20 +45,42 @@ export default function PendingApproval() {
   // Check if consultant is already approved in AuthContext - run immediately on mount
   useEffect(() => {
     if (consultantVerificationStatus === 'approved') {
-      console.log('PendingApproval - Consultant already approved in AuthContext, navigating to service setup');
+      console.log('PendingApproval - Consultant already approved in AuthContext, switching role and navigating');
       setIsLoading(false);
-      navigation.navigate('ConsultantServiceSetup' as never);
+      
+      // Automatically switch to consultant role if not already
+      if (activeRole !== 'consultant') {
+        switchRole('consultant').then(() => {
+          navigation.navigate('ConsultantServiceSetup' as never);
+        }).catch((error) => {
+          console.error('PendingApproval - Error switching role:', error);
+          navigation.navigate('ConsultantServiceSetup' as never);
+        });
+      } else {
+        navigation.navigate('ConsultantServiceSetup' as never);
+      }
     }
-  }, [consultantVerificationStatus, navigation]);
+  }, [consultantVerificationStatus, navigation, activeRole, switchRole]);
 
   // Additional immediate check on component mount
   useEffect(() => {
     // If we have a user and consultantVerificationStatus is approved, navigate immediately
     if (user && consultantVerificationStatus === 'approved') {
-      console.log('PendingApproval - Mount check: Consultant approved, navigating to service setup');
-      navigation.navigate('ConsultantServiceSetup' as never);
+      console.log('PendingApproval - Mount check: Consultant approved, switching role and navigating');
+      
+      // Automatically switch to consultant role if not already
+      if (activeRole !== 'consultant') {
+        switchRole('consultant').then(() => {
+          navigation.navigate('ConsultantServiceSetup' as never);
+        }).catch((error) => {
+          console.error('PendingApproval - Error switching role:', error);
+          navigation.navigate('ConsultantServiceSetup' as never);
+        });
+      } else {
+        navigation.navigate('ConsultantServiceSetup' as never);
+      }
     }
-  }, [user, consultantVerificationStatus, navigation]);
+  }, [user, consultantVerificationStatus, navigation, activeRole, switchRole]);
 
   const loadData = useCallback(async () => {
     if (!user?.uid) {
@@ -81,9 +103,21 @@ export default function PendingApproval() {
       setProfile(profileData);
       setApplications(applicationsData);
 
-      // If approved, refresh auth to update role and navigate
+      // If approved, automatically switch to consultant role and navigate
       if (profileData.status === 'approved') {
-        console.log('PendingApproval - Profile approved, navigating to service setup');
+        console.log('PendingApproval - Profile approved, switching to consultant role');
+        
+        // Automatically switch to consultant role if not already
+        if (activeRole !== 'consultant') {
+          try {
+            await switchRole('consultant');
+            console.log('PendingApproval - Successfully switched to consultant role');
+          } catch (error: any) {
+            console.error('PendingApproval - Error switching to consultant role:', error);
+            // Continue navigation even if role switch fails
+          }
+        }
+        
         // Navigate to service setup screen
         navigation.navigate('ConsultantServiceSetup' as never);
       }

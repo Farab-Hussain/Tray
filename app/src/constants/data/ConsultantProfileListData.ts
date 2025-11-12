@@ -1,4 +1,4 @@
-import { BadgeInfo, Bell, LogOut, MessageCircle, User, Star, Briefcase, CreditCard, Calendar, Clock, Wallet } from "lucide-react-native";
+import { BadgeInfo, Bell, LogOut, MessageCircle, User, Star, Briefcase, CreditCard, Calendar, Clock, Wallet, Lock, UserCircle } from "lucide-react-native";
 
 export const ConsultantProfileListData = [
     {
@@ -54,6 +54,18 @@ export const ConsultantProfileListData = [
         icon: BadgeInfo,
         text: "Help & Support",
         route: "Help",
+    },
+    {
+        id: 11,
+        icon: Lock,
+        text: "Change Password",
+        route: "ChangePassword",
+    },
+    {
+        id: 12,
+        icon: UserCircle,
+        text: "Change Username",
+        route: "ChangeUsername",
     },
     {
         id: 9,

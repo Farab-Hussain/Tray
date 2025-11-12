@@ -108,11 +108,11 @@ export const callingStyles = StyleSheet.create({
     transform: [{ rotate: '135deg' }],
   },
   acceptButton: {
-    backgroundColor: COLORS.green,
+    backgroundColor: COLORS.black,
     width: 70,
     height: 70,
     borderRadius: 35,
-    shadowColor: COLORS.green,
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

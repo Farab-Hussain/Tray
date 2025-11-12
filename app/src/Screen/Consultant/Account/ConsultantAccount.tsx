@@ -9,11 +9,13 @@ import ProfileList from '../../../components/ui/ProfileList';
 import { ConsultantProfileListData } from '../../../constants/data/ConsultantProfileListData';
 import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Camera } from 'lucide-react-native';
+import { Camera, RefreshCw } from 'lucide-react-native';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
+import { StyleSheet } from 'react-native';
 
 const ConsultantAccount = ({ navigation }: any) => {
-  const { user, logout } = useAuth();
+  const { user, logout, activeRole, roles, switchRole } = useAuth();
+  const [switchingRole, setSwitchingRole] = useState(false);
   const [consultantProfile, setConsultantProfile] = useState<any>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
   
@@ -153,6 +155,79 @@ const ConsultantAccount = ({ navigation }: any) => {
             </View>
           )}
           
+          {/* Role Switcher - Always show (email verification already required at login) */}
+          {activeRole && (
+            <View style={styles.roleSwitcherContainer}>
+              <Text style={styles.roleSwitcherLabel}>Switch Role</Text>
+              <View style={styles.roleButtonsContainer}>
+                {[activeRole === 'student' ? 'consultant' : 'student'].map((role) => (
+                  <TouchableOpacity
+                    key={role}
+                    style={[
+                      styles.roleButton,
+                      activeRole === role && styles.roleButtonActive,
+                      switchingRole && styles.roleButtonDisabled,
+                    ]}
+                    onPress={async () => {
+                      if (activeRole === role || switchingRole) return;
+                      
+                      try {
+                        setSwitchingRole(true);
+                        await switchRole(role);
+                        
+                        // Role switched successfully
+                        Alert.alert(
+                          'Role Switched',
+                          `You are now viewing as ${role === 'student' ? 'a student' : 'a consultant'}.`,
+                          [{ text: 'OK' }]
+                        );
+                      } catch (error: any) {
+                        const errorMessage = error?.response?.data?.error || error?.message || 'Failed to switch role';
+                        const action = error?.response?.data?.action;
+                        
+                        if (action === 'create_consultant_profile') {
+                          // Consultant profile is required - show alert to create profile
+                          Alert.alert(
+                            'Consultant Profile Required',
+                            'You need to create your consultant profile before switching to consultant role.',
+                            [
+                              {
+                                text: 'Create Profile',
+                                onPress: () => navigation.navigate('ConsultantProfileFlow'),
+                              },
+                            ]
+                          );
+                        } else {
+                          Alert.alert('Error', errorMessage);
+                        }
+                      } finally {
+                        setSwitchingRole(false);
+                      }
+                    }}
+                    disabled={switchingRole}
+                  >
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        activeRole === role && styles.roleButtonTextActive,
+                        !roles.includes(role) && role === 'consultant' && styles.roleButtonTextInactive,
+                      ]}
+                    >
+                      {role === 'student' ? 'Student' : 'Consultant'}
+                      {activeRole === role && ' ✓'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {switchingRole && (
+                <View style={styles.switchingIndicator}>
+                  <RefreshCw size={16} color={COLORS.green} />
+                  <Text style={styles.switchingText}>Switching...</Text>
+                </View>
+              )}
+            </View>
+          )}
+          
           <View style={Profile.listContainer}>
             {ConsultantProfileListData.length > 0 && (
               ConsultantProfileListData.map((item) => (
@@ -170,5 +245,62 @@ const ConsultantAccount = ({ navigation }: any) => {
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  roleSwitcherContainer: {
+    marginVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleSwitcherLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: 10,
+  },
+  roleButtonsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  roleButton: {
+    width: 100,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    backgroundColor: COLORS.white,
+  },
+  roleButtonActive: {
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.lightBackground,
+  },
+  roleButtonDisabled: {
+    opacity: 0.5,
+  },
+  roleButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.gray,
+    textAlign: 'center',
+  },
+  roleButtonTextActive: {
+    color: COLORS.green,
+    fontWeight: '600',
+  },
+  roleButtonTextInactive: {
+    opacity: 0.7,
+  },
+  switchingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  switchingText: {
+    fontSize: 12,
+    color: COLORS.green,
+  },
+});
 
 export default ConsultantAccount;

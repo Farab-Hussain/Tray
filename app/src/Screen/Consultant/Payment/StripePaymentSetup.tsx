@@ -29,7 +29,7 @@ const StripePaymentSetup = ({ navigation }: any) => {
     onboardingUrl?: string | null;
   } | null>(null);
   const [creatingAccount, setCreatingAccount] = useState(false);
-  const [platformFeePercent, setPlatformFeePercent] = useState<number | null>(null);
+  const [platformFeeAmount, setPlatformFeeAmount] = useState<number | null>(null);
   const [platformFeeLoading, setPlatformFeeLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -66,8 +66,8 @@ const StripePaymentSetup = ({ navigation }: any) => {
     const loadPlatformFee = async () => {
       try {
         const config = await PaymentService.getPlatformFeeConfig();
-        if (isMounted && typeof config.platformFeePercent === 'number') {
-          setPlatformFeePercent(config.platformFeePercent);
+        if (isMounted && typeof config.platformFeeAmount === 'number') {
+          setPlatformFeeAmount(config.platformFeeAmount);
         }
       } catch (error) {
         console.error('Error fetching platform fee configuration:', error);
@@ -165,8 +165,8 @@ const StripePaymentSetup = ({ navigation }: any) => {
 
   const isAccountComplete = accountStatus?.status?.isComplete || false;
   const platformFeeDisplay =
-    platformFeePercent !== null
-      ? `${platformFeePercent % 1 === 0 ? platformFeePercent : platformFeePercent.toFixed(2)}%`
+    platformFeeAmount !== null
+      ? `$${platformFeeAmount.toFixed(2)}`
       : null;
 
   return (
@@ -297,7 +297,7 @@ const StripePaymentSetup = ({ navigation }: any) => {
             <Text style={styles.infoBullet}>•</Text>
             <Text style={[styles.infoText, styles.infoItemText]}>
               {platformFeeLoading
-                ? 'A platform fee is deducted from each payment (loading current rate...)'
+                ? 'A platform fee is deducted from each payment (loading current fee...)'
                 : platformFeeDisplay
                 ? `A platform fee of ${platformFeeDisplay} is deducted from each payment`
                 : 'A platform fee is deducted from each payment.'}

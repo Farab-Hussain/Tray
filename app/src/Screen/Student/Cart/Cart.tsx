@@ -44,7 +44,6 @@ const Cart = ({ navigation, route }: any) => {
   const [cartItemsState, setCartItemsState] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
 
   // Load cart from AsyncStorage and add new item if coming from BookingSlots
   useEffect(() => {
@@ -184,149 +183,7 @@ const Cart = ({ navigation, route }: any) => {
     return total + itemTotal;
   }, 0);
 
-  // Helper function to calculate end time
-  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
-    const timeMatch = startTime.match(/(\d+)[:.](\d+)\s*(AM|PM)/i);
-    if (!timeMatch) return startTime;
-    
-    let hours = parseInt(timeMatch[1], 10);
-    let minutes = parseInt(timeMatch[2], 10);
-    const period = timeMatch[3];
-    
-    // Convert to 24-hour format
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    
-    // Add duration
-    minutes += durationMinutes;
-    hours += Math.floor(minutes / 60);
-    minutes = minutes % 60;
-    
-    // Convert back to 12-hour format
-    const endPeriod = hours >= 12 ? 'PM' : 'AM';
-    let endHours = hours % 12;
-    if (endHours === 0) endHours = 12;
-    
-    return `${String(endHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${endPeriod}`;
-  };
 
-  // Function to update item counter (Smart Increment/Decrement with Race Condition Prevention)
-  const updateItemCounter = async (itemId: string, newCounter: number) => {
-    const item = cartItemsState.find(i => i.id === itemId);
-    if (!item) return;
-
-    // Prevent multiple simultaneous updates for the same item
-    if (updatingItems.has(itemId)) {
-      console.log('⚠️ Update already in progress for item:', itemId);
-      return;
-    }
-
-    const currentCounter = item.counter;
-    
-    // DECREMENT: Remove most recently added slot
-    if (newCounter < currentCounter) {
-      if (item.bookedSlots && item.bookedSlots.length > 1) {
-        setCartItemsState(prevItems =>
-          prevItems.map(i => {
-            if (i.id === itemId) {
-              const updatedSlots = i.bookedSlots.slice(0, -1); // Remove last slot (LIFO)
-              return {
-                ...i,
-                bookedSlots: updatedSlots,
-                counter: updatedSlots.length,
-                totalPrice: updatedSlots.length * i.pricePerSlot
-              };
-            }
-            return i;
-          })
-        );
-        console.log('✅ Decremented: Removed last slot');
-      } else {
-        Alert.alert('Minimum Reached', 'Cannot reduce below 1 session. Use the delete button to remove this item.');
-      }
-      return;
-    }
-
-    // INCREMENT: Add next available slot from same date
-    if (newCounter > currentCounter) {
-      // Mark this item as being updated
-      setUpdatingItems(prev => new Set(prev).add(itemId));
-      
-      try {
-        // Fetch consultant availability
-        const availability = await ConsultantService.getConsultantAvailability(item.consultantId);
-        
-        if (!availability || !availability.availabilitySlots) {
-          Alert.alert('No Availability', 'Unable to fetch consultant availability.');
-          return;
-        }
-
-        // Get dates from booked slots
-        const bookedDates = [...new Set(item.bookedSlots.map(slot => slot.date))];
-        
-        // Try to find available slot on the same dates first
-        let foundSlot: BookedSlot | null = null;
-        
-        for (const date of bookedDates) {
-          const dateAvailability = availability.availabilitySlots.find((s: any) => s.date === date);
-          if (!dateAvailability) continue;
-          
-          // Find time slots not yet booked
-          const bookedTimesForDate = item.bookedSlots
-            .filter(slot => slot.date === date)
-            .map(slot => slot.startTime);
-          
-          const availableTime = dateAvailability.timeSlots.find(
-            (time: string) => !bookedTimesForDate.includes(time)
-          );
-          
-          if (availableTime) {
-            foundSlot = {
-              date,
-              startTime: availableTime,
-              endTime: calculateEndTime(availableTime, item.duration || 60)
-            };
-            break;
-          }
-        }
-
-        if (foundSlot) {
-          // Add the found slot
-          setCartItemsState(prevItems =>
-            prevItems.map(i => {
-              if (i.id === itemId) {
-                const updatedSlots = [...i.bookedSlots, foundSlot!];
-                return {
-                  ...i,
-                  bookedSlots: updatedSlots,
-                  counter: updatedSlots.length,
-                  totalPrice: updatedSlots.length * i.pricePerSlot
-                };
-              }
-              return i;
-            })
-          );
-          console.log('✅ Incremented: Added slot', foundSlot);
-        } else {
-          Alert.alert(
-            'No More Slots Available',
-            `No more time slots available on the selected dates (${bookedDates.join(', ')}). Please go back to booking screen to select additional dates.`,
-            [{ text: 'OK' }]
-          );
-        }
-      } catch (error) {
-        console.error('Error fetching availability for increment:', error);
-        Alert.alert('Error', 'Failed to fetch available slots. Please try again.');
-      } finally {
-        // Remove the updating flag
-        setUpdatingItems(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(itemId);
-          return newSet;
-        });
-      }
-    }
-  };
 
   // Function to remove item from cart
   const removeItem = (itemId: string) => {
@@ -382,14 +239,7 @@ const Cart = ({ navigation, route }: any) => {
           ) : (
             <View style={styles.cartItemsContainer}>
               {cartItemsState.map((item) => {
-                // Format description to show all booked slots
-                const slotsDescription = item.bookedSlots && item.bookedSlots.length > 0
-                  ? `${item.serviceTitle}\n${item.bookedSlots.map(slot => 
-                      `${slot.date} • ${slot.startTime} - ${slot.endTime}`
-                    ).join('\n')}`
-                  : `${item.serviceTitle}\n${item.date || 'N/A'} • ${item.startTime || 'N/A'} - ${item.endTime || 'N/A'}`;
-                
-                const itemPrice = item.pricePerSlot || item.price || 0;
+                const itemPrice = item.totalPrice || (item.pricePerSlot || item.price || 0) * item.counter;
                 
                 // Create proper imageUri with fallback
                 let imageUri;
@@ -407,15 +257,11 @@ const Cart = ({ navigation, route }: any) => {
                   <CartCard
                     key={item.id}
                     id={item.id}
-                    counter={item.counter}
                     price={itemPrice}
                     image={imageUri}
-                    title={item.consultantName}
-                    description={slotsDescription}
-                    bookedSlots={item.bookedSlots}
-                    onCounterChange={updateItemCounter}
+                    consultantName={item.consultantName}
+                    serviceName={item.serviceTitle}
                     onRemove={removeItem}
-                    isUpdating={updatingItems.has(item.id)}
                   />
                 );
               })}

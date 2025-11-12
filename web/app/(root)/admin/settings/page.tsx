@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import AdminSection from '@/components/admin/AdminSection';
 import MobileHeader from '@/components/shared/MobileHeader';
-import { Loader2, Save, RefreshCw } from 'lucide-react';
+import { Loader2, Save, RefreshCw, DollarSign } from 'lucide-react';
+import { api } from '@/utils/api';
 
 interface PlatformSettings {
   general: {
@@ -35,6 +36,11 @@ interface PlatformSettings {
 const SettingsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [platformFeeAmount, setPlatformFeeAmount] = useState<number>(5.00);
+  const [platformFeeLoading, setPlatformFeeLoading] = useState(true);
+  const [platformFeeSaving, setPlatformFeeSaving] = useState(false);
+  const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
+  const [platformFeeSuccess, setPlatformFeeSuccess] = useState<string | null>(null);
   const [settings, setSettings] = useState<PlatformSettings>({
     general: {
       platformName: 'Tray Consultant Platform',
@@ -79,7 +85,23 @@ const SettingsPage = () => {
       }
     };
 
+    const fetchPlatformFee = async () => {
+      try {
+        setPlatformFeeLoading(true);
+        const response = await api.get<{ platformFeeAmount: number }>('/payment/platform-fee');
+        if (response.data?.platformFeeAmount !== undefined) {
+          setPlatformFeeAmount(response.data.platformFeeAmount);
+        }
+      } catch (error: any) {
+        console.error('Error fetching platform fee:', error);
+        setPlatformFeeError('Failed to load platform fee. Using default.');
+      } finally {
+        setPlatformFeeLoading(false);
+      }
+    };
+
     fetchSettings();
+    fetchPlatformFee();
   }, []);
 
   const handleSave = async () => {
@@ -99,6 +121,28 @@ const SettingsPage = () => {
       alert('Failed to save settings. Please try again.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSavePlatformFee = async () => {
+    if (platformFeeAmount < 0) {
+      setPlatformFeeError('Platform fee must be a non-negative number');
+      return;
+    }
+
+    setPlatformFeeSaving(true);
+    setPlatformFeeError(null);
+    setPlatformFeeSuccess(null);
+
+    try {
+      await api.put('/payment/platform-fee', { platformFeeAmount });
+      setPlatformFeeSuccess('Platform fee updated successfully!');
+      setTimeout(() => setPlatformFeeSuccess(null), 3000);
+    } catch (error: any) {
+      console.error('Error updating platform fee:', error);
+      setPlatformFeeError(error.response?.data?.error || 'Failed to update platform fee');
+    } finally {
+      setPlatformFeeSaving(false);
     }
   };
 
@@ -259,9 +303,73 @@ const SettingsPage = () => {
         </div>
       </AdminSection>
 
-    
-
-  
+      {/* Platform Fee Settings */}
+      <AdminSection title="Platform Fee" subtitle="Manage the fixed platform fee charged per booking">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Platform Fee Amount (USD)
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-xs">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={platformFeeAmount}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value) && value >= 0) {
+                        setPlatformFeeAmount(value);
+                        setPlatformFeeError(null);
+                      }
+                    }}
+                    disabled={platformFeeLoading}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base disabled:bg-gray-100"
+                    placeholder="5.00"
+                  />
+                </div>
+                <button
+                  onClick={handleSavePlatformFee}
+                  disabled={platformFeeSaving || platformFeeLoading}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
+                >
+                  {platformFeeSaving ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {platformFeeSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+              <p className="mt-2 text-xs sm:text-sm text-gray-500">
+                This fixed amount will be charged per booking transaction. The fee is deducted from the consultant's payment.
+              </p>
+            </div>
+            
+            {platformFeeLoading && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading current platform fee...</span>
+              </div>
+            )}
+            
+            {platformFeeError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{platformFeeError}</p>
+              </div>
+            )}
+            
+            {platformFeeSuccess && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700">{platformFeeSuccess}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </AdminSection>
                 
     </div>
   );

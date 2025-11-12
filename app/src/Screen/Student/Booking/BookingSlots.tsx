@@ -376,7 +376,13 @@ const BookingSlots = ({ navigation, route }: any) => {
     setAvailableSlots(slots);
     // Reset time slot selections for current date
     setSelectedTimeSlots([]);
-  }, [selectedDate, consultantAvailability, generateTimeSlotsForDay, getTimeSlotsForSpecificDate]);
+  }, [
+    selectedDate,
+    consultantAvailability,
+    generateTimeSlotsForDay,
+    getTimeSlotsForSpecificDate,
+    getDayName,
+  ]);
 
   // Use fetched slots or default slots
   const timeSlots = availableSlots.length > 0 ? availableSlots : defaultTimeSlots;
@@ -514,6 +520,7 @@ const BookingSlots = ({ navigation, route }: any) => {
           ) : (
             <Calendar
               current={selectedDate || undefined}
+              minDate={new Date().toISOString().split('T')[0]} // Disable past dates
               onDayPress={(day) => {
                 const { dateString } = day;
                 if (!isDateAvailable(dateString)) {
@@ -629,8 +636,8 @@ const BookingSlots = ({ navigation, route }: any) => {
                 <View style={mergedStyles.bookedSlotsInfo}>
                   <Text style={mergedStyles.bookedSlotsInfoText}>
                     {timeSlots.every(slot => isSlotBooked(selectedDate, slot)) 
-                      ? '🔒 All slots for this date are already booked by other students'
-                      : '🔒 Some slots are already booked by other students'
+                      ? '🔒 All slots for this date are already booked by students'
+                      : '🔒 Some slots are already booked by students'
                     }
                   </Text>
                 </View>

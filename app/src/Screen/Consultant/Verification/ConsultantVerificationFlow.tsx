@@ -34,7 +34,7 @@ interface VerificationState {
 
 export default function ConsultantVerificationFlow() {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { user, activeRole, switchRole } = useAuth();
   const [verificationState, setVerificationState] = useState<VerificationState>({
     step: 'checking_email',
     message: 'Checking email verification...',
@@ -124,7 +124,18 @@ export default function ConsultantVerificationFlow() {
         return;
       }
 
-      // All checks passed - redirect to main app immediately
+      // All checks passed - automatically switch to consultant role and redirect
+      // Automatically switch to consultant role if not already
+      if (activeRole !== 'consultant') {
+        try {
+          await switchRole('consultant');
+          console.log('ConsultantVerificationFlow - Successfully switched to consultant role');
+        } catch (error: any) {
+          console.error('ConsultantVerificationFlow - Error switching role:', error);
+          // Continue navigation even if role switch fails
+        }
+      }
+      
       // Use reset to prevent navigation stack issues
       (navigation as any).reset({
         index: 0,
@@ -140,7 +151,7 @@ export default function ConsultantVerificationFlow() {
         isLoading: false,
       });
     }
-  }, [user, navigation]);
+  }, [user, navigation, activeRole, switchRole]);
 
   useEffect(() => {
     if (user) {

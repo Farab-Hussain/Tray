@@ -77,7 +77,7 @@ export interface BackendApplication {
   id: string;
   consultantId: string;
   consultantName?: string; // Added for display purposes
-  type: 'existing' | 'new';
+  type: 'existing' | 'new' | 'update';
   serviceId?: string;
   customService?: {
     title: string;
@@ -364,7 +364,7 @@ export interface ConsultantProfile extends ConsultantProfileInput {
 // Consultant Application Types
 export interface ConsultantApplicationInput {
   consultantId: string;
-  type: 'existing' | 'new';
+  type: 'existing' | 'new' | 'update';
   serviceId?: string; // for existing service
   customService?: CustomService; // for new service
 }
