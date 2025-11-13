@@ -76,7 +76,7 @@ export const sendAppointmentReminders = async () => {
 
             // Send email reminder to student
             if (student.email) {
-              await sendEmail({
+              const studentEmailResult = await sendEmail({
                 to: student.email,
                 subject: `Reminder: Your session with ${consultant.name || 'Consultant'} tomorrow`,
                 html: `
@@ -96,11 +96,14 @@ export const sendAppointmentReminders = async () => {
                   </div>
                 `
               });
+              if (!studentEmailResult.sent) {
+                console.warn(`Failed to send reminder email to student ${student.email}: ${studentEmailResult.error}`);
+              }
             }
 
             // Send email reminder to consultant
             if (consultant.email) {
-              await sendEmail({
+              const consultantEmailResult = await sendEmail({
                 to: consultant.email,
                 subject: `Reminder: Session with ${student.name || 'Student'} tomorrow`,
                 html: `
@@ -120,6 +123,9 @@ export const sendAppointmentReminders = async () => {
                   </div>
                 `
               });
+              if (!consultantEmailResult.sent) {
+                console.warn(`Failed to send reminder email to consultant ${consultant.email}: ${consultantEmailResult.error}`);
+              }
             }
 
             // Send push notifications to both users

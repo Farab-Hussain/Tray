@@ -114,13 +114,25 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Don't show toast/log for 403 errors from switch-role when consultant profile is missing
+    // This is expected behavior - the app will show a friendly alert instead
+    const isSwitchRole403 = 
+      status === 403 && 
+      url.includes('/auth/switch-role') && 
+      error.response?.data?.action === 'create_consultant_profile';
+    
+    if (isSwitchRole403) {
+      // Silently reject - let the calling code handle it with an alert
+      return Promise.reject(error);
+    }
+
     // Only show toast for unexpected errors
     if (status && status >= 400) {
       handleApiError(error);
     }
 
-    // Only log detailed error info in development
-    if (__DEV__) {
+    // Only log detailed error info in development (skip for expected switch-role 403)
+    if (__DEV__ && !isSwitchRole403) {
       console.error('❌ API Error Details:');
       console.error('  - URL:', url);
       console.error('  - Method:', error.config?.method);
@@ -129,7 +141,7 @@ api.interceptors.response.use(
       console.error('  - Response Data:', error.response?.data);
       console.error('  - Error Message:', error.message);
       console.error('  - Error Code:', error.code);
-    } else {
+    } else if (!isSwitchRole403) {
       // In production, only log minimal error info
       console.error('❌ API Error:', url, status, error.message);
     }

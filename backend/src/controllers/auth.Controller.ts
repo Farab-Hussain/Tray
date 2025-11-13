@@ -5,6 +5,7 @@ import { Logger } from "../utils/logger";
 import { sendEmail } from "../utils/email";
 import nodemailer from "nodemailer";
 import { randomUUID } from "crypto";
+import axios from "axios";
 
 
 /**
@@ -445,6 +446,9 @@ export const resetPassword = async (req: Request, res: Response) => {
 export const resendVerificationEmail = async (req: Request, res: Response) => {
   const route = "POST /auth/resend-verification-email";
 
+  // Declare userRecord outside try block so it's accessible in catch block
+  let userRecord: any = null;
+
   try {
     const { uid, email } = req.body;
 
@@ -454,7 +458,6 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
     }
 
     // Get user by uid or email
-    let userRecord;
     if (uid) {
       userRecord = await auth.getUser(uid);
     } else {
@@ -472,13 +475,13 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
       });
     }
 
-    // Generate email verification link using Admin SDK
-    // For backend, we need to use a valid HTTPS URL (not custom scheme)
-    // Firebase Admin SDK requires a valid HTTPS URL, not custom schemes
     let verificationLink: string;
     try {
-      // Use web URL for email verification
-      const webUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      // Try to use web URL for email verification if configured
+      const webUrl = process.env.FRONTEND_URL;
+      
+      if (webUrl && webUrl.trim() !== '') {
+        try {
       const actionCodeSettings = {
         url: `${webUrl}/verify-email`,
         handleCodeInApp: false,
@@ -488,22 +491,34 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
         userRecord.email!,
         actionCodeSettings
       );
-    } catch (linkError: any) {
-      // Handle Firebase rate limiting and other errors when generating link
-      if (linkError.code === 'auth/too-many-requests' ||
-        linkError.message?.includes('TOO_MANY_ATTEMPTS') ||
-        linkError.message?.includes('TOO_MANY_ATTEMPTS_TRY_LATER')) {
-        Logger.warn(route, userRecord.uid, "Firebase rate limit exceeded - too many verification link attempts");
-        return res.status(429).json({
-          error: "Too many verification email attempts. Please wait a few minutes before trying again.",
-          message: "Firebase rate limit exceeded. Please wait 5-10 minutes before trying again.",
-          code: "TOO_MANY_ATTEMPTS",
-          retryAfter: 300, // Suggest waiting 5 minutes
-          suggestion: "Please wait a few minutes and try resending from the app's verification screen."
-        });
+        } catch (uriError: any) {
+          // If continue URI fails (domain not allowlisted, invalid config), use default link
+          const errorCode = uriError.code || uriError.error?.code || '';
+          const errorMessage = uriError.message || uriError.error?.message || '';
+          const errorString = JSON.stringify(uriError).toLowerCase();
+          
+          if (errorCode === 'auth/invalid-continue-uri' ||
+              errorCode === 'auth/unauthorized-continue-uri' ||
+              errorMessage?.toLowerCase().includes('invalid-continue-uri') ||
+              errorMessage?.toLowerCase().includes('unauthorized-continue-uri') ||
+              errorMessage?.toLowerCase().includes('domain not allowlisted') ||
+              errorString.includes('invalid-continue-uri') ||
+              errorString.includes('unauthorized-continue-uri') ||
+              errorString.includes('domain not allowlisted')) {
+            Logger.warn(route, userRecord.uid, `Continue URI not configured (${errorCode || errorMessage}), using default verification link`);
+            // Generate link without actionCodeSettings (works for mobile apps)
+            verificationLink = await auth.generateEmailVerificationLink(userRecord.email!);
+          } else {
+            throw uriError;
+          }
+        }
+      } else {
+        // No FRONTEND_URL configured, generate default link (works for mobile apps)
+        Logger.info(route, userRecord.uid, "FRONTEND_URL not configured, generating default verification link");
+        verificationLink = await auth.generateEmailVerificationLink(userRecord.email!);
       }
-
-      // Re-throw other errors to be caught by outer catch
+    } catch (linkError: any) {
+      // Re-throw errors to be caught by outer catch
       throw linkError;
     }
 
@@ -557,24 +572,36 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
         © ${new Date().getFullYear()} Tray. All rights reserved.
       `;
 
-      await sendEmail({
+      const emailResult = await sendEmail({
         to: userRecord.email!,
         subject: "Verify Your Email Address - Tray",
         html: emailHtml,
         text: emailText
       });
 
+      if (emailResult.sent) {
       Logger.success(route, userRecord.uid, `Verification email sent via SMTP to ${userRecord.email}`);
-
       res.json({
         success: true,
         message: "Verification email sent successfully",
         email: userRecord.email,
         emailSent: true
       });
+      } else {
+        // Email sending failed (not configured or error)
+        Logger.warn(route, userRecord.uid, `SMTP email failed: ${emailResult.error || 'Unknown error'}`);
+        res.json({
+          success: true,
+          message: "Verification link generated (SMTP email failed)",
+          verificationLink: verificationLink,
+          email: userRecord.email,
+          emailSent: false,
+          note: emailResult.error || "Email sending failed, but verification link is available. Please use the link to verify your email."
+        });
+      }
     } catch (emailError: any) {
-      // If SMTP sending fails, still return the link so user can verify manually
-      Logger.warn(route, userRecord.uid, `SMTP email failed, returning link: ${emailError.message}`);
+      // Catch any unexpected errors
+      Logger.warn(route, userRecord.uid, `SMTP email error: ${emailError.message}`);
 
       res.json({
         success: true,
@@ -582,50 +609,131 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
         verificationLink: verificationLink,
         email: userRecord.email,
         emailSent: false,
-        note: "Email sending failed, but verification link is available. Please use the link to verify your email."
+        note: `Email sending failed: ${emailError.message}. Verification link is available. Please use the link to verify your email.`
       });
     }
   } catch (error: any) {
-    Logger.error(route, "", error.message);
+    // Log full error for debugging
+    Logger.error(route, userRecord?.uid || "", `Error details: ${JSON.stringify(error)}`);
 
-    // Handle Firebase rate limiting - check both error code and message
-    if (error.code === 'auth/too-many-requests' ||
-      error.code === 'TOO_MANY_ATTEMPTS_TRY_LATER' ||
-      error.message?.includes('TOO_MANY_ATTEMPTS') ||
-      error.message?.includes('TOO_MANY_ATTEMPTS_TRY_LATER') ||
-      (error.errors && Array.isArray(error.errors) &&
-        error.errors.some((e: any) => e.message?.includes('TOO_MANY_ATTEMPTS')))) {
-      Logger.warn(route, "", "Firebase rate limit exceeded - too many verification email attempts");
-      return res.status(429).json({
-        error: "Too many verification email attempts. Please wait a few minutes before trying again.",
-        message: "Too many verification email attempts. Please wait a few minutes before trying again.",
-        code: "TOO_MANY_ATTEMPTS",
-        retryAfter: 300 // Suggest waiting 5 minutes
-      });
+    // Fallback: If continue URI error somehow reached here, try generating default link
+    // Extract error information from various possible structures
+    const errorCode = error.code || error.error?.code || error.response?.data?.error?.code || '';
+    const errorMessage = error.message || error.error?.message || error.response?.data?.error?.message || '';
+    const errorString = JSON.stringify(error).toLowerCase();
+    
+    if (errorCode === 'auth/invalid-continue-uri' ||
+        errorCode === 'auth/unauthorized-continue-uri' ||
+        errorMessage?.toLowerCase().includes('invalid-continue-uri') ||
+        errorMessage?.toLowerCase().includes('unauthorized-continue-uri') ||
+        errorMessage?.toLowerCase().includes('domain not allowlisted') ||
+        errorString.includes('invalid-continue-uri') ||
+        errorString.includes('unauthorized-continue-uri') ||
+        errorString.includes('domain not allowlisted')) {
+      
+      // Only attempt fallback if we have userRecord
+      if (userRecord && userRecord.email) {
+        Logger.warn(route, userRecord.uid || "", `Continue URI error in outer catch, attempting fallback with default link`);
+        
+        try {
+          // Try to generate default link as fallback
+          const defaultLink = await auth.generateEmailVerificationLink(userRecord.email);
+          Logger.success(route, userRecord.uid || "", `Fallback: Generated default verification link`);
+          
+          // Try to send email with default link
+          try {
+            const emailHtml = `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Verify Your Email</title>
+              </head>
+              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                  <h1 style="color: white; margin: 0;">Verify Your Email Address</h1>
+                </div>
+                <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                  <p style="font-size: 16px;">Hello,</p>
+                  <p style="font-size: 16px;">Thank you for registering with Tray! Please verify your email address by clicking the button below:</p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${defaultLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Verify Email Address</a>
+                  </div>
+                  <p style="font-size: 14px; color: #666;">Or copy and paste this link into your browser:</p>
+                  <p style="font-size: 12px; color: #999; word-break: break-all; background: #fff; padding: 10px; border-radius: 5px;">${defaultLink}</p>
+                  <p style="font-size: 14px; color: #666; margin-top: 30px;">This link will expire in 24 hours.</p>
+                  <p style="font-size: 14px; color: #666;">If you didn't create an account, please ignore this email.</p>
+                </div>
+              </body>
+              </html>
+            `;
+            
+            const emailResult = await sendEmail({
+              to: userRecord.email,
+              subject: "Verify Your Email Address - Tray",
+              html: emailHtml
+            });
+            
+            if (emailResult.sent) {
+              return res.json({
+                success: true,
+                message: "Verification email sent successfully",
+                email: userRecord.email,
+                emailSent: true
+              });
+            } else {
+              Logger.warn(route, userRecord.uid || "", `Email send failed in fallback: ${emailResult.error || 'Unknown error'}`);
+              return res.json({
+                success: true,
+                message: "Verification link generated",
+                verificationLink: defaultLink,
+                email: userRecord.email,
+                emailSent: false,
+                note: emailResult.error || "Email sending failed, but verification link is available."
+              });
+            }
+          } catch (emailErr: any) {
+            Logger.warn(route, userRecord.uid || "", `Email send error in fallback: ${emailErr.message}`);
+            return res.json({
+              success: true,
+              message: "Verification link generated",
+              verificationLink: defaultLink,
+              email: userRecord.email,
+              emailSent: false,
+              note: `Email sending failed: ${emailErr.message}`
+            });
+          }
+        } catch (fallbackError: any) {
+          Logger.error(route, userRecord.uid || "", `Fallback also failed: ${fallbackError.message}`);
+          // Continue to generic error response
+        }
+      } else {
+        Logger.warn(route, "", `Continue URI error but userRecord not available for fallback`);
+      }
     }
 
-    // Handle invalid continue URI
-    if (error.code === 'auth/invalid-continue-uri' ||
-      error.code === 'auth/unauthorized-continue-uri' ||
-      error.message?.includes('invalid-continue-uri') ||
-      error.message?.includes('unauthorized-continue-uri')) {
-      Logger.error(route, "", "Invalid continue URI configuration");
-      return res.status(400).json({
-        error: "Invalid email verification configuration. Please contact support.",
-        code: error.code
+    // Check for rate limiting errors (TOO_MANY_ATTEMPTS_TRY_LATER)
+    if (errorCode === 'TOO_MANY_ATTEMPTS_TRY_LATER' ||
+        errorMessage?.includes('TOO_MANY_ATTEMPTS_TRY_LATER') ||
+        errorString.includes('too_many_attempts_try_later')) {
+      Logger.warn(route, userRecord?.uid || "", "Too many verification email attempts");
+      return res.status(429).json({
+        error: "Too many attempts. Please wait a few minutes before requesting another verification email.",
+        code: "TOO_MANY_ATTEMPTS_TRY_LATER",
+        message: "Too many attempts. Please wait a few minutes before requesting another verification email."
       });
     }
 
     // If error has a nested error structure (from Firebase API)
-    const errorMessage = error.message ||
-      error.error?.message ||
+    const finalErrorMessage = errorMessage ||
       (typeof error === 'string' ? error : 'An error occurred while sending verification email');
-    const errorCode = error.code || error.error?.code || 'auth/internal-error';
+    const finalErrorCode = errorCode || 'auth/internal-error';
 
     res.status(500).json({
-      error: errorMessage,
-      code: errorCode,
-      message: errorMessage
+      error: finalErrorMessage,
+      code: finalErrorCode,
+      message: finalErrorMessage
     });
   }
 };
@@ -642,10 +750,10 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
  */
 export const getAllUsers = async (req: Request, res: Response) => {
   const route = "GET /auth/admin/users";
-  
+
   try {
     const userRole = (req as any).userRole;
-    
+
     // Double check admin role (should be handled by middleware, but extra safety)
     if (userRole !== "admin") {
       Logger.error(route, "", "Non-admin user attempted to access admin endpoint");
@@ -656,8 +764,8 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
     const role = req.query.role as string | undefined;
-    const isActive = req.query.isActive !== undefined 
-      ? req.query.isActive === 'true' 
+    const isActive = req.query.isActive !== undefined
+      ? req.query.isActive === 'true'
       : undefined;
 
     // Build query
@@ -699,7 +807,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
     });
 
     Logger.success(route, "", `Retrieved ${users.length} users (page ${page})`);
-    
+
     res.json({
       users,
       pagination: {
@@ -750,7 +858,7 @@ export const requestConsultantRole = async (req: Request, res: Response) => {
 
     // Add consultant to roles array
     const updatedRoles = [...currentRoles, 'consultant'];
-    
+
     await db.collection("users").doc(user.uid).update({
       roles: updatedRoles,
       updatedAt: new Date(),
@@ -815,7 +923,7 @@ export const switchRole = async (req: Request, res: Response) => {
 
       // Check if consultant profile exists
       const consultantProfileDoc = await db.collection("consultantProfiles").doc(user.uid).get();
-      
+
       if (!consultantProfileDoc.exists) {
         // Profile doesn't exist - don't switch role, user must create profile first
         Logger.info(route, user.uid, `Consultant profile not found - role switch blocked`);
@@ -862,6 +970,222 @@ export const switchRole = async (req: Request, res: Response) => {
   } catch (error) {
     Logger.error(route, "", "Error switching role", error);
     res.status(500).json({ error: (error as Error).message });
+  }
+};
+
+/**
+ * POST /auth/change-password
+ * Change password for authenticated user
+ */
+export const changePassword = async (req: Request, res: Response) => {
+  const route = "POST /auth/change-password";
+
+  try {
+    const user = (req as any).user;
+    const { newPassword, currentPassword } = req.body;
+
+    if (!currentPassword) {
+      Logger.error(route, user.uid, "Missing current password");
+      return res.status(400).json({ error: "Current password is required" });
+    }
+
+    if (!newPassword) {
+      Logger.error(route, user.uid, "Missing new password");
+      return res.status(400).json({ error: "New password is required" });
+    }
+
+    if (newPassword.length < 8) {
+      Logger.error(route, user.uid, "Password too short");
+      return res.status(400).json({ error: "Password must be at least 8 characters long" });
+    }
+
+    // Get user email from Firebase Auth
+    const userRecord = await auth.getUser(user.uid);
+    const email = userRecord.email;
+
+    if (!email) {
+      Logger.error(route, user.uid, "User email not found");
+      return res.status(400).json({ error: "User email not found" });
+    }
+
+    // Verify current password by attempting to sign in using Firebase Auth REST API
+    const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    
+    if (!firebaseApiKey) {
+      Logger.error(route, "", "Firebase API key not configured");
+      return res.status(500).json({ error: "Server configuration error" });
+    }
+
+    try {
+      // Verify current password by attempting to sign in using Firebase Auth REST API
+      // This is the only way to verify a password with Firebase Admin SDK
+      const verifyResponse = await axios.post(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`,
+        {
+          email: email,
+          password: currentPassword,
+          returnSecureToken: true
+        }
+      );
+
+      // If sign-in succeeds (200 status), the current password is correct
+      // Now we can safely update to the new password
+      await auth.updateUser(user.uid, {
+        password: newPassword
+      });
+
+      Logger.success(route, user.uid, "Password changed successfully");
+      res.status(200).json({
+        message: "Password changed successfully"
+      });
+    } catch (verifyError: any) {
+      // If sign-in fails, the current password is incorrect
+      Logger.error(route, user.uid, "Password verification failed", verifyError.response?.data || verifyError.message);
+      
+      if (verifyError.response?.status === 400 && verifyError.response?.data?.error) {
+        const errorCode = verifyError.response.data.error.message || '';
+        const errorMessage = verifyError.response.data.error.message || '';
+        
+        // Check for specific Firebase Auth error codes
+        if (errorCode.includes("INVALID_PASSWORD") || 
+            errorMessage.includes("INVALID_PASSWORD") ||
+            errorCode.includes("WRONG_PASSWORD") ||
+            errorMessage.includes("WRONG_PASSWORD")) {
+          Logger.error(route, user.uid, "Current password is incorrect");
+          return res.status(400).json({ 
+            error: "Current password is incorrect" 
+          });
+        }
+        
+        if (errorCode.includes("EMAIL_NOT_FOUND") || 
+            errorMessage.includes("EMAIL_NOT_FOUND") ||
+            errorCode.includes("USER_NOT_FOUND") ||
+            errorMessage.includes("USER_NOT_FOUND")) {
+          Logger.error(route, user.uid, "User email not found in Firebase Auth");
+          return res.status(400).json({ 
+            error: "User email not found" 
+          });
+        }
+        
+        if (errorCode.includes("INVALID_EMAIL") || 
+            errorMessage.includes("INVALID_EMAIL")) {
+          Logger.error(route, user.uid, "Invalid email format");
+          return res.status(400).json({ 
+            error: "Invalid email format" 
+          });
+        }
+      }
+      
+      // Default error response for any other verification failures
+      Logger.error(route, user.uid, "Current password verification failed", verifyError);
+      return res.status(400).json({ 
+        error: "Current password is incorrect" 
+      });
+    }
+  } catch (error: any) {
+    Logger.error(route, "", "Error changing password", error);
+    res.status(500).json({
+      error: "Failed to change password",
+      message: error.message
+    });
+  }
+};
+
+/**
+ * POST /auth/admin/create-admin
+ * Create a new admin user (Admin only)
+ */
+export const createAdminUser = async (req: Request, res: Response) => {
+  const route = "POST /auth/admin/create-admin";
+
+  try {
+    const currentUser = (req as any).user;
+    const userRole = (req as any).userRole;
+
+    // Verify admin access
+    if (userRole !== "admin") {
+      Logger.error(route, currentUser.uid, "Non-admin user attempted to create admin");
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const { email, password, name } = req.body;
+
+    if (!email || !password) {
+      Logger.error(route, "", "Missing required fields");
+      return res.status(400).json({
+        error: "Email and password are required"
+      });
+    }
+
+    if (password.length < 8) {
+      Logger.error(route, "", "Password too short");
+      return res.status(400).json({
+        error: "Password must be at least 8 characters long"
+      });
+    }
+
+    // Check if user already exists
+    let userRecord;
+    try {
+      userRecord = await auth.getUserByEmail(email);
+      Logger.warn(route, "", `User with email ${email} already exists`);
+      return res.status(400).json({
+        error: "User with this email already exists"
+      });
+    } catch (error: any) {
+      // User doesn't exist, continue with creation
+      if (error.code !== 'auth/user-not-found') {
+        throw error;
+      }
+    }
+
+    // Create user in Firebase Auth
+    userRecord = await auth.createUser({
+      email,
+      password,
+      emailVerified: true, // Auto-verify email for admin users
+      displayName: name || email.split('@')[0]
+    });
+
+    // Create user document in Firestore with admin role
+    const userData = {
+      name: name || email.split('@')[0],
+      role: 'admin', // Keep for backward compatibility
+      roles: ['admin'],
+      activeRole: 'admin',
+      email,
+      profileImage: null,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: currentUser.uid // Track who created this admin
+    };
+
+    await db.collection("users").doc(userRecord.uid).set(userData);
+
+    Logger.success(route, currentUser.uid, `Admin user created: ${email} (${userRecord.uid})`);
+    res.status(201).json({
+      message: "Admin user created successfully",
+      user: {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        name: userData.name,
+        role: 'admin'
+      }
+    });
+  } catch (error: any) {
+    Logger.error(route, "", "Error creating admin user", error);
+    
+    if (error.code === 'auth/email-already-exists') {
+      return res.status(400).json({
+        error: "User with this email already exists"
+      });
+    }
+    
+    res.status(500).json({
+      error: "Failed to create admin user",
+      message: error.message
+    });
   }
 };
 

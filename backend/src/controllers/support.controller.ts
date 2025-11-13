@@ -39,12 +39,19 @@ export const sendSupportMessage = async (req: Request, res: Response) => {
       </div>
     `;
 
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: SUPPORT_EMAIL,
       subject: `[Tray Support] ${sanitizedSubject}`,
       html: htmlContent,
       text: `${sanitizedMessage}\n\n—\nName: ${requesterName}\nEmail: ${email}`,
     });
+
+    if (!emailResult.sent) {
+      Logger.warn("Support", "", `Failed to send support email: ${emailResult.error}`);
+      return res.status(500).json({
+        error: "Failed to send support request. Please try again later or contact support directly.",
+      });
+    }
 
     res.status(200).json({ message: "Support request sent successfully" });
   } catch (error: any) {

@@ -93,6 +93,29 @@ const UploadService = {
   },
 
   /**
+   * Upload service image (React Native compatible)
+   * @param imageFile - File object with uri, type, and name
+   * @returns UploadResponse with imageUrl and publicId
+   */
+  async uploadServiceImage(imageFile: any): Promise<UploadResponse> {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+
+      const response = await api.post<UploadResponse>('/upload/service-image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error uploading service image:', error);
+      throw new Error(error.response?.data?.error || 'Failed to upload image');
+    }
+  },
+
+  /**
    * Get upload signature for direct Cloudinary upload (optional - for advanced use cases)
    * @param folder - Cloudinary folder path (default: 'tray/profile-images')
    * @returns UploadSignatureResponse with signature and upload parameters

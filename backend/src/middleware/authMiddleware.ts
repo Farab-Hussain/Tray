@@ -4,48 +4,77 @@ import { auth, db } from "../config/firebase";
 import { Logger } from "../utils/logger";
 
 /**
- * Middleware to verify Firebase ID token from Authorization header
- * Ensures the backend only serves data to authenticated users
+ * Internal middleware function to verify Firebase ID token
+ * Optionally allows unverified users for specific routes (like resend-verification-email)
  */
-export const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
-  const route = `${req.method} ${req.path}`;
-  
-  try {
-    const authHeader = req.headers.authorization;
+const createAuthenticateMiddleware = (allowUnverified: boolean = false) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const route = `${req.method} ${req.path}`;
     
-    // Check if Authorization header exists
-    if (!authHeader) {
-      Logger.error(route, "", "No authorization header provided");
-      return res.status(401).json({ error: "No token provided" });
+    try {
+      const authHeader = req.headers.authorization;
+      
+      // Check if Authorization header exists
+      if (!authHeader) {
+        Logger.error(route, "", "No authorization header provided");
+        return res.status(401).json({ error: "No token provided" });
+      }
+
+      // Check if token follows Bearer format
+      if (!authHeader.startsWith("Bearer ")) {
+        Logger.error(route, "", "Invalid token format - must be 'Bearer <token>'");
+        return res.status(401).json({ error: "Invalid token format" });
+      }
+
+      // Extract token from "Bearer <token>"
+      const idToken = authHeader.split(" ")[1];
+      
+      if (!idToken) {
+        Logger.error(route, "", "Token is empty");
+        return res.status(401).json({ error: "No token provided" });
+      }
+
+      // Verify Firebase ID token
+      const decodedToken = await auth.verifyIdToken(idToken);
+
+      // Check if email is verified (required for app access, unless allowUnverified is true)
+      if (!allowUnverified && !decodedToken.email_verified) {
+        Logger.warn(route, decodedToken.uid, "Access denied - Email not verified");
+        return res.status(403).json({ 
+          error: "Email verification required",
+          message: "Please verify your email address before accessing the app",
+          emailVerified: false,
+          requiresVerification: true
+        });
+      }
+
+      (req as any).user = decodedToken;
+      
+      Logger.info(route, "", `User authenticated: ${decodedToken.uid}${!decodedToken.email_verified ? ' (unverified)' : ''}`);
+      next();
+    } catch (error) {
+      Logger.error(route, "", "Invalid or expired token", error);
+      res.status(401).json({ error: "Invalid or expired token" });
     }
-
-    // Check if token follows Bearer format
-    if (!authHeader.startsWith("Bearer ")) {
-      Logger.error(route, "", "Invalid token format - must be 'Bearer <token>'");
-      return res.status(401).json({ error: "Invalid token format" });
-    }
-
-    // Extract token from "Bearer <token>"
-    const idToken = authHeader.split(" ")[1];
-    
-    if (!idToken) {
-      Logger.error(route, "", "Token is empty");
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    // Verify Firebase ID token
-    const decodedToken = await auth.verifyIdToken(idToken);
-
-
-    (req as any).user = decodedToken;
-    
-    Logger.info(route, "", `User authenticated: ${decodedToken.uid}`);
-    next();
-  } catch (error) {
-    Logger.error(route, "", "Invalid or expired token", error);
-    res.status(401).json({ error: "Invalid or expired token" });
-  }
+  };
 };
+
+/**
+ * Middleware to verify Firebase ID token from Authorization header
+ * Requires email verification by default
+ * Use authenticateUser(true) to allow unverified users (e.g., for resend-verification-email)
+ */
+const defaultAuthenticateUser = createAuthenticateMiddleware(false);
+
+// Export as a function that can be used both ways:
+// - authenticateUser (as middleware, requires email verification)
+// - authenticateUser(true) (allows unverified users)
+export function authenticateUser(allowUnverified?: boolean): ReturnType<typeof createAuthenticateMiddleware> {
+  if (allowUnverified === true) {
+    return createAuthenticateMiddleware(true);
+  }
+  return defaultAuthenticateUser;
+}
 
 
 export const authorizeRole = (roles: string[]) => {

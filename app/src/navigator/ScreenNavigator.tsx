@@ -1,6 +1,11 @@
 import React from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createStackNavigator, StackCardStyleInterpolator } from '@react-navigation/stack';
+import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { COLORS } from '../constants/core/colors';
+import { navigationRef } from './navigationRef';
 import BottomTabs from './BottomNavigation';
 import ConsultantBottomTabs from './ConsultantBottomNavigation';
 import Help from '../Screen/common/Help/Help';
@@ -53,16 +58,131 @@ const ConsultantFlowHandler = () => {
 
 // Component to render appropriate bottom tabs based on role
 const RoleBasedTabs = () => {
-  const { role, needsProfileCreation } = useAuth();
+  const { role, needsProfileCreation, consultantVerificationStatus, user } = useAuth();
+  const [hasApprovedServices, setHasApprovedServices] = React.useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = React.useState(true);
+  
+  // Check if email is verified - redirect to EmailVerification if not
+  React.useEffect(() => {
+    if (user && !user.emailVerified) {
+      if (navigationRef.isReady()) {
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'Auth',
+                params: {
+                  screen: 'EmailVerification',
+                  params: { 
+                    email: user.email,
+                    fromLogin: true 
+                  }
+                }
+              }
+            ]
+          })
+        );
+      }
+    }
+  }, [user]);
+  
+  // If email is not verified, show loading while redirecting
+  if (user && !user.emailVerified) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.green} />
+          <Text style={{ marginTop: 12, fontSize: 16, color: COLORS.gray }}>
+            Redirecting to email verification...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
+  // Check if consultant has approved services
+  React.useEffect(() => {
+    const checkApprovedServices = async () => {
+      // If not consultant, don't check
+      if (role !== 'consultant') {
+        setHasApprovedServices(null);
+        setIsChecking(false);
+        return;
+      }
+      
+      // If profile is not approved or status is unknown, no need to check services
+      if (consultantVerificationStatus !== 'approved') {
+        setHasApprovedServices(null);
+        setIsChecking(false);
+        return;
+      }
+      
+      // Only check services if profile is approved
+      if (user?.uid) {
+        try {
+          // Add timeout to prevent infinite loading
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 10000)
+          );
+          
+          const { getConsultantApplications } = await import('../services/consultantFlow.service');
+          const applicationsPromise = getConsultantApplications();
+          
+          const applications = await Promise.race([applicationsPromise, timeoutPromise]) as any;
+          const approvedServices = applications.filter((app: any) => app.status === 'approved');
+          setHasApprovedServices(approvedServices.length > 0);
+        } catch (error) {
+          console.error('Error checking approved services:', error);
+          setHasApprovedServices(false);
+        }
+      } else {
+        setHasApprovedServices(false);
+      }
+      setIsChecking(false);
+    };
+    
+    checkApprovedServices();
+  }, [role, consultantVerificationStatus, user?.uid]);
   
   // If profile needs to be created, show profile creation screen
   if (needsProfileCreation) {
     return <CreateProfile />;
   }
   
-  // For consultants, always show verification flow first
+  // For consultants, check if both profile and services are approved
   if (role === 'consultant') {
-    return <ConsultantBottomTabs />;
+    // If still checking, show loading screen
+    if (isChecking) {
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={COLORS.green} />
+            <Text style={{ marginTop: 12, fontSize: 16, color: COLORS.gray }}>
+              Loading your status...
+            </Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
+    
+    // If profile is not approved, show pending approval
+    if (consultantVerificationStatus !== 'approved') {
+      return <PendingApproval />;
+    }
+    
+    // If profile is approved but no services are approved, show service setup
+    if (hasApprovedServices === false) {
+      return <ConsultantServiceSetupScreen />;
+    }
+    
+    // Only show consultant tabs if both profile AND services are approved
+    if (hasApprovedServices === true) {
+      return <ConsultantBottomTabs />;
+    }
+    
+    // Default fallback
+    return <PendingApproval />;
   }
   
   return <BottomTabs />;

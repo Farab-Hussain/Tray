@@ -22,7 +22,25 @@ const SplashScreen = ({ navigation }: any) => {
 
       try {
         if (user) {
-          // User is logged in - get their role and navigate to home
+          // Check if email is verified (required for app access)
+          if (!user.emailVerified) {
+            console.log('User email not verified, redirecting to EmailVerification');
+            const elapsedTime = Date.now() - startTime;
+            const remainingTime = Math.max(0, minSplashTime - elapsedTime);
+            
+            setTimeout(() => {
+              navigation.replace('Auth', {
+                screen: 'EmailVerification',
+                params: { 
+                  email: user.email,
+                  fromLogin: true 
+                }
+              });
+            }, remainingTime);
+            return;
+          }
+
+          // User is logged in and email verified - get their role and navigate to home
           const storedRole = await AsyncStorage.getItem('role');
           const userRole = storedRole || 'student'; // Default to student if no role found
 
@@ -36,18 +54,11 @@ const SplashScreen = ({ navigation }: any) => {
 
           setTimeout(async () => {
             // Navigate to appropriate screen based on role
-            if (userRole === 'consultant') {
-              console.log('Splash - Consultant detected, navigating to verification flow');
-              navigation.replace('Screen', {
-                screen: 'MainTabs',
-                params: { role: userRole }
-              });
-            } else {
-              navigation.replace('Screen', {
-                screen: 'MainTabs',
-                params: { role: userRole }
-              });
-            }
+            // RoleBasedTabs will handle checking for profile and service approval
+            navigation.replace('Screen', {
+              screen: 'MainTabs',
+              params: { role: userRole }
+            });
           }, remainingTime);
         } else {
           // User is not logged in - show role selection/login screen

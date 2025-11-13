@@ -101,6 +101,14 @@ export const authAPI = {
   updateUserStatus: (userId: string, status: 'active' | 'inactive' | 'suspended') =>
     api.put(`/auth/admin/users/${userId}/status`, { status }),
   adminDeleteUser: (userId: string) => api.delete(`/auth/admin/users/${userId}`),
+  
+  // Password management
+  changePassword: (newPassword: string, currentPassword?: string) =>
+    api.post('/auth/change-password', { newPassword, currentPassword }),
+  
+  // Admin user creation
+  createAdminUser: (data: { email: string; password: string; name?: string }) =>
+    api.post('/auth/admin/create-admin', data),
 };
 
 // ========== Consultant Flow API ==========
@@ -136,6 +144,13 @@ export const consultantFlowAPI = {
   
   getDashboardStats: () => api.get('/consultant-flow/dashboard/stats'),
   getAnalytics: () => api.get('/consultant-flow/admin/analytics'),
+};
+
+// ========== Activity API ==========
+
+export const activityAPI = {
+  getRecentActivities: (limit?: number) => 
+    api.get('/admin/activities/recent', { params: { limit } }),
 };
 
 // ========== Consultant API ==========

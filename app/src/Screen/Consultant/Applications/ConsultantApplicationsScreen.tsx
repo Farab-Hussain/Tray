@@ -722,17 +722,15 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
           <ChevronLeft size={24} color={COLORS.black} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Applications</Text>
-        <TouchableOpacity
-          onPress={() => {
-            resetForm();
-            setShowModal(true);
-          }}
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('BrowseServices' as never)} 
+          style={styles.headerButton}
         >
-          <Plus size={24} color={COLORS.green} />
+          <Plus size={24} color={COLORS.black} />
         </TouchableOpacity>
       </View>
 
@@ -758,16 +756,15 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           <View style={styles.emptyState}>
             <FileText size={48} color={COLORS.lightGray} />
             <Text style={styles.emptyTitle}>No Applications Yet</Text>
-            <Text style={styles.emptyText}>Submit your first service application</Text>
+            <Text style={styles.emptyText}>Browse and apply from existing platform services</Text>
             <TouchableOpacity
               style={styles.emptyButton}
               onPress={() => {
-                resetForm();
-                setShowModal(true);
+                navigation.navigate('BrowseServices' as never);
               }}
             >
               <Plus size={20} color={COLORS.white} />
-              <Text style={styles.emptyButtonText}>New Application</Text>
+              <Text style={styles.emptyButtonText}>Apply from Existing Services</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -933,7 +930,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
                     style={styles.imageUpload}
                     required={true}
                     error={validationErrors.serviceImage}
-                    uploadType="consultant"
+                    uploadType="service"
                   />
                 </View>
 
@@ -1062,10 +1059,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray,
   },
+  headerButton: {
+    width: 24,
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.black,
+    flex: 1,
+    textAlign: 'center',
   },
   statsContainer: {
     flexDirection: 'row',

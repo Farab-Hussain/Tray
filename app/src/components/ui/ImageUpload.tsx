@@ -23,9 +23,10 @@ interface ImageUploadProps {
   onImageDeleted?: () => void;
   placeholder?: string;
   style?: any;
-  uploadType?: 'user' | 'consultant';
+  uploadType?: 'user' | 'consultant' | 'service';
   required?: boolean;
   error?: string;
+  showDeleteButton?: boolean; // Option to hide delete button
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
@@ -38,6 +39,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   uploadType = 'user',
   required: _required = false,
   error,
+  showDeleteButton = true, // Default to showing delete button for backward compatibility
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -89,11 +91,19 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
   const handleImageResponse = async (response: ImagePickerResponse) => {
     if (response.didCancel || response.errorMessage) {
+      console.log('📸 Image selection cancelled or error:', response.errorMessage);
       return;
     }
 
     const asset = response.assets?.[0];
-    if (!asset?.uri) return;
+    if (!asset?.uri) {
+      console.log('📸 No asset URI found in response');
+      return;
+    }
+
+    console.log('📸 Selected image URI:', asset.uri);
+    console.log('📸 Current image URL:', currentImageUrl);
+    console.log('📸 Upload type:', uploadType);
 
     setIsUploading(true);
 
@@ -105,16 +115,25 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         name: asset.fileName || 'image.jpg',
       } as any;
 
-      // Upload image
-      const result =
-        uploadType === 'consultant'
-          ? await UploadService.uploadConsultantImage(file)
-          : await UploadService.uploadProfileImage(file);
+      console.log('📸 Uploading image file:', { uri: file.uri, type: file.type, name: file.name });
 
+      // Upload image
+      let result;
+      if (uploadType === 'consultant') {
+        result = await UploadService.uploadConsultantImage(file);
+      } else if (uploadType === 'service') {
+        result = await UploadService.uploadServiceImage(file);
+      } else {
+        result = await UploadService.uploadProfileImage(file);
+      }
+
+      console.log('📸 Upload result:', { imageUrl: result.imageUrl, publicId: result.publicId });
+      console.log('📸 Calling onImageUploaded with new URL:', result.imageUrl);
+      
       onImageUploaded(result.imageUrl, result.publicId);
-      showAlert('success', 'Success', 'Image uploaded successfully!');
+      // Success alert removed - parent component handles navigation/feedback
     } catch (err: any) {
-      console.error('Upload error:', err);
+      console.error('❌ Upload error:', err);
       showAlert(
         'error',
         'Upload Failed',
@@ -126,17 +145,37 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   const handleDeleteImage = async () => {
-    if (!currentPublicId) return;
+    // If we have a publicId, try to delete from Cloudinary first
+    // Otherwise, just call onImageDeleted to clear from backend
+    if (!currentImageUrl) return;
 
     setIsDeleting(true);
     try {
-      if (uploadType === 'consultant') {
-        await UploadService.deleteConsultantImage(currentPublicId);
-      } else {
-        await UploadService.deleteProfileImage(currentPublicId);
+      if (currentPublicId) {
+        // Try to delete from Cloudinary if we have the publicId
+        try {
+          if (uploadType === 'consultant') {
+            await UploadService.deleteConsultantImage(currentPublicId);
+          } else {
+            await UploadService.deleteProfileImage(currentPublicId);
+          }
+        } catch (cloudinaryError: any) {
+          // If Cloudinary deletion fails, still proceed to clear from backend
+          console.warn('Cloudinary deletion failed, clearing from backend only:', cloudinaryError);
+        }
       }
-      onImageDeleted?.();
-      showAlert('success', 'Success', 'Image deleted successfully!');
+      
+      // Always call onImageDeleted to clear the image from backend/profile
+      // This works even if we don't have publicId (for older images)
+      // Make it async and wait for it to complete
+      if (onImageDeleted) {
+        // If onImageDeleted is async, await it; otherwise just call it
+        const result = onImageDeleted();
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+      }
+      // Success alert removed - parent component handles navigation/feedback
     } catch (err: any) {
       console.error('Delete error:', err);
       showAlert(
@@ -184,8 +223,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         )}
       </TouchableOpacity>
 
-      {/* Delete button */}
-      {currentImageUrl && (
+      {/* Delete button - only show if showDeleteButton is true */}
+      {currentImageUrl && showDeleteButton && (
         <TouchableOpacity
           onPress={handleDeleteImage}
           disabled={isDeleting}

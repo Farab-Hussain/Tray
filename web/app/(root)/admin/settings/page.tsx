@@ -2,71 +2,35 @@
 
 import React, { useState, useEffect } from 'react';
 import AdminSection from '@/components/admin/AdminSection';
-import MobileHeader from '@/components/shared/MobileHeader';
-import { Loader2, Save, RefreshCw, DollarSign } from 'lucide-react';
-import { api } from '@/utils/api';
-
-interface PlatformSettings {
-  general: {
-    platformName: string;
-    platformDescription: string;
-    timezone: string;
-    language: string;
-  };
-  security: {
-    sessionTimeout: number;
-    maxLoginAttempts: number;
-    requireTwoFactor: boolean;
-    passwordMinLength: number;
-  };
-  notifications: {
-    emailNotifications: boolean;
-    pushNotifications: boolean;
-    adminAlerts: boolean;
-    userWelcomeEmail: boolean;
-  };
-  features: {
-    enableVideoCalls: boolean;
-    enableFileSharing: boolean;
-    enableReviews: boolean;
-    enableMessaging: boolean;
-  };
-}
+import { Loader2, Save, RefreshCw, DollarSign, Lock, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { api, authAPI } from '@/utils/api';
 
 const SettingsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [platformFeeAmount, setPlatformFeeAmount] = useState<number>(5.00);
   const [platformFeeLoading, setPlatformFeeLoading] = useState(true);
   const [platformFeeSaving, setPlatformFeeSaving] = useState(false);
   const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
   const [platformFeeSuccess, setPlatformFeeSuccess] = useState<string | null>(null);
-  const [settings, setSettings] = useState<PlatformSettings>({
-    general: {
-      platformName: 'Tray Consultant Platform',
-      platformDescription: 'Professional consulting marketplace',
-      timezone: 'UTC',
-      language: 'en'
-    },
-    security: {
-      sessionTimeout: 30,
-      maxLoginAttempts: 5,
-      requireTwoFactor: false,
-      passwordMinLength: 8
-    },
-    notifications: {
-      emailNotifications: true,
-      pushNotifications: true,
-      adminAlerts: true,
-      userWelcomeEmail: true
-    },
-    features: {
-      enableVideoCalls: true,
-      enableFileSharing: true,
-      enableReviews: true,
-      enableMessaging: true
-    }
-  });
+  
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  
+  // Create admin user state
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [adminSuccess, setAdminSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -92,7 +56,7 @@ const SettingsPage = () => {
         if (response.data?.platformFeeAmount !== undefined) {
           setPlatformFeeAmount(response.data.platformFeeAmount);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching platform fee:', error);
         setPlatformFeeError('Failed to load platform fee. Using default.');
       } finally {
@@ -103,26 +67,6 @@ const SettingsPage = () => {
     fetchSettings();
     fetchPlatformFee();
   }, []);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      // TODO: Replace with actual API call when backend settings endpoint is ready
-      // await api.put('/admin/settings', settings);
-      
-      // For now, just simulate saving
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Settings saved:', settings);
-      
-      // Show success message (you could add a toast notification here)
-      alert('Settings saved successfully!');
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      alert('Failed to save settings. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleSavePlatformFee = async () => {
     if (platformFeeAmount < 0) {
@@ -138,43 +82,96 @@ const SettingsPage = () => {
       await api.put('/payment/platform-fee', { platformFeeAmount });
       setPlatformFeeSuccess('Platform fee updated successfully!');
       setTimeout(() => setPlatformFeeSuccess(null), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating platform fee:', error);
-      setPlatformFeeError(error.response?.data?.error || 'Failed to update platform fee');
+      const errorMessage = (error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to update platform fee';
+      setPlatformFeeError(errorMessage);
     } finally {
       setPlatformFeeSaving(false);
     }
   };
 
-  const handleReset = () => {
-    // Reset to default settings
-    setSettings({
-      general: {
-        platformName: 'Tray Consultant Platform',
-        platformDescription: 'Professional consulting marketplace',
-        timezone: 'UTC',
-        language: 'en'
-      },
-      security: {
-        sessionTimeout: 30,
-        maxLoginAttempts: 5,
-        requireTwoFactor: false,
-        passwordMinLength: 8
-      },
-      notifications: {
-        emailNotifications: true,
-        pushNotifications: true,
-        adminAlerts: true,
-        userWelcomeEmail: true
-      },
-      features: {
-        enableVideoCalls: true,
-        enableFileSharing: true,
-        enableReviews: true,
-        enableMessaging: true
-      }
-    });
+  const handleChangePassword = async () => {
+    if (!currentPassword) {
+      setPasswordError('Current password is required');
+      return;
+    }
+
+    if (!newPassword) {
+      setPasswordError('New password is required');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirm password do not match');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    try {
+      await authAPI.changePassword(newPassword, currentPassword);
+      setPasswordSuccess('Password changed successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSuccess(null), 3000);
+    } catch (error: unknown) {
+      console.error('Error changing password:', error);
+      const errorMessage = (error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to change password';
+      setPasswordError(errorMessage);
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
+
+  const handleCreateAdmin = async () => {
+    if (!adminEmail || !adminPassword) {
+      setAdminError('Email and password are required');
+      return;
+    }
+
+    if (adminPassword.length < 8) {
+      setAdminError('Password must be at least 8 characters long');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(adminEmail)) {
+      setAdminError('Please enter a valid email address');
+      return;
+    }
+
+    setIsCreatingAdmin(true);
+    setAdminError(null);
+    setAdminSuccess(null);
+
+    try {
+      await authAPI.createAdminUser({
+        email: adminEmail,
+        password: adminPassword
+      });
+      setAdminSuccess('Admin user created successfully!');
+      setAdminEmail('');
+      setAdminPassword('');
+      setTimeout(() => setAdminSuccess(null), 3000);
+    } catch (error: unknown) {
+      console.error('Error creating admin user:', error);
+      const errorMessage = (error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Failed to create admin user';
+      setAdminError(errorMessage);
+    } finally {
+      setIsCreatingAdmin(false);
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -187,38 +184,7 @@ const SettingsPage = () => {
 
   return (
     <div className="py-4 sm:py-6 space-y-6 sm:space-y-8">
-      {/* Mobile Header */}
-      <MobileHeader title="Platform Settings" />
-      
-      {/* Desktop Header */}
-      <div className="hidden lg:block">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Platform Settings</h1>
-            <p className="text-sm sm:text-base text-gray-600">Configure platform settings and preferences</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              onClick={handleReset}
-              className="px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
-            >
-              Reset to Default
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
-            >
-              {isSaving ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </div>
-      </div>
+ 
 
       {/* System Status - Disabled until backend monitoring is implemented */}
       {/* 
@@ -249,59 +215,7 @@ const SettingsPage = () => {
       </AdminSection>
       */}
 
-      {/* General Settings */}
-      <AdminSection title="General Settings" subtitle="Basic platform configuration">
-        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Platform Name
-              </label>
-              <input
-                type="text"
-                value={settings.general.platformName}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  general: { ...settings.general, platformName: e.target.value }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Timezone
-              </label>
-              <select
-                value={settings.general.timezone}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  general: { ...settings.general, timezone: e.target.value }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
-              >
-                <option value="UTC">UTC</option>
-                <option value="EST">Eastern Time</option>
-                <option value="PST">Pacific Time</option>
-                <option value="GMT">Greenwich Mean Time</option>
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Platform Description
-              </label>
-              <textarea
-                value={settings.general.platformDescription}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  general: { ...settings.general, platformDescription: e.target.value }
-                })}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
-              />
-            </div>
-          </div>
-        </div>
-      </AdminSection>
+     
 
       {/* Platform Fee Settings */}
       <AdminSection title="Platform Fee" subtitle="Manage the fixed platform fee charged per booking">
@@ -345,7 +259,7 @@ const SettingsPage = () => {
                 </button>
               </div>
               <p className="mt-2 text-xs sm:text-sm text-gray-500">
-                This fixed amount will be charged per booking transaction. The fee is deducted from the consultant's payment.
+                This fixed amount will be charged per booking transaction. The fee is deducted from the consultant&apos;s payment.
               </p>
             </div>
             
@@ -367,6 +281,209 @@ const SettingsPage = () => {
                 <p className="text-sm text-green-700">{platformFeeSuccess}</p>
               </div>
             )}
+          </div>
+        </div>
+      </AdminSection>
+
+      {/* Change Password */}
+      <AdminSection title="Change Password" subtitle="Update your account password">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Current Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => {
+                    setCurrentPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
+                  placeholder="Enter current password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                New Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
+                  placeholder="Enter new password (min. 8 characters)"
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm New Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
+                  placeholder="Confirm new password"
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+            
+            {passwordError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{passwordError}</p>
+              </div>
+            )}
+            
+            {passwordSuccess && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700">{passwordSuccess}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleChangePassword}
+              disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+            >
+              {isChangingPassword ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Changing Password...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Change Password
+                </>
+              )}
+            </button>
+            <p className="text-xs sm:text-sm text-gray-500">
+              Your password must be at least 8 characters long.
+            </p>
+          </div>
+        </div>
+      </AdminSection>
+
+      {/* Create Admin User */}
+      <AdminSection title="Create Admin User" subtitle="Create a new admin account">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <UserPlus className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="email"
+                  value={adminEmail}
+                  onChange={(e) => {
+                    setAdminEmail(e.target.value);
+                    setAdminError(null);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
+                  placeholder="admin@example.com"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type={showAdminPassword ? "text" : "password"}
+                  value={adminPassword}
+                  onChange={(e) => {
+                    setAdminPassword(e.target.value);
+                    setAdminError(null);
+                  }}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
+                  placeholder="Enter password (min. 8 characters)"
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword(!showAdminPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showAdminPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+            
+            {adminError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{adminError}</p>
+              </div>
+            )}
+            
+            {adminSuccess && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700">{adminSuccess}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleCreateAdmin}
+              disabled={isCreatingAdmin || !adminEmail || !adminPassword}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+            >
+              {isCreatingAdmin ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Creating Admin...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4" />
+                  Create Admin User
+                </>
+              )}
+            </button>
+            <p className="text-xs sm:text-sm text-gray-500">
+              The new admin user will be able to access the admin dashboard immediately. Password must be at least 8 characters long.
+            </p>
           </div>
         </div>
       </AdminSection>

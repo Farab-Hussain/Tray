@@ -216,6 +216,29 @@ export const createConsultantProfile = async (req: Request, res: Response) => {
 
     console.log(`[${route}] ✅ All validations passed, creating profile...`);
     Logger.success(route, uid, "Validation passed, creating profile");
+    
+    // Check if user has a student profile image and use it if consultant profile image is not provided
+    if (!personalInfo.profileImage) {
+      try {
+        const userDoc = await db.collection("users").doc(uid).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          const studentProfileImage = userData?.profileImage;
+          if (studentProfileImage && typeof studentProfileImage === 'string' && studentProfileImage.trim() !== '') {
+            console.log(`[${route}] Using student profile image for consultant profile: ${uid}`);
+            req.body.personalInfo = {
+              ...req.body.personalInfo,
+              profileImage: studentProfileImage.trim()
+            };
+            personalInfo.profileImage = studentProfileImage.trim();
+          }
+        }
+      } catch (error: any) {
+        console.warn(`[${route}] Could not fetch student profile image:`, error.message);
+        // Continue without student profile image
+      }
+    }
+    
     const profile = await consultantFlowService.createProfile(req.body);
 
 

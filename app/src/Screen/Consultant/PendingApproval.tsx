@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Clock, CheckCircle, XCircle, FileText, RefreshCw, Plus, Edit3 } from 'lucide-react-native';
+import { Clock, CheckCircle, XCircle, FileText, RefreshCw, Plus, Edit3, Star, Calendar, Users, DollarSign, ArrowRight, AlertCircle } from 'lucide-react-native';
 import {
   getConsultantProfile,
   getConsultantApplications,
@@ -42,45 +42,8 @@ export default function PendingApproval() {
     }
   }, [user?.uid, lastUserId]);
 
-  // Check if consultant is already approved in AuthContext - run immediately on mount
-  useEffect(() => {
-    if (consultantVerificationStatus === 'approved') {
-      console.log('PendingApproval - Consultant already approved in AuthContext, switching role and navigating');
-      setIsLoading(false);
-      
-      // Automatically switch to consultant role if not already
-      if (activeRole !== 'consultant') {
-        switchRole('consultant').then(() => {
-          navigation.navigate('ConsultantServiceSetup' as never);
-        }).catch((error) => {
-          console.error('PendingApproval - Error switching role:', error);
-          navigation.navigate('ConsultantServiceSetup' as never);
-        });
-      } else {
-        navigation.navigate('ConsultantServiceSetup' as never);
-      }
-    }
-  }, [consultantVerificationStatus, navigation, activeRole, switchRole]);
-
-  // Additional immediate check on component mount
-  useEffect(() => {
-    // If we have a user and consultantVerificationStatus is approved, navigate immediately
-    if (user && consultantVerificationStatus === 'approved') {
-      console.log('PendingApproval - Mount check: Consultant approved, switching role and navigating');
-      
-      // Automatically switch to consultant role if not already
-      if (activeRole !== 'consultant') {
-        switchRole('consultant').then(() => {
-          navigation.navigate('ConsultantServiceSetup' as never);
-        }).catch((error) => {
-          console.error('PendingApproval - Error switching role:', error);
-          navigation.navigate('ConsultantServiceSetup' as never);
-        });
-      } else {
-        navigation.navigate('ConsultantServiceSetup' as never);
-      }
-    }
-  }, [user, consultantVerificationStatus, navigation, activeRole, switchRole]);
+  // Note: Navigation logic is now handled in loadData() after checking both profile AND service approval
+  // This ensures consultants can only access screens when BOTH profile and at least one service are approved
 
   const loadData = useCallback(async () => {
     if (!user?.uid) {
@@ -103,23 +66,39 @@ export default function PendingApproval() {
       setProfile(profileData);
       setApplications(applicationsData);
 
-      // If approved, automatically switch to consultant role and navigate
+      // Check if profile is approved AND has at least one approved service
       if (profileData.status === 'approved') {
-        console.log('PendingApproval - Profile approved, switching to consultant role');
+        console.log('PendingApproval - Profile approved, checking for approved services...');
         
-        // Automatically switch to consultant role if not already
-        if (activeRole !== 'consultant') {
-          try {
-            await switchRole('consultant');
-            console.log('PendingApproval - Successfully switched to consultant role');
-          } catch (error: any) {
-            console.error('PendingApproval - Error switching to consultant role:', error);
-            // Continue navigation even if role switch fails
+        // Check if consultant has approved services
+        const approvedServices = applicationsData.filter(app => app.status === 'approved');
+        console.log('PendingApproval - Approved services count:', approvedServices.length);
+        
+        if (approvedServices.length > 0) {
+          console.log('PendingApproval - Profile and services approved, switching to consultant role');
+          
+          // Automatically switch to consultant role if not already
+          if (activeRole !== 'consultant') {
+            try {
+              await switchRole('consultant');
+              console.log('PendingApproval - Successfully switched to consultant role');
+            } catch (error: any) {
+              console.error('PendingApproval - Error switching to consultant role:', error);
+              // Continue navigation even if role switch fails
+            }
           }
+          
+          // Navigate to consultant tabs (home screen) - both profile and services are approved
+          console.log('PendingApproval - Navigating to consultant tabs');
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'ConsultantTabs' as never }],
+          });
+        } else {
+          console.log('PendingApproval - Profile approved but no services approved, staying on PendingApproval screen');
+          // Don't navigate - consultant must have at least one approved service
+          // The screen will show the appropriate message
         }
-        
-        // Navigate to service setup screen
-        navigation.navigate('ConsultantServiceSetup' as never);
       }
     } catch (error: any) {
       console.error('PendingApproval - Error loading consultant data:', error);
@@ -151,6 +130,7 @@ export default function PendingApproval() {
       // Prevent infinite loop - if already approved in AuthContext, don't reload
       if (consultantVerificationStatus === 'approved') {
         console.log('PendingApproval - Already approved, skipping reload');
+        setIsLoading(false); // Make sure loading is false
         return;
       }
 
@@ -168,6 +148,7 @@ export default function PendingApproval() {
       const loadDataInline = async () => {
         if (!user?.uid) {
           console.log('PendingApproval - No user UID, skipping data load');
+          isLoadingRef.current = false;
           setIsLoading(false);
           return;
         }
@@ -175,6 +156,7 @@ export default function PendingApproval() {
         // Add timeout to prevent infinite loading
         const timeoutId = setTimeout(() => {
           console.log('PendingApproval - Loading timeout, setting loading to false');
+          isLoadingRef.current = false;
           setIsLoading(false);
         }, 10000); // 10 second timeout
         
@@ -187,20 +169,7 @@ export default function PendingApproval() {
           
           setProfile(profileData);
 
-          // If approved, refresh auth to update role and navigate immediately
-          if (profileData.status === 'approved') {
-            console.log('PendingApproval - Profile approved, refreshing auth context and navigating to service setup');
-            setIsLoading(false); // Set loading to false before navigation
-            
-            // Refresh the consultant status in AuthContext
-            await refreshConsultantStatus();
-            
-            // Navigate to service setup screen
-            navigation.navigate('ConsultantServiceSetup' as never);
-            return; // Exit early to prevent further execution
-          }
-
-          // Only fetch applications if not approved (to avoid unnecessary API calls)
+          // Always fetch applications to check if services are approved
           console.log('PendingApproval - Fetching applications...');
           
           const applicationsData = await getConsultantApplications();
@@ -223,6 +192,45 @@ export default function PendingApproval() {
           }
           
           setApplications(filteredApplications);
+          
+          // Check if profile is approved AND has at least one approved service
+          if (profileData.status === 'approved') {
+            console.log('PendingApproval - Profile approved, checking for approved services...');
+            
+            // Check if consultant has approved services
+            const approvedServices = filteredApplications.filter(app => app.status === 'approved');
+            console.log('PendingApproval - Approved services count:', approvedServices.length);
+            
+            if (approvedServices.length > 0) {
+              console.log('PendingApproval - Profile and services approved, refreshing auth context and navigating');
+              setIsLoading(false); // Set loading to false before navigation
+              
+              // Refresh the consultant status in AuthContext
+              await refreshConsultantStatus();
+              
+              // Automatically switch to consultant role if not already
+              if (activeRole !== 'consultant') {
+                try {
+                  await switchRole('consultant');
+                  console.log('PendingApproval - Successfully switched to consultant role');
+                } catch (error: any) {
+                  console.error('PendingApproval - Error switching to consultant role:', error);
+                  // Continue navigation even if role switch fails
+                }
+              }
+              
+              // Navigate to consultant tabs (home screen) - both profile and services are approved
+              console.log('PendingApproval - Navigating to consultant tabs');
+              (navigation as any).reset({
+                index: 0,
+                routes: [{ name: 'ConsultantTabs' as never }],
+              });
+              return; // Exit early
+            } else {
+              console.log('PendingApproval - Profile approved but no services approved, staying on screen');
+              // Don't navigate - consultant must have at least one approved service
+            }
+          }
         } catch (error: any) {
           console.error('PendingApproval - Error loading consultant data:', error);
           
@@ -249,7 +257,14 @@ export default function PendingApproval() {
       };
       
       loadDataInline();
-    }, [user?.uid, consultantVerificationStatus, navigation, refreshConsultantStatus]) // Removed isLoading to prevent infinite loop
+      
+      // Cleanup function to ensure loading state is reset if component unmounts
+      return () => {
+        console.log('PendingApproval - useFocusEffect cleanup');
+        isLoadingRef.current = false;
+        setIsLoading(false);
+      };
+    }, [user?.uid, consultantVerificationStatus, navigation, refreshConsultantStatus, activeRole, switchRole]) // Removed isLoading to prevent infinite loop
   );
 
   const handleRefresh = async () => {
@@ -274,7 +289,8 @@ export default function PendingApproval() {
   };
 
   const handleApplyServices = () => {
-    navigation.navigate('ConsultantApplications' as never);
+    // Navigate to BrowseServicesScreen to apply from existing services
+    navigation.navigate('BrowseServices' as never);
   };
 
   if (isLoading) {
@@ -292,7 +308,7 @@ export default function PendingApproval() {
     if (!profile) return 'Welcome to Tray Consultant!';
     switch (profile.status) {
       case 'approved':
-        return 'Application Approved!';
+        return 'Profile Approved! 🎉';
       case 'pending':
         return 'Verification Pending';
       case 'rejected':
@@ -311,7 +327,7 @@ export default function PendingApproval() {
         if (approvedServices.length > 0) {
           return 'Congratulations! Your profile and services have been approved. You can now access the full consultant applications screen.';
         } else {
-          return 'Congratulations! Your profile has been approved. Now you need to apply for services to complete your consultant setup.';
+          return 'Your consultant profile has been approved. You must apply for services to complete your consultant setup and start earning.';
         }
       case 'pending':
         return 'Your profile is currently under review by our admin team. This usually takes 24-48 hours. We\'ll notify you once the review is complete.';
@@ -320,6 +336,10 @@ export default function PendingApproval() {
       default:
         return 'Your profile is being reviewed by our team.';
     }
+  };
+
+  const handleCreateCustomService = () => {
+    navigation.navigate('ConsultantServiceSetup' as never);
   };
 
   const pendingApplications = applications.filter(a => a.status === 'pending');
@@ -395,8 +415,181 @@ export default function PendingApproval() {
         </View>
       )}
 
-      {/* Profile Status Card */}
-      {profile && (
+      {/* Next Steps Card - Only show if profile is approved and no approved services */}
+      {profile?.status === 'approved' && approvedApplications.length === 0 && (
+        <>
+          {/* Next Steps Section */}
+          <View style={pendingApprovalStyles.card}>
+            <Text style={pendingApprovalStyles.cardTitle}>Next Steps</Text>
+            
+            <View style={{ marginTop: 16, gap: 16 }}>
+              {/* Step 1: Profile Created */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: COLORS.green,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <CheckCircle size={18} color={COLORS.white} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
+                    Profile Created
+                  </Text>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
+                    Your consultant profile is approved
+                  </Text>
+                </View>
+              </View>
+
+              {/* Step 2: Apply for Services */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#6B7280',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Plus size={18} color={COLORS.white} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
+                    Apply for Services
+                  </Text>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
+                    <Text style={{ fontWeight: '600', color: COLORS.red }}>REQUIRED:</Text> Apply for services to complete consultant setup
+                  </Text>
+                </View>
+              </View>
+
+              {/* Step 3: Start Earning */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#6B7280',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <ArrowRight size={18} color={COLORS.white} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
+                    Start Earning
+                  </Text>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
+                    Access app after service approval
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Why Apply for Services? Section */}
+          <View style={pendingApprovalStyles.card}>
+            <Text style={pendingApprovalStyles.cardTitle}>Why Apply for Services?</Text>
+            
+            <View style={{ marginTop: 16, gap: 16 }}>
+              {/* Benefit 1: Earn Money */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#ECFDF5',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <DollarSign size={20} color={COLORS.green} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
+                    Earn Money
+                  </Text>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
+                    Set your own rates and earn from consultations
+                  </Text>
+                </View>
+              </View>
+
+              {/* Benefit 2: Help Students */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#ECFDF5',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Users size={20} color={COLORS.green} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
+                    Help Students
+                  </Text>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
+                    Share your expertise and mentor the next generation
+                  </Text>
+                </View>
+              </View>
+
+              {/* Benefit 3: Build Reputation */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#ECFDF5',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Star size={20} color={COLORS.green} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
+                    Build Reputation
+                  </Text>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
+                    Gain reviews and build your professional brand
+                  </Text>
+                </View>
+              </View>
+
+              {/* Benefit 4: Flexible Schedule */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#ECFDF5',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Calendar size={20} color={COLORS.green} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
+                    Flexible Schedule
+                  </Text>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
+                    Work on your own time and availability
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </>
+      )}
+
+      {/* Profile Status Card - Only show if profile is pending or rejected */}
+      {profile && profile.status !== 'approved' && (
         <StatusCard
           status={profile.status as any}
           title="Profile Status"
@@ -408,78 +601,6 @@ export default function PendingApproval() {
           }}
           reviewNotes={profile.reviewNotes}
         />
-      )}
-
-      {/* Applications Summary - Only show if profile is approved */}
-      {profile?.status === 'approved' && (
-        <>
-          {applications.length > 0 ? (
-        <View style={pendingApprovalStyles.card}>
-          <View style={pendingApprovalStyles.cardHeader}>
-            <Text style={pendingApprovalStyles.cardTitle}>Service Applications</Text>
-            <TouchableOpacity onPress={handleApplyServices}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text style={{ fontSize: 14, color: COLORS.green, fontWeight: '600' }}>Manage</Text>
-                <Plus size={16} color={COLORS.green} />
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <View style={pendingApprovalStyles.statsRow}>
-            <View style={pendingApprovalStyles.statItem}>
-              <Clock size={24} color="#F59E0B" />
-              <Text style={pendingApprovalStyles.statValue}>{pendingApplications.length}</Text>
-              <Text style={pendingApprovalStyles.statLabel}>Pending</Text>
-            </View>
-
-            <View style={pendingApprovalStyles.statItem}>
-              <CheckCircle size={24} color="#10B981" />
-              <Text style={pendingApprovalStyles.statValue}>{approvedApplications.length}</Text>
-              <Text style={pendingApprovalStyles.statLabel}>Approved</Text>
-            </View>
-
-            <View style={pendingApprovalStyles.statItem}>
-              <XCircle size={24} color="#EF4444" />
-              <Text style={pendingApprovalStyles.statValue}>{rejectedApplications.length}</Text>
-              <Text style={pendingApprovalStyles.statLabel}>Rejected</Text>
-            </View>
-          </View>
-        </View>
-          ) : (
-        <View style={pendingApprovalStyles.card}>
-          <View style={pendingApprovalStyles.cardHeader}>
-            <Text style={pendingApprovalStyles.cardTitle}>Service Applications</Text>
-          </View>
-          
-          <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-            <FileText size={48} color={COLORS.gray} style={{ marginBottom: 12 }} />
-            <Text style={{ 
-              fontSize: 16, 
-              color: COLORS.gray, 
-              textAlign: 'center',
-              marginBottom: 8,
-              fontWeight: '600'
-            }}>
-              No Applications Yet
-            </Text>
-            <Text style={{ 
-              fontSize: 14, 
-              color: COLORS.gray, 
-              textAlign: 'center',
-              lineHeight: 20,
-              marginBottom: 16
-            }}>
-              You haven't applied for any services yet. Start by applying for services you'd like to offer.
-            </Text>
-            
-            <TouchableOpacity onPress={handleApplyServices} style={pendingApprovalStyles.primaryButton}>
-              <Plus size={20} color={COLORS.white} />
-              <Text style={pendingApprovalStyles.primaryButtonText}>Apply for Services</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-          )}
-        </>
       )}
 
       {/* Show message when profile is pending */}
@@ -575,13 +696,25 @@ export default function PendingApproval() {
                   <Text style={pendingApprovalStyles.primaryButtonText}>Go to App</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity
-                  style={pendingApprovalStyles.primaryButton}
-                  onPress={handleApplyServices}
-                >
-                  <Plus size={20} color="#fff" />
-                  <Text style={pendingApprovalStyles.primaryButtonText}>Apply for Services</Text>
-                </TouchableOpacity>
+                <>
+                  {/* Browse Platform Services Button */}
+                  <TouchableOpacity
+                    style={pendingApprovalStyles.primaryButton}
+                    onPress={handleApplyServices}
+                  >
+                    <Star size={20} color="#fff" strokeWidth={2.5} />
+                    <Text style={pendingApprovalStyles.primaryButtonText}>Browse Platform Services</Text>
+                  </TouchableOpacity>
+                  
+                  {/* Create Custom Service Button */}
+                  <TouchableOpacity
+                    style={pendingApprovalStyles.secondaryButton}
+                    onPress={handleCreateCustomService}
+                  >
+                    <Plus size={20} color={COLORS.green} />
+                    <Text style={pendingApprovalStyles.secondaryButtonText}>Create Custom Service</Text>
+                  </TouchableOpacity>
+                </>
               )
             ) : null}
           </>
@@ -594,6 +727,16 @@ export default function PendingApproval() {
           <Text style={pendingApprovalStyles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Important Notice - Only show if profile is approved and no approved services */}
+      {profile?.status === 'approved' && approvedApplications.length === 0 && (
+        <View style={pendingApprovalStyles.noticeContainer}>
+          <AlertCircle size={20} color="#F59E0B" />
+          <Text style={pendingApprovalStyles.noticeText}>
+            <Text style={{ fontWeight: '600' }}>IMPORTANT:</Text> You must apply for and receive approval for at least one service to access your consultant applications screen. You can apply to offer our platform services or create your own custom services. All applications are reviewed by admin within 24-48 hours.
+          </Text>
+        </View>
+      )}
 
       {/* Help Text */}
       <View style={pendingApprovalStyles.helpContainer}>

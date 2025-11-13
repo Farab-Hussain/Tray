@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, View, Text, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ConsultantCard from '../../../components/ui/ConsultantCard';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -13,6 +14,7 @@ import { showError } from '../../../utils/toast';
 const AllConsultants = ({ navigation }: any) => {
   const [consultants, setConsultants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageCacheKey, setImageCacheKey] = useState(0);
   const { user } = useAuth();
   const { openChatWith } = useChatContext();
 
@@ -150,23 +152,33 @@ const AllConsultants = ({ navigation }: any) => {
     }
   };
 
-  useEffect(() => {
-    const fetchConsultants = async () => {
-      try {
-        const response = await ConsultantService.getAllConsultants();
-        const allConsultantsData = response?.consultants || [];
-        
-        // Backend now handles sorting by rating and reviews
-        setConsultants(allConsultantsData);
-      } catch (err) {
-        console.error('Error fetching all consultants:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConsultants();
+  const fetchConsultants = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await ConsultantService.getAllConsultants();
+      const allConsultantsData = response?.consultants || [];
+      
+      // Backend now handles sorting by rating and reviews
+      setConsultants(allConsultantsData);
+      // Update cache key to force image reload
+      setImageCacheKey(prev => prev + 1);
+    } catch (err) {
+      console.error('Error fetching all consultants:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchConsultants();
+  }, [fetchConsultants]);
+
+  // Reload consultants when screen comes into focus (to get updated profile images)
+  useFocusEffect(
+    useCallback(() => {
+      fetchConsultants();
+    }, [fetchConsultants])
+  );
 
   return (
     <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
@@ -191,7 +203,7 @@ const AllConsultants = ({ navigation }: any) => {
                   title={item.category || 'Consultant'}
                   avatarUri={
                     item.profileImage
-                      ? { uri: item.profileImage }
+                      ? { uri: `${item.profileImage}?t=${imageCacheKey}&uid=${item.uid}` }
                       : require('../../../assets/image/avatar.png')
                   }
                   rating={item.rating ?? 0}

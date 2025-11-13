@@ -72,8 +72,9 @@ router.post("/reset-password", validateResetPassword, authController.resetPasswo
 /**
  * POST /auth/resend-verification-email
  * Resend email verification using Firebase Admin SDK (fallback method)
+ * Allows unverified users to request verification emails
  */
-router.post("/resend-verification-email", authController.resendVerificationEmail);
+router.post("/resend-verification-email", authenticateUser(true), authController.resendVerificationEmail);
 
 /**
  * POST /auth/verify-email
@@ -92,5 +93,17 @@ router.post("/request-consultant-role", authenticateUser, authController.request
  * Switch active role (requires consultant verification if switching to consultant)
  */
 router.post("/switch-role", authenticateUser, authController.switchRole);
+
+/**
+ * POST /auth/change-password
+ * Change password for authenticated user
+ */
+router.post("/change-password", authenticateUser, authController.changePassword);
+
+/**
+ * POST /auth/admin/create-admin
+ * Create a new admin user (Admin only)
+ */
+router.post("/admin/create-admin", authenticateUser, authorizeRole(["admin"]), authController.createAdminUser);
 
 export default router;

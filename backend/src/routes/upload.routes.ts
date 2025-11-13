@@ -4,6 +4,7 @@ import {
   uploadSingle,
   uploadProfileImage,
   uploadConsultantImage,
+  uploadServiceImage,
   deleteProfileImage,
   deleteConsultantImage,
   getUploadSignature,
@@ -15,6 +16,7 @@ const router = express.Router();
 // Upload routes
 router.post("/profile-image", authenticateUser, uploadSingle, uploadProfileImage);
 router.post("/consultant-image", authenticateUser, uploadSingle, uploadConsultantImage);
+router.post("/service-image", authenticateUser, uploadSingle, uploadServiceImage);
 router.delete("/profile-image", authenticateUser, deleteProfileImage);
 router.delete("/consultant-image", authenticateUser, deleteConsultantImage);
 router.post("/upload-signature", authenticateUser, getUploadSignature);

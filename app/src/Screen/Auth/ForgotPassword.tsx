@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
 import { ChevronLeft } from 'lucide-react-native';
 import { api } from '../../lib/fetcher';
+import { COLORS } from '../../constants/core/colors';
 
 const ForgotPassword = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
@@ -56,6 +57,7 @@ const ForgotPassword = ({ navigation }: any) => {
           <TextInput
             style={authStyles.input}
             placeholder="Enter your email"
+            placeholderTextColor={COLORS.lightGray}
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}

@@ -31,6 +31,7 @@ const ConsultantCard: React.FC<ConsultantCardProps> = ({
           <Image
             source={avatarUri}
             style={consultantCard.avatar}
+            key={typeof avatarUri === 'object' && 'uri' in avatarUri ? avatarUri.uri : undefined}
           />
 
           <Text 

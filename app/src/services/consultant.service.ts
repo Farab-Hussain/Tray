@@ -3,12 +3,14 @@ import { fetcher, api }  from '../lib/fetcher';
 export const ConsultantService = {
   // Fetch top consultant(s)
   async getTopConsultants() {
-    return await fetcher('/consultants/top');
+    // Add cache busting to ensure fresh data (especially for updated profile images)
+    return await fetcher(`/consultants/top?t=${Date.now()}`);
   },
 
   // Fetch all consultants
   async getAllConsultants() {
-    return await fetcher('/consultants');
+    // Add cache busting to ensure fresh data (especially for updated profile images)
+    return await fetcher(`/consultants?t=${Date.now()}`);
   },
 
   // Fetch consultant's services

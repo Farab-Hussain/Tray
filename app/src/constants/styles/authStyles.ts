@@ -191,20 +191,23 @@ export const authStyles = StyleSheet.create({
         color: COLORS.blackTransparent,
     },
     box: {
-        width: 77,
+        flex: 1,
+        maxWidth: 77,
         height: 77,
         borderWidth: 1,
         borderColor: COLORS.blackTransparent,
         borderRadius: 16,
         textAlign: 'center',
         fontSize: 24,
-        marginHorizontal: 4,
         backgroundColor: COLORS.white,
+        minWidth: 60,
     },
     inputRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 24
+        marginBottom: 24,
+        paddingHorizontal: 0,
+        width: '100%',
+        gap: 8,
     },
     roleContainer: {
         flexDirection: 'row',

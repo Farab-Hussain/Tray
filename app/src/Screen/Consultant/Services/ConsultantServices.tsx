@@ -134,20 +134,6 @@ const ConsultantServices = ({ navigation }: any) => {
         });
       });
 
-      // Debug: Log service data to see imageUrl values
-      console.log(
-        '🔍 [ConsultantServices] Services data:',
-        JSON.stringify(servicesData, null, 2),
-      );
-      servicesData.forEach((service: any, index: number) => {
-        console.log(`🔍 [ConsultantServices] Service ${index + 1}:`, {
-          title: service.title,
-          imageUrl: service.imageUrl,
-          hasImageUrl: !!service.imageUrl,
-          imageUrlLength: service.imageUrl?.length || 0,
-        });
-      });
-
       const activeServices = enrichedServices.filter(service => {
         const status = service.approvalStatus
           ? service.approvalStatus.toLowerCase()
@@ -179,7 +165,7 @@ const ConsultantServices = ({ navigation }: any) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.uid]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

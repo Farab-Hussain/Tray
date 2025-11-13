@@ -100,6 +100,25 @@ export const consultantFlowService = {
 
       const existingData = consultantExists ? consultantDoc.data() as Consultant : null;
       
+      // Check if user has a student profile image and use it if consultant profile image is not provided
+      let profileImage = profile.personalInfo?.profileImage;
+      if (!profileImage) {
+        try {
+          const userDoc = await db.collection("users").doc(profile.uid).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            const studentProfileImage = userData?.profileImage;
+            if (studentProfileImage && typeof studentProfileImage === 'string' && studentProfileImage.trim() !== '') {
+              console.log(`🔗 [linkApprovedConsultant] Using student profile image for consultant: ${profile.uid}`);
+              profileImage = studentProfileImage.trim();
+            }
+          }
+        } catch (error: any) {
+          console.warn(`🔗 [linkApprovedConsultant] Could not fetch student profile image:`, error.message);
+          // Continue without student profile image
+        }
+      }
+      
       // Build consultant data, but filter out undefined values
       const consultantData: any = {
         uid: profile.uid,
@@ -108,7 +127,7 @@ export const consultantFlowService = {
         category: profile.professionalInfo?.category || "General",
         rating: existingData?.rating ?? 0,
         totalReviews: existingData?.totalReviews ?? 0,
-        profileImage: profile.personalInfo?.profileImage || null,
+        profileImage: profileImage || null,
         availability: profile.professionalInfo?.availability || {},
         contactMethods: {
           chat: true,

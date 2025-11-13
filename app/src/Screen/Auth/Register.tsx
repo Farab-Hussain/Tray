@@ -112,12 +112,12 @@ const Register = ({ navigation, route }: any) => {
         // Continue anyway - reload is not critical
       }
       
-      // Send email verification via backend SMTP (bypasses Firebase rate limits)
+      // Send email verification via backend SMTP
       console.log('Register - Sending email verification via backend SMTP...');
       let emailSent = false;
       let emailError: any = null;
       
-      // Use backend SMTP as primary method to avoid Firebase rate limits
+      // Use backend SMTP as primary method
       try {
         const token = await userCredential.user.getIdToken();
         const backendResponse = await api.post('/auth/resend-verification-email', {
@@ -137,33 +137,33 @@ const Register = ({ navigation, route }: any) => {
           emailSent = true; // Mark as sent since we have a link
         }
       } catch (backendError: any) {
-        console.warn('⚠️ Register - Backend SMTP failed, trying Firebase as fallback...');
-        emailError = backendError;
-        
-        // Fallback to Firebase if backend fails
-        try {
-          await sendEmailVerification(userCredential.user, {
-            url: `tray://email-verification`,
-            handleCodeInApp: true,
-          });
-          emailSent = true;
-          console.log('✅ Register - Firebase sent verification email (fallback)!');
-        } catch (firebaseError: any) {
-          // If custom scheme not allowlisted, try simple method
-          if (firebaseError?.code === 'auth/unauthorized-continue-uri') {
-            try {
-              await sendEmailVerification(userCredential.user);
-              emailSent = true;
-              console.log('✅ Register - Firebase sent verification email (simple method)!');
-            } catch (simpleError: any) {
-              emailError = simpleError;
-              console.error('❌ Register - All methods failed:', simpleError?.message);
+          console.warn('⚠️ Register - Backend SMTP failed, trying Firebase as fallback...');
+          emailError = backendError;
+          
+          // Fallback to Firebase if backend fails
+          try {
+            await sendEmailVerification(userCredential.user, {
+              url: `tray://email-verification`,
+              handleCodeInApp: true,
+            });
+            emailSent = true;
+            console.log('✅ Register - Firebase sent verification email (fallback)!');
+          } catch (firebaseError: any) {
+            // If custom scheme not allowlisted, try simple method
+            if (firebaseError?.code === 'auth/unauthorized-continue-uri') {
+              try {
+                await sendEmailVerification(userCredential.user);
+                emailSent = true;
+                console.log('✅ Register - Firebase sent verification email (simple method)!');
+              } catch (simpleError: any) {
+                emailError = simpleError;
+                console.error('❌ Register - All methods failed:', simpleError?.message);
+              }
+            } else {
+              emailError = firebaseError;
+              console.error('❌ Register - Firebase fallback also failed:', firebaseError?.message);
             }
-          } else {
-            emailError = firebaseError;
-            console.error('❌ Register - Firebase fallback also failed:', firebaseError?.message);
           }
-        }
       }
 
       // Clear registration flag
@@ -317,6 +317,7 @@ const Register = ({ navigation, route }: any) => {
               <TextInput
                 style={authStyles.input}
                 placeholder="Enter your full name"
+                placeholderTextColor={COLORS.lightGray}
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
@@ -328,6 +329,7 @@ const Register = ({ navigation, route }: any) => {
               <TextInput
                 style={authStyles.input}
                 placeholder="example@gmail.com"
+                placeholderTextColor={COLORS.lightGray}
                 keyboardType="email-address"
                 value={email}
                 onChangeText={setEmail}
@@ -370,7 +372,7 @@ const Register = ({ navigation, route }: any) => {
             <View style={authStyles.inputWrapper}>
               <TextInput
                 style={authStyles.input}
-                placeholder="password must match"
+                placeholder="Re-enter password"
                 placeholderTextColor={COLORS.lightGray}
                 secureTextEntry={!showConfirmPassword}
                 value={confirmPassword}

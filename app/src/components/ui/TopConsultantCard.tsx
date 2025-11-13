@@ -35,6 +35,7 @@ const TopConsultantCard: React.FC<TopConsultantCardProps> = ({
         <Image
           source={avatarUri}
           style={customCard.avatar}
+          key={typeof avatarUri === 'object' && 'uri' in avatarUri ? avatarUri.uri : undefined}
         />
 
         <Text style={customCard.cardTitle}>{name}</Text>

@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '../lib/firebase';
 import { api } from '../lib/fetcher';
+import { getConsultantProfile } from '../services/consultantFlow.service';
 
 interface AuthContextType {
   user: User | null;
@@ -17,7 +18,7 @@ interface AuthContextType {
   refreshConsultantStatus: () => Promise<void>;
   setIntendedRole: (role: string) => void;
   requestConsultantRole: () => Promise<void>;
-  switchRole: (newRole: string) => Promise<void>;
+  switchRole: (newRole: string) => Promise<any>;
   logout: () => Promise<void>;
   }
 
@@ -305,24 +306,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await refreshConsultantStatus();
       }
       
-      // Force refresh user role to get latest data
-      await fetchUserRole(true);
+      // Refresh user profile to get latest profileImage from backend
+      // This ensures profile image is available after role switch
+      await refreshUser();
       
       // Return response data including action if present
       return response.data;
     } catch (error: any) {
+      // Handle 403 error for missing consultant profile gracefully
+      // Don't log as error - it's expected behavior that should show an alert
+      if (error?.response?.status === 403 && error?.response?.data?.action === 'create_consultant_profile') {
+        // Return the error data so calling code can handle it with an alert
+        // instead of showing it as an error
+        return {
+          error: true,
+          action: 'create_consultant_profile',
+          message: error.response.data.error || 'Consultant profile is required. Please create your consultant profile first.',
+        };
+      }
+      
+      // For other errors, log and throw normally
       console.error('Error switching role:', error);
       throw error;
     }
-  }, [refreshConsultantStatus, fetchUserRole]);
+  }, [refreshConsultantStatus, refreshUser]);
 
   const refreshUser = useCallback(async () => {
     if (auth.currentUser) {
       try {
         // Reload the Firebase Auth user to get updated profile data (photoURL, displayName, etc.)
         await auth.currentUser.reload();
-        // Update local user state with the refreshed data
-        setUser({ ...auth.currentUser });
+        
+        // Also fetch backend profile to get profileImage (which might be different from photoURL)
+        try {
+          const backendProfile = await api.get('/auth/me');
+          const backendProfileImage = backendProfile.data?.profileImage;
+          let finalProfileImage = backendProfileImage || auth.currentUser.photoURL;
+          
+          // If main profile has no image, check consultant profile as fallback (if user has consultant role)
+          if (!finalProfileImage && backendProfile.data?.roles?.includes('consultant')) {
+            try {
+              console.log('🔄 [refreshUser] Main profile has no image, checking consultant profile as fallback...');
+              const consultantProfile = await getConsultantProfile(auth.currentUser.uid);
+              const consultantProfileImage = consultantProfile?.personalInfo?.profileImage;
+              
+              if (consultantProfileImage && consultantProfileImage.trim() !== '') {
+                console.log('✅ [refreshUser] Found consultant profile image as fallback:', consultantProfileImage);
+                finalProfileImage = consultantProfileImage.trim();
+              } else {
+                console.log('ℹ️ [refreshUser] No consultant profile image found either');
+              }
+            } catch (consultantError) {
+              // If consultant profile fetch fails, continue with main profile
+              console.warn('⚠️ [refreshUser] Failed to fetch consultant profile as fallback:', consultantError);
+            }
+          }
+          
+          // Merge Firebase Auth data with backend profileImage
+          // If backend has profileImage, use it; otherwise use Firebase photoURL
+          const updatedUser = {
+            ...auth.currentUser,
+            photoURL: finalProfileImage || auth.currentUser.photoURL,
+          };
+          
+          setUser(updatedUser as User);
+          console.log('✅ [refreshUser] User refreshed with profileImage:', finalProfileImage || 'none');
+        } catch (backendError) {
+          // If backend fetch fails, just use Firebase Auth data
+          console.warn('⚠️ Failed to fetch backend profile, using Firebase Auth data only:', backendError);
+          setUser({ ...auth.currentUser });
+        }
+        
         // Refresh role data as well
         await fetchUserRole(true);
       } catch (error) {

@@ -19,10 +19,19 @@ export const UserService = {
     profileImage?: string | null; // Backend uses profileImage field
   }) {
     // Map avatarUrl to profileImage for backend compatibility
-    const backendData = {
+    // Handle null explicitly (null means delete, undefined means don't update)
+    const backendData: any = {
       ...profileData,
-      profileImage: profileData.avatarUrl || profileData.profileImage,
     };
+    
+    // Explicitly handle profileImage - if avatarUrl is provided (including null), use it
+    // Otherwise use profileImage if provided
+    if ('avatarUrl' in profileData) {
+      backendData.profileImage = profileData.avatarUrl;
+    } else if ('profileImage' in profileData) {
+      backendData.profileImage = profileData.profileImage;
+    }
+    
     delete backendData.avatarUrl; // Remove frontend field
     
     const response = await api.put('/auth/profile', backendData);

@@ -331,8 +331,14 @@ const UserManagementPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+              {filteredUsers.map((user) => {
+                // Create a unique key combining id and uid to ensure uniqueness
+                const uniqueKey = user.id || user.uid || `${user.email}-${user.name || 'unknown'}`;
+                return (
+                <tr 
+                  key={uniqueKey} 
+                  className="hover:bg-gray-50 transition-colors"
+                >
                   <td className="py-3 sm:py-4 px-2 sm:px-4">
                     <div className="min-w-0">
                       <div className="font-medium text-gray-900 text-sm sm:text-base truncate">
@@ -404,7 +410,8 @@ const UserManagementPage = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </AdminTable>
 

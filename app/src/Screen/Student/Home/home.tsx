@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import HomeHeader from '../../../components/shared/HomeHeader';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ConsultantCard from '../../../components/ui/ConsultantCard';
@@ -15,6 +16,7 @@ const Home = ({ navigation }: any) => {
   const [topConsultant, setTopConsultant] = useState<any>(null);
   const [consultants, setConsultants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageCacheKey, setImageCacheKey] = useState(0);
   const { user } = useAuth();
   const { openChatWith } = useChatContext();
 
@@ -155,55 +157,65 @@ const Home = ({ navigation }: any) => {
     }
   };
 
-  useEffect(() => {
-    const fetchConsultants = async () => {
-      try {
-        const [top, all] = await Promise.all([
-          ConsultantService.getTopConsultants(),
-          ConsultantService.getAllConsultants(),
-        ]);
+  const fetchConsultants = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [top, all] = await Promise.all([
+        ConsultantService.getTopConsultants(),
+        ConsultantService.getAllConsultants(),
+      ]);
 
-        // Extract data from API response structure
-        // Find the consultant with the highest rating (Tray with 5.0)
-        const topConsultants = top?.topConsultants || [];
-        const topConsultantData =
-          topConsultants.length > 0
-            ? topConsultants.reduce((highest: any, current: any) =>
-                current.rating > highest.rating ? current : highest,
-              )
-            : null;
+      // Extract data from API response structure
+      // Find the consultant with the highest rating (Tray with 5.0)
+      const topConsultants = top?.topConsultants || [];
+      const topConsultantData =
+        topConsultants.length > 0
+          ? topConsultants.reduce((highest: any, current: any) =>
+              current.rating > highest.rating ? current : highest,
+            )
+          : null;
 
-        const allConsultantsData = all?.consultants || [];
+      const allConsultantsData = all?.consultants || [];
 
-        const filteredConsultants = allConsultantsData.filter(
-          (consultant: any) => consultant.uid !== topConsultantData?.uid
-        );
+      const filteredConsultants = allConsultantsData.filter(
+        (consultant: any) => consultant.uid !== topConsultantData?.uid
+      );
 
-        // Backend now handles sorting by rating and reviews
-        console.log(
-          '⭐ Selected Top Consultant:',
-          topConsultantData?.name,
-          'with rating:',
-          topConsultantData?.rating,
-        );
-        console.log(
-          '📊 Other Consultants:',
-          filteredConsultants.length,
-          'consultants',
-        );
+      // Backend now handles sorting by rating and reviews
+      console.log(
+        '⭐ Selected Top Consultant:',
+        topConsultantData?.name,
+        'with rating:',
+        topConsultantData?.rating,
+      );
+      console.log(
+        '📊 Other Consultants:',
+        filteredConsultants.length,
+        'consultants',
+      );
 
-        setTopConsultant(topConsultantData);
-        setConsultants(filteredConsultants);
-      } catch (err) {
-        console.error('Error fetching consultants:', err);
-        showWarning('Unable to load consultants. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConsultants();
+      setTopConsultant(topConsultantData);
+      setConsultants(filteredConsultants);
+      // Update cache key to force image reload
+      setImageCacheKey(prev => prev + 1);
+    } catch (err) {
+      console.error('Error fetching consultants:', err);
+      showWarning('Unable to load consultants. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchConsultants();
+  }, [fetchConsultants]);
+
+  // Reload consultants when screen comes into focus (to get updated profile images)
+  useFocusEffect(
+    useCallback(() => {
+      fetchConsultants();
+    }, [fetchConsultants])
+  );
 
   return (
     <SafeAreaView style={screenStyles.safeArea} edges={['top']}>
@@ -231,7 +243,7 @@ const Home = ({ navigation }: any) => {
             }
             avatarUri={
               topConsultant.profileImage
-                ? { uri: topConsultant.profileImage }
+                ? { uri: `${topConsultant.profileImage}?t=${imageCacheKey}&uid=${topConsultant.uid}` }
                 : require('../../../assets/image/avatar.png')
             }
             rating={topConsultant.rating ?? 0}
@@ -270,7 +282,7 @@ const Home = ({ navigation }: any) => {
                   title={item.category || 'Consultant'}
                   avatarUri={
                     item.profileImage
-                      ? { uri: item.profileImage }
+                      ? { uri: `${item.profileImage}?t=${imageCacheKey}&uid=${item.uid}` }
                       : require('../../../assets/image/avatar.png')
                   }
                   rating={item.rating ?? 0}

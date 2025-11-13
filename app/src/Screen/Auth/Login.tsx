@@ -101,7 +101,7 @@ const Login = ({ navigation }: LoginProps) => {
                   let emailSent = false;
                   let emailError: any = null;
                   
-                  // Use backend SMTP as primary method (bypasses Firebase rate limits)
+                  // Use backend SMTP as primary method
                   try {
                     console.log('Login - Sending email via backend SMTP...');
                     const userToken = await user.getIdToken();
@@ -173,7 +173,7 @@ const Login = ({ navigation }: LoginProps) => {
                   } else {
                     // Email sending failed - show helpful error message
                     const errorMessage = emailError?.message || 'Unknown error';
-                    const errorCode = emailError?.code || 'unknown';
+                    const errorCode = emailError?.code || emailError?.response?.data?.code || 'unknown';
                     
                     let userMessage = `Failed to resend verification email.\n\n`;
                     
@@ -521,6 +521,7 @@ const Login = ({ navigation }: LoginProps) => {
             <TextInput
               style={authStyles.input}
               placeholder="example@gmail.com"
+              placeholderTextColor={COLORS.lightGray}
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}

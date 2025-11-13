@@ -4,179 +4,77 @@ import React, { useState, useEffect } from 'react';
 import { 
   PanelLeft, 
   PanelRight, 
-  Bell, 
-  Clock, 
-  TrendingUp, 
-  BarChart3,
-  RefreshCw,
-  Activity,
-  Server,
-  Settings
+  Users,
+  Loader2
 } from 'lucide-react';
-import Button from '../custom/Button';
-import { LucideIcon } from 'lucide-react';
-import { consultantFlowAPI } from '@/utils/api';
-import type { DashboardStats } from '@/types';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { consultantAPI } from '@/utils/api';
 
-interface AdminWidget {
-  id: string;
-  title: string;
-  icon: LucideIcon;
-  value: string | number;
-  change?: {
-    value: number;
-    isPositive: boolean;
+interface Consultant {
+  uid: string;
+  id?: string;
+  name?: string;
+  fullName?: string;
+  email?: string;
+  profileImage?: string | null;
+  personalInfo?: {
+    fullName?: string;
+    profileImage?: string | null;
   };
-  color: 'green' | 'red' | 'yellow' | 'blue' | 'purple';
 }
-
-
-type AdminAnalyticsOverview = {
-  totalRevenue?: number;
-};
-
-type AdminAnalyticsData = {
-  overview?: AdminAnalyticsOverview;
-};
 
 const RightSide = () => {
   const [isOpen, setIsOpen] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [analyticsData, setAnalyticsData] = useState<AdminAnalyticsData | null>(null);
+  const [consultants, setConsultants] = useState<Consultant[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   const handleClick = () => {
     setIsOpen(!isOpen);
   };
 
+  const handleConsultantClick = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    router.push('/admin/users');
+  };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  const loadConsultants = async () => {
     try {
-      await Promise.all([
-        loadDashboardStats(),
-        loadAnalytics()
-      ]);
+      setIsLoading(true);
+      const response = await consultantAPI.getAll();
+      const consultantsData = response.data as { consultants?: Consultant[] };
+      setConsultants(consultantsData.consultants || []);
     } catch (error) {
-      console.error('Error refreshing data:', error);
+      console.error('Error loading consultants:', error);
     } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const loadDashboardStats = async () => {
-    try {
-      const response = await consultantFlowAPI.getDashboardStats();
-      setDashboardStats(response.data as DashboardStats);
-    } catch (error) {
-      console.error('Error loading dashboard stats:', error);
-    }
-  };
-
-  const loadAnalytics = async () => {
-    try {
-      const response = await consultantFlowAPI.getAnalytics();
-      setAnalyticsData(response.data as AdminAnalyticsData);
-    } catch (error) {
-      console.error('Error loading analytics:', error);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadDashboardStats();
-    loadAnalytics();
+    loadConsultants();
   }, []);
-
-  // Simplified widgets - only essential metrics
-  const widgets: AdminWidget[] = [
-    {
-      id: 'pending-reviews',
-      title: 'Pending Reviews',
-      icon: Clock,
-      value: dashboardStats?.summary?.totalPendingReviews || 0,
-      change: { value: 8, isPositive: false },
-      color: 'yellow'
-    },
-    {
-      id: 'revenue',
-      title: 'Revenue',
-      icon: TrendingUp,
-      value: (() => {
-        const totalRevenue = analyticsData?.overview?.totalRevenue ?? 0;
-        if (totalRevenue >= 1000) {
-          return `$${(totalRevenue / 1000).toFixed(1)}K`;
-        }
-        return `$${totalRevenue}`;
-      })(),
-      change: { value: 18, isPositive: true },
-      color: 'blue'
-    }
-  ];
-
-
-  const getColorClasses = (color: AdminWidget['color']) => {
-    switch (color) {
-      case 'green':
-        return 'bg-green-50 border-green-200 text-green-600';
-      case 'red':
-        return 'bg-red-50 border-red-200 text-red-600';
-      case 'yellow':
-        return 'bg-yellow-50 border-yellow-200 text-yellow-600';
-      case 'blue':
-        return 'bg-blue-50 border-blue-200 text-blue-600';
-      case 'purple':
-        return 'bg-purple-50 border-purple-200 text-purple-600';
-      default:
-        return 'bg-gray-50 border-gray-200 text-gray-600';
-    }
-  };
 
   if (!isOpen) {
     return (
       <div className="hidden layout sm:flex sticky top-0 border flex-col justify-start items-start min-w-0 p-2 sm:p-5 transition-all duration-700 w-12 sm:w-16 lg:w-20 h-auto lg:h-screen bg-white shadow-sm">
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={PanelLeft}
+        <button
           onClick={handleClick}
-          className="mb-4 hover:bg-gray-100 rounded-lg"
+          className="mb-4 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          title="Expand sidebar"
         >
-          {""}
-        </Button>
-        <div className="w-full flex flex-col items-center gap-3">
-          <div className="group relative">
-            <div className="p-3 rounded-xl hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer border border-transparent hover:border-blue-200" title="Quick Stats">
-              <BarChart3 className="h-5 w-5 text-gray-600 group-hover:text-blue-600 transition-colors" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          </div>
-          
-          <div className="group relative">
-            <div className="p-3 rounded-xl hover:bg-yellow-50 hover:shadow-md transition-all duration-200 cursor-pointer border border-transparent hover:border-yellow-200" title="Notifications">
-              <Bell className="h-5 w-5 text-gray-600 group-hover:text-yellow-600 transition-colors" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          </div>
-          
-          <div className="group relative">
-            <div className="p-3 rounded-xl hover:bg-green-50 hover:shadow-md transition-all duration-200 cursor-pointer border border-transparent hover:border-green-200" title="Activity">
-              <Activity className="h-5 w-5 text-gray-600 group-hover:text-green-600 transition-colors" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          </div>
-          
-          <div className="group relative">
-            <div className="p-3 rounded-xl hover:bg-purple-50 hover:shadow-md transition-all duration-200 cursor-pointer border border-transparent hover:border-purple-200" title="System Status">
-              <Server className="h-5 w-5 text-gray-600 group-hover:text-purple-600 transition-colors" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          </div>
-          
-          <div className="group relative">
-            <div className="p-3 rounded-xl hover:bg-red-50 hover:shadow-md transition-all duration-200 cursor-pointer border border-transparent hover:border-red-200" title="Settings">
-              <Settings className="h-5 w-5 text-gray-600 group-hover:text-red-600 transition-colors" />
-            </div>
-          </div>
+          <PanelLeft className="h-5 w-5 text-gray-600" />
+        </button>
+        <div className="w-full flex flex-col items-center gap-2">
+          <button
+            onClick={() => router.push('/admin/users')}
+            className="p-3 rounded-xl hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer border border-transparent hover:border-blue-200"
+            title="All Consultants"
+          >
+            <Users className="h-5 w-5 text-gray-600 hover:text-blue-600 transition-colors" />
+          </button>
         </div>
       </div>
     );
@@ -184,62 +82,75 @@ const RightSide = () => {
 
   return (
     <div className="hidden layout sm:flex sticky top-0 border flex-col justify-start items-start min-w-0 p-2 sm:p-5 transition-all duration-700 w-28 sm:w-1/5 lg:w-1/6 h-auto lg:h-screen overflow-y-auto overflow-x-visible bg-white shadow-sm z-10">
-      <Button
-        variant="ghost"
-        size="sm"
-        icon={PanelRight}
-        onClick={handleClick}
-        className="mb-4 hover:bg-gray-100 rounded-lg"
-      >
-        {""}
-      </Button>
+      {/* Header with title and toggle button */}
+      <div className="w-full flex items-center justify-between gap-2 mb-4">
+        <h2 className="text-sm font-semibold text-gray-900 flex-1 truncate">
+          All Consultants
+        </h2>
+        <button
+          onClick={handleClick}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+          title="Collapse sidebar"
+        >
+          <PanelRight className="h-4 w-4 text-gray-600" />
+        </button>
+      </div>
 
-      <div className="w-full space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-100">
-          <h2 className="text-sm sm:text-base font-semibold text-gray-900 flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            Admin Panel
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRefresh}
-              className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
-              title="Refresh"
-            >
-              <RefreshCw className={`w-4 h-4 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
+      <div className="w-full flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 text-green-600 animate-spin mb-2" />
+            <p className="text-xs text-gray-500">Loading...</p>
           </div>
-        </div>
+        ) : consultants.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Users className="w-8 h-8 text-gray-300 mb-2" />
+            <p className="text-xs text-gray-500 text-center">No consultants found</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {consultants.map((consultant) => {
+              const consultantId = consultant.uid || consultant.id;
+              const consultantName = consultant.fullName || consultant.personalInfo?.fullName || consultant.name || 'Unknown';
+              const consultantImage = consultant.profileImage || consultant.personalInfo?.profileImage;
 
-        {/* Quick Stats */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide flex items-center gap-2">
-            <BarChart3 className="w-3 h-3" />
-            Quick Stats
-          </h3>
-          <div className="grid grid-cols-2 gap-2">
-            {widgets.map((widget) => (
-              <div key={widget.id} className="bg-white border border-gray-200 rounded-lg p-2 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className={`p-1 rounded ${getColorClasses(widget.color)}`}>
-                    <widget.icon className="w-3 h-3" />
+              if (!consultantId) return null;
+
+              return (
+                <button
+                  key={consultantId}
+                  onClick={handleConsultantClick}
+                  className="flex items-center gap-3 px-2 py-2 rounded-lg transition-colors hover:bg-gray-100 text-left w-full"
+                  title={consultantName}
+                >
+                  {/* Profile Image or Avatar */}
+                  <div className="flex-shrink-0">
+                    {consultantImage ? (
+                      <Image
+                        src={consultantImage}
+                        alt={consultantName}
+                        width={40}
+                        height={40}
+                        className="rounded-full w-10 h-10 object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                        <span className="text-sm font-medium text-gray-600">
+                          {consultantName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <span className="text-xs font-medium text-gray-900 truncate">{widget.title}</span>
-                </div>
-                <div className="text-sm font-bold text-gray-900">{widget.value}</div>
-                {widget.change && (
-                  <div className={`text-xs flex items-center gap-1 ${
-                    widget.change.isPositive ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    <TrendingUp className={`w-2 h-2 ${widget.change.isPositive ? '' : 'rotate-180'}`} />
-                    {widget.change.value}%
-                  </div>
-                )}
-              </div>
-            ))}
+                  
+                  {/* Name */}
+                  <span className="text-sm truncate flex-1 text-gray-900">
+                    {consultantName}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

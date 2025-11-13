@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { consultantFlowAPI } from '@/utils/api';
+import { consultantFlowAPI, activityAPI } from '@/utils/api';
 import AdminCard from '@/components/admin/AdminCard';
 import AdminActionCard from '@/components/admin/AdminActionCard';
 import AdminSection from '@/components/admin/AdminSection';
@@ -16,7 +16,6 @@ import {
   XCircle, 
   Loader2,
   TrendingUp,
-  MessageSquare,
   Settings,
   Shield,
   BarChart3,
@@ -28,19 +27,52 @@ import {
 } from 'lucide-react';
 import { DashboardStats } from '@/types';
 
+interface Activity {
+  id: string;
+  type: 'profile_approved' | 'profile_rejected' | 'application_submitted' | 'application_approved' | 'application_rejected' | 'registration';
+  title: string;
+  description: string;
+  userName: string;
+  timestamp: {
+    toDate: () => Date;
+    toMillis: () => number;
+  };
+  userId?: string;
+}
+
 const AdminDashboardPage = () => {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
 
   useEffect(() => {
     loadStats();
+    loadActivities();
     // Set up auto-refresh every 5 minutes
-    const interval = setInterval(loadStats, 5 * 60 * 1000);
+    const interval = setInterval(() => {
+      loadStats();
+      loadActivities();
+    }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const loadActivities = async () => {
+    try {
+      setIsLoadingActivities(true);
+      const response = await activityAPI.getRecentActivities(3);
+      const data = response.data as { activities: Activity[]; total: number };
+      setActivities(data.activities || []);
+    } catch (error) {
+      console.error('Error loading activities:', error);
+      setActivities([]);
+    } finally {
+      setIsLoadingActivities(false);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -185,14 +217,7 @@ const AdminDashboardPage = () => {
                 color="indigo"
                 onClick={() => router.push('/admin/settings')}
               />
-              <AdminActionCard
-                title="Support Messages"
-                description="View and respond to user support requests"
-                icon={MessageSquare}
-                color="red"
-                count={0} // This would come from a support API
-                onClick={() => router.push('/admin/support')}
-              />
+           
             </div>
           </AdminSection>
 
@@ -305,44 +330,98 @@ const AdminDashboardPage = () => {
           {/* Recent Activity */}
           <AdminSection title="Recent Activity" subtitle="Latest platform activities">
             <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="p-2 bg-green-100 rounded-lg flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">Profile approved</p>
-                    <p className="text-xs sm:text-sm text-gray-500">John Doe&apos;s consultant profile was approved</p>
-                  </div>
-                  <span className="text-xs text-gray-400 flex-shrink-0">2 min ago</span>
+              {isLoadingActivities ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-green-600 animate-spin" />
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="p-2 bg-yellow-100 rounded-lg flex-shrink-0">
-                    <Clock className="w-4 h-4 text-yellow-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">New application</p>
-                    <p className="text-xs sm:text-sm text-gray-500">Jane Smith submitted a service application</p>
-                  </div>
-                  <span className="text-xs text-gray-400 flex-shrink-0">15 min ago</span>
+              ) : activities.length === 0 ? (
+                <div className="text-center py-8">
+                  <Activity className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm sm:text-base text-gray-500">No recent activities</p>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
-                    <Users className="w-4 h-4 text-blue-600" />
+              ) : (
+                <>
+                  <div className="space-y-3 sm:space-y-4">
+                    {activities.map((activity) => {
+                      const getActivityIcon = () => {
+                        switch (activity.type) {
+                          case 'profile_approved':
+                            return <CheckCircle className="w-4 h-4 text-green-600" />;
+                          case 'profile_rejected':
+                            return <XCircle className="w-4 h-4 text-red-600" />;
+                          case 'application_submitted':
+                            return <Clock className="w-4 h-4 text-yellow-600" />;
+                          case 'application_approved':
+                            return <CheckCircle className="w-4 h-4 text-green-600" />;
+                          case 'application_rejected':
+                            return <XCircle className="w-4 h-4 text-red-600" />;
+                          case 'registration':
+                            return <Users className="w-4 h-4 text-blue-600" />;
+                          default:
+                            return <Activity className="w-4 h-4 text-gray-600" />;
+                        }
+                      };
+
+                      const getActivityBgColor = () => {
+                        switch (activity.type) {
+                          case 'profile_approved':
+                          case 'application_approved':
+                            return 'bg-green-100';
+                          case 'profile_rejected':
+                          case 'application_rejected':
+                            return 'bg-red-100';
+                          case 'application_submitted':
+                            return 'bg-yellow-100';
+                          case 'registration':
+                            return 'bg-blue-100';
+                          default:
+                            return 'bg-gray-100';
+                        }
+                      };
+
+                      const formatTimeAgo = (timestamp: { toDate: () => Date; toMillis: () => number }) => {
+                        const now = new Date();
+                        const activityDate = timestamp.toDate();
+                        const diffInSeconds = Math.floor((now.getTime() - activityDate.getTime()) / 1000);
+
+                        if (diffInSeconds < 60) {
+                          return `${diffInSeconds} sec ago`;
+                        } else if (diffInSeconds < 3600) {
+                          const minutes = Math.floor(diffInSeconds / 60);
+                          return `${minutes} min ago`;
+                        } else if (diffInSeconds < 86400) {
+                          const hours = Math.floor(diffInSeconds / 3600);
+                          return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+                        } else {
+                          const days = Math.floor(diffInSeconds / 86400);
+                          return `${days} day${days > 1 ? 's' : ''} ago`;
+                        }
+                      };
+
+                      return (
+                        <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div className={`p-2 ${getActivityBgColor()} rounded-lg flex-shrink-0`}>
+                            {getActivityIcon()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                            <p className="text-xs sm:text-sm text-gray-500">{activity.description}</p>
+                          </div>
+                          <span className="text-xs text-gray-400 flex-shrink-0">
+                            {formatTimeAgo(activity.timestamp)}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">New registration</p>
-                    <p className="text-xs sm:text-sm text-gray-500">Mike Johnson registered as a consultant</p>
-                  </div>
-                  <span className="text-xs text-gray-400 flex-shrink-0">1 hour ago</span>
-                </div>
-              </div>
-              <button
-                onClick={() => router.push('/admin/activity')}
-                className="mt-4 w-full px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
-              >
-                View All Activity
-              </button>
+                  <button
+                    onClick={() => router.push('/admin/activity')}
+                    className="mt-4 w-full px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
+                  >
+                    View All Activity
+                  </button>
+                </>
+              )}
             </div>
           </AdminSection>
         </>

@@ -154,6 +154,54 @@ export const uploadConsultantImage = async (req: Request, res: Response) => {
   }
 };
 
+// Upload service image (does NOT update profile)
+export const uploadServiceImage = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.uid;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    console.log('📤 [uploadServiceImage] Uploading service image for user:', userId);
+
+    // Upload to Cloudinary - separate folder for service images
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'image',
+          folder: 'tray/service-images',
+          public_id: `${userId}/${randomUUID()}`,
+          transformation: [
+            { width: 800, height: 600, crop: 'fill' },
+            { quality: 'auto' }
+          ]
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(file.buffer);
+    });
+
+    console.log('✅ [uploadServiceImage] Service image uploaded successfully to Cloudinary');
+    console.log('✅ [uploadServiceImage] Image URL:', (result as any).secure_url);
+    console.log('ℹ️ [uploadServiceImage] NOT updating profile - this is a service image only');
+
+    // DO NOT update profile - service images are separate from profile images
+    res.status(200).json({
+      message: "Service image uploaded successfully",
+      imageUrl: (result as any).secure_url,
+      publicId: (result as any).public_id,
+    });
+
+  } catch (error: any) {
+    console.error("Upload service image error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Delete profile image
 export const deleteProfileImage = async (req: Request, res: Response) => {
   try {

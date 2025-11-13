@@ -307,7 +307,7 @@ const EmailVerification = ({ route }: any) => {
       let emailSent = false;
       let emailError: any = null;
       
-      // Use backend SMTP as primary method (bypasses Firebase rate limits)
+      // Use backend SMTP as primary method
       try {
         console.log('EmailVerification - Sending email via backend SMTP...');
             const token = await user.getIdToken();
@@ -394,6 +394,7 @@ const EmailVerification = ({ route }: any) => {
               }
             }
           } catch (backendError: any) {
+        
         console.error('❌ EmailVerification - Backend SMTP error details:');
         console.error('   Status:', backendError?.response?.status);
         console.error('   Response Data:', backendError?.response?.data);
@@ -595,44 +596,6 @@ const EmailVerification = ({ route }: any) => {
             'Not Verified Yet',
             'Your email has not been verified yet. Please check your email inbox (and spam folder) for a verification email from Firebase/Tray and click the verification link.\n\nNote: This is different from profile approval emails - you need the Firebase verification email.',
             [
-              {
-                text: 'Verify Now',
-                onPress: async () => {
-                  // Try to verify directly via backend
-                  try {
-                    const token = await user.getIdToken();
-                    const verifyResponse = await api.post('/auth/verify-email', {
-                      email: user.email,
-                      uid: user.uid
-                    }, {
-                      headers: {
-                        'Authorization': `Bearer ${token}`
-                      }
-                    });
-                    
-                    if (verifyResponse.data?.success) {
-                      await user.reload();
-                      if (user.emailVerified) {
-                        Alert.alert(
-                          'Email Verified! ✓',
-                          'Your email has been verified! Completing your registration...',
-                          [
-                            {
-                              text: 'Continue',
-                              onPress: completeRegistration,
-                            },
-                          ]
-                        );
-                      } else {
-                        Alert.alert('Error', 'Verification failed. Please try clicking the link in your email.');
-                      }
-                    }
-                  } catch (verifyError: any) {
-                    console.error('EmailVerification - Direct verification failed:', verifyError);
-                    Alert.alert('Error', 'Could not verify email. Please check your email and click the verification link.');
-                  }
-                },
-              },
               {
                 text: 'Check Spam Folder',
                 onPress: () => {

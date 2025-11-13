@@ -1,6 +1,7 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image, Text, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { authStyles } from '../../../constants/styles/authStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -11,21 +12,29 @@ import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Camera, RefreshCw } from 'lucide-react-native';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
+import { UserService } from '../../../services/user.service';
 import { StyleSheet } from 'react-native';
 
 const ConsultantAccount = ({ navigation }: any) => {
   const { user, logout, activeRole, roles, switchRole } = useAuth();
   const [switchingRole, setSwitchingRole] = useState(false);
   const [consultantProfile, setConsultantProfile] = useState<any>(null);
+  const [backendProfile, setBackendProfile] = useState<any>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
+  const [imageCacheKey, setImageCacheKey] = useState(0);
+  const isLoadingRef = useRef(false);
+  const hasLoadedRef = useRef(false);
+  const lastLoadTimeRef = useRef(0);
   
-  // Memoize the fetch function to prevent unnecessary re-renders
+  // Fetch consultant profile - defined as a stable function
   const fetchConsultantProfile = useCallback(async () => {
-    if (!user || apiUnavailable) return;
+    const currentUser = user;
+    if (!currentUser || apiUnavailable || isLoadingRef.current) return;
     
     try {
+      isLoadingRef.current = true;
       console.log('👤 Fetching consultant profile from backend...');
-      const response = await getConsultantProfile(user.uid);
+      const response = await getConsultantProfile(currentUser.uid);
       console.log('✅ Consultant profile response:', response);
       setConsultantProfile(response);
     } catch (error: any) {
@@ -36,14 +45,104 @@ const ConsultantAccount = ({ navigation }: any) => {
       } else {
         console.log('⚠️ Consultant profile error:', error?.message || error);
       }
+    } finally {
+      isLoadingRef.current = false;
     }
   }, [user, apiUnavailable]);
+
+  // Fetch user profile to get updated profileImage
+  const fetchUserProfile = useCallback(async () => {
+    const currentUser = user;
+    if (!currentUser || isLoadingRef.current) return;
+    
+    try {
+      isLoadingRef.current = true;
+      const response = await UserService.getUserProfile();
+      console.log('✅ User profile response:', response);
+      // Always update backendProfile - this is the source of truth for profileImage
+      // If response has profileImage, use it; otherwise keep existing if it exists
+      setBackendProfile((prev: any) => {
+        // If new response has profileImage, always use it (it's the most recent)
+        if (response?.profileImage) {
+          console.log('✅ Updating backendProfile with new profileImage:', response.profileImage);
+          return response;
+        }
+        // If new response doesn't have profileImage but prev does, keep prev (don't clear it)
+        if (prev?.profileImage && !response?.profileImage) {
+          console.log('⚠️ New response has no profileImage, keeping existing:', prev.profileImage);
+          return { ...response, profileImage: prev.profileImage };
+        }
+        // Otherwise use the new response
+        return response;
+      });
+    } catch (error: any) {
+      console.log('⚠️ User profile error:', error?.message || error);
+    } finally {
+      isLoadingRef.current = false;
+    }
+  }, [user]);
   
-  // Fetch consultant profile only when component mounts (not on every focus)
+  // Fetch profiles when component mounts (only once)
   useEffect(() => {
-    fetchConsultantProfile();
-  }, [fetchConsultantProfile]);
+    if (!hasLoadedRef.current && user?.uid) {
+      hasLoadedRef.current = true;
+      lastLoadTimeRef.current = Date.now();
+      fetchConsultantProfile();
+      fetchUserProfile();
+    }
+  }, [user?.uid, fetchConsultantProfile, fetchUserProfile]);
+
+  // Reload when user.photoURL changes (from AuthContext refreshUser) - reload data and update cache key
+  useEffect(() => {
+    if (user?.photoURL && hasLoadedRef.current) {
+      console.log('🔄 [ConsultantAccount] user.photoURL changed, reloading profiles');
+      const now = Date.now();
+      // Only reload if it's been more than 500ms since last load (prevent rapid reloads)
+      if (now - lastLoadTimeRef.current > 500) {
+        lastLoadTimeRef.current = now;
+        fetchConsultantProfile();
+        fetchUserProfile();
+        setImageCacheKey(prev => prev + 1);
+      }
+    }
+  }, [user?.photoURL, fetchConsultantProfile, fetchUserProfile]);
+
+  // Reload profiles when screen comes into focus (e.g., after editing profile)
+  // Use timestamp to prevent rapid reloads but allow refresh after navigation
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.uid) return;
+      
+      const now = Date.now();
+      // Reload if:
+      // 1. Never loaded before, OR
+      // 2. It's been more than 1 second since last load (allows refresh after coming back from EditProfile)
+      if (!hasLoadedRef.current || (now - lastLoadTimeRef.current > 1000)) {
+        hasLoadedRef.current = true;
+        lastLoadTimeRef.current = now;
+        console.log('🔄 [ConsultantAccount] Screen focused, reloading profiles');
+        fetchConsultantProfile();
+        fetchUserProfile();
+        setImageCacheKey(prev => prev + 1);
+      }
+    }, [user?.uid, fetchConsultantProfile, fetchUserProfile])
+  );
   
+  // Memoize the profile image URL to always prioritize backendProfile.profileImage
+  // This ensures the most recently updated image is always used
+  const profileImageUrl = useMemo(() => {
+    // Priority: backendProfile.profileImage > user.photoURL > consultantProfile.personalInfo.profileImage
+    // backendProfile.profileImage is always the most up-to-date since it's updated first
+    const imageUrl = backendProfile?.profileImage || user?.photoURL || consultantProfile?.personalInfo?.profileImage || '';
+    console.log('🖼️ [ConsultantAccount] Profile image URL computed:', {
+      backendProfile: backendProfile?.profileImage ? 'has' : 'none',
+      userPhotoURL: user?.photoURL ? 'has' : 'none',
+      consultantProfile: consultantProfile?.personalInfo?.profileImage ? 'has' : 'none',
+      final: imageUrl ? 'has' : 'none'
+    });
+    return imageUrl;
+  }, [backendProfile?.profileImage, user?.photoURL, consultantProfile?.personalInfo?.profileImage]);
+
   // Get user's name from consultant profile, Firebase, or use email as fallback
   const displayName = consultantProfile?.personalInfo?.fullName || user?.displayName || user?.email?.split('@')[0] || 'Consultant';
   const email = consultantProfile?.personalInfo?.email || user?.email || 'No email available';
@@ -121,14 +220,12 @@ const ConsultantAccount = ({ navigation }: any) => {
             style={authStyles.profileImageWrapper}
           >
             <Image
-              source={
-                consultantProfile?.personalInfo?.profileImage 
-                  ? { uri: consultantProfile.personalInfo.profileImage } 
-                  : user?.photoURL 
-                    ? { uri: user.photoURL } 
-                    : require('../../../assets/image/profile.png')
-              }
+              source={{
+                uri: profileImageUrl ? `${profileImageUrl}?t=${imageCacheKey}` : ''
+              }}
               style={Profile.avatar}
+              key={`profile-${profileImageUrl}-${imageCacheKey}`} // Force re-render when image URL or cache key changes
+              defaultSource={require('../../../assets/image/profile.png')}
             />
             
             {/* Camera Icon Overlay */}
@@ -160,64 +257,80 @@ const ConsultantAccount = ({ navigation }: any) => {
             <View style={styles.roleSwitcherContainer}>
               <Text style={styles.roleSwitcherLabel}>Switch Role</Text>
               <View style={styles.roleButtonsContainer}>
-                {[activeRole === 'student' ? 'consultant' : 'student'].map((role) => (
-                  <TouchableOpacity
-                    key={role}
-                    style={[
-                      styles.roleButton,
-                      activeRole === role && styles.roleButtonActive,
-                      switchingRole && styles.roleButtonDisabled,
-                    ]}
-                    onPress={async () => {
-                      if (activeRole === role || switchingRole) return;
-                      
-                      try {
-                        setSwitchingRole(true);
-                        await switchRole(role);
-                        
-                        // Role switched successfully
-                        Alert.alert(
-                          'Role Switched',
-                          `You are now viewing as ${role === 'student' ? 'a student' : 'a consultant'}.`,
-                          [{ text: 'OK' }]
-                        );
-                      } catch (error: any) {
-                        const errorMessage = error?.response?.data?.error || error?.message || 'Failed to switch role';
-                        const action = error?.response?.data?.action;
-                        
-                        if (action === 'create_consultant_profile') {
-                          // Consultant profile is required - show alert to create profile
-                          Alert.alert(
-                            'Consultant Profile Required',
-                            'You need to create your consultant profile before switching to consultant role.',
-                            [
-                              {
-                                text: 'Create Profile',
-                                onPress: () => navigation.navigate('ConsultantProfileFlow'),
-                              },
-                            ]
-                          );
-                        } else {
-                          Alert.alert('Error', errorMessage);
-                        }
-                      } finally {
-                        setSwitchingRole(false);
-                      }
-                    }}
-                    disabled={switchingRole}
-                  >
-                    <Text
+                {['student', 'consultant'].map((role) => {
+                  const currentActiveRole = activeRole || 'student';
+                  const isActive = currentActiveRole === role;
+                  const hasRole = roles.includes(role) || role === 'student'; // All users have student role by default
+
+                  return (
+                    <TouchableOpacity
+                      key={role}
                       style={[
-                        styles.roleButtonText,
-                        activeRole === role && styles.roleButtonTextActive,
-                        !roles.includes(role) && role === 'consultant' && styles.roleButtonTextInactive,
+                        styles.roleButton,
+                        isActive && styles.roleButtonActive,
+                        switchingRole && styles.roleButtonDisabled,
+                        !hasRole &&
+                          role === 'consultant' &&
+                          styles.roleButtonInactive,
                       ]}
+                      onPress={async () => {
+                        if (isActive || switchingRole) return;
+                        
+                        try {
+                          setSwitchingRole(true);
+                          const result = await switchRole(role);
+                          
+                          // Check if result indicates an error (for missing consultant profile)
+                          if (result?.error && result?.action === 'create_consultant_profile') {
+                            // Consultant profile is required - show alert to create profile
+                            Alert.alert(
+                              'Consultant Profile Required',
+                              'You need to create your consultant profile before switching to consultant role.',
+                              [
+                                {
+                                  text: 'Cancel',
+                                  style: 'cancel',
+                                  onPress: () => {
+                                    // User cancels - remain on current role, do nothing
+                                  },
+                                },
+                                {
+                                  text: 'Create Profile',
+                                  onPress: () => navigation.navigate('ConsultantProfileFlow'),
+                                },
+                              ]
+                            );
+                          } else if (!result?.error) {
+                            // Role switched successfully
+                            Alert.alert(
+                              'Role Switched',
+                              `You are now viewing as ${role === 'student' ? 'a student' : 'a consultant'}.`,
+                              [{ text: 'OK' }]
+                            );
+                          }
+                        } catch (error: any) {
+                          // Handle unexpected errors
+                          const errorMessage = error?.response?.data?.error || error?.message || 'Failed to switch role';
+                          Alert.alert('Error', errorMessage);
+                        } finally {
+                          setSwitchingRole(false);
+                        }
+                      }}
+                      disabled={switchingRole || (!hasRole && role === 'consultant')}
                     >
-                      {role === 'student' ? 'Student' : 'Consultant'}
-                      {activeRole === role && ' ✓'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.roleButtonText,
+                          isActive && styles.roleButtonTextActive,
+                          !hasRole && role === 'consultant' && styles.roleButtonTextInactive,
+                        ]}
+                      >
+                        {role === 'student' ? 'Student' : 'Consultant'}
+                        {isActive && ' ✓'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
               {switchingRole && (
                 <View style={styles.switchingIndicator}>
@@ -261,14 +374,21 @@ const styles = StyleSheet.create({
   roleButtonsContainer: {
     flexDirection: 'row',
     gap: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   roleButton: {
-    width: 100,
+    flex: 1,
+    maxWidth: 120,
+    minWidth: 100,
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.lightGray,
     backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   roleButtonActive: {
     borderColor: COLORS.green,
@@ -276,6 +396,10 @@ const styles = StyleSheet.create({
   },
   roleButtonDisabled: {
     opacity: 0.5,
+  },
+  roleButtonInactive: {
+    opacity: 0.6,
+    borderColor: COLORS.lightGray,
   },
   roleButtonText: {
     fontSize: 15,

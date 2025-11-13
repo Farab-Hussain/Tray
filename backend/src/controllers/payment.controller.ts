@@ -203,8 +203,8 @@ export const createConnectAccount = async (req: Request, res: Response) => {
     // Use mobile deep link URL format for React Native apps
     const mobileReturnUrl = process.env.MOBILE_RETURN_URL || 'tray://stripe/return';
     const mobileRefreshUrl = process.env.MOBILE_REFRESH_URL || 'tray://stripe/refresh';
-    const webReturnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/consultant/account/stripe/return`;
-    const webRefreshUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/consultant/account/stripe/refresh`;
+    const webReturnUrl = `${process.env.FRONTEND_URL }/consultant/account/stripe/return`;
+    const webRefreshUrl = `${process.env.FRONTEND_URL }/consultant/account/stripe/refresh`;
     
     // Use mobile URLs if MOBILE_RETURN_URL is set, otherwise use web URLs
     const returnUrl = process.env.MOBILE_RETURN_URL ? mobileReturnUrl : webReturnUrl;
@@ -355,8 +355,8 @@ export const getConnectAccountStatus = async (req: Request, res: Response) => {
       // Use mobile deep link URL format for React Native apps
       const mobileReturnUrl = process.env.MOBILE_RETURN_URL || 'tray://stripe/return';
       const mobileRefreshUrl = process.env.MOBILE_REFRESH_URL || 'tray://stripe/refresh';
-      const webReturnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/consultant/account/stripe/return`;
-      const webRefreshUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/consultant/account/stripe/refresh`;
+      const webReturnUrl = `${process.env.FRONTEND_URL }/consultant/account/stripe/return`;
+      const webRefreshUrl = `${process.env.FRONTEND_URL }/consultant/account/stripe/refresh`;
       
       // Use mobile URLs if MOBILE_RETURN_URL is set, otherwise use web URLs
       const returnUrl = process.env.MOBILE_RETURN_URL ? mobileReturnUrl : webReturnUrl;

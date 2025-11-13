@@ -15,6 +15,7 @@ import notificationRoutes from './routes/notification.routes';
 import reminderRoutes from './routes/reminder.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import registerSupportRoutes from './routes/support.routes';
+import activityRoutes from './routes/activity.routes';
 
 dotenv.config();
 
@@ -114,6 +115,7 @@ app.use("/fcm", fcmRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/reminders", reminderRoutes);
 app.use("/analytics", analyticsRoutes);
+app.use("/admin/activities", activityRoutes);
 registerSupportRoutes(app);
 
 // Global error handler

@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Image,
@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { authStyles } from '../../../constants/styles/authStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -19,6 +20,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useNotificationContext } from '../../../contexts/NotificationContext';
 import { UserService } from '../../../services/user.service';
+import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { Camera, User, RefreshCw } from 'lucide-react-native';
 import Loader from '../../../components/ui/Loader';
 import { StyleSheet } from 'react-native';
@@ -29,6 +31,8 @@ const Account = ({ navigation }: any) => {
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [imageCacheKey, setImageCacheKey] = useState(0);
+  const lastLoadTimeRef = useRef(0);
   const { chats } = useChatContext();
   const { notifications, unreadCount: notificationUnreadCount } =
     useNotificationContext();
@@ -63,7 +67,29 @@ const Account = ({ navigation }: any) => {
       console.log('👤 Fetching user profile from backend...');
       const response = await UserService.getUserProfile();
       console.log('✅ Backend profile response:', response);
+      
+      // If main profile has no image, check consultant profile as fallback (if user has consultant role)
+      if (!response?.profileImage && response?.roles?.includes('consultant')) {
+        try {
+          console.log('🔄 [Account] Main profile has no image, checking consultant profile as fallback...');
+          const consultantProfile = await getConsultantProfile(user.uid);
+          const consultantImage = consultantProfile?.personalInfo?.profileImage;
+          
+          if (consultantImage && consultantImage.trim() !== '') {
+            console.log('✅ [Account] Found consultant profile image as fallback:', consultantImage);
+            // Merge consultant image into response
+            response.profileImage = consultantImage.trim();
+          } else {
+            console.log('ℹ️ [Account] No consultant profile image found either');
+          }
+        } catch (consultantError) {
+          // If consultant profile fetch fails, continue with main profile
+          console.warn('⚠️ [Account] Failed to fetch consultant profile as fallback:', consultantError);
+        }
+      }
+      
       setBackendProfile(response);
+      lastLoadTimeRef.current = Date.now();
     } catch (error: any) {
       // Only log once and mark API as unavailable to prevent repeated calls
       if (error?.response?.status === 404) {
@@ -79,10 +105,41 @@ const Account = ({ navigation }: any) => {
     }
   }, [user, apiUnavailable]);
 
-  // Fetch backend profile only when component mounts (not on every focus)
+  // Fetch backend profile when component mounts
   useEffect(() => {
     fetchBackendProfile();
   }, [fetchBackendProfile]);
+
+  // Reload when user.photoURL changes (from AuthContext refreshUser) - reload data and update cache key
+  useEffect(() => {
+    if (user?.photoURL) {
+      console.log('🔄 [Account] user.photoURL changed, reloading profile');
+      const now = Date.now();
+      // Only reload if it's been more than 500ms since last load (prevent rapid reloads)
+      if (now - lastLoadTimeRef.current > 500) {
+        lastLoadTimeRef.current = now;
+        fetchBackendProfile();
+        setImageCacheKey(prev => prev + 1);
+      }
+    }
+  }, [user?.photoURL, fetchBackendProfile]);
+
+  // Reload profile when screen comes into focus (e.g., after editing profile)
+  // Use timestamp to prevent rapid reloads but allow refresh after navigation
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.uid) return;
+      
+      const now = Date.now();
+      // Reload if it's been more than 1 second since last load (allows refresh after coming back from EditProfile)
+      if (now - lastLoadTimeRef.current > 1000) {
+        lastLoadTimeRef.current = now;
+        console.log('🔄 [Account] Screen focused, reloading profile');
+        fetchBackendProfile();
+        setImageCacheKey(prev => prev + 1);
+      }
+    }, [user?.uid, fetchBackendProfile])
+  );
 
   // Get user's name from backend profile, Firebase, or use email as fallback
   const displayName =
@@ -144,12 +201,11 @@ const Account = ({ navigation }: any) => {
           >
             {backendProfile?.profileImage || user?.photoURL ? (
               <Image
-                source={
-                  backendProfile?.profileImage
-                    ? { uri: backendProfile.profileImage }
-                    : { uri: user?.photoURL }
-                }
+                source={{
+                  uri: `${backendProfile?.profileImage || user?.photoURL || ''}?t=${imageCacheKey}`,
+                }}
                 style={Profile.avatar}
+                key={`${backendProfile?.profileImage || user?.photoURL}-${imageCacheKey}`} // Force re-render when cache key changes
               />
             ) : (
               <View
@@ -200,24 +256,10 @@ const Account = ({ navigation }: any) => {
                         if (isActive || switchingRole) return;
                         try {
                           setSwitchingRole(true);
-                          await switchRole(role);
+                          const result = await switchRole(role);
 
-                          // Role switched successfully
-                          Alert.alert(
-                            'Role Switched',
-                            `You are now viewing as ${
-                              role === 'student' ? 'a student' : 'a consultant'
-                            }.`,
-                            [{ text: 'OK' }],
-                          );
-                        } catch (error: any) {
-                          const errorMessage =
-                            error?.response?.data?.error ||
-                            error?.message ||
-                            'Failed to switch role';
-                          const action = error?.response?.data?.action;
-
-                          if (action === 'create_consultant_profile') {
+                          // Check if result indicates an error (for missing consultant profile)
+                          if (result?.error && result?.action === 'create_consultant_profile') {
                             // Consultant profile is required - show alert to create profile
                             Alert.alert(
                               'Consultant Profile Required',
@@ -239,9 +281,23 @@ const Account = ({ navigation }: any) => {
                                 },
                               ],
                             );
-                          } else {
-                            Alert.alert('Error', errorMessage);
+                          } else if (!result?.error) {
+                            // Role switched successfully
+                            Alert.alert(
+                              'Role Switched',
+                              `You are now viewing as ${
+                                role === 'student' ? 'a student' : 'a consultant'
+                              }.`,
+                              [{ text: 'OK' }],
+                            );
                           }
+                        } catch (error: any) {
+                          // Handle unexpected errors
+                          const errorMessage =
+                            error?.response?.data?.error ||
+                            error?.message ||
+                            'Failed to switch role';
+                          Alert.alert('Error', errorMessage);
                         } finally {
                           setSwitchingRole(false);
                         }
@@ -321,14 +377,21 @@ const styles = StyleSheet.create({
   roleButtonsContainer: {
     flexDirection: 'row',
     gap: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   roleButton: {
-    width: 100,
+    flex: 1,
+    maxWidth: 120,
+    minWidth: 100,
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.lightGray,
     backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   roleButtonActive: {
     borderColor: COLORS.green,

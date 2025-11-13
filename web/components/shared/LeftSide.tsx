@@ -7,7 +7,6 @@ import {
   BarChart3, 
   Settings, 
   Shield, 
-  MessageSquare,
   Activity,
   TrendingUp,
   LogOut
@@ -15,7 +14,6 @@ import {
 import Image from "next/image";
 import React, { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import Button from "../custom/Button";
 import { useAuth } from "@/contexts/AuthContext";
 
 const LeftSide = () => {
@@ -51,49 +49,50 @@ const LeftSide = () => {
       href: "/admin",
       label: "Dashboard",
       icon: BarChart3,
-      isActive: pathname === "/admin"
+      isActive: pathname === "/admin",
+      showWhenCollapsed: true
     },
     {
       href: "/admin/consultant-profiles",
       label: "Consultant Profiles",
       icon: Users,
-      isActive: pathname.includes("/admin/consultant-profiles")
+      isActive: pathname.includes("/admin/consultant-profiles"),
+      showWhenCollapsed: true
     },
     {
       href: "/admin/service-applications",
       label: "Service Applications",
       icon: FileText,
-      isActive: pathname.includes("/admin/service-applications")
+      isActive: pathname.includes("/admin/service-applications"),
+      showWhenCollapsed: true
     },
     {
       href: "/admin/users",
       label: "User Management",
       icon: Shield,
-      isActive: pathname.includes("/admin/users")
+      isActive: pathname.includes("/admin/users"),
+      showWhenCollapsed: true
     },
     {
       href: "/admin/analytics",
       label: "Analytics",
       icon: TrendingUp,
-      isActive: pathname.includes("/admin/analytics")
-    },
-    {
-      href: "/admin/support",
-      label: "Support",
-      icon: MessageSquare,
-      isActive: pathname.includes("/admin/support")
+      isActive: pathname.includes("/admin/analytics"),
+      showWhenCollapsed: false
     },
     {
       href: "/admin/activity",
       label: "Activity Log",
       icon: Activity,
-      isActive: pathname.includes("/admin/activity")
+      isActive: pathname.includes("/admin/activity"),
+      showWhenCollapsed: false
     },
     {
       href: "/admin/settings",
       label: "Settings",
       icon: Settings,
-      isActive: pathname.includes("/admin/settings")
+      isActive: pathname.includes("/admin/settings"),
+      showWhenCollapsed: false
     }
   ];
 
@@ -108,37 +107,53 @@ const LeftSide = () => {
       `}
     >
       <div className="w-full flex flex-col">
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={isOpen ? PanelLeft : PanelRight}
-          onClick={handleClick}
-          className="cursor-pointer mb-2"
-        />
-        
         {!isOpen ? (
-          <div className="flex flex-col gap-2">
-            {adminNavItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className={`p-2 rounded transition-colors ${
-                  item.isActive 
-                    ? 'bg-green-100 text-green-600' 
-                    : 'hover:bg-gray-200'
-                }`}
-                title={item.label}
+          <>
+            {/* Toggle button at top-center when collapsed */}
+            <div className="w-full flex justify-center mb-2">
+              <button
+                onClick={handleClick}
+                className="p-2 rounded transition-colors hover:bg-gray-200 text-gray-700 flex items-center justify-center"
+                title="Expand sidebar"
               >
-                <item.icon className="h-4 w-4" />
-              </a>
-            ))}
-          </div>
+                <PanelRight className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {adminNavItems
+                .filter(item => item.showWhenCollapsed || item.isActive)
+                .map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className={`p-2 rounded transition-colors ${
+                      item.isActive 
+                        ? 'bg-green-100 text-green-600' 
+                        : 'hover:bg-gray-200'
+                    }`}
+                    title={item.label}
+                  >
+                    <item.icon className="h-4 w-4" />
+                  </a>
+                ))}
+            </div>
+          </>
         ) : (
           <div className="w-full">
             <main className="overflow-hidden w-full">
-              <h1 className="text-base sm:text-lg py-1 sm:py-3 truncate max-w-full">
-                Admin Dashboard
-              </h1>
+              {/* Header with title and toggle button */}
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h1 className="text-base sm:text-lg py-1 sm:py-3 truncate flex-1">
+                  Admin Dashboard
+                </h1>
+                <button
+                  onClick={handleClick}
+                  className="p-2 rounded transition-colors hover:bg-gray-200 text-gray-700 flex items-center justify-center flex-shrink-0"
+                  title="Collapse sidebar"
+                >
+                  <PanelLeft className="h-4 w-4" />
+                </button>
+              </div>
               
               {/* Navigation links */}
               <nav className="mt-4 flex flex-col gap-2">

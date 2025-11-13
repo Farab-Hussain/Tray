@@ -597,12 +597,8 @@ export const getAllServicesWithConsultants = async (req: Request, res: Response)
           .doc(serviceData.consultantId).get();
         const consultant = consultantDoc.data();
         
-        const consultantProfileImage =
-          typeof consultant?.profileImage === "string" ? consultant.profileImage.trim() : "";
-
-        if ((!imageUrl || imageUrl.trim() === "") && consultantProfileImage) {
-          imageUrl = consultantProfileImage;
-        }
+        // Do NOT use consultant profile image as fallback for service image
+        // Services should have their own images, not use consultant's profile image
 
         return {
           id: serviceData.id,

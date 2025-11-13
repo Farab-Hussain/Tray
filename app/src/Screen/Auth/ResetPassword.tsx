@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { authStyles } from "../../constants/styles/authStyles";
 import { api } from "../../lib/fetcher";
 import { validatePassword, PasswordValidation } from "../../utils/passwordValidation";
-import { Eye, EyeOff } from "lucide-react-native";
+import { Eye, EyeOff, ChevronLeft } from "lucide-react-native";
 import { COLORS } from "../../constants/core/colors";
 
 const ResetPassword = ({ navigation, route }: any) => {
@@ -80,78 +80,95 @@ const ResetPassword = ({ navigation, route }: any) => {
         extraScrollHeight={24}
         showsVerticalScrollIndicator={false}
       >
-        <View style={authStyles.formContainer}>
-        <Text style={authStyles.authHeading}>Reset Password</Text>
-        <Text style={authStyles.authPara}>Enter your new password below.</Text>
-
-        <Text style={authStyles.label}>New Password</Text>
-        <View style={authStyles.inputWrapper}>
-          <TextInput
-            style={authStyles.input}
-            secureTextEntry={!showNewPassword}
-            placeholder="Enter new password"
-            placeholderTextColor={COLORS.lightGray}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
+        <View style={authStyles.screenFlex}>
           <TouchableOpacity
-            onPress={() => setShowNewPassword(!showNewPassword)}
-            style={authStyles.passwordToggle}
+            onPress={() => navigation.goBack()}
+            style={authStyles.backButton}
           >
-            {showNewPassword ? (
-              <EyeOff size={20} color={COLORS.gray} />
-            ) : (
-              <Eye size={20} color={COLORS.gray} />
-            )}
+            <ChevronLeft color="#000" style={authStyles.back} />
           </TouchableOpacity>
-        </View>
-        
-        {/* Password Strength Indicator */}
-        {passwordValidation && (
-          <PasswordStrengthIndicator 
-            strength={passwordValidation.strength}
-            showFeedback={false}
-          />
-        )}
+          <View style={authStyles.formContainer}>
+            <Text style={authStyles.authHeading}>Reset password</Text>
+            <Text style={authStyles.authPara}>Please type something you'll remember</Text>
 
-        <Text style={authStyles.label}>Confirm Password</Text>
-        <View style={authStyles.inputWrapper}>
-          <TextInput
-            style={authStyles.input}
-            secureTextEntry={!showConfirmPassword}
-            placeholder="Confirm new password"
-            placeholderTextColor={COLORS.lightGray}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          <TouchableOpacity
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-            style={authStyles.passwordToggle}
-          >
-            {showConfirmPassword ? (
-              <EyeOff size={20} color={COLORS.gray} />
-            ) : (
-              <Eye size={20} color={COLORS.gray} />
+            <Text style={authStyles.label}>New password</Text>
+            <View style={authStyles.inputWrapper}>
+              <TextInput
+                style={authStyles.input}
+                secureTextEntry={!showNewPassword}
+                placeholder="Enter your new password"
+                placeholderTextColor={COLORS.lightGray}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowNewPassword(!showNewPassword)}
+                style={authStyles.passwordToggle}
+              >
+                {showNewPassword ? (
+                  <EyeOff size={20} color={COLORS.gray} />
+                ) : (
+                  <Eye size={20} color={COLORS.gray} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {passwordValidation && (
+              <PasswordStrengthIndicator
+                strength={passwordValidation.strength}
+                showFeedback={false}
+              />
             )}
-          </TouchableOpacity>
-        </View>
 
-        <AppButton
-          title={loading ? 'Resetting...' : 'Reset Password'}
-          onPress={handleResetPassword}
-          disabled={loading || (passwordValidation ? !passwordValidation.isValid : false)}
-          style={[
-            authStyles.signUpBtn,
-            ...(passwordValidation && !passwordValidation.isValid ? [{ opacity: 0.6 }] : [])
-          ]}
-          textStyle={authStyles.signUpText}
-        />
-        {loading && <ActivityIndicator style={{ marginTop: 10 }} />}
-      </View>
+            <Text style={authStyles.label}>Confirm new password</Text>
+            <View style={authStyles.inputWrapper}>
+              <TextInput
+                style={authStyles.input}
+                secureTextEntry={!showConfirmPassword}
+                placeholder="Re-enter your new password"
+                placeholderTextColor={COLORS.lightGray}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={authStyles.passwordToggle}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff size={20} color={COLORS.gray} />
+                ) : (
+                  <Eye size={20} color={COLORS.gray} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <AppButton
+              title={loading ? 'Resetting...' : 'Reset password'}
+              onPress={handleResetPassword}
+              disabled={loading || (passwordValidation ? !passwordValidation.isValid : false)}
+              style={[
+                authStyles.signUpBtn,
+                ...(passwordValidation && !passwordValidation.isValid ? [{ opacity: 0.6 }] : [])
+              ]}
+              textStyle={authStyles.signUpText}
+            />
+            {loading && <ActivityIndicator style={authStyles.loader} />}
+          </View>
+
+          <View style={authStyles.bottomContainer}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={authStyles.footer}>
+                Already have an account? <Text style={authStyles.loginLink}>Log in</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );

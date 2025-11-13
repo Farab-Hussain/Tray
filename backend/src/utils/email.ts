@@ -49,11 +49,12 @@ interface EmailOptions {
 }
 
 
-export const sendEmail = async (options: EmailOptions): Promise<void> => {
-  // Skip if email is not configured
+export const sendEmail = async (options: EmailOptions): Promise<{ sent: boolean; error?: string }> => {
+  // Check if email is configured
   if (!isEmailConfigured || !transporter) {
-    Logger.warn("Email", "", `Email not sent (credentials not configured) - To: ${options.to}, Subject: ${options.subject}`);
-    return;
+    const errorMsg = `Email not sent (credentials not configured) - To: ${options.to}, Subject: ${options.subject}`;
+    Logger.warn("Email", "", errorMsg);
+    return { sent: false, error: "Email credentials not configured" };
   }
 
   try {
@@ -67,9 +68,11 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
 
     await transporter.sendMail(mailOptions);
     Logger.info("Email", "", `Email sent to ${options.to}: ${options.subject}`);
-  } catch (error) {
-    Logger.error("Email", "", `Failed to send email to ${options.to}`, error);
-    throw new Error("Failed to send email");
+    return { sent: true };
+  } catch (error: any) {
+    const errorMsg = `Failed to send email to ${options.to}: ${error.message || error}`;
+    Logger.error("Email", "", errorMsg, error);
+    return { sent: false, error: errorMsg };
   }
 };
 
