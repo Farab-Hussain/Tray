@@ -7,6 +7,7 @@ import {
   getPlatformSettings,
   updatePlatformFeeAmount,
 } from "../services/platformSettings.service";
+import { transferPaymentToConsultant } from "../services/payment.service";
 
 dotenv.config();
 
@@ -124,20 +125,136 @@ export const handleWebhook = async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+  if (!endpointSecret) {
+    console.error("❌ STRIPE_WEBHOOK_SECRET is not configured");
+    return res.status(500).json({ error: "Webhook secret not configured" });
+  }
+
   try {
     const event = stripeClient.webhooks.constructEvent(
       req.body,
       sig as string,
-      endpointSecret as string
+      endpointSecret
     );
 
+    console.log(`🔔 [Webhook] Received event: ${event.type}`);
+
+    // Handle payment intent succeeded
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object as any;
-      console.log("💰 Payment successful for:", paymentIntent.metadata.bookingId);
+      const bookingId = paymentIntent.metadata?.bookingId;
+      const studentId = paymentIntent.metadata?.studentId;
+      const consultantId = paymentIntent.metadata?.consultantId;
+
+      if (!bookingId) {
+        console.warn("⚠️ [Webhook] Payment intent succeeded but no bookingId in metadata");
+        return res.status(200).json({ received: true, warning: "No bookingId in metadata" });
+      }
+
+      try {
+        // Import payment service
+        const { storePaymentTransaction } = await import("../services/payment.service");
+
+        // Get booking to verify it exists
+        const bookingDoc = await db.collection("bookings").doc(bookingId).get();
+        if (!bookingDoc.exists) {
+          console.error(`❌ [Webhook] Booking ${bookingId} not found`);
+          return res.status(200).json({ received: true, warning: `Booking ${bookingId} not found` });
+        }
+
+        const bookingData = bookingDoc.data();
+        const amount = paymentIntent.amount / 100; // Convert from cents to dollars
+        const currency = paymentIntent.currency || "usd";
+
+        // Store payment transaction
+        await storePaymentTransaction(paymentIntent.id, bookingId, {
+          studentId: studentId || bookingData?.studentId,
+          consultantId: consultantId || bookingData?.consultantId,
+          amount,
+          currency,
+        });
+
+        // Update booking status to paid
+        await db.collection("bookings").doc(bookingId).update({
+          paymentStatus: "paid",
+          paymentIntentId: paymentIntent.id,
+          updatedAt: new Date().toISOString(),
+        });
+
+        console.log(`✅ [Webhook] Payment processed for booking ${bookingId}: $${amount} ${currency.toUpperCase()}`);
+        console.log(`   💰 Status: Paid - Pending consultant payout`);
+
+        // Send email notifications if needed (already handled in createBooking, but can add here too)
+        // The booking creation flow should handle this, but we can add a fallback here if needed
+
+      } catch (error: any) {
+        console.error(`❌ [Webhook] Error processing payment_intent.succeeded:`, error);
+        // Don't fail the webhook - Stripe will retry if we return non-200
+        // Log the error for manual review
+        return res.status(200).json({ 
+          received: true, 
+          error: error.message,
+          note: "Payment recorded but booking update may have failed. Manual review required."
+        });
+      }
     }
 
-    res.status(200).json({ received: true });
+    // Handle payment intent failed
+    if (event.type === "payment_intent.payment_failed") {
+      const paymentIntent = event.data.object as any;
+      const bookingId = paymentIntent.metadata?.bookingId;
+
+      if (bookingId) {
+        try {
+          await db.collection("bookings").doc(bookingId).update({
+            paymentStatus: "failed",
+            updatedAt: new Date().toISOString(),
+          });
+          console.log(`❌ [Webhook] Payment failed for booking ${bookingId}`);
+        } catch (error: any) {
+          console.error(`❌ [Webhook] Error updating booking for failed payment:`, error);
+        }
+      }
+    }
+
+    // Handle transfer created (for tracking)
+    if (event.type === "transfer.created") {
+      const transfer = event.data.object as any;
+      console.log(`💸 [Webhook] Transfer created: ${transfer.id} - $${transfer.amount / 100} to ${transfer.destination}`);
+    }
+
+    // Handle transfer paid (transfer completed)
+    if (event.type === "transfer.paid") {
+      const transfer = event.data.object as any;
+      const bookingId = transfer.metadata?.bookingId;
+
+      if (bookingId) {
+        try {
+          // Update payment transaction if exists
+          const transactionSnapshot = await db
+            .collection("paymentTransactions")
+            .where("bookingId", "==", bookingId)
+            .where("transferId", "==", transfer.id)
+            .limit(1)
+            .get();
+
+          if (!transactionSnapshot.empty) {
+            await transactionSnapshot.docs[0].ref.update({
+              transferStatus: "completed",
+              updatedAt: new Date().toISOString(),
+            });
+          }
+
+          console.log(`✅ [Webhook] Transfer paid: ${transfer.id} for booking ${bookingId}`);
+        } catch (error: any) {
+          console.error(`❌ [Webhook] Error updating transfer status:`, error);
+        }
+      }
+    }
+
+    res.status(200).json({ received: true, processed: event.type });
   } catch (err: any) {
+    console.error("❌ [Webhook] Error:", err.message);
     res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 };
@@ -400,89 +517,32 @@ export const getConnectAccountStatus = async (req: Request, res: Response) => {
 };
 
 // Transfer payment to consultant after session completion
+// Now uses the payment service with retry logic
 export const transferToConsultant = async (req: Request, res: Response) => {
   try {
-    const { bookingId, amount, description } = req.body;
+    const { bookingId } = req.body;
     
-    if (!bookingId || !amount) {
-      return res.status(400).json({ error: "Missing required fields: bookingId and amount" });
+    if (!bookingId) {
+      return res.status(400).json({ error: "Missing required field: bookingId" });
     }
     
-    // Get booking details
-    const bookingDoc = await db.collection("bookings").doc(bookingId).get();
-    if (!bookingDoc.exists) {
-      return res.status(404).json({ error: "Booking not found" });
-    }
+    const result = await transferPaymentToConsultant(bookingId);
     
-    const bookingData = bookingDoc.data();
-    const consultantId = bookingData?.consultantId;
-    
-    if (!consultantId) {
-      return res.status(400).json({ error: "Consultant ID not found in booking" });
-    }
-    
-    // Get consultant's Stripe account
-    const consultantDoc = await db.collection("consultants").doc(consultantId).get();
-    if (!consultantDoc.exists) {
-      return res.status(404).json({ error: "Consultant not found" });
-    }
-    
-    const consultantData = consultantDoc.data();
-    const stripeAccountId = consultantData?.stripeAccountId;
-    
-    if (!stripeAccountId) {
-      return res.status(400).json({ 
-        error: "Consultant does not have a Stripe account. Please set up payment account first.",
-        code: 'NO_STRIPE_ACCOUNT'
+    if (!result.success) {
+      const statusCode = result.retryable ? 503 : 400;
+      return res.status(statusCode).json({ 
+        error: result.error,
+        code: result.code,
+        retryable: result.retryable,
+        onboardingRequired: result.onboardingRequired
       });
     }
-    
-    // Verify account is active and ready to receive transfers
-    const account = await stripeClient.accounts.retrieve(stripeAccountId);
-    if (!account.details_submitted || !account.charges_enabled || !account.payouts_enabled) {
-      return res.status(400).json({ 
-        error: "Consultant's Stripe account is not fully set up. Please complete onboarding.",
-        code: 'ACCOUNT_NOT_READY',
-        onboardingRequired: true
-      });
-    }
-    
-    // Calculate platform fee (admin configurable - fixed amount)
-    const platformFeeAmountDollars = await getPlatformFeeAmount();
-    const platformFeeAmount = Math.round(platformFeeAmountDollars * 100); // Convert to cents
-    const transferAmount = Math.round(amount * 100) - platformFeeAmount;
-    
-    // Create transfer to consultant
-    const transfer = await stripeClient.transfers.create({
-      amount: transferAmount,
-      currency: "usd",
-      destination: stripeAccountId,
-      description: description || `Payment for booking ${bookingId}`,
-      metadata: {
-        bookingId,
-        consultantId,
-        studentId: bookingData?.studentId,
-        platformFee: platformFeeAmount.toString(),
-      },
-    });
-    
-    // Update booking with transfer information
-    await db.collection("bookings").doc(bookingId).update({
-      paymentTransferred: true,
-      transferId: transfer.id,
-      transferAmount: transferAmount / 100, // Convert back to dollars
-      platformFee: platformFeeAmount / 100,
-      transferredAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    
-    console.log(`✅ Transferred $${transferAmount / 100} to consultant ${consultantId} for booking ${bookingId}`);
     
     res.status(200).json({
       message: "Payment transferred successfully",
-      transferId: transfer.id,
-      amount: transferAmount / 100,
-      platformFee: platformFeeAmount / 100,
+      transferId: result.transferId,
+      amount: result.amount,
+      platformFee: result.platformFee,
       bookingId,
     });
   } catch (error: any) {

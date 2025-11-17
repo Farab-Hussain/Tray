@@ -10,14 +10,14 @@ import ProfileList from '../../../components/ui/ProfileList';
 import { ConsultantProfileListData } from '../../../constants/data/ConsultantProfileListData';
 import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Camera, RefreshCw } from 'lucide-react-native';
+import { Camera } from 'lucide-react-native';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { UserService } from '../../../services/user.service';
 import { StyleSheet } from 'react-native';
 
 const ConsultantAccount = ({ navigation }: any) => {
-  const { user, logout, activeRole, roles, switchRole } = useAuth();
-  const [switchingRole, setSwitchingRole] = useState(false);
+  const { user, logout } = useAuth();
+  // const [switchingRole, setSwitchingRole] = useState(false);
   const [consultantProfile, setConsultantProfile] = useState<any>(null);
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
@@ -252,94 +252,94 @@ const ConsultantAccount = ({ navigation }: any) => {
             </View>
           )}
           
-          {/* Role Switcher - Always show (email verification already required at login) */}
-          {activeRole && (
-            <View style={styles.roleSwitcherContainer}>
-              <Text style={styles.roleSwitcherLabel}>Switch Role</Text>
-              <View style={styles.roleButtonsContainer}>
-                {['student', 'consultant'].map((role) => {
-                  const currentActiveRole = activeRole || 'student';
-                  const isActive = currentActiveRole === role;
-                  const hasRole = roles.includes(role) || role === 'student'; // All users have student role by default
+          {/* Role Switcher - Always show (email verification already required at login)
+          // {activeRole && (
+          //   <View style={styles.roleSwitcherContainer}>
+          //     <Text style={styles.roleSwitcherLabel}>Switch Role</Text>
+          //     <View style={styles.roleButtonsContainer}>
+          //       {['student', 'consultant'].map((role) => {
+          //         const currentActiveRole = activeRole || 'student';
+          //         const isActive = currentActiveRole === role;
+          //         const hasRole = roles.includes(role) || role === 'student'; // All users have student role by default
 
-                  return (
-                    <TouchableOpacity
-                      key={role}
-                      style={[
-                        styles.roleButton,
-                        isActive && styles.roleButtonActive,
-                        switchingRole && styles.roleButtonDisabled,
-                        !hasRole &&
-                          role === 'consultant' &&
-                          styles.roleButtonInactive,
-                      ]}
-                      onPress={async () => {
-                        if (isActive || switchingRole) return;
+          //         return (
+          //           <TouchableOpacity
+          //             key={role}
+          //             style={[
+          //               styles.roleButton,
+          //               isActive && styles.roleButtonActive,
+          //               switchingRole && styles.roleButtonDisabled,
+          //               !hasRole &&
+          //                 role === 'consultant' &&
+          //                 styles.roleButtonInactive,
+          //             ]}
+          //             onPress={async () => {
+          //               if (isActive || switchingRole) return;
                         
-                        try {
-                          setSwitchingRole(true);
-                          const result = await switchRole(role);
+          //               try {
+          //                 setSwitchingRole(true);
+          //                 const result = await switchRole(role);
                           
-                          // Check if result indicates an error (for missing consultant profile)
-                          if (result?.error && result?.action === 'create_consultant_profile') {
-                            // Consultant profile is required - show alert to create profile
-                            Alert.alert(
-                              'Consultant Profile Required',
-                              'You need to create your consultant profile before switching to consultant role.',
-                              [
-                                {
-                                  text: 'Cancel',
-                                  style: 'cancel',
-                                  onPress: () => {
-                                    // User cancels - remain on current role, do nothing
-                                  },
-                                },
-                                {
-                                  text: 'Create Profile',
-                                  onPress: () => navigation.navigate('ConsultantProfileFlow'),
-                                },
-                              ]
-                            );
-                          } else if (!result?.error) {
-                            // Role switched successfully
-                            Alert.alert(
-                              'Role Switched',
-                              `You are now viewing as ${role === 'student' ? 'a student' : 'a consultant'}.`,
-                              [{ text: 'OK' }]
-                            );
-                          }
-                        } catch (error: any) {
-                          // Handle unexpected errors
-                          const errorMessage = error?.response?.data?.error || error?.message || 'Failed to switch role';
-                          Alert.alert('Error', errorMessage);
-                        } finally {
-                          setSwitchingRole(false);
-                        }
-                      }}
-                      disabled={switchingRole || (!hasRole && role === 'consultant')}
-                    >
-                      <Text
-                        style={[
-                          styles.roleButtonText,
-                          isActive && styles.roleButtonTextActive,
-                          !hasRole && role === 'consultant' && styles.roleButtonTextInactive,
-                        ]}
-                      >
-                        {role === 'student' ? 'Student' : 'Consultant'}
-                        {isActive && ' ✓'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              {switchingRole && (
-                <View style={styles.switchingIndicator}>
-                  <RefreshCw size={16} color={COLORS.green} />
-                  <Text style={styles.switchingText}>Switching...</Text>
-                </View>
-              )}
-            </View>
-          )}
+          //                 // Check if result indicates an error (for missing consultant profile)
+          //                 if (result?.error && result?.action === 'create_consultant_profile') {
+          //                   // Consultant profile is required - show alert to create profile
+          //                   Alert.alert(
+          //                     'Consultant Profile Required',
+          //                     'You need to create your consultant profile before switching to consultant role.',
+          //                     [
+          //                       {
+          //                         text: 'Cancel',
+          //                         style: 'cancel',
+          //                         onPress: () => {
+          //                           // User cancels - remain on current role, do nothing
+          //                         },
+          //                       },
+          //                       {
+          //                         text: 'Create Profile',
+          //                         onPress: () => navigation.navigate('ConsultantProfileFlow'),
+          //                       },
+          //                     ]
+          //                   );
+          //                 } else if (!result?.error) {
+          //                   // Role switched successfully
+          //                   Alert.alert(
+          //                     'Role Switched',
+          //                     `You are now viewing as ${role === 'student' ? 'a student' : 'a consultant'}.`,
+          //                     [{ text: 'OK' }]
+          //                   );
+          //                 }
+          //               } catch (error: any) {
+          //                 // Handle unexpected errors
+          //                 const errorMessage = error?.response?.data?.error || error?.message || 'Failed to switch role';
+          //                 Alert.alert('Error', errorMessage);
+          //               } finally {
+          //                 setSwitchingRole(false);
+          //               }
+          //             }}
+          //             disabled={switchingRole || (!hasRole && role === 'consultant')}
+          //           >
+          //             <Text
+          //               style={[
+          //                 styles.roleButtonText,
+          //                 isActive && styles.roleButtonTextActive,
+          //                 !hasRole && role === 'consultant' && styles.roleButtonTextInactive,
+          //               ]}
+          //             >
+          //               {role === 'student' ? 'Student' : 'Consultant'}
+          //               {isActive && ' ✓'}
+          //             </Text>
+          //           </TouchableOpacity>
+          //         );
+          //       })}
+          //     </View>
+          //     {switchingRole && (
+          //       <View style={styles.switchingIndicator}>
+          //         <RefreshCw size={16} color={COLORS.green} />
+          //         <Text style={styles.switchingText}>Switching...</Text>
+          //       </View>
+          //     )}
+          //   </View>
+          // )} */}
           
           <View style={Profile.listContainer}>
             {ConsultantProfileListData.length > 0 && (

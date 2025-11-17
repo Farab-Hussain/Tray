@@ -3,8 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { applyActionCode, reload } from 'firebase/auth';
-import { auth } from '@/config/firebase';
+import { api } from '@/utils/api';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -15,70 +14,77 @@ function VerifyEmailContent() {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        // Extract oobCode and mode from URL
-        const mode = searchParams.get('mode');
-        const oobCode = searchParams.get('oobCode');
+        // Extract token and uid from URL (custom verification system)
+        const token = searchParams.get('token');
+        const uid = searchParams.get('uid');
 
-        if (!auth) {
-          throw new Error('Firebase auth not initialized');
+        if (!token || !uid) {
+          setStatus('error');
+          setMessage('Invalid verification link. Missing token or user ID.');
+          return;
         }
 
-        // If we have oobCode and mode, Firebase hasn't processed it yet
-        // This happens when user clicks the link directly
-        if (mode && oobCode) {
-          if (mode !== 'verifyEmail') {
-            setStatus('error');
-            setMessage('Invalid verification link. This link is not for email verification.');
-            return;
-          }
+        try {
+          // Verify email using custom token system (bypasses Firebase rate limits)
+          // No authentication required - the token itself is the authentication
+          console.log('Sending verification request...', { token: token?.substring(0, 10) + '...', uid });
+          
+          const response = await Promise.race([
+            api.post<{ success?: boolean; message?: string; error?: string; code?: string }>('/auth/verify-email', {
+              token: token,
+              uid: uid
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Request timeout - the server did not respond within 30 seconds')), 30000)
+            )
+          ]) as Awaited<ReturnType<typeof api.post<{ success?: boolean; message?: string; error?: string; code?: string }>>>;
 
-          try {
-            // Apply the action code to verify the email
-            await applyActionCode(auth, oobCode);
+          console.log('Verification response received:', response.data);
+
+          if (response.data?.success) {
+            setStatus('success');
+            setMessage('Your email has been verified successfully! Opening app...');
             
-            // Reload the user to get updated emailVerified status
-            const user = auth.currentUser;
-            if (user) {
-              await reload(user);
-            }
+            // Auto-redirect to mobile app
+            // The app will detect that email is verified when it opens
+            const appDeepLink = 'tray://';
             
-                  setStatus('success');
-                  setMessage('Email verified successfully! You can now return to the Tray mobile app and sign in.');
+            // Attempt to open the app immediately
+            window.location.href = appDeepLink;
+            
+            // Fallback: if app doesn't open, show continue button after a delay
+            setTimeout(() => {
+              setMessage('Your email has been verified successfully! You can now return to the Tray app and sign in.');
+            }, 1500);
+            
             return;
-          } catch (error: unknown) {
-            console.error('Verification error:', error);
-            
-            let errorMessage = 'An error occurred while verifying your email.';
-            
-            if (error && typeof error === 'object' && 'code' in error) {
-              const firebaseError = error as { code?: string; message?: string };
-              if (firebaseError.code === 'auth/expired-action-code') {
-                errorMessage = 'This verification link has expired. Please request a new verification email.';
-              } else if (firebaseError.code === 'auth/invalid-action-code') {
-                errorMessage = 'This verification link is invalid or has already been used.';
-              } else if (firebaseError.code === 'auth/user-disabled') {
-                errorMessage = 'This account has been disabled. Please contact support.';
-              } else if (firebaseError.message) {
-                errorMessage = firebaseError.message;
-              }
-            } else if (error instanceof Error) {
-              errorMessage = error.message;
-            }
-            
+          } else {
             setStatus('error');
-            setMessage(errorMessage);
+            setMessage(response.data?.error || 'Failed to verify email. Please try again.');
             return;
           }
+        } catch (error: unknown) {
+          console.error('Verification error:', error);
+          
+          let errorMessage = 'An error occurred while verifying your email.';
+          
+          if (error && typeof error === 'object' && 'response' in error) {
+            const apiError = error as { response?: { data?: { error?: string; code?: string } } };
+            if (apiError.response?.data?.code === 'TOKEN_EXPIRED') {
+              errorMessage = 'This verification link has expired. Please request a new verification email.';
+            } else if (apiError.response?.data?.code === 'INVALID_TOKEN') {
+              errorMessage = 'This verification link is invalid or has already been used.';
+            } else if (apiError.response?.data?.error) {
+              errorMessage = apiError.response.data.error;
+            }
+          } else if (error instanceof Error) {
+            errorMessage = error.message;
+          }
+          
+          setStatus('error');
+          setMessage(errorMessage);
+          return;
         }
-
-        // If no oobCode/mode, Firebase action handler already processed the verification
-        // When Firebase processes the verification link, it verifies the email on the server
-        // and then redirects to continueUrl without parameters
-        // In this case, we should show success since Firebase already processed it
-        console.log('No oobCode/mode in URL - Firebase action handler already processed verification');
-        setStatus('success');
-              setMessage('Email verification link has been processed. You can now return to the Tray mobile app and sign in.');
-              return;
       } catch (error: unknown) {
         console.error('Verification error:', error);
         setStatus('error');
@@ -104,8 +110,25 @@ function VerifyEmailContent() {
           <>
             <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h1>
-                  <p className="text-gray-600 mb-4">{message}</p>
-                  <p className="text-sm text-gray-500">You can safely close this page.</p>
+            <p className="text-gray-600 mb-4">{message}</p>
+            <button
+              onClick={() => {
+                // Try to open the mobile app via deep link
+                const appDeepLink = 'tray://';
+                
+                // Attempt to open the app
+                window.location.href = appDeepLink;
+                
+                // Show message after a short delay if app might not have opened
+                setTimeout(() => {
+                  setMessage('If the app did not open, please return to the Tray app manually. Your email has been verified and you can now sign in.');
+                }, 1500);
+              }}
+              className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              Continue to App
+            </button>
+            <p className="text-sm text-gray-500 mt-4">You can also safely close this page.</p>
           </>
         )}
 

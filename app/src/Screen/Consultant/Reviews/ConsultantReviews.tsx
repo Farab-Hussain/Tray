@@ -15,22 +15,33 @@ const ConsultantReviews = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchConsultantReviews = async () => {
+  const fetchConsultantReviews = async (pageNum: number = 1, append: boolean = false) => {
     if (!user?.uid) return;
     
     try {
+      if (!append) {
+        setLoading(true);
+      }
+      
       console.log('📋 Fetching reviews for consultant:', user.uid);
-      const response = await ReviewService.getConsultantReviews(user.uid);
+      const response = await ReviewService.getConsultantReviews(user.uid, pageNum, 20);
       console.log('✅ Consultant reviews response:', response);
       
       const reviewsData = response?.reviews || [];
-      setReviews(reviewsData);
+      
+      if (append) {
+        setReviews(prev => [...prev, ...reviewsData]);
+      } else {
+        setReviews(reviewsData);
+      }
     } catch (error: any) {
       console.error('❌ Error fetching consultant reviews:', error);
       if (error?.response?.status === 404) {
         console.log('⚠️ Consultant reviews API not available (404)');
       }
-      setReviews([]);
+      if (!append) {
+        setReviews([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

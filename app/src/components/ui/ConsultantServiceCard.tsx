@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { Clock, X } from 'lucide-react-native';
 import { COLORS } from '../../constants/core/colors';
@@ -16,6 +17,8 @@ type ConsultantServiceCardProps = {
   title: string;
   description: string;
   imageUri?: ImageSourcePropType;
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // videoUrl?: string;
   duration?: number;
   price?: number;
   rating?: number;
@@ -26,17 +29,30 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
   title,
   description,
   imageUri,
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // videoUrl,
   duration,
   onSetAvailabilityPress,
 }) => {
   const [showModal, setShowModal] = useState(false);
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // const [showVideoModal, setShowVideoModal] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
   const [imageLoadTimeout, setImageLoadTimeout] = useState<number | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
 
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // const handlePlayVideo = () => {
+  //   if (videoUrl) {
+  //     setShowVideoModal(true);
+  //   }
+  // };
+
   // Check if description is long enough to need "Read More"
-  const needsReadMore = description.length > 80;
+  // Industry best practice: Show "Read More" for descriptions longer than ~150 characters
+  // This allows for approximately 4-5 lines of text before truncation
+  const needsReadMore = description.length > 150;
 
   // Debug logging for image
   console.log(`🔍 [ConsultantServiceCard] Service: ${title}`, {
@@ -84,24 +100,32 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
     }
   }, [imageUri, imageLoadError]);
 
+  // Remove ALL height constraints when expanded to allow full content display
   const cardStyle = isDescriptionExpanded
-    ? [styles.card, { height: undefined, minHeight: 400 }]
+    ? [styles.card, { height: undefined, minHeight: undefined, maxHeight: undefined }]
     : styles.card;
 
+  const contentStyle = isDescriptionExpanded
+    ? [styles.content, { flex: 1, minHeight: undefined }]
+    : styles.content;
+
   const contentTopStyle = isDescriptionExpanded
-    ? [styles.contentTop, { height: undefined, maxHeight: 200 }]
+    ? [styles.contentTop, { height: undefined, maxHeight: undefined, flexShrink: 0 }]
     : styles.contentTop;
 
   const descriptionContainerStyle = isDescriptionExpanded
-    ? [styles.descriptionContainer, { maxHeight: undefined }]
+    ? [styles.descriptionContainer, { maxHeight: undefined, flexShrink: 0 }]
     : styles.descriptionContainer;
 
   return (
     <>
       <View style={cardStyle}>
-        {/* Service Image Section */}
+        {/* Service Image/Video Section */}
         <View style={styles.imageContainer}>
-          {imageUri && !imageLoadError ? (
+          {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+          {/* {videoUrl ? (
+            ... video display code with play button ...
+          ) : */ imageUri && !imageLoadError ? (
             <>
               <Image 
                 source={imageUri} 
@@ -139,7 +163,7 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
         </View>
 
         {/* Content Section - Flexible Height */}
-        <View style={styles.content}>
+        <View style={contentStyle}>
           <View style={contentTopStyle}>
             {/* Title - Adaptive lines based on length */}
             <Text style={styles.title} numberOfLines={isTitleLong ? 2 : 3}>
@@ -157,36 +181,35 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
             <View style={descriptionContainerStyle}>
               <Text
                 style={styles.description}
-                numberOfLines={
-                  isDescriptionExpanded
-                    ? undefined
-                    : isTitleLong // If title is long, show fewer lines for description
-                    ? 2
-                    : needsReadMore // Otherwise, if needsReadMore, show 3 lines
-                    ? 3
-                    : undefined // If no read more needed, show all lines
-                }
+                numberOfLines={isDescriptionExpanded ? undefined : (needsReadMore ? 5 : undefined)}
+                ellipsizeMode={isDescriptionExpanded ? undefined : "tail"}
+                allowFontScaling={true}
               >
                 {description}
               </Text>
             </View>
 
-            {(needsReadMore || description.length > 50) && (
-              <Text
-                style={styles.readMoreText}
+            {needsReadMore && (
+              <TouchableOpacity
                 onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                style={styles.readMoreButton}
+                activeOpacity={0.7}
               >
-                {isDescriptionExpanded ? 'Read Less' : 'Read More'}
-              </Text>
+                <Text style={styles.readMoreText}>
+                  {isDescriptionExpanded ? 'Read Less' : 'Read More'}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
 
-          <TouchableOpacity
-            style={styles.bookButton}
-            onPress={onSetAvailabilityPress || (() => {})}
-          >
-            <Text style={styles.bookButtonText}>Set Availability</Text>
-          </TouchableOpacity>
+          <View style={{ marginTop: 'auto' }}>
+            <TouchableOpacity
+              style={styles.bookButton}
+              onPress={onSetAvailabilityPress || (() => {})}
+            >
+              <Text style={styles.bookButtonText}>Set Availability</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -250,6 +273,13 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+      {/* Video Modal */}
+      {/* <Modal
+        visible={showVideoModal}
+        ... video modal code ...
+      </Modal> */}
     </>
   );
 };

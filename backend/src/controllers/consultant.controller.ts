@@ -1,6 +1,7 @@
 // src/controllers/consultant.controller.ts
 import { Request, Response } from "express";
 import { db } from "../config/firebase";
+import { Query } from "firebase-admin/firestore";
 import { consultantServices } from "../services/consultant.service";
 import { ConsultantCard } from "../models/consultant.model";
 import {
@@ -12,6 +13,15 @@ import {
 // Consultant Management 
 export const getAllConsultants = async (req: Request, res: Response) => {
   try {
+    // Get pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const maxLimit = 100; // Prevent excessive requests
+    
+    // Validate pagination parameters
+    const validatedLimit = Math.min(Math.max(1, limit), maxLimit);
+    const validatedPage = Math.max(1, page);
+    
     const consultants = await consultantServices.getAll();
     
     // Return only card data (optimized for frontend cards)
@@ -24,7 +34,23 @@ export const getAllConsultants = async (req: Request, res: Response) => {
       profileImage: consultant.profileImage
     }));
     
-    res.status(200).json({ consultants: cardData });
+    // Apply pagination
+    const total = cardData.length;
+    const startIndex = (validatedPage - 1) * validatedLimit;
+    const endIndex = startIndex + validatedLimit;
+    const paginatedData = cardData.slice(startIndex, endIndex);
+    
+    res.status(200).json({ 
+      consultants: paginatedData,
+      pagination: {
+        page: validatedPage,
+        limit: validatedLimit,
+        total,
+        totalPages: Math.ceil(total / validatedLimit),
+        hasNextPage: endIndex < total,
+        hasPrevPage: validatedPage > 1,
+      }
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -72,15 +98,18 @@ export const setTopConsultant = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing consultantId" });
     }
     
-    // First, clear all existing top consultants
-    const consultantsSnapshot = await db.collection("consultants").get();
-    const batch = db.batch();
-    consultantsSnapshot.docs.forEach(doc => {
-      if (doc.data().isTopConsultant) {
+    // First, clear all existing top consultants using a query (more efficient)
+    const topConsultantsSnapshot = await db.collection("consultants")
+      .where("isTopConsultant", "==", true)
+      .get();
+    
+    if (!topConsultantsSnapshot.empty) {
+      const batch = db.batch();
+      topConsultantsSnapshot.docs.forEach(doc => {
         batch.update(doc.ref, { isTopConsultant: false });
-      }
-    });
-    await batch.commit();
+      });
+      await batch.commit();
+    }
     
     // Set the new top consultant
     await db.collection("consultants").doc(consultantId).update({
@@ -99,7 +128,9 @@ export const setTopConsultant = async (req: Request, res: Response) => {
 // Service Management 
 export const addService = async (req: Request, res: Response) => {
   try {
-    const { consultantId, title, description, duration, price } = req.body;
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // const { consultantId, title, description, duration, price, imageUrl, videoUrl, imagePublicId, videoPublicId } = req.body;
+    const { consultantId, title, description, duration, price, imageUrl, imagePublicId } = req.body;
     if (!consultantId || !title || !price) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -112,6 +143,11 @@ export const addService = async (req: Request, res: Response) => {
       description,
       duration,
       price,
+      imageUrl: imageUrl || '',
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // videoUrl: videoUrl || '',
+      imagePublicId: imagePublicId || null,
+      // videoPublicId: videoPublicId || null,
       createdAt: new Date().toISOString(),
       approvalStatus: "approved",
       pendingUpdate: null,
@@ -137,16 +173,6 @@ export const getConsultantServices = async (req: Request, res: Response) => {
       .get();
 
     console.log(`📊 Found ${snapshot.docs.length} services for consultant: ${consultantId}`);
-    
-    // Debug: Log all services in the collection
-    const allServicesSnapshot = await db.collection("services").get();
-    console.log(`📦 Total services in database: ${allServicesSnapshot.docs.length}`);
-    
-    // Log the first few services to see their structure
-    allServicesSnapshot.docs.slice(0, 5).forEach(doc => {
-      const data = doc.data();
-      console.log(`  - Service: ${data.title} | consultantId: ${data.consultantId || 'MISSING'}`);
-    });
 
     // Return complete service data for consultant's catalog
     const services = snapshot.docs.map((doc) => {
@@ -169,7 +195,10 @@ export const getConsultantServices = async (req: Request, res: Response) => {
         createdAt: service.createdAt,
         updatedAt: service.updatedAt,
         imageUrl: service.imageUrl || '',
-          imagePublicId: service.imagePublicId || '',
+        // VIDEO UPLOAD CODE - COMMENTED OUT
+        // videoUrl: service.videoUrl || '',
+        imagePublicId: service.imagePublicId || '',
+        // videoPublicId: service.videoPublicId || '',
         approvalStatus: service.approvalStatus || 'approved',
         pendingUpdate: service.pendingUpdate || null,
       };
@@ -216,7 +245,9 @@ export const getServiceById = async (req: Request, res: Response) => {
         createdAt: service?.createdAt,
         updatedAt: service?.updatedAt,
         imageUrl: service?.imageUrl || '',
+        videoUrl: service?.videoUrl || '',
         imagePublicId: service?.imagePublicId || '',
+        videoPublicId: service?.videoPublicId || '',
       approvalStatus: service?.approvalStatus || 'approved',
       pendingUpdate: service?.pendingUpdate || null,
       }
@@ -292,6 +323,8 @@ export const updateService = async (req: Request, res: Response) => {
       price,
       availability,
       imageUrl,
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // videoUrl,
       cancelBookings,
       adjustAvailability,
     } = req.body;
@@ -322,9 +355,15 @@ export const updateService = async (req: Request, res: Response) => {
     if (duration !== undefined) updateData.duration = duration;
     if (availability !== undefined) updateData.availability = availability;
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
     if (req.body?.imagePublicId !== undefined) {
       updateData.imagePublicId = req.body.imagePublicId;
     }
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // if (req.body?.videoPublicId !== undefined) {
+    //   updateData.videoPublicId = req.body.videoPublicId;
+    // }
 
     const durationChanged =
       duration !== undefined && duration !== serviceData.duration;
@@ -551,80 +590,131 @@ export const getServiceBookings = async (req: Request, res: Response) => {
 // Get all services from all consultants (for browsing/searching)
 export const getAllServicesWithConsultants = async (req: Request, res: Response) => {
   try {
-    const snapshot = await db.collection("services").get();
+    // Get pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const maxLimit = 100; // Prevent excessive requests
+    
+    // Validate pagination parameters
+    const validatedLimit = Math.min(Math.max(1, limit), maxLimit);
+    const validatedPage = Math.max(1, page);
+    
+    // Filter approved services directly in the query (more efficient)
+    let query: Query = db.collection("services")
+      .where("isDefault", "==", false);
+    
+    // Only fetch approved services if approvalStatus field exists
+    // Note: We'll filter in code for services that have approvalStatus field
+    // Fetch more to account for filtering, but cap at reasonable amount
+    query = query.limit(validatedLimit * 10); // Fetch more to account for filtering
+    
+    const snapshot = await query.get();
     const defaultServiceImageCache = new Map<string, string | null>();
     
-    const services = await Promise.all(
-      snapshot.docs.map(async (doc) => {
-        const serviceData = doc.data();
-
-        if (serviceData.approvalStatus && serviceData.approvalStatus !== "approved") {
-          return null;
-        }
-        let imageUrl = typeof serviceData.imageUrl === "string" ? serviceData.imageUrl : "";
-
-        if (
-          (!imageUrl || imageUrl.trim() === "") &&
-          typeof serviceData.basedOnDefaultService === "string" &&
-          serviceData.basedOnDefaultService.trim() !== ""
-        ) {
-          const templateId = serviceData.basedOnDefaultService.trim();
-          if (defaultServiceImageCache.has(templateId)) {
-            const cachedValue = defaultServiceImageCache.get(templateId);
-            imageUrl = cachedValue ?? imageUrl;
-          } else {
-            const templateDoc = await db.collection("services").doc(templateId).get();
-            if (templateDoc.exists) {
-              const templateData = templateDoc.data();
-              const fallbackImage =
-                (typeof templateData?.imageUrl === "string" && templateData.imageUrl.trim() !== ""
-                  ? templateData.imageUrl.trim()
-                  : undefined) ||
-                (typeof templateData?.image === "string" && templateData.image.trim() !== ""
-                  ? templateData.image.trim()
-                  : undefined) ||
-                "";
-              imageUrl = fallbackImage || imageUrl;
-              defaultServiceImageCache.set(templateId, fallbackImage || null);
-            } else {
-              defaultServiceImageCache.set(templateId, null);
-            }
-          }
-        }
-
-        // Fetch consultant info
-        const consultantDoc = await db.collection("consultants")
-          .doc(serviceData.consultantId).get();
-        const consultant = consultantDoc.data();
-        
-        // Do NOT use consultant profile image as fallback for service image
-        // Services should have their own images, not use consultant's profile image
-
-        return {
-          id: serviceData.id,
-          title: serviceData.title,
-          description: serviceData.description,
-          duration: serviceData.duration,
-          price: serviceData.price,
-          imageUrl: imageUrl || '',
-          isDefault: serviceData.isDefault || false,
-          basedOnDefaultService: serviceData.basedOnDefaultService || null,
-          consultant: {
-            uid: consultant?.uid,
-            name: consultant?.name,
-            category: consultant?.category,
-            rating: consultant?.rating,
-            totalReviews: consultant?.totalReviews,
-            profileImage: consultant?.profileImage
-          },
-          createdAt: serviceData.createdAt
-        };
-      })
+    // Filter approved services first
+    const allApprovedServices = snapshot.docs.filter(doc => {
+      const data = doc.data();
+      return !data.approvalStatus || data.approvalStatus === "approved";
+    });
+    
+    // Apply pagination
+    const total = allApprovedServices.length;
+    const startIndex = (validatedPage - 1) * validatedLimit;
+    const endIndex = startIndex + validatedLimit;
+    const approvedServices = allApprovedServices.slice(startIndex, endIndex);
+    
+    // Extract unique consultant IDs and template IDs
+    const consultantIds = new Set<string>();
+    const templateIds = new Set<string>();
+    
+    approvedServices.forEach(doc => {
+      const data = doc.data();
+      if (data.consultantId) consultantIds.add(data.consultantId);
+      if (data.basedOnDefaultService) templateIds.add(data.basedOnDefaultService.trim());
+    });
+    
+    // Batch fetch all consultants in parallel
+    const consultantPromises = Array.from(consultantIds).map(uid =>
+      db.collection("consultants").doc(uid).get()
     );
+    const consultantDocs = await Promise.all(consultantPromises);
+    const consultantsMap = new Map<string, any>();
+    consultantDocs.forEach(doc => {
+      if (doc.exists) {
+        consultantsMap.set(doc.id, doc.data());
+      }
+    });
     
-    const filteredServices = services.filter((service): service is NonNullable<typeof service> => service !== null);
+    // Batch fetch all template services in parallel
+    const templatePromises = Array.from(templateIds).map(templateId =>
+      db.collection("services").doc(templateId).get()
+    );
+    const templateDocs = await Promise.all(templatePromises);
+    templateDocs.forEach(doc => {
+      if (doc.exists) {
+        const templateData = doc.data();
+        const fallbackImage =
+          (typeof templateData?.imageUrl === "string" && templateData.imageUrl.trim() !== ""
+            ? templateData.imageUrl.trim()
+            : undefined) ||
+          (typeof templateData?.image === "string" && templateData.image.trim() !== ""
+            ? templateData.image.trim()
+            : undefined) ||
+          "";
+        defaultServiceImageCache.set(doc.id, fallbackImage || null);
+      }
+    });
     
-    res.status(200).json({ services: filteredServices });
+    // Map services with cached data
+    const services = approvedServices.map((doc) => {
+      const serviceData = doc.data();
+      let imageUrl = typeof serviceData.imageUrl === "string" ? serviceData.imageUrl : "";
+
+      if (
+        (!imageUrl || imageUrl.trim() === "") &&
+        typeof serviceData.basedOnDefaultService === "string" &&
+        serviceData.basedOnDefaultService.trim() !== ""
+      ) {
+        const templateId = serviceData.basedOnDefaultService.trim();
+        imageUrl = defaultServiceImageCache.get(templateId) || imageUrl;
+      }
+
+      // Get consultant info from map
+      const consultant = consultantsMap.get(serviceData.consultantId);
+
+      return {
+        id: serviceData.id,
+        title: serviceData.title,
+        description: serviceData.description,
+        duration: serviceData.duration,
+        price: serviceData.price,
+        imageUrl: imageUrl || '',
+        videoUrl: serviceData.videoUrl || '',
+        isDefault: serviceData.isDefault || false,
+        basedOnDefaultService: serviceData.basedOnDefaultService || null,
+        consultant: consultant ? {
+          uid: consultant.uid,
+          name: consultant.name,
+          category: consultant.category,
+          rating: consultant.rating,
+          totalReviews: consultant.totalReviews,
+          profileImage: consultant.profileImage
+        } : null,
+        createdAt: serviceData.createdAt
+      };
+    });
+    
+    res.status(200).json({ 
+      services,
+      pagination: {
+        page: validatedPage,
+        limit: validatedLimit,
+        total,
+        totalPages: Math.ceil(total / validatedLimit),
+        hasNextPage: endIndex < total,
+        hasPrevPage: validatedPage > 1,
+      }
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -694,6 +784,7 @@ export const getAvailablePlatformServices = async (req: Request, res: Response) 
         isDefault: true,
         isPlatformService: true,
         imageUrl: service.imageUrl || '',
+        videoUrl: service.videoUrl || '',
         createdAt: service.createdAt
       };
     });

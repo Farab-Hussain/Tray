@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, ImageSourcePropType, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, ImageSourcePropType, TouchableOpacity, Modal, Linking } from 'react-native';
 import AppButton from './AppButton';
 import { COLORS } from '../../constants/core/colors';
 
 type ServiceCardProps = {
   title: string;
   description: string;
-  imageUri: ImageSourcePropType;
+  imageUri?: ImageSourcePropType;
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // videoUrl?: string;
   price?: number;
   duration?: number;
   consultantName?: string;
@@ -18,6 +20,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   title,
   description,
   imageUri,
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // videoUrl,
   price,
   duration,
   consultantName,
@@ -25,18 +29,40 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   onBookPress,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // const [showVideoModal, setShowVideoModal] = useState(false);
 
-  // Debug: Log imageUri for debugging
+  // Debug: Log media for debugging
   console.log(`🖼️ [ServiceCard] "${title}" received imageUri:`, imageUri);
-  console.log(`🖼️ [ServiceCard] "${title}" imageUri type:`, typeof imageUri);
-  if (imageUri && typeof imageUri === 'object' && 'uri' in imageUri) {
-    console.log(`🖼️ [ServiceCard] "${title}" imageUri.uri:`, imageUri.uri);
-  }
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // console.log(`🎥 [ServiceCard] "${title}" received videoUrl:`, videoUrl);
+  
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // const handlePlayVideo = () => {
+  //   if (videoUrl) {
+  //     setShowVideoModal(true);
+  //   }
+  // };
+
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // const hasVideo = !!videoUrl;
+  const hasImage = !!imageUri;
 
   return (
     <View style={styles.card}>
       <View style={styles.imageContainer}>
-        <Image source={imageUri} style={styles.image} />
+        {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+        {/* {hasVideo ? (
+          <View style={styles.videoContainer}>
+            ... video display code ...
+          </View>
+        ) : */ hasImage ? (
+          <Image source={imageUri} style={styles.image} />
+        ) : (
+          <View style={styles.placeholderContainer}>
+            <Text style={styles.placeholderText}>{title}</Text>
+          </View>
+        )}
         {duration && (
           <View style={styles.durationBadge}>
             <Text style={styles.durationIcon}>⏱</Text>
@@ -83,20 +109,23 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           
           <Text 
             style={styles.description}
-            numberOfLines={isExpanded ? undefined : 2}
+            numberOfLines={isExpanded ? undefined : (description.length > 150 ? 5 : undefined)}
             ellipsizeMode={isExpanded ? undefined : "tail"}
           >
             {description}
           </Text>
           
-          <TouchableOpacity 
-            onPress={() => setIsExpanded(!isExpanded)}
-            style={styles.readMoreButton}
-          >
-            <Text style={styles.readMoreText}>
-              {isExpanded ? 'Read Less' : 'Read More'}
-            </Text>
-          </TouchableOpacity>
+          {description.length > 150 && (
+            <TouchableOpacity 
+              onPress={() => setIsExpanded(!isExpanded)}
+              style={styles.readMoreButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.readMoreText}>
+                {isExpanded ? 'Read Less' : 'Read More'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
         
         {/* Book Button - Always at bottom */}
@@ -107,6 +136,17 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           textStyle={styles.buttonText}
         />
       </View>
+
+      {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+      {/* Video Modal */}
+      {/* <Modal
+        visible={showVideoModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowVideoModal(false)}
+      >
+        ... video modal code ...
+      </Modal> */}
     </View>
   );
 };
@@ -135,6 +175,100 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
     borderTopRightRadius: 16,
     borderTopLeftRadius: 16,
+  },
+  videoContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    borderTopRightRadius: 16,
+    borderTopLeftRadius: 16,
+    overflow: 'hidden',
+  },
+  playButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  playButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  playIcon: {
+    fontSize: 24,
+    color: COLORS.green,
+    marginLeft: 4,
+  },
+  placeholderContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.gray,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopRightRadius: 16,
+    borderTopLeftRadius: 16,
+  },
+  placeholderText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.gray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: COLORS.white,
+    fontWeight: 'bold',
+  },
+  videoLinkButton: {
+    backgroundColor: COLORS.green,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  videoLinkText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
   durationBadge: {
     position: 'absolute',

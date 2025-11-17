@@ -3,9 +3,9 @@ import { Request, Response } from "express";
 import { db, auth } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import { sendEmail } from "../utils/email";
-import nodemailer from "nodemailer";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes, createHash } from "crypto";
 import axios from "axios";
+import { cache } from "../utils/cache";
 
 
 /**
@@ -61,6 +61,9 @@ export const register = async (req: Request, res: Response) => {
 
     await db.collection("users").doc(uid).set(userData);
 
+    // Cache the new user profile
+    cache.set(`user:${uid}`, userData, 2 * 60 * 1000); // 2 minutes
+
     Logger.success(route, "", `User registered successfully: ${uid} (${role})`);
     res.status(201).json({
       message: "User registered successfully",
@@ -76,12 +79,96 @@ export const register = async (req: Request, res: Response) => {
  * Get current user details
  */
 export const getMe = async (req: Request, res: Response) => {
+  const startTime = Date.now();
   console.log("🎯 [GET /auth/me] - Route hit");
+
+  // Set timeout for the request (10 seconds max)
+  req.setTimeout(10000);
+  res.setTimeout(10000);
 
   try {
     const user = (req as any).user;
+    
+    if (!user || !user.uid) {
+      console.error("❌ [GET /auth/me] - No user or uid in request");
+      return res.status(401).json({ error: "User not authenticated" });
+    }
 
-    const doc = await db.collection("users").doc(user.uid).get();
+    console.log(`🔍 [GET /auth/me] - Fetching profile for user: ${user.uid}`);
+
+    // OPTIMIZATION: Check cache first to avoid Firestore query
+    const cacheKey = `user:${user.uid}`;
+    const cachedProfile = cache.get(cacheKey);
+    
+    if (cachedProfile) {
+      const cacheTime = Date.now() - startTime;
+      console.log(`⚡ [GET /auth/me] - Profile retrieved from cache in ${cacheTime}ms for user: ${user.uid}`);
+      
+      const responseData = {
+        uid: user.uid,
+        email: user.email,
+        emailVerified: user.email_verified,
+        ...cachedProfile
+      };
+      
+      return res.json(responseData);
+    }
+
+    // OPTIMIZED: Firestore query with proper timeout and error handling
+    // Use direct document reference for fastest access (no collection scan needed)
+    const FIRESTORE_TIMEOUT_MS = 5000; // 5 seconds - faster timeout
+    
+    let doc: any;
+    try {
+      // OPTIMIZATION: Use direct document reference - fastest way to get a document
+      // This bypasses any collection-level queries and goes straight to the document
+      const userDocRef = db.collection("users").doc(user.uid);
+      const firestorePromise = userDocRef.get();
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Firestore query timeout after ${FIRESTORE_TIMEOUT_MS}ms`));
+        }, FIRESTORE_TIMEOUT_MS);
+      });
+
+      doc = await Promise.race([firestorePromise, timeoutPromise]);
+      
+      // Log query performance for monitoring
+      const queryTime = Date.now() - startTime;
+      if (queryTime > 2000) {
+        // Only warn for queries > 2 seconds (very slow)
+        console.warn(`⚠️ [GET /auth/me] - Very slow Firestore query: ${queryTime}ms for user: ${user.uid}`);
+      } else if (queryTime > 1000) {
+        // Log as info for queries between 1-2 seconds (moderately slow, but acceptable)
+        console.log(`ℹ️ [GET /auth/me] - Firestore query took ${queryTime}ms for user: ${user.uid} (first query may be slower due to connection warm-up)`);
+      } else {
+        console.log(`✅ [GET /auth/me] - Firestore query completed in ${queryTime}ms for user: ${user.uid}`);
+      }
+    } catch (queryError: any) {
+      const elapsed = Date.now() - startTime;
+      console.error(`❌ [GET /auth/me] - Firestore query error after ${elapsed}ms:`, queryError.message);
+      
+      // Check for specific Firestore errors
+      if (queryError.message?.includes('timeout') || queryError.code === 'deadline-exceeded') {
+        return res.status(504).json({ 
+          error: "Database timeout",
+          message: "The database query took too long. This may be due to index building. Please try again in a moment."
+        });
+      }
+      
+      if (queryError.code === 'unavailable' || queryError.code === 'internal') {
+        return res.status(503).json({ 
+          error: "Database unavailable",
+          message: "The database is temporarily unavailable. Please try again."
+        });
+      }
+      
+      // Generic error
+      return res.status(500).json({ 
+        error: "Failed to fetch user profile",
+        message: "Database error occurred. Please try again."
+      });
+    }
 
     if (!doc.exists) {
       console.log(`⚠️ [GET /auth/me] - User profile not found, creating default profile: ${user.uid}`);
@@ -100,27 +187,71 @@ export const getMe = async (req: Request, res: Response) => {
         updatedAt: new Date(),
       };
 
-      await db.collection("users").doc(user.uid).set(defaultUserData);
+      // OPTIMIZED: Firestore write with timeout
+      const FIRESTORE_WRITE_TIMEOUT_MS = 5000; // 5 seconds
+      const writePromise = db.collection("users").doc(user.uid).set(defaultUserData, { merge: false });
+      const writeTimeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Firestore write timeout after ${FIRESTORE_WRITE_TIMEOUT_MS}ms`));
+        }, FIRESTORE_WRITE_TIMEOUT_MS);
+      });
+
+      try {
+        await Promise.race([writePromise, writeTimeoutPromise]);
+        // Cache the newly created default profile
+        cache.set(cacheKey, defaultUserData, 2 * 60 * 1000); // 2 minutes
+      } catch (writeError: any) {
+        console.error(`❌ [GET /auth/me] - Firestore write error:`, writeError.message);
+        // If write fails, still return the default data (it's in memory)
+        // Don't fail the request just because we couldn't persist
+        console.warn(`⚠️ [GET /auth/me] - Could not persist default profile, returning in-memory data`);
+        // Still cache it even if write failed (for faster subsequent requests)
+        cache.set(cacheKey, defaultUserData, 2 * 60 * 1000);
+      }
       console.log(`✅ [GET /auth/me] - Default user profile created: ${user.uid}`);
 
-      return res.json({
+      const responseData = {
         uid: user.uid,
         emailVerified: user.email_verified,
         ...defaultUserData
-      });
+      };
+
+      console.log(`✅ [GET /auth/me] - Response sent in ${Date.now() - startTime}ms`);
+      return res.json(responseData);
     }
 
     const profile = doc.data();
     console.log(`✅ [GET /auth/me] - User profile retrieved: ${user.uid}`);
-    res.json({
+    
+    // OPTIMIZATION: Cache the profile for 2 minutes to reduce Firestore queries
+    // Cache TTL is shorter than default to ensure fresh data for profile updates
+    cache.set(cacheKey, profile, 2 * 60 * 1000); // 2 minutes
+    
+    const responseData = {
       uid: user.uid,
       email: user.email,
       emailVerified: user.email_verified,
       ...profile
+    };
+
+    const totalTime = Date.now() - startTime;
+    console.log(`✅ [GET /auth/me] - Response sent in ${totalTime}ms`);
+    
+    // Ensure response is sent
+    if (!res.headersSent) {
+      res.json(responseData);
+    }
+  } catch (error: any) {
+    console.error("❌ [GET /auth/me] - Get user error:", {
+      message: error.message,
+      stack: error.stack,
+      elapsedTime: Date.now() - startTime,
     });
-  } catch (error) {
-    console.error("❌ [GET /auth/me] - Get user error:", error);
-    res.status(500).json({ error: (error as Error).message });
+    
+    // Ensure error response is sent
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
   }
 };
 
@@ -142,6 +273,11 @@ export const updateProfile = async (req: Request, res: Response) => {
     if (profileImage !== undefined) updateData.profileImage = profileImage;
 
     await db.collection("users").doc(user.uid).update(updateData);
+
+    // OPTIMIZATION: Invalidate cache after profile update to ensure fresh data
+    const cacheKey = `user:${user.uid}`;
+    cache.delete(cacheKey);
+    console.log(`🗑️ [PUT /auth/profile] - Cache invalidated for user: ${user.uid}`);
 
     console.log(`✅ [PUT /auth/profile] - Profile updated successfully: ${user.uid}`);
     res.json({ message: "Profile updated successfully" });
@@ -206,6 +342,9 @@ export const deleteAccount = async (req: Request, res: Response) => {
       updatedAt: new Date(),
     });
 
+    // Invalidate cache after account deletion
+    cache.delete(`user:${user.uid}`);
+
     console.log(`✅ [DELETE /auth/account] - Account deactivated successfully: ${user.uid}`);
     res.json({ message: "Account deactivated successfully" });
   } catch (error) {
@@ -215,49 +354,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
 };
 
 
-// Lazy initialization of email transport to ensure env vars are loaded
-let transportInstance: nodemailer.Transporter | null = null;
-
-const getEmailTransport = (): nodemailer.Transporter | null => {
-  if (!transportInstance) {
-    const smtpEmail = process.env.SMTP_EMAIL || process.env.SMTP_USER;
-    const smtpPassword = process.env.SMTP_PASSWORD;
-
-    console.log('📧 Initializing SMTP transport...');
-    console.log('  SMTP_EMAIL:', smtpEmail ? '✓ Set' : '✗ Missing');
-    console.log('  SMTP_PASSWORD:', smtpPassword ? '✓ Set' : '✗ Missing');
-
-    // Only create transport if credentials exist
-    if (!smtpEmail || !smtpPassword) {
-      console.warn('⚠️ Email credentials not configured - email functionality disabled');
-      return null;
-    }
-
-    transportInstance = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: smtpEmail,
-        pass: smtpPassword,
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
-
-    // Verify connection asynchronously (don't block startup)
-    transportInstance.verify((error, success) => {
-      if (error) {
-        console.error('❌ Email transport verification failed:', error.message);
-        console.warn('⚠️ Email functionality may not work properly');
-      } else {
-        console.log('✅ Email transport verified and ready');
-      }
-    });
-  }
-  return transportInstance;
-}
+// Email functionality now uses centralized sendEmail utility from utils/email.ts
 
 
 
@@ -279,11 +376,34 @@ export const forgotPassword = async (req: Request, res: Response) => {
       verified: false,
     });
 
-    console.log('📧 Attempting to send email...');
-    // send OTP email using lazy-loaded transport
-    const transport = getEmailTransport();
+    // Send OTP email using centralized sendEmail utility
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">Your Tray App Password Reset Code</h2>
+        <p style="font-size: 18px; color: #555;">Your password reset code is:</p>
+        <h1 style="background: #667eea; color: white; padding: 20px; text-align: center; border-radius: 5px; font-size: 32px; margin: 20px 0;">
+          ${otp}
+        </h1>
+        <p style="color: #666; font-size: 14px;">This code will expire in 30 minutes.</p>
+        <p style="color: #666; font-size: 14px;">If you didn't request this reset, please ignore this email.</p>
+      </div>
+    `;
 
-    if (!transport) {
+    const emailResult = await sendEmail({
+      to: email,
+      subject: "Your Tray App Password Reset Code",
+      html: emailHtml,
+      text: `Your Tray App Password Reset Code: ${otp}\n\nThis code will expire in 30 minutes.\n\nIf you didn't request this reset, please ignore this email.`
+    });
+
+    if (emailResult.sent) {
+      console.log('✅ Password reset email sent successfully!');
+      return res.json({
+        message: "OTP sent to your email.",
+        resetSessionId,
+      });
+    } else {
+      // Email sending failed (not configured or error)
       console.warn('⚠️ Email transport not available - OTP sent to console instead');
       console.log('📧 OTP for', email, ':', otp);
       console.log('📧 Reset session ID:', resetSessionId);
@@ -294,20 +414,6 @@ export const forgotPassword = async (req: Request, res: Response) => {
         otp: process.env.NODE_ENV === 'development' ? otp : undefined // Only return OTP in dev
       });
     }
-
-    await transport.sendMail({
-      from: `"Tray App Support" <${process.env.SMTP_EMAIL}>`,
-      to: email,
-      subject: "Your Tray App Password Reset Code",
-      html: `<p>Your password reset code:</p><h2>${otp}</h2><p>Expires in 30 minutes.</p>`,
-    });
-    console.log('✅ Email sent successfully!');
-    console.log(`${email} - ${otp}`);
-
-    return res.json({
-      message: "OTP sent to your email.",
-      resetSessionId, // 👈 frontend stores this for next steps
-    });
   } catch (error: any) {
     console.error("Forgot password error:", error);
     return res.status(400).json({
@@ -441,7 +547,8 @@ export const resetPassword = async (req: Request, res: Response) => {
 
 /**
  * POST /auth/resend-verification-email
- * Resend email verification using Firebase Admin SDK and SMTP email
+ * Resend email verification using custom token system and SMTP email
+ * Completely bypasses Firebase email verification APIs and rate limits
  */
 export const resendVerificationEmail = async (req: Request, res: Response) => {
   const route = "POST /auth/resend-verification-email";
@@ -475,54 +582,37 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
       });
     }
 
-    let verificationLink: string;
-    try {
-      // Try to use web URL for email verification if configured
-      const webUrl = process.env.FRONTEND_URL;
-      
-      if (webUrl && webUrl.trim() !== '') {
-        try {
-      const actionCodeSettings = {
-        url: `${webUrl}/verify-email`,
-        handleCodeInApp: false,
-      };
+    // Generate custom verification token (bypasses Firebase rate limits)
+    const verificationToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(verificationToken).digest('hex');
+    
+    // Store token in Firestore with expiration (24 hours)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    
+    await db.collection('email_verification_tokens').doc(userRecord.uid).set({
+      uid: userRecord.uid,
+      email: userRecord.email,
+      tokenHash: tokenHash,
+      expiresAt: expiresAt,
+      createdAt: new Date()
+    });
 
-      verificationLink = await auth.generateEmailVerificationLink(
-        userRecord.email!,
-        actionCodeSettings
-      );
-        } catch (uriError: any) {
-          // If continue URI fails (domain not allowlisted, invalid config), use default link
-          const errorCode = uriError.code || uriError.error?.code || '';
-          const errorMessage = uriError.message || uriError.error?.message || '';
-          const errorString = JSON.stringify(uriError).toLowerCase();
-          
-          if (errorCode === 'auth/invalid-continue-uri' ||
-              errorCode === 'auth/unauthorized-continue-uri' ||
-              errorMessage?.toLowerCase().includes('invalid-continue-uri') ||
-              errorMessage?.toLowerCase().includes('unauthorized-continue-uri') ||
-              errorMessage?.toLowerCase().includes('domain not allowlisted') ||
-              errorString.includes('invalid-continue-uri') ||
-              errorString.includes('unauthorized-continue-uri') ||
-              errorString.includes('domain not allowlisted')) {
-            Logger.warn(route, userRecord.uid, `Continue URI not configured (${errorCode || errorMessage}), using default verification link`);
-            // Generate link without actionCodeSettings (works for mobile apps)
-            verificationLink = await auth.generateEmailVerificationLink(userRecord.email!);
-          } else {
-            throw uriError;
-          }
-        }
-      } else {
-        // No FRONTEND_URL configured, generate default link (works for mobile apps)
-        Logger.info(route, userRecord.uid, "FRONTEND_URL not configured, generating default verification link");
-        verificationLink = await auth.generateEmailVerificationLink(userRecord.email!);
-      }
-    } catch (linkError: any) {
-      // Re-throw errors to be caught by outer catch
-      throw linkError;
-    }
-
-    Logger.success(route, userRecord.uid, `Generated verification link for ${userRecord.email}`);
+    // Generate verification links (no Firebase API calls - bypasses rate limits)
+    // Support both web and mobile verification links
+    // FRONTEND_URL can be set to:
+    // - localhost:3000 (for local development)
+    // - https://tray-dashboard-eight.vercel.app (for production web)
+    // - Leave empty to use mobile deep link only
+    const webUrl = process.env.FRONTEND_URL || process.env.APP_URL || '';
+    const mobileLink = `tray://email-verification?token=${verificationToken}&uid=${userRecord.uid}`;
+    const webLink = webUrl ? `${webUrl}/verify-email?token=${verificationToken}&uid=${userRecord.uid}` : null;
+    
+    // Use web link if available, otherwise use mobile link
+    const verificationLink = webLink || mobileLink;
+    
+    Logger.success(route, userRecord.uid, `Generated custom verification token for ${userRecord.email}`);
+    Logger.info(route, userRecord.uid, `Verification link: ${verificationLink}`);
 
     // Send email via SMTP if configured, otherwise just return the link
     try {
@@ -542,10 +632,13 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
             <p style="font-size: 16px;">Hello,</p>
             <p style="font-size: 16px;">Thank you for registering with Tray! Please verify your email address by clicking the button below:</p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Verify Email Address</a>
+              ${webLink ? `<a href="${webLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; margin-bottom: 15px;">Verify your email</a>` : ''}
+              <br/>
+              <a href="${mobileLink}" style="background: #22c55e; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Open in Mobile App</a>
             </div>
-            <p style="font-size: 14px; color: #666;">Or copy and paste this link into your browser:</p>
+            <p style="font-size: 14px; color: #666;">Or copy and paste this link into your browser or mobile app:</p>
             <p style="font-size: 12px; color: #999; word-break: break-all; background: #fff; padding: 10px; border-radius: 5px;">${verificationLink}</p>
+            ${webLink }
             <p style="font-size: 14px; color: #666; margin-top: 30px;">This link will expire in 24 hours.</p>
             <p style="font-size: 14px; color: #666;">If you didn't create an account, please ignore this email.</p>
           </div>
@@ -563,9 +656,11 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
         
         Thank you for registering with Tray! Please verify your email address by clicking the link below:
         
-        ${verificationLink}
+        ${webLink ? `Web Link: ${webLink}\n\nMobile App Link: ${mobileLink}` : `Verification Link: ${verificationLink}`}
         
         This link will expire in 24 hours.
+        
+        ${webLink ? 'Note: If you\'re on mobile, use the mobile app link to verify directly in the app. If you\'re on desktop, use the web link.' : 'Note: Open this link in the Tray mobile app to verify your email.'}
         
         If you didn't create an account, please ignore this email.
         
@@ -616,11 +711,12 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
     // Log full error for debugging
     Logger.error(route, userRecord?.uid || "", `Error details: ${JSON.stringify(error)}`);
 
-    // Fallback: If continue URI error somehow reached here, try generating default link
     // Extract error information from various possible structures
     const errorCode = error.code || error.error?.code || error.response?.data?.error?.code || '';
     const errorMessage = error.message || error.error?.message || error.response?.data?.error?.message || '';
     const errorString = JSON.stringify(error).toLowerCase();
+
+    // Fallback: If continue URI error somehow reached here, try generating default link
     
     if (errorCode === 'auth/invalid-continue-uri' ||
         errorCode === 'auth/unauthorized-continue-uri' ||
@@ -631,98 +727,8 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
         errorString.includes('unauthorized-continue-uri') ||
         errorString.includes('domain not allowlisted')) {
       
-      // Only attempt fallback if we have userRecord
-      if (userRecord && userRecord.email) {
-        Logger.warn(route, userRecord.uid || "", `Continue URI error in outer catch, attempting fallback with default link`);
-        
-        try {
-          // Try to generate default link as fallback
-          const defaultLink = await auth.generateEmailVerificationLink(userRecord.email);
-          Logger.success(route, userRecord.uid || "", `Fallback: Generated default verification link`);
-          
-          // Try to send email with default link
-          try {
-            const emailHtml = `
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Verify Your Email</title>
-              </head>
-              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                  <h1 style="color: white; margin: 0;">Verify Your Email Address</h1>
-                </div>
-                <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-                  <p style="font-size: 16px;">Hello,</p>
-                  <p style="font-size: 16px;">Thank you for registering with Tray! Please verify your email address by clicking the button below:</p>
-                  <div style="text-align: center; margin: 30px 0;">
-                    <a href="${defaultLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Verify Email Address</a>
-                  </div>
-                  <p style="font-size: 14px; color: #666;">Or copy and paste this link into your browser:</p>
-                  <p style="font-size: 12px; color: #999; word-break: break-all; background: #fff; padding: 10px; border-radius: 5px;">${defaultLink}</p>
-                  <p style="font-size: 14px; color: #666; margin-top: 30px;">This link will expire in 24 hours.</p>
-                  <p style="font-size: 14px; color: #666;">If you didn't create an account, please ignore this email.</p>
-                </div>
-              </body>
-              </html>
-            `;
-            
-            const emailResult = await sendEmail({
-              to: userRecord.email,
-              subject: "Verify Your Email Address - Tray",
-              html: emailHtml
-            });
-            
-            if (emailResult.sent) {
-              return res.json({
-                success: true,
-                message: "Verification email sent successfully",
-                email: userRecord.email,
-                emailSent: true
-              });
-            } else {
-              Logger.warn(route, userRecord.uid || "", `Email send failed in fallback: ${emailResult.error || 'Unknown error'}`);
-              return res.json({
-                success: true,
-                message: "Verification link generated",
-                verificationLink: defaultLink,
-                email: userRecord.email,
-                emailSent: false,
-                note: emailResult.error || "Email sending failed, but verification link is available."
-              });
-            }
-          } catch (emailErr: any) {
-            Logger.warn(route, userRecord.uid || "", `Email send error in fallback: ${emailErr.message}`);
-            return res.json({
-              success: true,
-              message: "Verification link generated",
-              verificationLink: defaultLink,
-              email: userRecord.email,
-              emailSent: false,
-              note: `Email sending failed: ${emailErr.message}`
-            });
-          }
-        } catch (fallbackError: any) {
-          Logger.error(route, userRecord.uid || "", `Fallback also failed: ${fallbackError.message}`);
-          // Continue to generic error response
-        }
-      } else {
-        Logger.warn(route, "", `Continue URI error but userRecord not available for fallback`);
-      }
-    }
-
-    // Check for rate limiting errors (TOO_MANY_ATTEMPTS_TRY_LATER)
-    if (errorCode === 'TOO_MANY_ATTEMPTS_TRY_LATER' ||
-        errorMessage?.includes('TOO_MANY_ATTEMPTS_TRY_LATER') ||
-        errorString.includes('too_many_attempts_try_later')) {
-      Logger.warn(route, userRecord?.uid || "", "Too many verification email attempts");
-      return res.status(429).json({
-        error: "Too many attempts. Please wait a few minutes before requesting another verification email.",
-        code: "TOO_MANY_ATTEMPTS_TRY_LATER",
-        message: "Too many attempts. Please wait a few minutes before requesting another verification email."
-      });
+      // No Firebase fallback - custom token system handles all verification
+      // Errors will be returned as normal error responses
     }
 
     // If error has a nested error structure (from Firebase API)
@@ -784,8 +790,10 @@ export const getAllUsers = async (req: Request, res: Response) => {
     // Order by creation date (newest first)
     query = query.orderBy("createdAt", "desc");
 
-    // Get all documents (Firestore doesn't support offset pagination natively)
-    // For better performance with large datasets, consider using cursor-based pagination
+    // Use Firestore's native limit for better performance
+    // Note: For large datasets, consider implementing cursor-based pagination
+    query = query.limit(limit * 10); // Fetch a larger batch to support pagination
+    
     const allDocs = await query.get();
     const total = allDocs.size;
 
@@ -863,6 +871,9 @@ export const requestConsultantRole = async (req: Request, res: Response) => {
       roles: updatedRoles,
       updatedAt: new Date(),
     });
+
+    // Invalidate cache after role update
+    cache.delete(`user:${user.uid}`);
 
     Logger.success(route, user.uid, "Consultant role requested and added to roles array");
     res.status(200).json({
@@ -945,6 +956,9 @@ export const switchRole = async (req: Request, res: Response) => {
         updatedAt: new Date(),
       });
 
+      // Invalidate cache after role switch
+      cache.delete(`user:${user.uid}`);
+
       Logger.success(route, user.uid, `Role switched from ${currentActiveRole} to ${newRole} (profile status: ${profileStatus})`);
       return res.status(200).json({
         message: `Role switched to ${newRole} successfully`,
@@ -960,6 +974,9 @@ export const switchRole = async (req: Request, res: Response) => {
       role: newRole, // Keep for backward compatibility
       updatedAt: new Date(),
     });
+
+    // Invalidate cache after role switch
+    cache.delete(`user:${user.uid}`);
 
     Logger.success(route, user.uid, `Role switched from ${currentActiveRole} to ${newRole}`);
     res.status(200).json({
@@ -1193,59 +1210,124 @@ export const verifyEmail = async (req: Request, res: Response) => {
   const route = "POST /auth/verify-email";
 
   try {
-    const { email, uid } = req.body;
+    const { token, uid, email } = req.body;
+    Logger.info(route, uid || "", `Starting email verification - token: ${token ? 'provided' : 'missing'}, uid: ${uid || 'missing'}`);
 
-    // Get user from request (authenticated via middleware) or from body
-    const user = (req as any).user;
-    const targetUid = uid || user?.uid;
+    // Support both token-based (new) and uid/email-based (legacy) verification
+    let targetUid: string | null = null;
+    
+    if (token && uid) {
+      // New token-based verification (bypasses Firebase rate limits)
+      targetUid = uid;
+      Logger.info(route, uid, "Using token-based verification");
+      
+      // Get token from Firestore
+      Logger.info(route, uid, "Fetching token from Firestore...");
+      const tokenDoc = await db.collection('email_verification_tokens').doc(uid).get();
+      Logger.info(route, uid, `Token document exists: ${tokenDoc.exists}`);
+      
+      if (!tokenDoc.exists) {
+        Logger.error(route, uid, "Verification token not found or expired");
+        return res.status(400).json({ 
+          error: "Invalid or expired verification token",
+          code: "INVALID_TOKEN"
+        });
+      }
+      
+      const tokenData = tokenDoc.data();
+      
+      // Check if token expired
+      if (tokenData && tokenData.expiresAt && tokenData.expiresAt.toDate() < new Date()) {
+        Logger.error(route, uid, "Verification token expired");
+        await db.collection('email_verification_tokens').doc(uid).delete();
+        return res.status(400).json({ 
+          error: "Verification token has expired. Please request a new verification email.",
+          code: "TOKEN_EXPIRED"
+        });
+      }
+      
+      // Verify token hash
+      Logger.info(route, uid, "Verifying token hash...");
+      const tokenHash = createHash('sha256').update(token).digest('hex');
+      if (tokenData?.tokenHash !== tokenHash) {
+        Logger.error(route, uid, "Invalid verification token - hash mismatch");
+        return res.status(400).json({ 
+          error: "Invalid verification token",
+          code: "INVALID_TOKEN"
+        });
+      }
+      
+      Logger.info(route, uid, "Token verified successfully, deleting from Firestore...");
+      // Token is valid, delete it
+      await db.collection('email_verification_tokens').doc(uid).delete();
+      Logger.info(route, uid, "Token deleted from Firestore");
+      
+    } else {
+      // Legacy verification (for backward compatibility)
+      Logger.info(route, uid || "", "Using legacy verification");
+      const user = (req as any).user;
+      targetUid = uid || user?.uid || null;
 
-    if (!email && !targetUid) {
-      Logger.error(route, "", "Missing email or uid");
-      return res.status(400).json({ error: "email or uid is required" });
+      if (!email && !targetUid) {
+        Logger.error(route, "", "Missing token+uid, email, or uid");
+        return res.status(400).json({ error: "token+uid, email, or uid is required" });
+      }
     }
 
-    // Get user by email or uid
+    // Get user by uid
+    Logger.info(route, targetUid || "", "Fetching user from Firebase Auth...");
     let userRecord;
     if (targetUid) {
       userRecord = await auth.getUser(targetUid);
     } else if (email) {
       userRecord = await auth.getUserByEmail(email);
     } else {
-      return res.status(400).json({ error: "email or uid is required" });
+      return res.status(400).json({ error: "token+uid, email, or uid is required" });
     }
+    Logger.info(route, userRecord.uid, `User found: ${userRecord.email}`);
 
     // Check if email is already verified
     if (userRecord.emailVerified) {
       Logger.info(route, userRecord.uid, `Email already verified for ${userRecord.email}`);
-      return res.json({
+      const response = {
         success: true,
         message: "Email is already verified",
         email: userRecord.email,
         uid: userRecord.uid,
         emailVerified: true
-      });
+      };
+      Logger.info(route, userRecord.uid, "Sending response: email already verified");
+      return res.json(response);
     }
 
-    // Verify email directly
+    // Verify email directly using Firebase Admin SDK (no rate limits)
+    Logger.info(route, userRecord.uid, "Updating user email verification status...");
     await auth.updateUser(userRecord.uid, {
       emailVerified: true
     });
+    Logger.info(route, userRecord.uid, "User email verification updated successfully");
 
-    Logger.success(route, userRecord.uid, `Email verified directly for ${userRecord.email}`);
+    Logger.success(route, userRecord.uid, `Email verified successfully for ${userRecord.email}`);
 
-    res.json({
+    const response = {
       success: true,
       message: "Email verified successfully",
       email: userRecord.email,
       uid: userRecord.uid,
       emailVerified: true
-    });
+    };
+    Logger.info(route, userRecord.uid, "Sending success response");
+    res.json(response);
+    Logger.info(route, userRecord.uid, "Response sent successfully");
   } catch (error: any) {
-    Logger.error(route, "", error.message);
+    Logger.error(route, "", `Error in verifyEmail: ${error.message}`, error);
 
-    res.status(500).json({
+    const errorResponse = {
       error: error.message,
       code: error.code
-    });
+    };
+    Logger.info(route, "", "Sending error response");
+    res.status(500).json(errorResponse);
+    Logger.info(route, "", "Error response sent");
   }
 };

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
 import { COLORS } from '../../constants/core/colors';
 import * as LucideIcons from 'lucide-react-native';
-import { signInWithEmailAndPassword, sendEmailVerification, type UserCredential } from 'firebase/auth';
+import { signInWithEmailAndPassword, type UserCredential } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { api } from '../../lib/fetcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -122,34 +122,9 @@ const Login = ({ navigation }: LoginProps) => {
                       emailSent = true; // Mark as sent for UI purposes
                     }
                   } catch (backendError: any) {
-                    console.warn('⚠️ Login - Backend SMTP failed, trying Firebase as fallback...');
+                    // Backend email sending failed - error already logged
                     emailError = backendError;
-                    
-                    // Fallback to Firebase if backend fails
-                    try {
-                      await sendEmailVerification(user, {
-                        url: `tray://email-verification`,
-                        handleCodeInApp: true,
-                      });
-                      emailSent = true;
-                      console.log('✅ Login - Firebase sent verification email (fallback)!');
-                    } catch (firebaseError: any) {
-                      // If custom scheme not allowlisted, try simple method
-                      if (firebaseError?.code === 'auth/unauthorized-continue-uri') {
-                        try {
-                          await sendEmailVerification(user);
-                          emailSent = true;
-                          console.log('✅ Login - Firebase sent verification email (simple method)!');
-                          emailError = null; // Clear error since it worked
-                        } catch (simpleError: any) {
-                          emailError = simpleError;
-                          console.error('Login - All methods failed:', simpleError?.message);
-                        }
-                      } else {
-                        emailError = firebaseError;
-                        console.error('Login - Firebase fallback also failed:', firebaseError?.message);
-                      }
-                    }
+                    // No Firebase fallback - we use custom token system only
                   }
                   
                   // Show appropriate alert based on result
@@ -224,13 +199,81 @@ const Login = ({ navigation }: LoginProps) => {
       // Set token for backend calls
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
-      // Fetch role from backend
+      // Fetch role from backend with timeout and error handling
       console.log('Login - Fetching user role from backend...');
-      const res = await api.get('/auth/me');
-      console.log('Login - /auth/me response:', JSON.stringify(res.data, null, 2));
+      let userRole = 'student'; // Default fallback
       
-      const userRole = res.data?.role || 'student';
-      console.log('Login - User role:', userRole);
+      try {
+        // Add timeout for the API call
+        // Mark this request to suppress error toasts (we'll handle it ourselves)
+        const requestConfig = {
+          __suppressErrorToast: true, // Custom flag to suppress toast
+        } as any;
+        
+        const res = await Promise.race([
+          api.get('/auth/me', requestConfig),
+          new Promise((_, reject) => 
+            setTimeout(() => {
+              const timeoutError = new Error('Backend request timeout') as any;
+              timeoutError.__suppressErrorToast = true;
+              timeoutError.isBackendUnavailable = true;
+              reject(timeoutError);
+            }, 10000)
+          )
+        ]) as any;
+        
+        console.log('Login - /auth/me response:', JSON.stringify(res.data, null, 2));
+        userRole = res.data?.role || res.data?.activeRole || 'student';
+        console.log('Login - User role:', userRole);
+      } catch (apiError: any) {
+        console.error('❌ [Login] Error fetching user role from backend:', apiError);
+        
+        // Mark error as handled to prevent duplicate error messages
+        if (apiError) {
+          apiError.__handled = true;
+        }
+        
+        // Check if backend is unavailable
+        const isBackendUnavailable = 
+          apiError?.isBackendUnavailable || 
+          apiError?.isNgrokError || 
+          apiError?.response?.status === 503 ||
+          apiError?.response?.status === 502 ||
+          apiError?.code === 'ECONNREFUSED' ||
+          apiError?.code === 'ECONNABORTED' ||
+          apiError?.message?.includes('timeout') ||
+          apiError?.message?.includes('Backend request timeout');
+        
+        if (isBackendUnavailable) {
+          // Backend unavailable - try to use cached role or default
+          console.warn('⚠️ [Login] Backend unavailable, trying to use cached role...');
+          try {
+            const cachedRole = await AsyncStorage.getItem('role');
+            if (cachedRole && ['student', 'consultant', 'admin'].includes(cachedRole)) {
+              userRole = cachedRole;
+              console.log('✅ [Login] Using cached role:', userRole);
+            } else {
+              console.warn('⚠️ [Login] No valid cached role, using default: student');
+              userRole = 'student';
+            }
+          } catch (storageError) {
+            console.error('❌ [Login] Error reading cached role:', storageError);
+            userRole = 'student'; // Default fallback
+          }
+          
+          // Show warning but allow login to continue
+          Alert.alert(
+            'Backend Unavailable',
+            'Unable to connect to the server. You are logged in with limited functionality. Please check your connection and try again later.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          // Other API error - rethrow to be handled below
+          throw apiError;
+        }
+      }
+      
+      console.log('Login - Final user role:', userRole);
       console.log('Login - User email:', email);
       
       // Save role to AsyncStorage immediately so AuthContext can read it
@@ -240,7 +283,14 @@ const Login = ({ navigation }: LoginProps) => {
       // For consultants, also fetch and save verification status
       if (userRole === 'consultant') {
         try {
-          const statusRes = await api.get('/consultant-flow/status');
+          // Add timeout for consultant status check
+          const statusRes = await Promise.race([
+            api.get('/consultant-flow/status'),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Backend request timeout')), 10000)
+            )
+          ]) as any;
+          
           const backendStatus = statusRes.data?.status;
           let verificationStatus: 'incomplete' | 'pending' | 'approved' | 'rejected';
           
@@ -260,7 +310,15 @@ const Login = ({ navigation }: LoginProps) => {
           console.log('Login - Consultant verification status saved:', verificationStatus);
         } catch (error) {
           console.error('Login - Error fetching consultant status:', error);
-          await AsyncStorage.setItem('consultantVerificationStatus', 'incomplete');
+          // Use cached status or default to incomplete
+          try {
+            const cachedStatus = await AsyncStorage.getItem('consultantVerificationStatus');
+            if (!cachedStatus) {
+              await AsyncStorage.setItem('consultantVerificationStatus', 'incomplete');
+            }
+          } catch (storageError) {
+            await AsyncStorage.setItem('consultantVerificationStatus', 'incomplete');
+          }
         }
       }
       
@@ -279,10 +337,6 @@ const Login = ({ navigation }: LoginProps) => {
           case 'auth/user-not-found':
           case 'auth/wrong-password':
             showError('Invalid email or password. Please check your credentials and try again.', 'Login Failed');
-            break;
-            
-          case 'auth/too-many-requests':
-            showError('Too many failed attempts. Please try again later or reset your password.', 'Account Temporarily Locked');
             break;
             
           case 'auth/network-request-failed':
@@ -353,7 +407,14 @@ const Login = ({ navigation }: LoginProps) => {
       
       // Check consultant verification status to determine navigation
       try {
-        const statusRes = await api.get('/consultant-flow/status');
+        // Add timeout for consultant status check
+        const statusRes = await Promise.race([
+          api.get('/consultant-flow/status'),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Backend request timeout')), 10000)
+          )
+        ]) as any;
+        
         const backendStatus = statusRes.data?.status;
         console.log('Login - Consultant status:', backendStatus);
         
@@ -371,8 +432,15 @@ const Login = ({ navigation }: LoginProps) => {
           console.log('Login - Profile approved, checking services status');
           // Check if consultant has approved services
           try {
-            const applicationsResponse = await getConsultantApplications();
-            const approvedServices = applicationsResponse.filter(app => app.status === 'approved');
+            // Add timeout for applications check
+            const applicationsResponse = await Promise.race([
+              getConsultantApplications(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Backend request timeout')), 10000)
+              )
+            ]) as any;
+            
+            const approvedServices = applicationsResponse.filter((app: any) => app.status === 'approved');
             
             if (approvedServices.length > 0) {
               console.log('Login - Profile and services approved, navigating to consultant applications screen');
@@ -404,12 +472,27 @@ const Login = ({ navigation }: LoginProps) => {
             screen: 'ConsultantProfileFlow'
           });
         }
-      } catch (statusError) {
+      } catch (statusError: any) {
         console.error('Login - Error checking consultant status:', statusError);
-        // If status check fails, navigate to profile creation as fallback
-        navigation.replace('Screen', { 
-          screen: 'ConsultantProfileFlow'
-        });
+        
+        // If backend is unavailable, navigate to pending approval (safer default)
+        const isBackendUnavailable = 
+          statusError?.isBackendUnavailable || 
+          statusError?.isNgrokError || 
+          statusError?.response?.status === 503 ||
+          statusError?.message?.includes('timeout');
+        
+        if (isBackendUnavailable) {
+          console.warn('⚠️ [Login] Backend unavailable, navigating to pending approval as fallback');
+          navigation.replace('Screen', { 
+            screen: 'PendingApproval'
+          });
+        } else {
+          // Other error - navigate to profile creation as fallback
+          navigation.replace('Screen', { 
+            screen: 'ConsultantProfileFlow'
+          });
+        }
       }
     } else {
       console.log('Login - User is student, navigating to student tabs');

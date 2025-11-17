@@ -39,7 +39,35 @@ if (!admin.apps.length) {
   }
 }
 
+// Initialize Firestore with optimized settings
 const db = admin.firestore();
+
+// OPTIMIZATION: Configure Firestore settings for better performance
+// These settings help with connection pooling and reduce latency
+db.settings({
+  // Use persistent connection (default, but explicit for clarity)
+  ignoreUndefinedProperties: true, // Ignore undefined properties to avoid errors
+  // Enable offline persistence for better performance (caching)
+  // Note: Admin SDK doesn't support offline persistence, but we handle caching in our code
+});
+
+// OPTIMIZATION: Pre-warm Firestore connection by making a lightweight test query
+// This reduces cold start latency for the first real query
+if (process.env.NODE_ENV !== 'test') {
+  // Run async without blocking server startup
+  setImmediate(async () => {
+    try {
+      // Make a lightweight query to establish connection
+      await db.collection('_test').doc('connection').get();
+      console.log('✅ [Firestore] Connection pre-warmed');
+    } catch (error) {
+      // Ignore errors - this is just for optimization
+      console.log('ℹ️ [Firestore] Pre-warm skipped (expected if _test collection doesn\'t exist)');
+    }
+  });
+}
+
+// Initialize Auth and Storage
 const auth = admin.auth();
 const storage = admin.storage();
 

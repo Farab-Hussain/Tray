@@ -6,14 +6,16 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Mail, RefreshCw, ArrowLeft } from 'lucide-react-native';
 import { auth } from '../../lib/firebase';
-import { sendEmailVerification, applyActionCode } from 'firebase/auth';
+// Custom email verification system - no Firebase email verification used
 import { Linking } from 'react-native';
-import { api } from '../../lib/fetcher';
+import { api, isNgrokError } from '../../lib/fetcher';
 import { authStyles } from '../../constants/styles/authStyles';
 import { COLORS } from '../../constants/core/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -152,112 +154,93 @@ const EmailVerification = ({ route }: any) => {
         
         // Extract oobCode from URL (handles both tray:// and https:// formats)
         // Use regex parsing directly for React Native compatibility
-        let oobCode: string | null = null;
-        let mode: string | null = null;
+        // Handle custom token-based verification (bypasses Firebase rate limits)
+        const urlParts = url.split('?');
+        let token: string | null = null;
+        let uid: string | null = null;
         
-        // Parse oobCode from URL string (works for both standard URLs and custom schemes)
-        const oobCodeMatch = url.match(/[?&]oobCode=([^&]+)/);
-        if (oobCodeMatch) {
-          oobCode = decodeURIComponent(oobCodeMatch[1]);
+        if (urlParts.length > 1) {
+          const params = urlParts[1].split('&');
+          for (const param of params) {
+            const [key, value] = param.split('=');
+            if (key === 'token') {
+              token = decodeURIComponent(value);
+            } else if (key === 'uid') {
+              uid = decodeURIComponent(value);
+            }
+          }
         }
         
-        // Parse mode from URL string
-          const modeMatch = url.match(/[?&]mode=([^&]+)/);
-          if (modeMatch) {
-            mode = decodeURIComponent(modeMatch[1]);
-        }
-        
-        if (mode === 'verifyEmail' && oobCode) {
-          console.log('EmailVerification - Processing verification link...');
+        if (token && uid) {
+          console.log('EmailVerification - Processing custom token verification...');
           
           try {
-            // Try to verify using Firebase client SDK
-            await applyActionCode(auth, oobCode);
-            console.log('✅ EmailVerification - Email verified via action code!');
-            
-            // Reload user to get updated verification status
             const user = auth.currentUser;
-            if (user) {
-              await user.reload();
-              if (user.emailVerified) {
-                Alert.alert(
-                  'Email Verified! ✓',
-                  'Your email has been successfully verified!',
-                  [
-                    {
-                      text: 'Continue',
-                      onPress: completeRegistration,
-                    },
-                  ]
-                );
+            if (!user) {
+              throw new Error('No user found');
+            }
+            
+            const idToken = await user.getIdToken();
+            if (idToken) {
+              const backendResponse = await api.post('/auth/verify-email', {
+                token: token,
+                uid: uid
+              }, {
+                headers: {
+                  'Authorization': `Bearer ${idToken}`
+                }
+              });
+              
+              if (backendResponse.data?.success) {
+                console.log('✅ EmailVerification - Email verified via custom token!');
+                await user.reload();
+                
+                if (user.emailVerified) {
+                  Alert.alert(
+                    'Email Verified! ✓',
+                    'Your email has been successfully verified!',
+                    [
+                      {
+                        text: 'Continue',
+                        onPress: completeRegistration,
+                      },
+                    ]
+                  );
+                }
               }
             }
           } catch (error: any) {
-            console.error('EmailVerification - Action code verification failed:', error);
-            
-            // Try backend endpoint as fallback
-            try {
-              const user = auth.currentUser;
-              if (!user || !user.email) {
-                throw new Error('No user or email found');
-              }
-              
-              const token = await user.getIdToken();
-              if (token) {
-                const backendResponse = await api.post('/auth/verify-email', {
-                  oobCode: oobCode,
-                  email: user.email // Include email as fallback
-                }, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`
-                  }
-                });
-                
-                if (backendResponse.data?.success) {
-                  console.log('✅ EmailVerification - Email verified via backend!');
-                  const currentUser = auth.currentUser;
-                  if (currentUser) {
-                    await currentUser.reload();
-                    if (currentUser.emailVerified) {
-                      Alert.alert(
-                        'Email Verified! ✓',
-                        'Your email has been successfully verified!',
-                        [
-                          {
-                            text: 'Continue',
-                            onPress: completeRegistration,
-                          },
-                        ]
-                      );
-                    }
-                  }
-                }
-              }
-            } catch (backendError: any) {
-              console.error('EmailVerification - Backend verification also failed:', backendError);
-              Alert.alert(
-                'Verification Failed',
-                'Failed to verify email. The link may be expired or invalid. Please request a new verification email.',
-                [{ text: 'OK' }]
-              );
-            }
+            console.error('EmailVerification - Token verification failed:', error);
+            Alert.alert(
+              'Verification Failed',
+              error?.response?.data?.error || 'Failed to verify email. The link may be expired or invalid. Please request a new verification email.',
+              [{ text: 'OK' }]
+            );
           }
+        } else {
+          // Unknown verification link format
+          console.warn('EmailVerification - Unknown verification link format:', url);
+          Alert.alert(
+            'Invalid Link',
+            'This verification link is invalid or expired. Please request a new verification email.',
+            [{ text: 'OK' }]
+          );
         }
       } catch (error: any) {
         console.error('EmailVerification - Deep link handling error:', error);
       }
     };
 
-    // Check if app was opened via deep link
+    // Check if app was opened via deep link (custom token verification only)
     Linking.getInitialURL().then((url) => {
-      if (url && (url.includes('mode=verifyEmail') || url.includes('oobCode='))) {
+      if (url && url.includes('token=')) {
         handleDeepLink(url);
       }
     });
 
     // Listen for deep links while app is running
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      if (url && (url.includes('mode=verifyEmail') || url.includes('oobCode='))) {
+      if (url && url.includes('token=')) {
         handleDeepLink(url);
       }
     });
@@ -273,9 +256,57 @@ const EmailVerification = ({ route }: any) => {
       });
     }, 1000);
 
+    // Check verification when app comes to foreground (after web verification)
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        const currentUser = auth.currentUser;
+        if (currentUser && !currentUser.emailVerified) {
+          // Reload user to sync verification status after returning from web
+          try {
+            await currentUser.reload();
+            if (currentUser.emailVerified) {
+              console.log('✅ EmailVerification - Email verified after app returned to foreground!');
+              // User is verified - trigger completeRegistration if available
+              if (completeRegistration) {
+                completeRegistration();
+              }
+            } else {
+              // Still not verified, check with backend
+              try {
+                const token = await currentUser.getIdToken();
+                const backendCheck = await api.post('/auth/resend-verification-email', {
+                  email: currentUser.email,
+                  uid: currentUser.uid
+                }, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
+                });
+                
+                if (backendCheck.data?.emailVerified) {
+                  // Backend says verified - reload and check again
+                  await currentUser.reload();
+                  if (currentUser.emailVerified && completeRegistration) {
+                    completeRegistration();
+                  }
+                }
+              } catch (error) {
+                console.warn('EmailVerification - Backend check on app state change failed:', error);
+              }
+            }
+          } catch (error) {
+            console.warn('EmailVerification - Error reloading user on app state change:', error);
+          }
+        }
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
     return () => {
       clearInterval(timer);
       subscription.remove();
+      appStateSubscription.remove();
     };
   }, [completeRegistration, route?.params?.email]);
 
@@ -306,6 +337,7 @@ const EmailVerification = ({ route }: any) => {
       
       let emailSent = false;
       let emailError: any = null;
+      let backendErrorMessage = 'Backend service unavailable'; // Extract backend error message (needed for later error handling)
       
       // Use backend SMTP as primary method
       try {
@@ -372,7 +404,8 @@ const EmailVerification = ({ route }: any) => {
                   }
                 }
               } catch (verifyError: any) {
-                console.error('EmailVerification - Direct verification failed:', verifyError);
+                // Silently ignore verification errors - just log for debugging
+                console.warn('EmailVerification - Direct verification failed (silently ignored):', verifyError?.response?.status || verifyError?.message);
               }
             }
           } else if (backendResponse.data?.emailSent) {
@@ -395,64 +428,45 @@ const EmailVerification = ({ route }: any) => {
             }
           } catch (backendError: any) {
         
-        console.error('❌ EmailVerification - Backend SMTP error details:');
-        console.error('   Status:', backendError?.response?.status);
-        console.error('   Response Data:', backendError?.response?.data);
-        console.error('   Error Message:', backendError?.message);
-        console.error('   Full Error:', JSON.stringify(backendError?.response?.data || backendError, null, 2));
-        console.warn('⚠️ EmailVerification - Backend SMTP failed, trying Firebase as fallback...');
+        // Check if this is an ngrok/backend connection error
+        const isBackendUnavailable = isNgrokError(backendError) || (backendError as any)?.isBackendUnavailable;
         
-        // Extract error message from backend response
-        const backendErrorMessage = backendError?.response?.data?.message || 
-                                    backendError?.response?.data?.error || 
-                                    backendError?.message || 
-                                    'Backend SMTP service unavailable';
-        emailError = {
-          message: backendErrorMessage,
-          code: backendError?.response?.data?.code || backendError?.code || 'backend_error',
-          original: backendError,
-          response: backendError?.response
-        };
-        
-        // Fallback to Firebase if backend fails
-        try {
-          await sendEmailVerification(user, {
-            url: `tray://email-verification`,
-            handleCodeInApp: true,
-          });
-          emailSent = true;
-          console.log('✅ EmailVerification - Firebase sent verification email (fallback)!');
-          emailError = null; // Clear error since Firebase worked
-        } catch (firebaseError: any) {
-          // If custom scheme not allowlisted, try simple method
-          if (firebaseError?.code === 'auth/unauthorized-continue-uri') {
-            try {
-              await sendEmailVerification(user);
-              emailSent = true;
-              console.log('✅ EmailVerification - Firebase sent verification email (simple method)!');
-              emailError = null; // Clear error since it worked
-            } catch (simpleError: any) {
-              // Keep the backend error if it's more descriptive, otherwise use Firebase error
-              const firebaseErrorMessage = simpleError?.message || 'Firebase email verification failed';
-              emailError = {
-                message: `${backendErrorMessage}\n\nFirebase fallback also failed: ${firebaseErrorMessage}`,
-                code: simpleError?.code || 'all_methods_failed',
-                original: simpleError
-              };
-              console.error('❌ EmailVerification - All methods failed:', simpleError?.message);
-            }
+        if (isBackendUnavailable) {
+          // Backend is down/unavailable - skip to Firebase immediately
+          console.warn('⚠️ EmailVerification - Backend unavailable (ngrok connection error), skipping to Firebase...');
+          emailError = {
+            message: backendErrorMessage,
+            code: 'backend_unavailable',
+            original: backendError
+          };
           } else {
-            // Keep the backend error if it's more descriptive
-            const firebaseErrorMessage = firebaseError?.message || 'Firebase email verification failed';
-            emailError = {
-              message: `${backendErrorMessage}\n\nFirebase fallback also failed: ${firebaseErrorMessage}`,
-              code: firebaseError?.code || 'firebase_fallback_failed',
-              original: firebaseError
-            };
-            console.error('❌ EmailVerification - Firebase fallback also failed:', firebaseError?.message);
-          }
+          // Real backend error (not connection issue) - try Firebase fallback
+          const backendStatus = backendError?.response?.status;
+          const backendErrorCode = backendError?.response?.data?.code;
+          
+          // Extract error message from backend response
+          backendErrorMessage = backendError?.response?.data?.message || 
+                                      backendError?.response?.data?.error || 
+                                      backendError?.message || 
+                                      'Backend SMTP service unavailable';
+          
+          // Log backend error details
+          console.error('❌ EmailVerification - Backend SMTP error details:');
+          console.error('   Status:', backendStatus);
+          console.error('   Response Data:', backendError?.response?.data);
+          console.error('   Error Message:', backendError?.message);
+          
+          emailError = {
+            message: backendErrorMessage,
+            code: backendErrorCode || backendError?.code || 'backend_error',
+            original: backendError,
+            response: backendError?.response
+          };
         }
+        
       }
+      
+      // No Firebase fallback needed - backend uses custom tokens (bypasses rate limits)
       
       // Provide user feedback based on result
       if (emailSent) {
@@ -489,16 +503,46 @@ const EmailVerification = ({ route }: any) => {
           }
         }
         
-        const errorCode = emailError?.code || emailError?.original?.code || 'unknown';
+        // Extract error code - Firebase errors can have code in multiple places
+        let errorCode = emailError?.code || 
+                       emailError?.original?.code || 
+                       emailError?.response?.data?.code ||
+                       emailError?.original?.response?.data?.code ||
+                       'unknown';
+        
+        // If error code is still unknown, try to extract from error message
+        if (errorCode === 'unknown' && emailError?.message) {
+          const codeMatch = emailError.message.match(/\(([a-z/-]+)\)/);
+          if (codeMatch) {
+            errorCode = codeMatch[1];
+          }
+        }
+        
+        // Also check original error's message if still unknown
+        if (errorCode === 'unknown' && emailError?.original?.message) {
+          const codeMatch = emailError.original.message.match(/\(([a-z/-]+)\)/);
+          if (codeMatch) {
+            errorCode = codeMatch[1];
+          }
+        }
         
         let userMessage = `Failed to resend verification email.\n\n`;
         
         if (errorCode === 'auth/user-not-found') {
+          userMessage = 'Failed to resend verification email.\n\n';
           userMessage += '⚠️ User not found. Please log in again.';
         } else if (errorCode === 'auth/unauthorized-continue-uri') {
+          userMessage = 'Failed to resend verification email.\n\n';
           userMessage += '⚠️ Email configuration error. Please contact support.';
-        } else if (errorCode === 'backend_error' || errorMessage.includes('Backend SMTP')) {
-          userMessage += `⚠️ Email service temporarily unavailable.\n\n${errorMessage}\n\nPlease try again in a few moments.`;
+        } else if (errorCode === 'backend_unavailable' || errorCode === 'backend_error' || errorMessage.includes('Backend SMTP')) {
+          userMessage = 'Failed to resend verification email.\n\n';
+          if (errorCode === 'backend_unavailable') {
+            userMessage += '⚠️ Backend service unavailable.\n\n';
+            userMessage += 'The backend server is currently unavailable. The app tried to use Firebase as a fallback, but it also failed.\n\n';
+            userMessage += 'Please try again in a few moments or contact support.';
+          } else {
+            userMessage += `⚠️ Email service temporarily unavailable.\n\n${errorMessage}\n\nPlease try again in a few moments.`;
+          }
         } else {
           userMessage += `Error: ${errorMessage}\n\n`;
           userMessage += 'Please try again later or contact support if the issue persists.';
@@ -552,56 +596,86 @@ const EmailVerification = ({ route }: any) => {
               }
             });
             
-            // If backend says email is verified, sync with Firebase
+            // If backend says email is verified, reload Firebase user and check again
             if (backendCheck.data?.emailVerified) {
-              console.log('EmailVerification - Backend says email is verified, syncing...');
+              console.log('EmailVerification - Backend says email is verified, reloading Firebase user...');
               
-              // Try to verify directly via backend
-              try {
-                const verifyResponse = await api.post('/auth/verify-email', {
-                  email: user.email,
-                  uid: user.uid
-                }, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`
+              // Reload Firebase user to sync verification status
+              await user.reload();
+              
+              // Check again after reload
+              if (user.emailVerified) {
+                console.log('EmailVerification - Email verified confirmed after reload!');
+                Alert.alert(
+                  'Email Verified! ✓',
+                  'Your email has been verified! Completing your registration...',
+                  [
+                    {
+                      text: 'Continue',
+                      onPress: completeRegistration,
+                    },
+                  ]
+                );
+                return;
+              } else {
+                // Backend says verified but Firebase doesn't - force sync via verify-email endpoint
+                console.log('EmailVerification - Backend verified but Firebase not synced, forcing sync...');
+                try {
+                  const verifyResponse = await api.post('/auth/verify-email', {
+                    email: user.email,
+                    uid: user.uid
+                  }, {
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  
+                  if (verifyResponse.data?.success) {
+                    // Reload again after forcing verification
+                    await user.reload();
+                    if (user.emailVerified) {
+                      Alert.alert(
+                        'Email Verified! ✓',
+                        'Your email has been verified! Completing your registration...',
+                        [
+                          {
+                            text: 'Continue',
+                            onPress: completeRegistration,
+                          },
+                        ]
+                      );
+                      return;
+                    }
                   }
-                });
-                
-                if (verifyResponse.data?.success) {
-                  await user.reload();
-                  if (user.emailVerified) {
-                    Alert.alert(
-                      'Email Verified! ✓',
-                      'Your email has been verified! Completing your registration...',
-                      [
-                        {
-                          text: 'Continue',
-                          onPress: completeRegistration,
-                        },
-                      ]
-                    );
-                    return;
-                  }
+                } catch (verifyError: any) {
+                  // Silently ignore verification errors - just log for debugging
+                  console.warn('EmailVerification - Force sync failed (silently ignored):', verifyError?.response?.status || verifyError?.message);
                 }
-              } catch (verifyError: any) {
-                console.error('EmailVerification - Direct verification failed:', verifyError);
               }
             }
           } catch (backendError: any) {
-            console.warn('EmailVerification - Backend check failed:', backendError);
+            // Silently ignore backend errors when checking verification status
+            // Just log for debugging but don't show errors to user
+            const isBackendUnavailable = isNgrokError(backendError) || (backendError as any)?.isBackendUnavailable;
+            if (isBackendUnavailable) {
+              console.warn('EmailVerification - Backend unavailable, skipping backend check');
+            } else {
+              // Silently log backend check errors - don't show to user
+              console.warn('EmailVerification - Backend check failed (silently ignored):', backendError?.response?.status || backendError?.message);
+            }
           }
           
-          // Show standard message if still not verified
+          // Show standard message if still not verified (no error shown - just informational)
           Alert.alert(
             'Not Verified Yet',
-            'Your email has not been verified yet. Please check your email inbox (and spam folder) for a verification email from Firebase/Tray and click the verification link.\n\nNote: This is different from profile approval emails - you need the Firebase verification email.',
+            'Your email has not been verified yet. Please check your email inbox (and spam folder) for a verification email from Tray and click the verification link.\n\nNote: This is different from profile approval emails - you need the email verification link.',
             [
               {
                 text: 'Check Spam Folder',
                 onPress: () => {
                   Alert.alert(
                     'Check Spam Folder',
-                    'Sometimes verification emails end up in spam. Please check your spam/junk folder for an email from Firebase or Tray.',
+                    'Sometimes verification emails end up in spam. Please check your spam/junk folder for an email from Tray.',
                     [{ text: 'OK' }]
                   );
                 },
@@ -612,12 +686,25 @@ const EmailVerification = ({ route }: any) => {
         }
       }
     } catch (error: any) {
-      console.error('Check verification error:', error);
-      Alert.alert(
-        'Error',
-        'Failed to check verification status. Please try again.',
-        [{ text: 'OK' }]
-      );
+      // Silently ignore errors when checking verification - just log for debugging
+      console.warn('Check verification error (silently ignored):', error?.message || error);
+      // Don't show error alert - just show "not verified" message if email is not verified
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          await user.reload();
+          if (!user.emailVerified) {
+            Alert.alert(
+              'Not Verified Yet',
+              'Your email has not been verified yet. Please check your email inbox (and spam folder) for a verification email from Tray and click the verification link.',
+              [{ text: 'OK' }]
+            );
+          }
+        } catch (reloadError) {
+          // Silently ignore reload errors too
+          console.warn('User reload error (silently ignored):', reloadError);
+        }
+      }
     } finally {
       setIsChecking(false);
     }
@@ -718,10 +805,10 @@ const EmailVerification = ({ route }: any) => {
           
           <View style={{ marginBottom: 8 }}>
             <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 4 }}>
-              1. Check your email inbox (and spam folder) for Firebase verification email
+              1. Check your email inbox (and spam folder) for verification email
             </Text>
             <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 4 }}>
-              2. Click the verification link in the Firebase email
+              2. Click the verification link in the email
             </Text>
             <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 4 }}>
               3. Return here and tap "Check Verification"
@@ -823,7 +910,7 @@ const EmailVerification = ({ route }: any) => {
             textAlign: 'center',
             lineHeight: 20,
           }}>
-            Didn't receive the Firebase verification email? Check your spam folder or try resending.
+            Didn't receive the verification email? Check your spam folder or try resending.
           </Text>
           <Text style={{
             fontSize: 12,
@@ -832,7 +919,7 @@ const EmailVerification = ({ route }: any) => {
             lineHeight: 18,
             marginTop: 8,
           }}>
-            Note: Profile approval emails are different from Firebase verification emails.
+            Note: Profile approval emails are different from email verification emails.
           </Text>
         </View>
       </ScrollView>

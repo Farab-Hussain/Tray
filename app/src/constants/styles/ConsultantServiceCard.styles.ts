@@ -13,8 +13,6 @@ export const consultantServiceCardStyles = StyleSheet.create({
         marginBottom: 16,
         width: '100%',
         minHeight: 320,
-        maxHeight: 480,
-        height: 320,
     },
     imageContainer: {
         width: '100%',
@@ -77,13 +75,11 @@ export const consultantServiceCardStyles = StyleSheet.create({
     content: {
         padding: 12,
         flex: 1,
-        justifyContent: 'space-between',
-        minHeight: 180,
+        justifyContent: 'flex-start',
     },
     contentTop: {
         flex: 0,
-        height: 140, // Fixed height for consistency
-        maxHeight: 140,
+        flexGrow: 1,
     },
     title: {
         fontSize: 15,
@@ -115,26 +111,23 @@ export const consultantServiceCardStyles = StyleSheet.create({
         marginLeft: 4,
     },
     descriptionContainer: {
-        maxHeight: 50,
+        marginBottom: 8,
     },
     description: {
         fontSize: 13,
         color: '#555',
+        lineHeight: 20,
     },
-    readMoreContainer: {
+    readMoreButton: {
         alignSelf: 'flex-start',
-        paddingVertical: 8,
-        paddingHorizontal: 8,
-        backgroundColor: '#F0F8F0',
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: COLORS.green,
+        paddingVertical: 4,
+        paddingHorizontal: 0,
+        marginTop: 4,
     },
     readMoreText: {
-        fontSize: 14,
-        fontWeight: '700',
+        fontSize: 13,
+        fontWeight: '600',
         color: COLORS.green,
-        textDecorationLine: 'underline',
     },
     bookButton: {
         backgroundColor: COLORS.yellow,

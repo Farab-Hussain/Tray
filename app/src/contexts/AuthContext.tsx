@@ -301,14 +301,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await AsyncStorage.setItem('roles', JSON.stringify(response.data.roles));
       }
       
+      // Clear consultant status cache when switching roles to force fresh fetch
+      // This ensures no stale consultant data persists after role switch
+      await AsyncStorage.removeItem('consultantVerificationStatus');
+      
       // If switching to consultant, refresh consultant status
       if (newRole === 'consultant') {
         await refreshConsultantStatus();
+      } else {
+        // If switching away from consultant, clear consultant status
+        setConsultantVerificationStatus(null);
       }
       
       // Refresh user profile to get latest profileImage from backend
       // This ensures profile image is available after role switch
       await refreshUser();
+      
+      // Role state is already updated above from response.data
+      // The role will be available immediately for RoleBasedTabs
       
       // Return response data including action if present
       return response.data;
@@ -434,38 +444,132 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
+    // Safety timeout to ensure loading is always set to false
+    const loadingTimeout = setTimeout(() => {
+      console.warn('AuthContext - Loading timeout triggered, forcing loading to false');
+      setLoading(false);
+    }, 8000); // 8 second timeout
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (__DEV__) {
-        console.log('Auth state changed:', firebaseUser ? `User authenticated` : 'No user');
+        console.log('AuthContext - Auth state changed:', firebaseUser ? `User authenticated` : 'No user');
       }
-      setUser(firebaseUser);
       
-      if (firebaseUser) {
-        // Check if email is verified before proceeding (required)
-        if (!firebaseUser.emailVerified) {
-          console.log('User email not verified, skipping role fetch');
+      // Clear the safety timeout since we're handling it now
+      clearTimeout(loadingTimeout);
+      
+      try {
+        if (firebaseUser) {
+          // Reload user to sync verification status from server (important after web verification)
+          let reloadedUser = firebaseUser;
+          try {
+            await firebaseUser.reload();
+            // Get updated user reference after reload
+            reloadedUser = auth.currentUser;
+          } catch (reloadError) {
+            console.warn('AuthContext - Error reloading user (continuing anyway):', reloadError);
+          }
+          
+          // Set user after reload to ensure we have latest verification status
+          setUser(reloadedUser);
+          
+          // Check if email is verified before proceeding (required)
+          // Use reloadedUser which has the latest verification status
+          if (!reloadedUser?.emailVerified) {
+            console.log('AuthContext - User email not verified after reload, checking backend...');
+            
+            // Check backend to see if email is verified (web verification might have happened)
+            // Use Promise.race to ensure this doesn't block forever
+            try {
+              const backendCheckPromise = (async () => {
+                const token = await reloadedUser.getIdToken();
+                return api.post('/auth/resend-verification-email', {
+                  email: reloadedUser.email,
+                  uid: reloadedUser.uid
+                }, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  },
+                  timeout: 5000 // 5 second timeout for backend check
+                });
+              })();
+              
+              // Race the backend check with a timeout
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Backend check timeout')), 5000)
+              );
+              
+              const backendCheck = await Promise.race([backendCheckPromise, timeoutPromise]) as any;
+              
+              // If backend says verified but Firebase doesn't, reload again
+              if (backendCheck?.data?.emailVerified && !reloadedUser.emailVerified) {
+                console.log('AuthContext - Backend says verified, reloading user again...');
+                await reloadedUser.reload();
+                // Get fresh reference after second reload
+                reloadedUser = auth.currentUser;
+                setUser(reloadedUser);
+                
+                // If still not verified, try to sync via verify-email endpoint
+                if (reloadedUser && !reloadedUser.emailVerified) {
+                  console.log('AuthContext - Still not verified, attempting sync...');
+                  try {
+                    const syncPromise = api.post('/auth/verify-email', {
+                      email: reloadedUser.email,
+                      uid: reloadedUser.uid
+                    }, {
+                      headers: {
+                        'Authorization': `Bearer ${await reloadedUser.getIdToken()}`
+                      },
+                      timeout: 5000
+                    });
+                    await Promise.race([syncPromise, timeoutPromise]);
+                    // Reload one more time after sync attempt
+                    await reloadedUser.reload();
+                    reloadedUser = auth.currentUser;
+                    setUser(reloadedUser);
+                  } catch (syncError) {
+                    console.warn('AuthContext - Sync attempt failed:', syncError);
+                  }
+                }
+              }
+            } catch (backendError) {
+              console.warn('AuthContext - Backend check failed or timed out:', backendError);
+            }
+            
+            // Check again after backend sync attempt
+            if (!reloadedUser?.emailVerified) {
+              console.log('AuthContext - User email still not verified, skipping role fetch');
+              setRole(null);
+              setLoading(false);
+              return;
+            }
+          }
+          
+          // User logged in and email verified - fetch their role from backend
+          // The fetchUserRole function now has robust retry logic
+          await fetchUserRole();
+        } else {
+          // User logged out - clear roles
+          setUser(null);
           setRole(null);
-          setLoading(false);
-          return;
+          setActiveRole(null);
+          setRoles([]);
+          await AsyncStorage.removeItem('role');
+          await AsyncStorage.removeItem('activeRole');
+          await AsyncStorage.removeItem('roles');
         }
-        
-        // User logged in and email verified - fetch their role from backend
-        // The fetchUserRole function now has robust retry logic
-        await fetchUserRole();
-      } else {
-        // User logged out - clear roles
-        setRole(null);
-        setActiveRole(null);
-        setRoles([]);
-        await AsyncStorage.removeItem('role');
-        await AsyncStorage.removeItem('activeRole');
-        await AsyncStorage.removeItem('roles');
+      } catch (error) {
+        console.error('AuthContext - Error in onAuthStateChanged:', error);
+      } finally {
+        // Always set loading to false
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(loadingTimeout);
+      unsubscribe();
+    };
   }, [fetchUserRole]);
 
   const value = {

@@ -16,7 +16,8 @@
     "postbuild": "npm run copy-files",
     "copy-files": "cp -r src/config/*.json dist/config/ 2>/dev/null || :",
     "test-auth": "node test-auth.js",
-    "create-admin": "ts-node scripts/createAdmin.ts"
+    "create-admin": "ts-node scripts/createAdmin.ts",
+    "create-consultant": "ts-node scripts/createConsultant.ts"
   },
   "keywords": [],
   "author": "",

@@ -18,28 +18,40 @@ import CustomAlert from './CustomAlert';
 
 interface ImageUploadProps {
   currentImageUrl?: string;
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // currentVideoUrl?: string;
   currentPublicId?: string;
+  // currentVideoPublicId?: string;
   onImageUploaded: (imageUrl: string, publicId: string) => void;
+  // onVideoUploaded?: (videoUrl: string, publicId: string) => void;
   onImageDeleted?: () => void;
+  // onVideoDeleted?: () => void;
   placeholder?: string;
   style?: any;
   uploadType?: 'user' | 'consultant' | 'service';
   required?: boolean;
   error?: string;
   showDeleteButton?: boolean; // Option to hide delete button
+  // allowVideo?: boolean; // Allow video uploads (for services) - COMMENTED OUT
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
   currentImageUrl,
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // currentVideoUrl,
   currentPublicId,
+  // currentVideoPublicId,
   onImageUploaded,
+  // onVideoUploaded,
   onImageDeleted,
+  // onVideoDeleted,
   placeholder = 'Tap to upload image',
   style,
   uploadType = 'user',
   required: _required = false,
   error,
   showDeleteButton = true, // Default to showing delete button for backward compatibility
+  // allowVideo = false, // Default to false for backward compatibility - COMMENTED OUT
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -80,10 +92,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
   const openGallery = () => {
     const options = {
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // mediaType: allowVideo ? 'mixed' as MediaType : 'photo' as MediaType,
       mediaType: 'photo' as MediaType,
       quality: 0.8 as any,
       maxWidth: 800,
       maxHeight: 800,
+      // videoQuality: 'high' as any, // VIDEO UPLOAD CODE - COMMENTED OUT
     };
 
     launchImageLibrary(options, handleImageResponse);
@@ -91,7 +106,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
   const handleImageResponse = async (response: ImagePickerResponse) => {
     if (response.didCancel || response.errorMessage) {
-      console.log('📸 Image selection cancelled or error:', response.errorMessage);
+      console.log('📸 Media selection cancelled or error:', response.errorMessage);
       return;
     }
 
@@ -101,23 +116,58 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       return;
     }
 
-    console.log('📸 Selected image URI:', asset.uri);
-    console.log('📸 Current image URL:', currentImageUrl);
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // const isVideo = asset.type?.startsWith('video/') || false;
+    const isVideo = false; // Video uploads disabled
+    console.log(`📸 Selected image URI:`, asset.uri);
+    console.log(`📸 Current image URL:`, currentImageUrl);
     console.log('📸 Upload type:', uploadType);
 
     setIsUploading(true);
+
+    // Add a safety timeout to prevent infinite loading
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // // For videos, allow up to 20 minutes for large files (59MB+)
+    // const fileSizeMB = asset.fileSize ? asset.fileSize / (1024 * 1024) : 0;
+    // const timeoutDuration = isVideo 
+    //   ? Math.max(1200000, Math.ceil(fileSizeMB / 10) * 60000) // At least 20 min, or 1 min per 10MB
+    //   : 120000; // 2 minutes for images
+    const timeoutDuration = 120000; // 2 minutes for images
+    const uploadTimeout = setTimeout(() => {
+      if (__DEV__) {
+        console.warn('⚠️ Upload timeout - request is taking too long');
+      }
+      setIsUploading(false);
+      showAlert(
+        'error',
+        'Upload Timeout',
+        `The ${isVideo ? 'video' : 'image'} upload is taking too long. Please check your connection and try again.`,
+      );
+    }, timeoutDuration);
 
     try {
       // Create a File object from the asset
       const file = {
         uri: asset.uri,
+        // VIDEO UPLOAD CODE - COMMENTED OUT
+        // type: asset.type || (isVideo ? 'video/mp4' : 'image/jpeg'),
+        // name: asset.fileName || (isVideo ? 'video.mp4' : 'image.jpg'),
         type: asset.type || 'image/jpeg',
         name: asset.fileName || 'image.jpg',
       } as any;
 
-      console.log('📸 Uploading image file:', { uri: file.uri, type: file.type, name: file.name });
+      if (__DEV__) {
+        console.log(`📸 [ImageUpload] Uploading image file:`, { 
+          uri: file.uri, 
+          type: file.type, 
+          name: file.name,
+          uploadType,
+        });
+      }
 
-      // Upload image
+      // Upload media - let the retry logic in fetcher.ts handle retries and timeouts
+      // Don't add manual timeout here as it interferes with retry logic
+      // The retry logic will automatically retry once if the first attempt fails
       let result;
       if (uploadType === 'consultant') {
         result = await UploadService.uploadConsultantImage(file);
@@ -127,19 +177,77 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         result = await UploadService.uploadProfileImage(file);
       }
 
-      console.log('📸 Upload result:', { imageUrl: result.imageUrl, publicId: result.publicId });
-      console.log('📸 Calling onImageUploaded with new URL:', result.imageUrl);
+      // Clear the safety timeout since upload succeeded
+      clearTimeout(uploadTimeout);
+
+      if (__DEV__) {
+        console.log(`✅ [ImageUpload] Upload result:`, result);
+      }
       
-      onImageUploaded(result.imageUrl, result.publicId);
+      // Call appropriate callback based on media type
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // // Backend returns either videoUrl or imageUrl based on media type
+      // if (isVideo && onVideoUploaded) {
+      //   const videoUrl = (result as any).videoUrl;
+      //   if (videoUrl) {
+      //     onVideoUploaded(videoUrl, result.publicId);
+      //   } else {
+      //     console.warn('⚠️ [ImageUpload] Video uploaded but no videoUrl in response:', result);
+      //   }
+      // } else if (!isVideo) {
+        const imageUrl = (result as any).imageUrl;
+        if (imageUrl) {
+          onImageUploaded(imageUrl, result.publicId);
+        } else {
+          console.warn('⚠️ [ImageUpload] Image uploaded but no imageUrl in response:', result);
+        }
+      // }
       // Success alert removed - parent component handles navigation/feedback
     } catch (err: any) {
-      console.error('❌ Upload error:', err);
+      // Clear the safety timeout since we're handling the error
+      clearTimeout(uploadTimeout);
+      
+      console.error(`❌ [ImageUpload] Upload error:`, {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status,
+        statusText: err?.response?.statusText,
+        data: err?.response?.data,
+        isBackendUnavailable: err?.isBackendUnavailable,
+        isNgrokError: err?.isNgrokError,
+      });
+      
+      // Check if backend is unavailable
+      const isBackendUnavailable = 
+        err?.isBackendUnavailable || 
+        err?.isNgrokError || 
+        err?.backendUnavailable ||
+        err?.response?.status === 503 ||
+        err?.response?.status === 502 ||
+        err?.code === 'ECONNREFUSED' ||
+        err?.code === 'ERR_CONNECTION_REFUSED' ||
+        err?.code === 'ETIMEDOUT' ||
+        err?.code === 'ECONNABORTED';
+      
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // let errorMessage = `Failed to upload ${isVideo ? 'video' : 'image'}. Please try again.`;
+      let errorMessage = `Failed to upload image. Please try again.`;
+      
+      if (isBackendUnavailable) {
+        errorMessage = 'Backend server is unavailable. Please check your connection and try again later.';
+      } else if (err?.code === 'ETIMEDOUT' || err?.code === 'ECONNABORTED') {
+        errorMessage = 'Upload timed out. Please check your connection and try again.';
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
       showAlert(
         'error',
         'Upload Failed',
-        err.message || 'Failed to upload image',
+        errorMessage,
       );
     } finally {
+      // Ensure loading state is always cleared
       setIsUploading(false);
     }
   };
@@ -147,17 +255,23 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const handleDeleteImage = async () => {
     // If we have a publicId, try to delete from Cloudinary first
     // Otherwise, just call onImageDeleted to clear from backend
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // if (!currentImageUrl && !currentVideoUrl) return;
     if (!currentImageUrl) return;
 
     setIsDeleting(true);
     try {
-      if (currentPublicId) {
-        // Try to delete from Cloudinary if we have the publicId
+      // Try to delete from Cloudinary if we have the publicId
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // const publicIdToDelete = currentVideoUrl ? currentVideoPublicId : currentPublicId;
+      const publicIdToDelete = currentPublicId;
+      if (publicIdToDelete) {
         try {
           if (uploadType === 'consultant') {
-            await UploadService.deleteConsultantImage(currentPublicId);
+            await UploadService.deleteConsultantImage(publicIdToDelete);
+          } else if (uploadType === 'service') {
           } else {
-            await UploadService.deleteProfileImage(currentPublicId);
+            await UploadService.deleteProfileImage(publicIdToDelete);
           }
         } catch (cloudinaryError: any) {
           // If Cloudinary deletion fails, still proceed to clear from backend
@@ -165,16 +279,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         }
       }
       
-      // Always call onImageDeleted to clear the image from backend/profile
-      // This works even if we don't have publicId (for older images)
-      // Make it async and wait for it to complete
-      if (onImageDeleted) {
-        // If onImageDeleted is async, await it; otherwise just call it
-        const result = onImageDeleted();
-        if (result && typeof result.then === 'function') {
-          await result;
+      // Always call onImageDeleted to clear the media from backend/profile
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // // This works even if we don't have publicId (for older media)
+      // if (currentVideoUrl && onVideoDeleted) {
+      //   await Promise.resolve(onVideoDeleted());
+      // } else if (onImageDeleted) {
+        if (onImageDeleted) {
+          await Promise.resolve(onImageDeleted());
         }
-      }
+      // }
       // Success alert removed - parent component handles navigation/feedback
     } catch (err: any) {
       console.error('Delete error:', err);
@@ -190,11 +304,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      {/* Image display */}
+      {/* Image/Video display */}
       <View
         style={[styles.imageContainer, error && styles.imageContainerError]}
       >
-        {currentImageUrl ? (
+        {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+        {/* {currentVideoUrl ? (
+          <View style={styles.videoContainer}>
+            ... video thumbnail display code ...
+          </View>
+        ) : */ currentImageUrl ? (
           <Image
             source={{ uri: currentImageUrl }}
             style={styles.image}
@@ -218,12 +337,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           <ActivityIndicator color={COLORS.white} size="small" />
         ) : (
           <Text style={styles.uploadButtonText}>
+            {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+            {/* {currentImageUrl || currentVideoUrl 
+              ? (allowVideo ? 'Change Media' : 'Change Image') 
+              : (allowVideo ? 'Upload Image/Video' : 'Upload Image')} */}
             {currentImageUrl ? 'Change Image' : 'Upload Image'}
           </Text>
         )}
       </TouchableOpacity>
 
       {/* Delete button - only show if showDeleteButton is true */}
+      {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+      {/* {(currentImageUrl || currentVideoUrl) && showDeleteButton && ( */}
       {currentImageUrl && showDeleteButton && (
         <TouchableOpacity
           onPress={handleDeleteImage}
@@ -236,7 +361,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           {isDeleting ? (
             <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
-            <Text style={styles.deleteButtonText}>Delete Image</Text>
+            <Text style={styles.deleteButtonText}>
+              {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+              {/* {currentVideoUrl ? 'Delete Video' : 'Delete Image'} */}
+              Delete Image
+            </Text>
           )}
         </TouchableOpacity>
       )}
@@ -282,6 +411,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     paddingHorizontal: 8,
+  },
+  videoContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.gray,
+    position: 'relative',
+  },
+  videoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.gray,
+  },
+  videoPlaceholderIcon: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  videoPlaceholderText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  playButtonOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  playButtonText: {
+    color: COLORS.white,
+    fontSize: 32,
+    fontWeight: 'bold',
   },
   uploadButton: {
     backgroundColor: COLORS.green,

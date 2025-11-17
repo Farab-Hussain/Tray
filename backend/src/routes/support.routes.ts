@@ -10,8 +10,8 @@ import { validateSupportRequest } from "../middleware/validation";
 export const registerSupportRoutes = (app: Application) => {
   console.log("📮 Support routes loaded");
 
-  app.post("/support/contact", authenticateUser, validateSupportRequest, sendSupportMessage);
-  app.post("/support/submit", authenticateUser, validateSupportRequest, sendSupportMessage);
+  app.post("/support/contact", authenticateUser(), validateSupportRequest, sendSupportMessage);
+  app.post("/support/submit", authenticateUser(), validateSupportRequest, sendSupportMessage);
 };
 
 export default registerSupportRoutes;

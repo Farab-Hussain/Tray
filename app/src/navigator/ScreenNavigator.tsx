@@ -58,9 +58,17 @@ const ConsultantFlowHandler = () => {
 
 // Component to render appropriate bottom tabs based on role
 const RoleBasedTabs = () => {
-  const { role, needsProfileCreation, consultantVerificationStatus, user } = useAuth();
+  const { role, activeRole, needsProfileCreation, consultantVerificationStatus, user } = useAuth();
   const [hasApprovedServices, setHasApprovedServices] = React.useState<boolean | null>(null);
   const [isChecking, setIsChecking] = React.useState(true);
+  
+  // Use activeRole if available, fallback to role for backward compatibility
+  const currentRole = activeRole || role;
+  
+  // Debug logging for role changes
+  React.useEffect(() => {
+    console.log('🔄 [RoleBasedTabs] Role changed:', { role, activeRole, currentRole });
+  }, [role, activeRole, currentRole]);
   
   // Check if email is verified - redirect to EmailVerification if not
   React.useEffect(() => {
@@ -105,7 +113,7 @@ const RoleBasedTabs = () => {
   React.useEffect(() => {
     const checkApprovedServices = async () => {
       // If not consultant, don't check
-      if (role !== 'consultant') {
+      if (currentRole !== 'consultant') {
         setHasApprovedServices(null);
         setIsChecking(false);
         return;
@@ -143,7 +151,7 @@ const RoleBasedTabs = () => {
     };
     
     checkApprovedServices();
-  }, [role, consultantVerificationStatus, user?.uid]);
+  }, [currentRole, consultantVerificationStatus, user?.uid]);
   
   // If profile needs to be created, show profile creation screen
   if (needsProfileCreation) {
@@ -151,7 +159,7 @@ const RoleBasedTabs = () => {
   }
   
   // For consultants, check if both profile and services are approved
-  if (role === 'consultant') {
+  if (currentRole === 'consultant') {
     // If still checking, show loading screen
     if (isChecking) {
       return (
@@ -181,10 +189,13 @@ const RoleBasedTabs = () => {
       return <ConsultantBottomTabs />;
     }
     
-    // Default fallback
+    // Default fallback - should not reach here, but show pending approval as fallback
+    console.warn('⚠️ [RoleBasedTabs] Unexpected consultant state, showing pending approval');
     return <PendingApproval />;
   }
   
+  // Default: show student tabs (for student role or if role is null/undefined)
+  console.log('✅ [RoleBasedTabs] Showing student tabs for role:', currentRole);
   return <BottomTabs />;
 };
 

@@ -93,7 +93,10 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
   const [serviceDuration, setServiceDuration] = useState('60');
   const [servicePrice, setServicePrice] = useState('150');
   const [serviceImage, setServiceImage] = useState<string | null>(null);
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // const [serviceVideo, setServiceVideo] = useState<string | null>(null);
   const [serviceImagePublicId, setServiceImagePublicId] = useState<string | null>(null);
+  // const [serviceVideoPublicId, setServiceVideoPublicId] = useState<string | null>(null);
   
   // Validation state
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
@@ -225,6 +228,12 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     if (parseFloat(servicePrice) <= 0) {
       errors.servicePrice = 'Please enter a valid price';
     }
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // // Require either an image or a video (not both, but at least one)
+    // if (!serviceImage && !serviceVideo) {
+    //   errors.serviceImage = 'Service image or video is required';
+    // }
+    // Require an image
     if (!serviceImage) {
       errors.serviceImage = 'Service image is required';
     }
@@ -309,51 +318,12 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     }
     try {
       if (isEditing && editingApplication) {
+        // Prevent editing pending applications - only approved services can be edited
         if (editingApplication.status === 'pending') {
-          const nextType = editingApplication.type || 'new';
-          const pendingPayload: {
-            type?: 'new' | 'existing' | 'update';
-            serviceId?: string;
-            customService: {
-              title: string;
-              description: string;
-              duration: number;
-              price: number;
-              imageUrl?: string;
-              imagePublicId?: string;
-            };
-          } = {
-            type: nextType,
-            customService: {
-              title: serviceTitle,
-              description: serviceDescription,
-              duration: parsedDuration,
-              price: parsedPrice,
-              imageUrl: serviceImage || undefined,
-              imagePublicId: serviceImagePublicId || undefined,
-            },
-          };
-
-          if (nextType === 'update') {
-            const targetServiceId =
-              editingServiceId || editingApplication.serviceId || editingApplication.linkedServiceId || null;
-
-            if (!targetServiceId) {
-              Alert.alert(
-                'Service Not Found',
-                'Unable to locate the approved service associated with this application. Please try again or contact support.',
-              );
-              return;
-            }
-
-            pendingPayload.serviceId = targetServiceId;
-          }
-
-          await updateConsultantApplication(editingApplication.id, pendingPayload);
-
-          Alert.alert('Updated', 'Application details updated successfully.');
-          handleCloseModal();
-          await loadApplications();
+          Alert.alert(
+            'Cannot Edit Pending Application',
+            'You can only edit services that have been approved. Please wait for admin approval before making changes.',
+          );
           return;
         }
 
@@ -378,7 +348,10 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
             duration: parsedDuration,
             price: parsedPrice,
             imageUrl: serviceImage ?? undefined,
+            // VIDEO UPLOAD CODE - COMMENTED OUT
+            // videoUrl: serviceVideo ?? undefined,
             imagePublicId: serviceImagePublicId ?? undefined,
+            // videoPublicId: serviceVideoPublicId ?? undefined,
           },
         };
 
@@ -418,7 +391,10 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
             duration: parsedDuration,
             price: parsedPrice,
             imageUrl: serviceImage ?? undefined,
+            // VIDEO UPLOAD CODE - COMMENTED OUT
+            // videoUrl: serviceVideo ?? undefined,
             imagePublicId: serviceImagePublicId ?? undefined,
+            // videoPublicId: serviceVideoPublicId ?? undefined,
           },
         });
 
@@ -554,35 +530,16 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       setIsLoadingServiceDetails(true);
       setValidationErrors({});
 
+      // Only allow editing approved services
+      if (app.status === 'pending') {
+        Alert.alert(
+          'Cannot Edit Pending Application',
+          'You can only edit services that have been approved. Please wait for admin approval before making changes.',
+        );
+        return;
+      }
+
       try {
-        if (app.status === 'pending') {
-          if (!app.customService) {
-            Alert.alert('Error', 'Application data is incomplete.');
-            return;
-          }
-
-          setServiceTitle(app.customService.title);
-          setServiceDescription(app.customService.description);
-          setServiceDuration(String(app.customService.duration));
-          setServicePrice(String(app.customService.price));
-          setServiceImage(app.customService.imageUrl || null);
-          setServiceImagePublicId(app.customService.imagePublicId || null);
-
-          setEditingApplication(app);
-          setEditingServiceId(app.serviceId ?? null);
-          setEditingOriginalValues({
-            title: app.customService.title,
-            description: app.customService.description,
-            duration: app.customService.duration,
-            price: app.customService.price,
-            imageUrl: app.customService.imageUrl || null,
-          });
-          setCurrentServiceBookingsCount(null);
-          setIsEditing(true);
-          setShowModal(true);
-          return;
-        }
-
         if (app.status === 'approved') {
           let linkedService = app.linkedService;
 
@@ -635,7 +592,10 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           setServiceDuration(String(linkedService.duration || 60));
           setServicePrice(String(linkedService.price || 0));
           setServiceImage(linkedService.imageUrl || null);
+          // VIDEO UPLOAD CODE - COMMENTED OUT
+          // setServiceVideo(linkedService.videoUrl || null);
           setServiceImagePublicId(linkedService.imagePublicId || null);
+          // setServiceVideoPublicId(linkedService.videoPublicId || null);
 
           setEditingApplication(app);
           setEditingServiceId(linkedService.id);
@@ -791,13 +751,20 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
                 
                 {(app.type === 'new' || app.type === 'update') && app.customService && (
                   <>
+                    {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+                    {/* {(app.customService.imageUrl || app.customService.videoUrl) && ( */}
                     {app.customService.imageUrl && (
                       <View style={styles.serviceImageContainer}>
-                        <Image 
-                          source={{ uri: app.customService.imageUrl }} 
-                          style={styles.serviceImage}
-                          resizeMode="cover"
-                        />
+                        {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+                        {/* {app.customService.videoUrl ? (
+                          ... video preview code ...
+                        ) : ( */}
+                          <Image 
+                            source={{ uri: app.customService.imageUrl! }} 
+                            style={styles.serviceImage}
+                            resizeMode="cover"
+                          />
+                        {/* )} */}
                       </View>
                     )}
                     <Text style={styles.cardDescription} numberOfLines={2}>
@@ -820,7 +787,8 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
 
                 {(app.status === 'pending' || app.status === 'approved') && (
                   <View style={styles.cardActions}>
-                    {(app.type === 'new' || app.type === 'update') && (
+                    {/* Only show Edit button for approved services */}
+                    {app.status === 'approved' && (app.type === 'new' || app.type === 'update') && (
                       <TouchableOpacity
                         style={styles.editButton}
                         onPress={() => handleEditApplication(app)}
@@ -912,25 +880,37 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Service Image *</Text>
+                  <Text style={styles.label}>Service Media *</Text>
+                  <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+                    Upload an image to showcase your service
+                  </Text>
                   <ImageUpload
                     currentImageUrl={serviceImage || ''}
+                    // VIDEO UPLOAD CODE - COMMENTED OUT: currentVideoUrl={serviceVideo || ''}
                     currentPublicId={serviceImagePublicId || ''}
+                    // VIDEO UPLOAD CODE - COMMENTED OUT: currentVideoPublicId={serviceVideoPublicId || ''}
                     onImageUploaded={(imageUrl, publicId) => {
                       setServiceImage(imageUrl);
                       setServiceImagePublicId(publicId);
+                      // VIDEO UPLOAD CODE - COMMENTED OUT
+                      // // Clear video when image is uploaded
+                      // setServiceVideo(null);
+                      // setServiceVideoPublicId(null);
                       clearFieldError('serviceImage');
                     }}
+                    // VIDEO UPLOAD CODE - COMMENTED OUT: onVideoUploaded={(videoUrl, publicId) => { ... }}
                     onImageDeleted={() => {
                       setServiceImage(null);
                       setServiceImagePublicId(null);
                       clearFieldError('serviceImage');
                     }}
+                    // VIDEO UPLOAD CODE - COMMENTED OUT: onVideoDeleted={() => { ... }}
                     placeholder="Upload service image"
                     style={styles.imageUpload}
                     required={true}
                     error={validationErrors.serviceImage}
                     uploadType="service"
+                    // VIDEO UPLOAD CODE - COMMENTED OUT: allowVideo={true}
                   />
                 </View>
 
@@ -1188,6 +1168,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.black,
     marginBottom: 8,
+  },
+  videoPreviewContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  playButtonOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  playButtonText: {
+    color: COLORS.white,
+    fontSize: 48,
+    fontWeight: 'bold',
   },
   serviceImageContainer: {
     marginBottom: 12,

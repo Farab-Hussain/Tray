@@ -512,56 +512,16 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
       
       if (!paymentTransferred && bookingData?.amount) {
         try {
-          // Import Stripe for transfer
-          const Stripe = require("stripe");
-          const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+          // Use payment service for automatic transfer with retry logic
+          const { transferPaymentToConsultant } = await import("../services/payment.service");
+          const result = await transferPaymentToConsultant(bookingId);
           
-          // Get consultant's Stripe account
-          const consultantDoc = await db.collection("consultants").doc(bookingData.consultantId).get();
-          if (consultantDoc.exists) {
-            const consultantData = consultantDoc.data();
-            const stripeAccountId = consultantData?.stripeAccountId;
-            
-            if (stripeAccountId) {
-              // Verify account is ready
-              const account = await stripe.accounts.retrieve(stripeAccountId);
-              
-              if (account.details_submitted && account.charges_enabled && account.payouts_enabled) {
-                // Calculate platform fee (fixed amount per booking)
-                const platformFeeAmountDollars = await getPlatformFeeAmount();
-                const platformFeeAmount = Math.round(platformFeeAmountDollars * 100); // Convert to cents
-                const transferAmount = Math.round(bookingData.amount * 100) - platformFeeAmount;
-                
-                // Create transfer
-                const transfer = await stripe.transfers.create({
-                  amount: transferAmount,
-                  currency: "usd",
-                  destination: stripeAccountId,
-                  description: `Payment for completed booking ${bookingId}`,
-                  metadata: {
-                    bookingId,
-                    consultantId: bookingData.consultantId,
-                    studentId: bookingData.studentId,
-                    platformFee: platformFeeAmount.toString(),
-                  },
-                });
-                
-                // Update booking with transfer info
-                await db.collection("bookings").doc(bookingId).update({
-                  paymentTransferred: true,
-                  transferId: transfer.id,
-                  transferAmount: transferAmount / 100,
-                  platformFee: platformFeeAmount / 100,
-                  transferredAt: new Date().toISOString(),
-                });
-                
-                console.log(`✅ Auto-transferred $${transferAmount / 100} to consultant for booking ${bookingId}`);
-              } else {
-                console.warn(`⚠️ Consultant ${bookingData.consultantId} Stripe account not ready for transfer`);
-              }
-            } else {
-              console.warn(`⚠️ Consultant ${bookingData.consultantId} does not have Stripe account set up`);
-            }
+          if (result.success) {
+            console.log(`✅ Auto-transferred $${result.amount} to consultant for booking ${bookingId} (Transfer ID: ${result.transferId})`);
+          } else {
+            console.error(`❌ Failed to auto-transfer payment for booking ${bookingId}: ${result.error}`);
+            // Don't fail the booking update - transfer can be retried manually
+            // The error is logged and can be handled by admin or retry mechanism
           }
         } catch (transferError: any) {
           // Log error but don't fail the booking update

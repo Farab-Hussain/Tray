@@ -6,7 +6,7 @@ import { authenticateUser } from "../middleware/authMiddleware";
 const router = express.Router();
 
 // Admin only endpoint
-router.get("/recent", authenticateUser, getRecentActivities);
+router.get("/recent", authenticateUser(), getRecentActivities);
 
 export default router;
 

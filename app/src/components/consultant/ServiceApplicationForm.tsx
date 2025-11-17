@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FormInput, TextArea, PriceInput } from './FormComponents';
 import { consultantFlowStyles, serviceApplicationStyles } from '../../constants/styles/consultantFlowStyles';
 import { createConsultantApplication } from '../../services/consultantFlow.service';
+import ImageUpload from '../ui/ImageUpload';
 
 const styles = {
   emptyServiceText: {
@@ -38,7 +39,12 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
   const [customTitle, setCustomTitle] = useState('');
   const [customDescription, setCustomDescription] = useState('');
   const [customDuration, setCustomDuration] = useState('');
-  const [customPrice, setCustomPrice] = useState('');  
+  const [customPrice, setCustomPrice] = useState('');
+  const [customImageUrl, setCustomImageUrl] = useState<string>('');
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // const [customVideoUrl, setCustomVideoUrl] = useState<string>('');
+  const [customImagePublicId, setCustomImagePublicId] = useState<string>('');
+  // const [customVideoPublicId, setCustomVideoPublicId] = useState<string>('');  
 
   const handleSubmit = async () => {
     if (!user?.uid) {
@@ -84,6 +90,11 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
                 description: customDescription.trim(),
                 duration: parseInt(customDuration, 10),
                 price: parseFloat(customPrice),
+                imageUrl: customImageUrl || undefined,
+                // VIDEO UPLOAD CODE - COMMENTED OUT
+                // videoUrl: customVideoUrl || undefined,
+                imagePublicId: customImagePublicId || undefined,
+                // videoPublicId: customVideoPublicId || undefined,
               }
             }
         ),
@@ -98,7 +109,9 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
           {
             text: 'OK',
             onPress: () => {
+              // Call onSuccess callback first (if provided)
               onSuccess?.();
+              // Navigate back - the PendingApproval screen will refresh on focus
               navigation.goBack();
             },
           },
@@ -201,6 +214,40 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
         onChangeText={setCustomPrice}
         required
       />
+
+      <View style={{ marginTop: 16 }}>
+        <Text style={consultantFlowStyles.sectionTitle}>Service Media</Text>
+        <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+          Upload an image to showcase your service
+        </Text>
+        
+        <ImageUpload
+          currentImageUrl={customImageUrl}
+          // VIDEO UPLOAD CODE - COMMENTED OUT: currentVideoUrl={customVideoUrl}
+          currentPublicId={customImagePublicId}
+          // VIDEO UPLOAD CODE - COMMENTED OUT: currentVideoPublicId={customVideoPublicId}
+          onImageUploaded={(imageUrl, publicId) => {
+            setCustomImageUrl(imageUrl);
+            setCustomImagePublicId(publicId);
+            // VIDEO UPLOAD CODE - COMMENTED OUT
+            // // Clear video when image is uploaded (user can only have one media type)
+            // setCustomVideoUrl('');
+            // setCustomVideoPublicId('');
+          }}
+          {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
+          {/* onVideoUploaded={(videoUrl, publicId) => {
+            setCustomVideoUrl(videoUrl);
+            setCustomVideoPublicId(publicId);
+            // Clear image when video is uploaded (user can only have one media type)
+            setCustomImageUrl('');
+            setCustomImagePublicId('');
+          }} */}
+          uploadType="service"
+          {/* allowVideo={true} */}
+          placeholder="Tap to upload image"
+          style={{ marginBottom: 16 }}
+        />
+      </View>
     </View>
   );
 

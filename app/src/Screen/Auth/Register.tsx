@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authStyles } from '../../constants/styles/authStyles';
 import { COLORS } from '../../constants/core/colors';
 import * as LucideIcons from 'lucide-react-native';
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { api } from '../../lib/fetcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -137,33 +137,9 @@ const Register = ({ navigation, route }: any) => {
           emailSent = true; // Mark as sent since we have a link
         }
       } catch (backendError: any) {
-          console.warn('⚠️ Register - Backend SMTP failed, trying Firebase as fallback...');
+          // Backend email sending failed - error already logged
           emailError = backendError;
-          
-          // Fallback to Firebase if backend fails
-          try {
-            await sendEmailVerification(userCredential.user, {
-              url: `tray://email-verification`,
-              handleCodeInApp: true,
-            });
-            emailSent = true;
-            console.log('✅ Register - Firebase sent verification email (fallback)!');
-          } catch (firebaseError: any) {
-            // If custom scheme not allowlisted, try simple method
-            if (firebaseError?.code === 'auth/unauthorized-continue-uri') {
-              try {
-                await sendEmailVerification(userCredential.user);
-                emailSent = true;
-                console.log('✅ Register - Firebase sent verification email (simple method)!');
-              } catch (simpleError: any) {
-                emailError = simpleError;
-                console.error('❌ Register - All methods failed:', simpleError?.message);
-              }
-            } else {
-              emailError = firebaseError;
-              console.error('❌ Register - Firebase fallback also failed:', firebaseError?.message);
-            }
-          }
+          // No Firebase fallback - we use custom token system only
       }
 
       // Clear registration flag

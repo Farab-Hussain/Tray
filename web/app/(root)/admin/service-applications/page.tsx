@@ -124,7 +124,7 @@ const AdminServiceApplicationsPage = () => {
           serviceMap.set(service.id, { 
             title: service.title, 
             description: service.description,
-            imageUrl: (service as any).imageUrl 
+            imageUrl: service.imageUrl 
           });
         }
       });
@@ -363,31 +363,49 @@ const AdminServiceApplicationsPage = () => {
                 
                 <p className="text-sm text-gray-600 mb-3">{getServiceDescription(application)}</p>
                 
-                {/* Service Image */}
+                {/* Service Image or Video */}
+                {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
                 {(() => {
                   let imageUrl: string | undefined;
+                  // VIDEO UPLOAD CODE - COMMENTED OUT
+                  // let videoUrl: string | undefined;
                   
-                  if (application.type === 'new' && application.customService?.imageUrl) {
+                  if ((application.type === 'new' || application.type === 'update') && application.customService) {
                     imageUrl = application.customService.imageUrl;
+                    // VIDEO UPLOAD CODE - COMMENTED OUT
+                    // videoUrl = application.customService.videoUrl;
                   } else if ((application.type === 'existing' || application.type === 'update') && (application as AdminApplication).existingServiceImageUrl) {
                     imageUrl = (application as AdminApplication).existingServiceImageUrl;
                   }
                   
-                  return imageUrl ? (
-                    <div className="mb-3">
-                      <Image
-                        src={imageUrl} 
-                        alt={getServiceTitle(application)}
-                        width={128}
-                        height={96}
-                        className="w-32 h-24 object-cover rounded-lg border border-gray-200"
-                        onError={(e) => {
-                          console.error('Failed to load service image:', imageUrl);
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  ) : null;
+                  // VIDEO UPLOAD CODE - COMMENTED OUT
+                  // // Generate video thumbnail URL if video exists
+                  // const getVideoThumbnailUrl = (url: string): string => {
+                  //   ... video thumbnail generation code ...
+                  // };
+                  
+                  // VIDEO UPLOAD CODE - COMMENTED OUT
+                  // if (videoUrl) {
+                  //   ... video preview code ...
+                  // } else 
+                  if (imageUrl) {
+                    return (
+                      <div className="mb-3">
+                        <Image
+                          src={imageUrl} 
+                          alt={getServiceTitle(application)}
+                          width={128}
+                          height={96}
+                          className="w-32 h-24 object-cover rounded-lg border border-gray-200"
+                          onError={(e) => {
+                            console.error('Failed to load service image:', imageUrl);
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+                  return null;
                 })()}
                 
                 {application.type === 'new' && application.customService && (

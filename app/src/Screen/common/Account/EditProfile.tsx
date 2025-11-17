@@ -24,38 +24,29 @@ const EditProfile = ({ navigation }: any) => {
 
     const userPhotoURL = user.photoURL;
 
-    // Fetch profile image from backend first, then fallback to Firebase
-    try {
-      console.log('📸 Loading profile image from backend...');
-      const backendProfile = await UserService.getUserProfile();
-      console.log('✅ Backend profile loaded:', backendProfile);
-
-      // Prefer backend profileImage over Firebase photoURL
-      // Backend returns profileImage, but UserService might map it to avatarUrl
-      const backendImageUrl = backendProfile?.profileImage || backendProfile?.avatarUrl;
-      if (backendImageUrl) {
-        console.log('✅ Using backend profile image:', backendImageUrl);
-        setProfileImage(backendImageUrl);
-      } else if (userPhotoURL) {
-        console.log('✅ Using Firebase photoURL:', userPhotoURL);
-        setProfileImage(userPhotoURL);
-      }
-    } catch (error: any) {
-      if (error?.response?.status === 404) {
-        console.log(
-          '⚠️ Backend profile API not available (404) - using Firebase photoURL',
-        );
-      } else {
-        console.log(
-          '⚠️ Failed to load backend profile:',
-          error?.message || error,
-        );
-      }
-      // Fallback to Firebase Auth photoURL if backend fails
-      if (userPhotoURL) {
-        setProfileImage(userPhotoURL);
-      }
+    // Use Firebase photoURL immediately for faster loading
+    // Then fetch from backend in background (non-blocking)
+    if (userPhotoURL) {
+      setProfileImage(userPhotoURL);
     }
+
+    // Fetch profile image from backend in background (non-blocking)
+    // This allows the UI to show immediately with Firebase data
+    UserService.getUserProfile()
+      .then(backendProfile => {
+        // Prefer backend profileImage over Firebase photoURL
+        const backendImageUrl = backendProfile?.profileImage || backendProfile?.avatarUrl;
+        if (backendImageUrl) {
+          console.log('✅ Using backend profile image:', backendImageUrl);
+          setProfileImage(backendImageUrl);
+        }
+      })
+      .catch(error => {
+        // Silently fail - we already have Firebase photoURL as fallback
+        if (__DEV__ && error?.response?.status !== 404) {
+          console.log('⚠️ Failed to load backend profile:', error?.message || error);
+        }
+      });
   }, [user]);
 
   // Load profile image when component mounts
@@ -124,39 +115,30 @@ const EditProfile = ({ navigation }: any) => {
           : { avatarUrl: finalImageUrl };
         
         console.log('🔄 Sending to backend:', updateData);
-        console.log('🔄 Final image URL:', finalImageUrl);
-        console.log('🔄 Is deleting:', isDeleting);
         
-        const backendResponse = await UserService.updateProfile(updateData);
-        console.log('✅ Backend profile updated successfully:', backendResponse);
-        
-        // Verify the update by fetching the profile again
-        const verifyProfile = await UserService.getUserProfile();
-        console.log('✅ Verified backend profile after update:', {
-          profileImage: verifyProfile?.profileImage,
-          avatarUrl: verifyProfile?.avatarUrl
-        });
+        // Update backend - no need to verify since we trust the response
+        await UserService.updateProfile(updateData);
+        console.log('✅ Backend profile updated successfully');
       } catch (backendError: any) {
         console.error('⚠️ Backend profile update failed:', backendError);
-        console.error('⚠️ Error details:', {
-          status: backendError?.response?.status,
-          data: backendError?.response?.data,
-          message: backendError?.message
-        });
         throw backendError; // Re-throw to prevent navigation on error
       }
 
-      await refreshUser();
-      console.log('✅ User data refreshed');
+      // Refresh user data in parallel (don't wait for it to block navigation)
+      refreshUser().then(() => {
+        console.log('✅ User data refreshed');
+      }).catch(err => {
+        console.warn('⚠️ User refresh failed (non-blocking):', err);
+      });
       
-      // Reload the profile image from backend to ensure we have the latest
-      await loadProfileImage();
-      console.log('✅ Profile image reloaded');
+      // Update local state immediately for instant UI feedback
+      if (finalImageUrl) {
+        setProfileImage(finalImageUrl);
+      } else {
+        setProfileImage(null);
+      }
       
-      // Small delay to ensure UI updates before navigation
-      await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
-      
-      // Only navigate back if update was successful
+      // Navigate back immediately - no need to wait for reload or delays
       navigation.goBack();
     } catch (error: any) {
       console.error('❌ Update profile error:', error);

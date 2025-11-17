@@ -10,14 +10,14 @@ const router = express.Router();
  * Send push notification for a new message
  * Requires authentication
  */
-router.post("/send-message", authenticateUser, sendMessageNotification);
+router.post("/send-message", authenticateUser(), sendMessageNotification);
 
 /**
  * POST /notifications/send-call
  * Send push notification for an incoming call
  * Requires authentication
  */
-router.post("/send-call", authenticateUser, sendCallNotification);
+router.post("/send-call", authenticateUser(), sendCallNotification);
 
 export default router;
 

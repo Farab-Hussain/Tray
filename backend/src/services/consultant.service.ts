@@ -11,25 +11,39 @@ export const consultantServices = {
     },
 
     async getAll() {
-        const snapshot = await db.collection(COLLECTION).get();
-        const consultants = snapshot.docs.map((doc) => doc.data());
+        // Optimized: Get all consultants with approved services in a single query
+        // First, get all services with approved status grouped by consultantId
+        const servicesSnapshot = await db.collection("services")
+            .where("isDefault", "==", false)
+            .get();
         
-        // Filter consultants to only include those with approved services
-        const consultantsWithServices = [];
-        
-        for (const consultant of consultants) {
-            // Check if consultant has approved services
-            const servicesSnapshot = await db.collection("services")
-                .where("consultantId", "==", consultant.uid)
-                .where("isDefault", "==", false)
-                .get();
-            
-            if (!servicesSnapshot.empty) {
-                consultantsWithServices.push(consultant);
+        // Build a Set of consultantIds that have approved services
+        const consultantIdsWithServices = new Set<string>();
+        servicesSnapshot.docs.forEach(doc => {
+            const serviceData = doc.data();
+            if (serviceData.consultantId) {
+                consultantIdsWithServices.add(serviceData.consultantId);
             }
+        });
+        
+        // If no services found, return empty array
+        if (consultantIdsWithServices.size === 0) {
+            return [];
         }
         
-        return consultantsWithServices;
+        // Fetch only consultants that have services (in parallel batches)
+        const consultantPromises = Array.from(consultantIdsWithServices).map(uid => 
+            db.collection(COLLECTION).doc(uid).get()
+        );
+        
+        const consultantDocs = await Promise.all(consultantPromises);
+        
+        // Map to consultant data
+        const consultants = consultantDocs
+            .filter(doc => doc.exists)
+            .map(doc => doc.data());
+        
+        return consultants;
     },
 
     async getById(uid: string) {

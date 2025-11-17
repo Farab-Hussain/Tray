@@ -317,6 +317,7 @@ const ConsultantServices = ({ navigation }: any) => {
                     title={item.title}
                     description={item.description}
                     imageUri={imageUri}
+                    // VIDEO UPLOAD CODE - COMMENTED OUT: videoUrl={item.videoUrl}
                     duration={item.duration}
                     price={item.price}
                     rating={item.rating}

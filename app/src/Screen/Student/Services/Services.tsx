@@ -18,7 +18,13 @@ const Services = ({ navigation, route }: any) => {
   const [services, setServices] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadingReviews, setLoadingReviews] = useState(false);
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
+  const [servicesPage, setServicesPage] = useState(1);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [hasMoreServices, setHasMoreServices] = useState(true);
+  const [hasMoreReviews, setHasMoreReviews] = useState(true);
   
   // Use state to track current consultant info (updated on focus)
   const [currentConsultantId, setCurrentConsultantId] = useState<string | undefined>(undefined);
@@ -112,22 +118,29 @@ const Services = ({ navigation, route }: any) => {
     [],
   );
 
-  const fetchServices = useCallback(async (targetConsultantId?: string) => {
+  const fetchServices = useCallback(async (targetConsultantId?: string, pageNum: number = 1, append: boolean = false) => {
     try {
-      setLoading(true);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setServicesPage(1);
+        setHasMoreServices(true);
+      }
+      
       let servicesData = [];
 
       if (targetConsultantId) {
-        // Fetch specific consultant's services
+        // Fetch specific consultant's services (no pagination for single consultant)
         console.log('🚀 Fetching services for consultant:', targetConsultantId);
         const response = await ConsultantService.getConsultantServices(targetConsultantId);
         console.log('✅ Services Response:', response);
         servicesData = response?.services || [];
       } else {
-        // Fetch all services (from Services tab)
+        // Fetch all services (from Services tab) with pagination
         console.log('🚀 Fetching all services from all consultants');
         try {
-          const response = await ConsultantService.getAllServices();
+          const response = await ConsultantService.getAllServices(pageNum, 20);
           console.log('✅ All Services Response:', response);
           console.log('📊 Total services found:', response?.services?.length || 0);
           if (response?.services && response.services.length > 0) {
@@ -138,6 +151,14 @@ const Services = ({ navigation, route }: any) => {
             console.log('🔍 All service keys:', Object.keys(response.services[0]));
           }
           servicesData = response?.services || [];
+          
+          // Update pagination state
+          if (response?.pagination) {
+            setHasMoreServices(response.pagination.hasNextPage || false);
+            setServicesPage(pageNum);
+          } else {
+            setHasMoreServices(servicesData.length >= 20);
+          }
         } catch (error: any) {
           console.log('⚠️ All services endpoint error:', error?.message);
           console.log('❌ Error details:', error?.response?.status, error?.response?.data);
@@ -160,13 +181,18 @@ const Services = ({ navigation, route }: any) => {
         }),
       );
 
-      setServices(servicesWithImages);
+      if (append) {
+        setServices(prev => [...prev, ...servicesWithImages]);
+      } else {
+        setServices(servicesWithImages);
+      }
     } catch (err) {
       console.error('❌ Error fetching services:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [resolveServiceImage]);
+  }, [resolveServiceImage, servicesPage]);
   useEffect(() => {
     const parent = navigation.getParent?.();
     if (!parent) {
@@ -249,32 +275,69 @@ const Services = ({ navigation, route }: any) => {
   );
 
   // Fetch reviews for the consultant
-  useEffect(() => {
-    const fetchReviews = async () => {
-      if (!consultantId) return;
+  const fetchReviews = useCallback(async (pageNum: number = 1, append: boolean = false) => {
+    if (!consultantId) return;
 
+    if (append) {
+      setLoadingMoreReviews(true);
+    } else {
       setLoadingReviews(true);
-      try {
-        console.log('⭐ Fetching reviews for consultant:', consultantId);
-        const response = await ReviewService.getConsultantReviews(consultantId);
-        console.log('✅ Reviews Response:', response);
-        
-        const reviewsData = response?.reviews || [];
+      setReviewsPage(1);
+      setHasMoreReviews(true);
+    }
+    
+    try {
+      console.log('⭐ Fetching reviews for consultant:', consultantId);
+      const response = await ReviewService.getConsultantReviews(consultantId, pageNum, 20);
+      console.log('✅ Reviews Response:', response);
+      
+      const reviewsData = response?.reviews || [];
+      
+      if (append) {
+        setReviews(prev => [...prev, ...reviewsData]);
+      } else {
         setReviews(reviewsData);
-      } catch (error: any) {
-        console.error('❌ Error fetching reviews:', error);
-        if (error?.response?.status !== 404) {
-          // Only log non-404 errors
-          console.log('⚠️ Reviews API error:', error?.message);
-        }
-        setReviews([]);
-      } finally {
-        setLoadingReviews(false);
       }
-    };
-
-    fetchReviews();
+      
+      // Update pagination state
+      if (response?.pagination) {
+        setHasMoreReviews(response.pagination.hasNextPage || false);
+        setReviewsPage(pageNum);
+      } else {
+        setHasMoreReviews(reviewsData.length >= 20);
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching reviews:', error);
+      if (error?.response?.status !== 404) {
+        // Only log non-404 errors
+        console.log('⚠️ Reviews API error:', error?.message);
+      }
+      if (!append) {
+        setReviews([]);
+      }
+    } finally {
+      setLoadingReviews(false);
+      setLoadingMoreReviews(false);
+    }
   }, [consultantId]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
+  const loadMoreServices = useCallback(() => {
+    if (!loadingMore && hasMoreServices && !consultantId) {
+      const nextPage = servicesPage + 1;
+      fetchServices(undefined, nextPage, true);
+    }
+  }, [loadingMore, hasMoreServices, consultantId, servicesPage, fetchServices]);
+
+  const loadMoreReviews = useCallback(() => {
+    if (!loadingMoreReviews && hasMoreReviews && consultantId) {
+      const nextPage = reviewsPage + 1;
+      fetchReviews(nextPage, true);
+    }
+  }, [loadingMoreReviews, hasMoreReviews, consultantId, reviewsPage, fetchReviews]);
 
   // Filter services based on search query
   const filteredServices = services.filter(service =>
@@ -342,6 +405,7 @@ const Services = ({ navigation, route }: any) => {
                     duration={item.duration || 60} // Default 60 minutes
                     price={Number.isFinite(priceValue) ? priceValue : undefined}
                     imageUri={imageUri}
+                    // VIDEO UPLOAD CODE - COMMENTED OUT: videoUrl={item.videoUrl}
                     consultantName={!consultantId && item.consultant?.name ? item.consultant.name : undefined}
                     consultantCategory={!consultantId && item.consultant?.category ? item.consultant.category : undefined}
                   onBookPress={() => {

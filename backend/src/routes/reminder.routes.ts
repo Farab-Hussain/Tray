@@ -6,7 +6,7 @@ import { authenticateUser } from "../middleware/authMiddleware";
 const router = express.Router();
 
 // Admin-only route for manual trigger
-router.post("/send", authenticateUser, triggerReminders);
+router.post("/send", authenticateUser(), triggerReminders);
 
 export default router;
 

@@ -12,9 +12,11 @@ export const ReviewService = {
     return response.data;
   },
 
-  // Get reviews for a consultant
-  async getConsultantReviews(consultantId: string) {
-    const response = await api.get(`/reviews/consultant/${consultantId}`);
+  // Get reviews for a consultant with pagination
+  async getConsultantReviews(consultantId: string, page: number = 1, limit: number = 20) {
+    const response = await api.get(`/reviews/consultant/${consultantId}`, {
+      params: { page, limit }
+    });
     return response.data;
   },
 

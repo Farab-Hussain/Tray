@@ -47,7 +47,6 @@ export const screenStyles = StyleSheet.create({
         width: '48%',   
         marginBottom: 20,
         alignItems: 'stretch',
-        height: 320, 
     },
 
     header: {

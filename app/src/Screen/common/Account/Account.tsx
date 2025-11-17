@@ -9,6 +9,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+// import { navigationRef } from '../../../navigator/navigationRef';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { authStyles } from '../../../constants/styles/authStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -21,13 +23,13 @@ import { useChatContext } from '../../../contexts/ChatContext';
 import { useNotificationContext } from '../../../contexts/NotificationContext';
 import { UserService } from '../../../services/user.service';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
-import { Camera, User, RefreshCw } from 'lucide-react-native';
+import { Camera, User } from 'lucide-react-native';
 import Loader from '../../../components/ui/Loader';
 import { StyleSheet } from 'react-native';
 
 const Account = ({ navigation }: any) => {
-  const { user, logout, activeRole, roles, switchRole } = useAuth();
-  const [switchingRole, setSwitchingRole] = useState(false);
+  const { user, logout } = useAuth();
+  // const [switchingRole, setSwitchingRole] = useState(false);
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -53,26 +55,34 @@ const Account = ({ navigation }: any) => {
   // Memoize the fetch function to prevent unnecessary re-renders
   const fetchBackendProfile = useCallback(async () => {
     if (!user) {
+      console.log('⚠️ [Account] No user found, skipping profile fetch');
       setLoadingProfile(false);
+      setBackendProfile(null);
       return;
     }
 
     if (apiUnavailable) {
+      console.log('⚠️ [Account] API marked as unavailable, skipping fetch');
       setLoadingProfile(false);
       return;
     }
 
     try {
       setLoadingProfile(true);
-      console.log('👤 Fetching user profile from backend...');
+      console.log('👤 [Account] Fetching user profile from backend...');
+      
+      // Don't add manual timeout - let the retry logic in fetcher.ts handle retries
+      // The retry logic will automatically retry once on failure
       const response = await UserService.getUserProfile();
-      console.log('✅ Backend profile response:', response);
+      
+      console.log('✅ [Account] Backend profile response:', response);
       
       // If main profile has no image, check consultant profile as fallback (if user has consultant role)
       if (!response?.profileImage && response?.roles?.includes('consultant')) {
         try {
           console.log('🔄 [Account] Main profile has no image, checking consultant profile as fallback...');
           const consultantProfile = await getConsultantProfile(user.uid);
+          
           const consultantImage = consultantProfile?.personalInfo?.profileImage;
           
           if (consultantImage && consultantImage.trim() !== '') {
@@ -82,28 +92,67 @@ const Account = ({ navigation }: any) => {
           } else {
             console.log('ℹ️ [Account] No consultant profile image found either');
           }
-        } catch (consultantError) {
+        } catch (consultantError: any) {
           // If consultant profile fetch fails, continue with main profile
-          console.warn('⚠️ [Account] Failed to fetch consultant profile as fallback:', consultantError);
+          // Retry logic will handle retries automatically
+          console.warn('⚠️ [Account] Failed to fetch consultant profile as fallback:', consultantError?.message || consultantError);
         }
       }
       
       setBackendProfile(response);
+      setApiUnavailable(false); // Reset unavailable flag on success
       lastLoadTimeRef.current = Date.now();
     } catch (error: any) {
-      // Only log once and mark API as unavailable to prevent repeated calls
+      console.error('❌ [Account] Backend profile error:', error?.message || error);
+      
+      // Only mark API as unavailable for 404 errors (actual resource not found)
+      // Don't mark unavailable for timeouts - retry logic will handle those
+      // Don't mark unavailable for network errors - retry logic will handle those
       if (error?.response?.status === 404) {
-        console.log(
-          '⚠️ Backend profile API not available (404) - will not retry',
-        );
+        console.log('⚠️ [Account] Backend profile API not available (404) - will not retry');
         setApiUnavailable(true);
       } else {
-        console.log('⚠️ Backend profile error:', error?.message || error);
+        // For other errors (timeouts, network errors, etc.), let retry logic handle it
+        // Still try to show the screen with Firebase data as fallback
+        console.log('⚠️ [Account] Profile fetch failed, using Firebase data as fallback');
+        // Don't set apiUnavailable - allow retry logic to retry on next attempt
       }
+      
+      // Set a minimal profile from Firebase as fallback
+      setBackendProfile({
+        name: user.displayName || null,
+        email: user.email || null,
+        profileImage: user.photoURL || null,
+      });
     } finally {
+      // Always set loading to false, even if there's an error
       setLoadingProfile(false);
+      console.log('✅ [Account] Profile loading completed');
     }
   }, [user, apiUnavailable]);
+
+  // Safety timeout: ensure loading is always set to false after maximum wait time
+  useEffect(() => {
+    // Only set up safety timeout if we're currently loading
+    if (!loadingProfile) return;
+    
+    const safetyTimeout = setTimeout(() => {
+      console.warn('⚠️ [Account] Safety timeout: Forcing loading to false after 15 seconds');
+      setLoadingProfile(false);
+      // Set minimal Firebase profile as fallback
+      if (user) {
+        setBackendProfile(prev => prev || {
+          name: user.displayName || null,
+          email: user.email || null,
+          profileImage: user.photoURL || null,
+        });
+      }
+    }, 15000); // 15 second safety timeout
+    
+    return () => {
+      clearTimeout(safetyTimeout);
+    };
+  }, [loadingProfile, user]);
 
   // Fetch backend profile when component mounts
   useEffect(() => {
@@ -174,7 +223,10 @@ const Account = ({ navigation }: any) => {
     navigation.navigate(route);
   };
 
-  if (loadingProfile) {
+  // Show loading only if we're actively loading AND don't have any user data yet
+  // If we have user data (from Firebase or backend), show the screen even if still loading backend profile
+  // This prevents getting stuck on loading screen if backend API is slow or unavailable
+  if (loadingProfile && !user && !backendProfile) {
     return (
       <SafeAreaView style={screenStyles.safeAreaWhite}>
         <ScreenHeader title="Account" onBackPress={() => navigation.goBack()} />
@@ -232,7 +284,7 @@ const Account = ({ navigation }: any) => {
           <Text style={Profile.email}>{email}</Text>
 
           {/* Role Switcher - Always show when user is logged in */}
-          {user && (
+          {/* {user && (
             <View style={styles.roleSwitcherContainer}>
               <Text style={styles.roleSwitcherLabel}>Switch Role</Text>
               <View style={styles.roleButtonsContainer}>
@@ -256,10 +308,13 @@ const Account = ({ navigation }: any) => {
                         if (isActive || switchingRole) return;
                         try {
                           setSwitchingRole(true);
+                          console.log(`🔄 [Account] Switching role to: ${role}`);
+                          
                           const result = await switchRole(role);
 
                           // Check if result indicates an error (for missing consultant profile)
                           if (result?.error && result?.action === 'create_consultant_profile') {
+                            setSwitchingRole(false);
                             // Consultant profile is required - show alert to create profile
                             Alert.alert(
                               'Consultant Profile Required',
@@ -269,7 +324,7 @@ const Account = ({ navigation }: any) => {
                                   text: 'Cancel',
                                   style: 'cancel',
                                   onPress: () => {
-                                    // User cancels - remain on student role, do nothing
+                                    // User cancels - remain on current role, do nothing
                                   },
                                 },
                                 {
@@ -281,26 +336,99 @@ const Account = ({ navigation }: any) => {
                                 },
                               ],
                             );
-                          } else if (!result?.error) {
-                            // Role switched successfully
-                            Alert.alert(
-                              'Role Switched',
-                              `You are now viewing as ${
-                                role === 'student' ? 'a student' : 'a consultant'
-                              }.`,
-                              [{ text: 'OK' }],
-                            );
+                            return;
+                          }
+                          
+                          if (!result?.error) {
+                            // Role switched successfully - clear cache and reload app
+                            console.log('🔄 [Account] Role switch successful, clearing cache and reloading app...');
+                            
+                            try {
+                              // Clear ALL relevant cache to force complete re-initialization
+                              await AsyncStorage.multiRemove([
+                                'consultantVerificationStatus',
+                                'hasApprovedServices',
+                                'userProfile', // Clear any cached user profile
+                                'lastRoleFetch', // Clear role fetch timestamp
+                              ]);
+                              
+                              console.log('✅ [Account] Cache cleared, role state updated in AuthContext');
+                              
+                              // Role is already updated in AuthContext by switchRole function
+                              // Wait a moment for React state to propagate, then navigate
+                              setTimeout(() => {
+                                console.log('🔄 [Account] Resetting navigation to MainTabs with new role:', role);
+                                
+                                // Directly reset to MainTabs - user is authenticated
+                                // RoleBasedTabs will re-render with the updated role from AuthContext
+                                if (navigationRef.isReady()) {
+                                  navigationRef.dispatch(
+                                    CommonActions.reset({
+                                      index: 0,
+                                      routes: [{ name: 'MainTabs' }],
+                                    })
+                                  );
+                                  console.log('✅ [Account] Navigation reset to MainTabs - RoleBasedTabs will show correct screens');
+                                } else {
+                                  // Fallback: use local navigation
+                                  console.log('⚠️ [Account] navigationRef not ready, using local navigation...');
+                                  navigation.reset({
+                                    index: 0,
+                                    routes: [{ name: 'MainTabs' as never }],
+                                  });
+                                }
+                                
+                                // Show success message after navigation
+                                setTimeout(() => {
+                                  Alert.alert(
+                                    'Role Switched',
+                                    `You are now viewing as ${
+                                      role === 'student' ? 'a student' : 'a consultant'
+                                    }.`,
+                                    [{ text: 'OK' }],
+                                  );
+                                }, 500);
+                              }, 400); // Wait for React state to update
+                            } catch (reloadError) {
+                              console.error('❌ [Account] Error during app reload:', reloadError);
+                              setSwitchingRole(false);
+                              // Show error but still try to navigate
+                              Alert.alert(
+                                'Role Switched',
+                                `You are now viewing as ${
+                                  role === 'student' ? 'a student' : 'a consultant'
+                                }. If you see any issues, please restart the app.`,
+                                [
+                                  {
+                                    text: 'OK',
+                                    onPress: () => {
+                                      // Force navigation reset as fallback
+                                      if (navigationRef.isReady()) {
+                                        navigationRef.dispatch(
+                                          CommonActions.reset({
+                                            index: 0,
+                                            routes: [{ name: 'MainTabs' }],
+                                          })
+                                        );
+                                      }
+                                    },
+                                  },
+                                ],
+                              );
+                            }
                           }
                         } catch (error: any) {
+                          setSwitchingRole(false);
                           // Handle unexpected errors
                           const errorMessage =
                             error?.response?.data?.error ||
                             error?.message ||
                             'Failed to switch role';
+                          console.error('❌ [Account] Role switch error:', errorMessage);
                           Alert.alert('Error', errorMessage);
-                        } finally {
-                          setSwitchingRole(false);
                         }
+                        // Note: Don't set switchingRole to false here if reload is successful
+                        // The app will reload, so state will reset anyway
                       }}
                       disabled={switchingRole}
                     >
@@ -327,7 +455,7 @@ const Account = ({ navigation }: any) => {
                 </View>
               )}
             </View>
-          )}
+          )} */}
 
           <View style={Profile.listContainer}>
             {ProfileListData.length > 0 &&

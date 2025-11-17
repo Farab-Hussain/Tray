@@ -16,13 +16,13 @@ const router = express.Router();
 router.get("/consultant/:consultantId", getConsultantReviews);
 
 // Protected routes (Student)
-router.post("/", authenticateUser, createReview);
-router.get("/my-reviews", authenticateUser, getMyReviews);
-router.put("/:reviewId", authenticateUser, updateReview);
-router.delete("/:reviewId", authenticateUser, deleteReview);
+router.post("/", authenticateUser(), createReview);
+router.get("/my-reviews", authenticateUser(), getMyReviews);
+router.put("/:reviewId", authenticateUser(), updateReview);
+router.delete("/:reviewId", authenticateUser(), deleteReview);
 
 // Admin routes
-router.get("/admin/all", authenticateUser, getAllReviews);
+router.get("/admin/all", authenticateUser(), getAllReviews);
 
 export default router;
 

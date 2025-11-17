@@ -13,14 +13,21 @@ cloudinary.config({
 
 console.log('☁️ Cloudinary configured with cloud name:', process.env.CLOUDINARY_CLOUD_NAME);
 
-// Configure multer for memory storage
+// Configure multer for memory storage - VIDEO UPLOAD CODE COMMENTED OUT
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 50 * 1024 * 1024, // 50MB limit (images only)
   },
   fileFilter: (req, file, cb) => {
-    // Check file type
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // // Check file type - allow both images and videos
+    // if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+    //   cb(null, true);
+    // } else {
+    //   cb(new Error('Only image and video files are allowed!') as any, false);
+    // }
+    // Only allow images
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
@@ -29,24 +36,73 @@ const upload = multer({
   },
 });
 
-// Middleware for single file upload
-export const uploadSingle = upload.single('image');
+// Middleware for single file upload with error handling (supports both image and video)
+export const uploadSingle = (req: Request, res: Response, next: any) => {
+  console.log('📎 [uploadSingle] Multer middleware started');
+  console.log('📎 [uploadSingle] Content-Type:', req.headers['content-type']);
+  console.log('📎 [uploadSingle] Content-Length:', req.headers['content-length']);
+  
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // // Use .any() to accept any field name (image or video)
+  // // This is more flexible and handles both field names
+  // upload.any()(req, res, (err: any) => {
+  // Use .single('image') for images only
+  upload.single('image')(req, res, (err: any) => {
+    if (err) {
+      console.error('❌ [uploadSingle] Multer error:', err.message);
+      return res.status(400).json({ error: err.message || 'File upload error' });
+    }
+    
+    // Get the file from either req.file or req.files
+    let file = (req as any).file;
+    if (!file) {
+      const files = (req as any).files as Express.Multer.File[];
+      if (files && files.length > 0) {
+        file = files[0];
+        (req as any).file = file; // Set for compatibility
+      }
+    }
+    
+    if (file) {
+      console.log('✅ [uploadSingle] File received:', {
+        fieldname: file.fieldname,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        isVideo: file.mimetype.startsWith('video/'),
+        isImage: file.mimetype.startsWith('image/'),
+      });
+    } else {
+      console.warn('⚠️ [uploadSingle] No file in request');
+    }
+    
+    next();
+  });
+};
 
 // Upload profile image
 export const uploadProfileImage = async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  let cloudinaryUploadCompleted = false;
+  
   try {
     const userId = (req as any).user.uid;
     const file = req.file;
 
     if (!file) {
+      console.error('❌ [uploadProfileImage] No file uploaded');
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    console.log('📤 [uploadProfileImage] Uploading image for user:', userId);
+    console.log('📤 [uploadProfileImage] Uploading image for user:', userId, 'File size:', file.size, 'bytes');
 
-    // Upload to Cloudinary
-    const result = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
+    // Set a longer timeout for the response (ngrok free tier has limits)
+    req.setTimeout(120000); // 2 minutes
+    res.setTimeout(120000);
+
+    // Upload to Cloudinary with timeout
+    const cloudinaryPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
         {
           resource_type: 'image',
           folder: 'tray/profile-images',
@@ -54,14 +110,35 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
           transformation: [
             { width: 400, height: 400, crop: 'fill', gravity: 'face' },
             { quality: 'auto' }
-          ]
+          ],
+          timeout: 60000, // 60 second timeout for Cloudinary
         },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
+          if (error) {
+            console.error('❌ [uploadProfileImage] Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            cloudinaryUploadCompleted = true;
+            console.log('✅ [uploadProfileImage] Cloudinary upload completed in', Date.now() - startTime, 'ms');
+            resolve(result);
+          }
         }
-      ).end(file.buffer);
+      );
+      
+      uploadStream.end(file.buffer);
     });
+
+    // Add timeout wrapper for Cloudinary upload
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        if (!cloudinaryUploadCompleted) {
+          console.error('❌ [uploadProfileImage] Cloudinary upload timeout after 60 seconds');
+          reject(new Error('Cloudinary upload timeout'));
+        }
+      }, 60000);
+    });
+
+    const result = await Promise.race([cloudinaryPromise, timeoutPromise]);
 
     console.log('✅ [uploadProfileImage] Image uploaded successfully to Cloudinary');
 
@@ -72,15 +149,28 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
       updatedAt: new Date().toISOString(),
     });
 
-    res.status(200).json({
+    console.log('✅ [uploadProfileImage] User profile updated in database');
+
+    const responseData = {
       message: "Image uploaded successfully",
       imageUrl: (result as any).secure_url,
       publicId: (result as any).public_id,
-    });
+    };
+
+    console.log('✅ [uploadProfileImage] Total time:', Date.now() - startTime, 'ms');
+    res.status(200).json(responseData);
 
   } catch (error: any) {
-    console.error("Upload profile image error:", error);
-    res.status(500).json({ error: error.message });
+    console.error("❌ [uploadProfileImage] Upload error:", {
+      message: error.message,
+      stack: error.stack,
+      elapsedTime: Date.now() - startTime,
+    });
+    
+    // Make sure to send a response even on error
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message || 'Failed to upload image' });
+    }
   }
 };
 
@@ -156,48 +246,132 @@ export const uploadConsultantImage = async (req: Request, res: Response) => {
 
 // Upload service image (does NOT update profile)
 export const uploadServiceImage = async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
     const userId = (req as any).user.uid;
-    const file = req.file;
-
+    
+    // Handle both single file (req.file) and multiple fields (req.files)
+    let file = (req as any).file;
     if (!file) {
-      return res.status(400).json({ error: "No file uploaded" });
+      const files = (req as any).files as Express.Multer.File[];
+      if (files && Array.isArray(files) && files.length > 0) {
+        file = files[0];
+        (req as any).file = file; // Set for compatibility
+      }
     }
 
-    console.log('📤 [uploadServiceImage] Uploading service image for user:', userId);
-
-    // Upload to Cloudinary - separate folder for service images
-    const result = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'image',
-          folder: 'tray/service-images',
-          public_id: `${userId}/${randomUUID()}`,
-          transformation: [
-            { width: 800, height: 600, crop: 'fill' },
-            { quality: 'auto' }
-          ]
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      ).end(file.buffer);
+    if (!file) {
+      console.error('❌ [uploadServiceImage] No file found in request');
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    
+    console.log(`📤 [uploadServiceImage] File received:`, {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      sizeMB: (file.size / (1024 * 1024)).toFixed(2),
     });
 
-    console.log('✅ [uploadServiceImage] Service image uploaded successfully to Cloudinary');
-    console.log('✅ [uploadServiceImage] Image URL:', (result as any).secure_url);
-    console.log('ℹ️ [uploadServiceImage] NOT updating profile - this is a service image only');
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // const isVideo = file.mimetype.startsWith('video/');
+    const isVideo = false; // Video uploads disabled
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // // Set longer timeout for video uploads (20 minutes for large videos)
+    // const serverTimeout = isVideo 
+    //   ? Math.max(1200000, Math.ceil(fileSizeMB / 10) * 60000) // At least 20 min
+    //   : 120000;
+    // req.setTimeout(serverTimeout);
+    // res.setTimeout(serverTimeout);
+    const serverTimeout = 120000; // 2 minutes for images only
+    req.setTimeout(serverTimeout);
+    res.setTimeout(serverTimeout);
+    
+    console.log(`📤 [uploadServiceImage] Uploading service image for user:`, userId);
+    console.log(`📤 [uploadServiceImage] File size: ${fileSizeMB.toFixed(2)} MB`);
 
-    // DO NOT update profile - service images are separate from profile images
+    const uploadOptions: any = {
+      folder: 'tray/service-images',
+      public_id: `${userId}/${randomUUID()}`,
+    };
+
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // if (isVideo) {
+    //   uploadOptions.resource_type = 'video';
+    //   // For videos, use chunk_size to enable chunked uploads for better reliability
+    //   if (fileSizeMB > 20) {
+    //     uploadOptions.chunk_size = 10000000; // 10MB chunks for large videos
+    //   }
+    //   // Don't use eager transformations for videos - they're expensive and slow
+    //   // Videos will be processed on-demand when accessed
+    // } else {
+      uploadOptions.resource_type = 'image';
+      uploadOptions.transformation = [
+        { width: 800, height: 600, crop: 'fill' },
+        { quality: 'auto' }
+      ];
+    // }
+
+    console.log(`📤 [uploadServiceImage] Starting Cloudinary upload with options:`, {
+      folder: uploadOptions.folder,
+      resource_type: uploadOptions.resource_type,
+    });
+
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // // Use Promise.race to add a timeout wrapper
+    // // For large videos (59MB), allow up to 20 minutes
+    // // Estimate: ~1 minute per 10MB for slow connections
+    // const uploadTimeout = isVideo 
+    //   ? Math.max(1200000, Math.ceil(fileSizeMB / 10) * 60000) // At least 20 min, or 1 min per 10MB
+    //   : 120000; // 2 minutes for images
+    const uploadTimeout = 120000; // 2 minutes for images
+    
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        uploadOptions,
+        (error, result) => {
+          if (error) {
+            console.error('❌ [uploadServiceImage] Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            const elapsed = Date.now() - startTime;
+            console.log(`✅ [uploadServiceImage] Cloudinary upload completed in ${elapsed}ms (${(elapsed / 1000).toFixed(1)}s)`);
+            resolve(result);
+          }
+        }
+      );
+      
+      // Write buffer to stream
+      uploadStream.end(file.buffer);
+    });
+
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // // Add timeout protection with Promise.race
+    // const timeoutPromise = new Promise((_, reject) => {
+    //   setTimeout(() => {
+    //     reject(new Error(`Upload timeout after ${uploadTimeout / 1000} seconds. File size: ${fileSizeMB.toFixed(2)}MB`));
+    //   }, uploadTimeout);
+    // });
+    // const result = await Promise.race([uploadPromise, timeoutPromise]);
+    const result = await uploadPromise;
+
+    const mediaUrl = (result as any).secure_url;
+    console.log(`✅ [uploadServiceImage] Service image uploaded successfully to Cloudinary`);
+    console.log(`✅ [uploadServiceImage] Image URL:`, mediaUrl);
+    console.log('ℹ️ [uploadServiceImage] NOT updating profile - this is a service media only');
+
+    // DO NOT update profile - service media is separate from profile images
     res.status(200).json({
-      message: "Service image uploaded successfully",
-      imageUrl: (result as any).secure_url,
+      message: `Service image uploaded successfully`,
+      imageUrl: mediaUrl,
       publicId: (result as any).public_id,
+      mediaType: 'image',
     });
 
   } catch (error: any) {
-    console.error("Upload service image error:", error);
+    console.error("Upload service media error:", error);
     res.status(500).json({ error: error.message });
   }
 };

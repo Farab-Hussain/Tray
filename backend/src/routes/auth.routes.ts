@@ -22,7 +22,7 @@ router.post("/login", validateLogin, authController.login);
  * GET /auth/me
  * Get current user details
  */
-router.get("/me", authenticateUser, authController.getMe);
+router.get("/me", authenticateUser(), authController.getMe);
 
 /**
  * GET /auth/admin/users
@@ -30,7 +30,7 @@ router.get("/me", authenticateUser, authController.getMe);
  * Query params: page (default: 1), limit (default: 50), role (optional filter), isActive (optional filter)
  * NOTE: This must be defined BEFORE /users/:uid to avoid route conflicts
  */
-router.get("/admin/users", authenticateUser, authorizeRole(["admin"]), authController.getAllUsers);
+router.get("/admin/users", authenticateUser(), authorizeRole(["admin"]), authController.getAllUsers);
 
 /**
  * GET /auth/users/:uid
@@ -43,13 +43,13 @@ router.get("/users/:uid", authController.getUserById);
  * PUT /auth/profile
  * Update user profile
  */
-router.put("/profile", authenticateUser, validateUpdateProfile, authController.updateProfile);
+router.put("/profile", authenticateUser(), validateUpdateProfile, authController.updateProfile);
 
 /**
  * DELETE /auth/account
  * Delete user account (soft delete)
  */
-router.delete("/account", authenticateUser, authController.deleteAccount);
+router.delete("/account", authenticateUser(), authController.deleteAccount);
 
 /**
  * POST /auth/forgot-password
@@ -72,38 +72,38 @@ router.post("/reset-password", validateResetPassword, authController.resetPasswo
 /**
  * POST /auth/resend-verification-email
  * Resend email verification using Firebase Admin SDK (fallback method)
- * Allows unverified users to request verification emails
  */
-router.post("/resend-verification-email", authenticateUser(true), authController.resendVerificationEmail);
+router.post("/resend-verification-email", authenticateUser(), authController.resendVerificationEmail);
 
 /**
  * POST /auth/verify-email
- * Verify email directly (fallback when client-side verification fails)
+ * Verify email using token-based verification (no auth required - token itself is the auth)
+ * Supports both token+uid (new) and legacy email/uid verification
  */
-router.post("/verify-email", authenticateUser, authController.verifyEmail);
+router.post("/verify-email", authController.verifyEmail);
 
 /**
  * POST /auth/request-consultant-role
  * Request access to consultant role
  */
-router.post("/request-consultant-role", authenticateUser, authController.requestConsultantRole);
+router.post("/request-consultant-role", authenticateUser(), authController.requestConsultantRole);
 
 /**
  * POST /auth/switch-role
  * Switch active role (requires consultant verification if switching to consultant)
  */
-router.post("/switch-role", authenticateUser, authController.switchRole);
+router.post("/switch-role", authenticateUser(), authController.switchRole);
 
 /**
  * POST /auth/change-password
  * Change password for authenticated user
  */
-router.post("/change-password", authenticateUser, authController.changePassword);
+router.post("/change-password", authenticateUser(), authController.changePassword);
 
 /**
  * POST /auth/admin/create-admin
  * Create a new admin user (Admin only)
  */
-router.post("/admin/create-admin", authenticateUser, authorizeRole(["admin"]), authController.createAdminUser);
+router.post("/admin/create-admin", authenticateUser(), authorizeRole(["admin"]), authController.createAdminUser);
 
 export default router;

@@ -375,7 +375,10 @@ export interface CustomService {
   duration: number; // in minutes
   price: number;
   imageUrl?: string;
+  // VIDEO UPLOAD CODE - COMMENTED OUT
+  // videoUrl?: string;
   imagePublicId?: string;
+  // videoPublicId?: string;
 }
 
 export interface ConsultantApplication extends ConsultantApplicationInput {

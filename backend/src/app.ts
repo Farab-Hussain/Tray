@@ -36,7 +36,19 @@ app.use(
     ]
   })
 );
-app.use(express.json());
+
+// Only parse JSON for non-multipart requests
+// Multer will handle multipart/form-data, so we need to skip JSON parsing for those
+app.use((req, res, next) => {
+  if (req.headers['content-type']?.includes('multipart/form-data')) {
+    // Skip JSON parsing for multipart requests - multer will handle it
+    next();
+  } else {
+    // Parse JSON for other requests
+    express.json()(req, res, next);
+  }
+});
+
 app.use(requestLogger); // Auto-log all requests
 
 // Routes
@@ -118,9 +130,26 @@ app.use("/analytics", analyticsRoutes);
 app.use("/admin/activities", activityRoutes);
 registerSupportRoutes(app);
 
-// Global error handler
+// 404 handler for unmatched routes
+app.use((req: express.Request, res: express.Response) => {
+  console.log(`❌ [404] Route not found: ${req.method} ${req.path}`);
+  res.status(404).json({
+    error: 'Route not found',
+    path: req.path,
+    method: req.method
+  });
+});
+
+// Global error handler (must be last)
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('❌ Unhandled error:', err);
+  console.error('❌ [Global Error Handler] Unhandled error:', err);
+  console.error('❌ [Global Error Handler] Route:', `${req.method} ${req.path}`);
+  console.error('❌ [Global Error Handler] Stack:', err.stack);
+
+  // Don't send response if headers already sent
+  if (res.headersSent) {
+    return next(err);
+  }
 
   res.status(500).json({
     error: 'Internal server error',

@@ -49,7 +49,10 @@ export interface ConsultantApplication {
     duration: number;
     price: number;
     imageUrl?: string;
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // videoUrl?: string;
     imagePublicId?: string;
+    // videoPublicId?: string;
   };
   status: 'pending' | 'approved' | 'rejected';
   reviewNotes?: string;
@@ -67,7 +70,10 @@ export interface ConsultantApplicationInput {
     duration: number;
     price: number;
     imageUrl?: string;
+    // VIDEO UPLOAD CODE - COMMENTED OUT
+    // videoUrl?: string;
     imagePublicId?: string;
+    // videoPublicId?: string;
   };
 }
 

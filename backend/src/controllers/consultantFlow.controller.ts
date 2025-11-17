@@ -637,9 +637,17 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
       if (application.customService.imageUrl !== undefined) {
         serviceUpdate.imageUrl = application.customService.imageUrl || "";
       }
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // if (application.customService.videoUrl !== undefined) {
+      //   serviceUpdate.videoUrl = application.customService.videoUrl || "";
+      // }
       if (application.customService.imagePublicId !== undefined) {
         serviceUpdate.imagePublicId = application.customService.imagePublicId || null;
       }
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // if (application.customService.videoPublicId !== undefined) {
+      //   serviceUpdate.videoPublicId = application.customService.videoPublicId || null;
+      // }
 
       await db.collection("services").doc(application.serviceId).set(serviceUpdate, { merge: true });
 
@@ -693,13 +701,21 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
         pendingUpdate: null,
       };
 
-      // Include image fields if they exist
+      // Include image and video fields if they exist
       if (application.customService.imageUrl) {
         serviceData.imageUrl = application.customService.imageUrl;
       }
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // if (application.customService.videoUrl) {
+      //   serviceData.videoUrl = application.customService.videoUrl;
+      // }
       if (application.customService.imagePublicId) {
         serviceData.imagePublicId = application.customService.imagePublicId;
       }
+      // VIDEO UPLOAD CODE - COMMENTED OUT
+      // if (application.customService.videoPublicId) {
+      //   serviceData.videoPublicId = application.customService.videoPublicId;
+      // }
 
       await newServiceRef.set(serviceData);
 
@@ -734,10 +750,17 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
         if (serviceData?.imageUrl) {
           newServiceData.imageUrl = serviceData.imageUrl;
         }
-
+        // VIDEO UPLOAD CODE - COMMENTED OUT
+        // if (serviceData?.videoUrl) {
+        //   newServiceData.videoUrl = serviceData.videoUrl;
+        // }
         if (serviceData?.imagePublicId) {
           newServiceData.imagePublicId = serviceData.imagePublicId;
         }
+        // VIDEO UPLOAD CODE - COMMENTED OUT
+        // if (serviceData?.videoPublicId) {
+        //   newServiceData.videoPublicId = serviceData.videoPublicId;
+        // }
 
         await newServiceRef.set(newServiceData);
 

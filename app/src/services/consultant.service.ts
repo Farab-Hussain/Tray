@@ -7,10 +7,10 @@ export const ConsultantService = {
     return await fetcher(`/consultants/top?t=${Date.now()}`);
   },
 
-  // Fetch all consultants
-  async getAllConsultants() {
+  // Fetch all consultants with pagination
+  async getAllConsultants(page: number = 1, limit: number = 20) {
     // Add cache busting to ensure fresh data (especially for updated profile images)
-    return await fetcher(`/consultants?t=${Date.now()}`);
+    return await fetcher(`/consultants?page=${page}&limit=${limit}&t=${Date.now()}`);
   },
 
   // Fetch consultant's services
@@ -22,9 +22,9 @@ export const ConsultantService = {
     return await fetcher(`/consultants/services/${serviceId}`);
   },
 
-  // Fetch all services from all consultants
-  async getAllServices() {
-    return await fetcher('/consultants/services/all');
+  // Fetch all services from all consultants with pagination
+  async getAllServices(page: number = 1, limit: number = 20) {
+    return await fetcher(`/consultants/services/all?page=${page}&limit=${limit}`);
   },
 
   async getServiceBookings(serviceId: string) {

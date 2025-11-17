@@ -121,12 +121,27 @@ export const createReview = async (req: Request, res: Response) => {
 export const getConsultantReviews = async (req: Request, res: Response) => {
   try {
     const { consultantId } = req.params;
+    
+    // Get pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const maxLimit = 100; // Prevent excessive requests
+    
+    // Validate pagination parameters
+    const validatedLimit = Math.min(Math.max(1, limit), maxLimit);
+    const validatedPage = Math.max(1, page);
 
-    const reviews = await reviewServices.getByConsultantId(consultantId);
+    const allReviews = await reviewServices.getByConsultantId(consultantId);
+    
+    // Apply pagination
+    const total = allReviews.length;
+    const startIndex = (validatedPage - 1) * validatedLimit;
+    const endIndex = startIndex + validatedLimit;
+    const paginatedReviews = allReviews.slice(startIndex, endIndex);
 
     // Populate student details
     const reviewsWithDetails = await Promise.all(
-      reviews.map(async (review) => {
+      paginatedReviews.map(async (review) => {
         const studentDoc = await db.collection("users").doc(review.studentId).get();
         const student = studentDoc.data();
 
@@ -138,7 +153,17 @@ export const getConsultantReviews = async (req: Request, res: Response) => {
       })
     );
 
-    res.status(200).json({ reviews: reviewsWithDetails });
+    res.status(200).json({ 
+      reviews: reviewsWithDetails,
+      pagination: {
+        page: validatedPage,
+        limit: validatedLimit,
+        total,
+        totalPages: Math.ceil(total / validatedLimit),
+        hasNextPage: endIndex < total,
+        hasPrevPage: validatedPage > 1,
+      }
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -292,9 +317,34 @@ export const getAllReviews = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Admin access required" });
     }
 
-    const reviews = await reviewServices.getAll();
+    // Get pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const maxLimit = 200; // Prevent excessive requests
+    
+    // Validate pagination parameters
+    const validatedLimit = Math.min(Math.max(1, limit), maxLimit);
+    const validatedPage = Math.max(1, page);
 
-    res.status(200).json({ reviews });
+    const allReviews = await reviewServices.getAll();
+    
+    // Apply pagination
+    const total = allReviews.length;
+    const startIndex = (validatedPage - 1) * validatedLimit;
+    const endIndex = startIndex + validatedLimit;
+    const paginatedReviews = allReviews.slice(startIndex, endIndex);
+
+    res.status(200).json({ 
+      reviews: paginatedReviews,
+      pagination: {
+        page: validatedPage,
+        limit: validatedLimit,
+        total,
+        totalPages: Math.ceil(total / validatedLimit),
+        hasNextPage: endIndex < total,
+        hasPrevPage: validatedPage > 1,
+      }
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

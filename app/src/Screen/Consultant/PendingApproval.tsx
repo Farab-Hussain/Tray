@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Clock, CheckCircle, XCircle, FileText, RefreshCw, Plus, Edit3, Star, Calendar, Users, DollarSign, ArrowRight, AlertCircle } from 'lucide-react-native';
+import { Clock, CheckCircle, RefreshCw, Plus, Edit3, Star, Calendar, Users, DollarSign, ArrowRight, FileText } from 'lucide-react-native';
 import {
   getConsultantProfile,
   getConsultantApplications,
@@ -25,7 +25,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export default function PendingApproval() {
   const navigation = useNavigation();
-  const { user, logout, refreshConsultantStatus, consultantVerificationStatus, activeRole, switchRole } = useAuth();
+  const { user, logout, refreshConsultantStatus, activeRole, switchRole } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const isLoadingRef = useRef(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -123,17 +123,10 @@ export default function PendingApproval() {
       setIsRefreshing(false);
       console.log('PendingApproval - Data load complete');
     }
-  }, [user?.uid, navigation]);
+  }, [user?.uid, navigation, refreshConsultantStatus, activeRole, switchRole]);
 
   useFocusEffect(
     useCallback(() => {
-      // Prevent infinite loop - if already approved in AuthContext, don't reload
-      if (consultantVerificationStatus === 'approved') {
-        console.log('PendingApproval - Already approved, skipping reload');
-        setIsLoading(false); // Make sure loading is false
-        return;
-      }
-
       // Prevent multiple simultaneous loads
       if (isLoadingRef.current) {
         console.log('PendingApproval - Already loading, skipping reload');
@@ -203,10 +196,22 @@ export default function PendingApproval() {
             
             if (approvedServices.length > 0) {
               console.log('PendingApproval - Profile and services approved, refreshing auth context and navigating');
-              setIsLoading(false); // Set loading to false before navigation
+              
+              // Clear loading state first
+              clearTimeout(timeoutId);
+              isLoadingRef.current = false;
+              setIsLoading(false);
+              setIsRefreshing(false);
+              
+              // Small delay to ensure state updates before navigation
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 100));
               
               // Refresh the consultant status in AuthContext
-              await refreshConsultantStatus();
+              try {
+                await refreshConsultantStatus();
+              } catch (error) {
+                console.error('PendingApproval - Error refreshing consultant status:', error);
+              }
               
               // Automatically switch to consultant role if not already
               if (activeRole !== 'consultant') {
@@ -221,10 +226,16 @@ export default function PendingApproval() {
               
               // Navigate to consultant tabs (home screen) - both profile and services are approved
               console.log('PendingApproval - Navigating to consultant tabs');
-              (navigation as any).reset({
-                index: 0,
-                routes: [{ name: 'ConsultantTabs' as never }],
-              });
+              try {
+                (navigation as any).reset({
+                  index: 0,
+                  routes: [{ name: 'ConsultantTabs' as never }],
+                });
+              } catch (navError) {
+                console.error('PendingApproval - Navigation error:', navError);
+                // If navigation fails, at least show the screen content
+                setIsLoading(false);
+              }
               return; // Exit early
             } else {
               console.log('PendingApproval - Profile approved but no services approved, staying on screen');
@@ -264,7 +275,7 @@ export default function PendingApproval() {
         isLoadingRef.current = false;
         setIsLoading(false);
       };
-    }, [user?.uid, consultantVerificationStatus, navigation, refreshConsultantStatus, activeRole, switchRole]) // Removed isLoading to prevent infinite loop
+    }, [user?.uid, navigation, refreshConsultantStatus, activeRole, switchRole]) // Removed consultantVerificationStatus to prevent premature exits
   );
 
   const handleRefresh = async () => {
@@ -342,23 +353,34 @@ export default function PendingApproval() {
     navigation.navigate('ConsultantServiceSetup' as never);
   };
 
-  const pendingApplications = applications.filter(a => a.status === 'pending');
-  const approvedApplications = applications.filter(a => a.status === 'approved');
-  const rejectedApplications = applications.filter(a => a.status === 'rejected');
+  const handleManageApplications = () => {
+    navigation.navigate('ConsultantApplications' as never);
+  };
 
-  // If consultant is already approved, don't render anything (navigation will happen)
-  if (consultantVerificationStatus === 'approved') {
-    console.log('PendingApproval - Render check: Consultant approved, returning null');
-    return null;
-  }
+  const approvedApplications = applications.filter(a => a.status === 'approved');
+  const pendingApplications = applications.filter(a => a.status === 'pending');
+  const hasAnyApplications = applications.length > 0;
+  
+  // Debug logging
+  console.log('PendingApproval - Applications state:', {
+    total: applications.length,
+    approved: approvedApplications.length,
+    pending: pendingApplications.length,
+    hasAnyApplications,
+    profileStatus: profile?.status,
+  });
 
   // Show loading screen while fetching data
+  // Note: Don't return null for approved status - let the navigation logic handle it
+  // Returning null causes white screen issues
   if (isLoading) {
     return (
-      <View style={consultantFlowStyles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.green} />
-        <Text style={consultantFlowStyles.loadingText}>Loading your status...</Text>
-      </View>
+      <SafeAreaView style={consultantFlowStyles.container}>
+        <View style={consultantFlowStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.green} />
+          <Text style={consultantFlowStyles.loadingText}>Loading your status...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -683,39 +705,68 @@ export default function PendingApproval() {
                 <Text style={pendingApprovalStyles.primaryButtonText}>Edit Profile</Text>
               </TouchableOpacity>
             ) : profile.status === 'approved' ? (
-              // Check if consultant has approved services
-              approvedApplications.length > 0 ? (
-                <TouchableOpacity
-                  style={pendingApprovalStyles.primaryButton}
-                  onPress={() => {
-                    // Navigate to consultant home since both profile and services are approved
-                    (navigation as any).navigate('MainTabs', { role: 'consultant' });
-                  }}
-                >
-                  <CheckCircle size={20} color="#fff" />
-                  <Text style={pendingApprovalStyles.primaryButtonText}>Go to App</Text>
-                </TouchableOpacity>
-              ) : (
-                <>
-                  {/* Browse Platform Services Button */}
+              <>
+                {/* Check if consultant has approved services - show "Go to App" button */}
+                {approvedApplications.length > 0 ? (
                   <TouchableOpacity
                     style={pendingApprovalStyles.primaryButton}
-                    onPress={handleApplyServices}
+                    onPress={() => {
+                      // Navigate to consultant home since both profile and services are approved
+                      (navigation as any).reset({
+                        index: 0,
+                        routes: [{ name: 'ConsultantTabs' as never }],
+                      });
+                    }}
                   >
-                    <Star size={20} color="#fff" strokeWidth={2.5} />
-                    <Text style={pendingApprovalStyles.primaryButtonText}>Browse Platform Services</Text>
+                    <CheckCircle size={20} color="#fff" />
+                    <Text style={pendingApprovalStyles.primaryButtonText}>GO TO APP</Text>
                   </TouchableOpacity>
-                  
-                  {/* Create Custom Service Button */}
+                ) : (
+                  <>
+                    {/* Browse Platform Services Button */}
+                    <TouchableOpacity
+                      style={pendingApprovalStyles.primaryButton}
+                      onPress={handleApplyServices}
+                    >
+                      <Star size={20} color="#fff" strokeWidth={2.5} />
+                      <Text style={pendingApprovalStyles.primaryButtonText}>Browse Platform Services</Text>
+                    </TouchableOpacity>
+                    
+                    {/* Create Custom Service Button */}
+                    <TouchableOpacity
+                      style={pendingApprovalStyles.secondaryButton}
+                      onPress={handleCreateCustomService}
+                    >
+                      <Plus size={20} color={COLORS.green} />
+                      <Text style={pendingApprovalStyles.secondaryButtonText}>Create Custom Service</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+                
+                {/* Manage Applications Button - Show when there are any applications */}
+                {hasAnyApplications && (
                   <TouchableOpacity
                     style={pendingApprovalStyles.secondaryButton}
-                    onPress={handleCreateCustomService}
+                    onPress={handleManageApplications}
                   >
-                    <Plus size={20} color={COLORS.green} />
-                    <Text style={pendingApprovalStyles.secondaryButtonText}>Create Custom Service</Text>
+                    <FileText size={20} color={COLORS.green} />
+                    <Text style={pendingApprovalStyles.secondaryButtonText}>
+                      Manage Applications ({applications.length})
+                    </Text>
                   </TouchableOpacity>
-                </>
-              )
+                )}
+              </>
+            ) : profile.status === 'pending' && hasAnyApplications ? (
+              // Show Manage Applications button even when profile is pending
+              <TouchableOpacity
+                style={pendingApprovalStyles.secondaryButton}
+                onPress={handleManageApplications}
+              >
+                <FileText size={20} color={COLORS.green} />
+                <Text style={pendingApprovalStyles.secondaryButtonText}>
+                  Manage Applications ({applications.length})
+                </Text>
+              </TouchableOpacity>
             ) : null}
           </>
         )}
@@ -728,23 +779,8 @@ export default function PendingApproval() {
         </TouchableOpacity>
       </View>
 
-      {/* Important Notice - Only show if profile is approved and no approved services */}
-      {profile?.status === 'approved' && approvedApplications.length === 0 && (
-        <View style={pendingApprovalStyles.noticeContainer}>
-          <AlertCircle size={20} color="#F59E0B" />
-          <Text style={pendingApprovalStyles.noticeText}>
-            <Text style={{ fontWeight: '600' }}>IMPORTANT:</Text> You must apply for and receive approval for at least one service to access your consultant applications screen. You can apply to offer our platform services or create your own custom services. All applications are reviewed by admin within 24-48 hours.
-          </Text>
-        </View>
-      )}
 
-      {/* Help Text */}
-      <View style={pendingApprovalStyles.helpContainer}>
-        <FileText size={16} color="#6B7280" />
-        <Text style={pendingApprovalStyles.helpText}>
-          Need help? Contact support at support@tray.com
-        </Text>
-      </View>
+    
       </ScrollView>
     </SafeAreaView>
   );

@@ -97,8 +97,6 @@ const ChangePassword = ({ navigation }: any) => {
 
       if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
         setCurrentPasswordError('The current password you entered is incorrect. Please enter the correct password.');
-      } else if (error?.code === 'auth/too-many-requests') {
-        setGeneralError('Too many attempts. Please wait a moment before trying again.');
       } else if (error?.code === 'auth/requires-recent-login') {
         setGeneralError('Please log out and sign in again before changing your password.');
       } else {

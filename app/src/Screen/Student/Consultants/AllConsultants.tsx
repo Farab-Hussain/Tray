@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, Alert } from 'react-native';
+import { ScrollView, View, Text, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ConsultantCard from '../../../components/ui/ConsultantCard';
@@ -10,10 +10,14 @@ import { BookingService } from '../../../services/booking.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { showError } from '../../../utils/toast';
+import { COLORS } from '../../../constants/core/colors';
 
 const AllConsultants = ({ navigation }: any) => {
   const [consultants, setConsultants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [imageCacheKey, setImageCacheKey] = useState(0);
   const { user } = useAuth();
   const { openChatWith } = useChatContext();
@@ -152,22 +156,49 @@ const AllConsultants = ({ navigation }: any) => {
     }
   };
 
-  const fetchConsultants = useCallback(async () => {
+  const fetchConsultants = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     try {
-      setLoading(true);
-      const response = await ConsultantService.getAllConsultants();
-      const allConsultantsData = response?.consultants || [];
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setPage(1);
+        setHasMore(true);
+      }
       
-      // Backend now handles sorting by rating and reviews
-      setConsultants(allConsultantsData);
-      // Update cache key to force image reload
-      setImageCacheKey(prev => prev + 1);
+      const response = await ConsultantService.getAllConsultants(pageNum, 20);
+      const allConsultantsData = response?.consultants || [];
+      const pagination = response?.pagination;
+      
+      if (append) {
+        setConsultants(prev => [...prev, ...allConsultantsData]);
+      } else {
+        setConsultants(allConsultantsData);
+        // Update cache key to force image reload
+        setImageCacheKey(prev => prev + 1);
+      }
+      
+      // Update pagination state
+      if (pagination) {
+        setHasMore(pagination.hasNextPage || false);
+        setPage(pageNum);
+      } else {
+        // Fallback: if no pagination data, assume no more if less than limit
+        setHasMore(allConsultantsData.length >= 20);
+      }
     } catch (err) {
       console.error('Error fetching all consultants:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, []);
+
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      fetchConsultants(page + 1, true);
+    }
+  }, [page, hasMore, loadingMore, fetchConsultants]);
 
   useEffect(() => {
     fetchConsultants();
@@ -232,6 +263,29 @@ const AllConsultants = ({ navigation }: any) => {
                 />
               </View>
             ))}
+            {hasMore && (
+              <View style={{ padding: 16, alignItems: 'center' }}>
+                <TouchableOpacity
+                  onPress={loadMore}
+                  disabled={loadingMore}
+                  style={{
+                    paddingVertical: 12,
+                    paddingHorizontal: 24,
+                    backgroundColor: COLORS.green,
+                    borderRadius: 8,
+                    opacity: loadingMore ? 0.6 : 1,
+                  }}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '600' }}>
+                      Load More
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ) : (
           <Text style={screenStyles.emptyStateText}>No consultants available</Text>

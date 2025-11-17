@@ -54,12 +54,23 @@ app.listen(PORT, async () => {
   console.log("✨ Server startup completed!");
 });
 
+// Store interval references for cleanup
+let reminderInterval: NodeJS.Timeout | null = null;
+let payoutInterval: NodeJS.Timeout | null = null;
+let payoutTimeout: NodeJS.Timeout | null = null;
+
 /**
  * Setup scheduled job to send appointment reminders
  * Runs every hour to check for bookings 24 hours away
+ * Improved with error handling, timeout, and cleanup support
  */
 function setupReminderScheduler() {
   console.log("⏰ Setting up appointment reminder scheduler...");
+  
+  // Clear any existing interval
+  if (reminderInterval) {
+    clearInterval(reminderInterval);
+  }
   
   // Run immediately on startup (for testing)
   // In production, you might want to skip this
@@ -67,13 +78,30 @@ function setupReminderScheduler() {
   //   console.error("❌ Error running initial reminder check:", err);
   // });
   
-  // Schedule to run every hour
-  setInterval(async () => {
+  // Schedule to run every hour with improved error handling
+  reminderInterval = setInterval(async () => {
+    const startTime = Date.now();
     try {
       console.log("⏰ Running scheduled reminder check...");
-      await sendAppointmentReminders();
-    } catch (error) {
-      console.error("❌ Error in scheduled reminder check:", error);
+      
+      // Add timeout to prevent hanging (30 minutes max)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Reminder check timeout after 30 minutes')), 30 * 60 * 1000);
+      });
+      
+      await Promise.race([
+        sendAppointmentReminders(),
+        timeoutPromise
+      ]);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ Reminder check completed in ${duration}ms`);
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error(`❌ Error in scheduled reminder check (after ${duration}ms):`, error?.message || error);
+      
+      // Don't let errors crash the scheduler - it will retry on next interval
+      // In production, consider sending alerts for repeated failures
     }
   }, 60 * 60 * 1000); // 1 hour in milliseconds
   
@@ -83,9 +111,18 @@ function setupReminderScheduler() {
 /**
  * Setup scheduled job to process automated payouts
  * Runs daily at 2 AM
+ * Improved with error handling, timeout, and cleanup support
  */
 function setupPayoutScheduler() {
   console.log("💰 Setting up automated payout scheduler...");
+  
+  // Clear any existing timeouts/intervals
+  if (payoutTimeout) {
+    clearTimeout(payoutTimeout);
+  }
+  if (payoutInterval) {
+    clearInterval(payoutInterval);
+  }
   
   // Calculate time until next 2 AM
   const now = new Date();
@@ -100,22 +137,89 @@ function setupPayoutScheduler() {
   const msUntil2AM = next2AM.getTime() - now.getTime();
   
   // Schedule first run
-  setTimeout(() => {
-    // Run payout processing
-    processAutomatedPayouts().catch(err => {
-      console.error("❌ Error running payout processing:", err);
+  payoutTimeout = setTimeout(() => {
+    const startTime = Date.now();
+    
+    // Run payout processing with timeout protection
+    Promise.race([
+      processAutomatedPayouts(),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Payout processing timeout after 2 hours')), 2 * 60 * 60 * 1000);
+      })
+    ]).then(() => {
+      const duration = Date.now() - startTime;
+      console.log(`✅ Initial payout processing completed in ${duration}ms`);
+    }).catch(err => {
+      const duration = Date.now() - startTime;
+      console.error(`❌ Error running initial payout processing (after ${duration}ms):`, err?.message || err);
     });
     
     // Then schedule to run daily
-    setInterval(async () => {
+    payoutInterval = setInterval(async () => {
+      const startTime = Date.now();
       try {
         console.log("💰 Running scheduled payout processing...");
-        await processAutomatedPayouts();
-      } catch (error) {
-        console.error("❌ Error in scheduled payout processing:", error);
+        
+        // Add timeout to prevent hanging (2 hours max)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Payout processing timeout after 2 hours')), 2 * 60 * 60 * 1000);
+        });
+        
+        await Promise.race([
+          processAutomatedPayouts(),
+          timeoutPromise
+        ]);
+        
+        const duration = Date.now() - startTime;
+        console.log(`✅ Payout processing completed in ${duration}ms`);
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        console.error(`❌ Error in scheduled payout processing (after ${duration}ms):`, error?.message || error);
+        
+        // Don't let errors crash the scheduler - it will retry on next interval
+        // In production, consider sending alerts for repeated failures
       }
     }, 24 * 60 * 60 * 1000); // 24 hours
   }, msUntil2AM);
   
   console.log(`✅ Payout scheduler set up (runs daily at 2 AM, first run in ${Math.round(msUntil2AM / 1000 / 60)} minutes)`);
 }
+
+/**
+ * Cleanup function for graceful shutdown
+ * Clears all scheduled jobs
+ */
+export function cleanupSchedulers() {
+  console.log("🧹 Cleaning up scheduled jobs...");
+  
+  if (reminderInterval) {
+    clearInterval(reminderInterval);
+    reminderInterval = null;
+    console.log("✅ Reminder scheduler stopped");
+  }
+  
+  if (payoutInterval) {
+    clearInterval(payoutInterval);
+    payoutInterval = null;
+    console.log("✅ Payout interval scheduler stopped");
+  }
+  
+  if (payoutTimeout) {
+    clearTimeout(payoutTimeout);
+    payoutTimeout = null;
+    console.log("✅ Payout timeout scheduler stopped");
+  }
+}
+
+// Graceful shutdown handlers
+process.on('SIGTERM', () => {
+  console.log("🛑 SIGTERM received, shutting down gracefully...");
+  cleanupSchedulers();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log("🛑 SIGINT received, shutting down gracefully...");
+  cleanupSchedulers();
+  process.exit(0);
+});
