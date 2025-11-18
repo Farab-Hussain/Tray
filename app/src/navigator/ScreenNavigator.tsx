@@ -38,6 +38,16 @@ import ConsultantServiceSetupScreen from '../Screen/Consultant/ServiceSetup/Cons
 import ConsultantVerificationFlow from '../Screen/Consultant/Verification/ConsultantVerificationFlow';
 import CreateProfile from '../Screen/common/Profile/CreateProfile';
 import StripePaymentSetup from '../Screen/Consultant/Payment/StripePaymentSetup';
+// Job screens
+import JobListScreen from '../Screen/Student/Jobs/JobListScreen';
+import JobDetailScreen from '../Screen/Student/Jobs/JobDetailScreen';
+import ResumeScreen from '../Screen/Student/Jobs/ResumeScreen';
+import MyApplicationsScreen from '../Screen/Student/Jobs/MyApplicationsScreen';
+import PostJobScreen from '../Screen/Consultant/Jobs/PostJobScreen';
+import MyJobsScreen from '../Screen/Consultant/Jobs/MyJobsScreen';
+import JobApplicationsScreen from '../Screen/Consultant/Jobs/JobApplicationsScreen';
+import ApplicationReviewScreen from '../Screen/Consultant/Jobs/ApplicationReviewScreen';
+import ApplicationDetailScreen from '../Screen/Student/Jobs/ApplicationDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -835,7 +845,89 @@ const ScreenNavigator = () => {
           cardStyleInterpolator: slideFromRight,
         }}
       />
+
+      {/* Job System Screens - Student */}
+      <Stack.Screen 
+        name="JobList" 
+        component={JobListScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
       
+      <Stack.Screen 
+        name="JobDetail" 
+        component={JobDetailScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="Resume" 
+        component={ResumeScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="MyApplications" 
+        component={MyApplicationsScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="ApplicationDetail" 
+        component={ApplicationDetailScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+
+      {/* Job System Screens - Hiring Manager/Consultant */}
+      <Stack.Screen 
+        name="PostJob" 
+        component={PostJobScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="MyJobs" 
+        component={MyJobsScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="JobApplications" 
+        component={JobApplicationsScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="ApplicationReview" 
+        component={ApplicationReviewScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
       
       {/* Add any modal or overlay screens here that should appear on top of bottom tabs */}
     </Stack.Navigator>

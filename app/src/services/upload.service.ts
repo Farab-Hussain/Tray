@@ -273,6 +273,58 @@ const UploadService = {
   },
 
   /**
+   * Upload file (PDF/DOC) for resumes (React Native compatible)
+   * @param file - File object with uri, type, and name
+   * @param fileType - Type of file ('resume' for resume files)
+   * @returns UploadResponse with imageUrl (fileUrl) and publicId
+   */
+  async uploadFile(file: any, fileType: 'resume' = 'resume'): Promise<UploadResponse> {
+    try {
+      // Ensure the file object has the correct format for React Native FormData
+      const fileToUpload = {
+        uri: file.uri,
+        type: file.type || 'application/pdf',
+        name: file.fileName || file.name || 'resume.pdf',
+      };
+
+      if (__DEV__) {
+        console.log('📤 [UploadService] Uploading file:', {
+          uri: fileToUpload.uri,
+          type: fileToUpload.type,
+          name: fileToUpload.name,
+          fileType,
+        });
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload as any);
+      formData.append('fileType', fileType);
+
+      // Use longer timeout for file uploads (PDFs/DOCs can be larger)
+      const response = await api.post<UploadResponse>('/upload/file', formData, {
+        timeout: 120000, // 2 minutes for file uploads
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      });
+
+      if (__DEV__) {
+        console.log('✅ [UploadService] File uploaded successfully:', response.data);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ [UploadService] Error uploading file:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+      });
+      throw new Error(error.response?.data?.error || error.message || 'Failed to upload file');
+    }
+  },
+
+  /**
    * Compress image before upload (React Native version)
    * Note: For React Native, image compression should be handled by the image picker library
    * @param file - File object

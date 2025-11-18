@@ -16,6 +16,8 @@ import reminderRoutes from './routes/reminder.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import registerSupportRoutes from './routes/support.routes';
 import activityRoutes from './routes/activity.routes';
+import jobRoutes from './routes/job.routes';
+import resumeRoutes from './routes/resume.routes';
 
 dotenv.config();
 
@@ -128,6 +130,8 @@ app.use("/notifications", notificationRoutes);
 app.use("/reminders", reminderRoutes);
 app.use("/analytics", analyticsRoutes);
 app.use("/admin/activities", activityRoutes);
+app.use("/jobs", jobRoutes);
+app.use("/resumes", resumeRoutes);
 registerSupportRoutes(app);
 
 // 404 handler for unmatched routes

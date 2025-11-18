@@ -160,3 +160,80 @@ export const validatePlatformFeeUpdate = [
   handleValidationErrors,
 ];
 
+/**
+ * Validation rules for job endpoints
+ */
+export const validateCreateJob = [
+  body('title').notEmpty().trim().isLength({ min: 3, max: 200 }).withMessage('Title must be between 3 and 200 characters'),
+  body('description').notEmpty().trim().isLength({ min: 10, max: 5000 }).withMessage('Description must be between 10 and 5000 characters'),
+  body('company').notEmpty().trim().isLength({ min: 1, max: 200 }).withMessage('Company must be between 1 and 200 characters'),
+  body('location').notEmpty().trim().isLength({ min: 1, max: 200 }).withMessage('Location must be between 1 and 200 characters'),
+  body('jobType').isIn(['full-time', 'part-time', 'contract', 'internship']).withMessage('Job type must be full-time, part-time, contract, or internship'),
+  body('requiredSkills').isArray({ min: 1 }).withMessage('At least one required skill is needed'),
+  body('requiredSkills.*').isString().trim().notEmpty().withMessage('Each skill must be a non-empty string'),
+  body('salaryRange.min').optional().isFloat({ min: 0 }).withMessage('Minimum salary must be a positive number'),
+  body('salaryRange.max').optional().isFloat({ min: 0 }).withMessage('Maximum salary must be a positive number'),
+  body('experienceRequired').optional().isInt({ min: 0 }).withMessage('Experience required must be a non-negative integer'),
+  body('educationRequired').optional().isString().trim().withMessage('Education required must be a string'),
+  body('status').optional().isIn(['active', 'closed', 'draft']).withMessage('Status must be active, closed, or draft'),
+  handleValidationErrors,
+];
+
+export const validateUpdateJob = [
+  param('id').notEmpty().withMessage('Job ID is required'),
+  body('title').optional().trim().isLength({ min: 3, max: 200 }).withMessage('Title must be between 3 and 200 characters'),
+  body('description').optional().trim().isLength({ min: 10, max: 5000 }).withMessage('Description must be between 10 and 5000 characters'),
+  body('company').optional().trim().isLength({ min: 1, max: 200 }).withMessage('Company must be between 1 and 200 characters'),
+  body('location').optional().trim().isLength({ min: 1, max: 200 }).withMessage('Location must be between 1 and 200 characters'),
+  body('jobType').optional().isIn(['full-time', 'part-time', 'contract', 'internship']).withMessage('Job type must be full-time, part-time, contract, or internship'),
+  body('requiredSkills').optional().isArray({ min: 1 }).withMessage('At least one required skill is needed'),
+  body('requiredSkills.*').optional().isString().trim().notEmpty().withMessage('Each skill must be a non-empty string'),
+  body('status').optional().isIn(['active', 'closed', 'draft']).withMessage('Status must be active, closed, or draft'),
+  handleValidationErrors,
+];
+
+export const validateJobId = [
+  param('id').notEmpty().withMessage('Job ID is required'),
+  handleValidationErrors,
+];
+
+/**
+ * Validation rules for resume endpoints
+ */
+export const validateCreateResume = [
+  body('personalInfo.name').notEmpty().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be between 1 and 100 characters'),
+  body('personalInfo.email').isEmail().withMessage('Valid email is required'),
+  body('skills').isArray().withMessage('Skills must be an array'),
+  body('skills.*').isString().trim().notEmpty().withMessage('Each skill must be a non-empty string'),
+  body('experience').isArray().withMessage('Experience must be an array'),
+  body('education').isArray().withMessage('Education must be an array'),
+  body('backgroundInformation').optional().isString().trim().isLength({ max: 2000 }).withMessage('Background information must be less than 2000 characters'),
+  handleValidationErrors,
+];
+
+export const validateUpdateResume = [
+  body('personalInfo.name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be between 1 and 100 characters'),
+  body('personalInfo.email').optional().isEmail().withMessage('Valid email is required'),
+  body('skills').optional().isArray().withMessage('Skills must be an array'),
+  body('experience').optional().isArray().withMessage('Experience must be an array'),
+  body('education').optional().isArray().withMessage('Education must be an array'),
+  handleValidationErrors,
+];
+
+/**
+ * Validation rules for job application endpoints
+ */
+export const validateApplyForJob = [
+  param('id').notEmpty().withMessage('Job ID is required'),
+  body('resumeId').notEmpty().withMessage('Resume ID is required'),
+  body('coverLetter').optional().isString().trim().isLength({ max: 2000 }).withMessage('Cover letter must be less than 2000 characters'),
+  handleValidationErrors,
+];
+
+export const validateUpdateApplicationStatus = [
+  param('id').notEmpty().withMessage('Application ID is required'),
+  body('status').isIn(['pending', 'reviewed', 'shortlisted', 'rejected', 'hired']).withMessage('Invalid status'),
+  body('reviewNotes').optional().isString().trim().isLength({ max: 1000 }).withMessage('Review notes must be less than 1000 characters'),
+  handleValidationErrors,
+];
+

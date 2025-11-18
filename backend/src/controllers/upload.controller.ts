@@ -36,6 +36,26 @@ const upload = multer({
   },
 });
 
+// Configure multer for file uploads (PDF/DOC) - for resumes
+const uploadFile = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for PDF/DOC files
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow PDF and DOC files
+    if (
+      file.mimetype === 'application/pdf' ||
+      file.mimetype === 'application/msword' ||
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and DOC files are allowed!') as any, false);
+    }
+  },
+});
+
 // Middleware for single file upload with error handling (supports both image and video)
 export const uploadSingle = (req: Request, res: Response, next: any) => {
   console.log('📎 [uploadSingle] Multer middleware started');
@@ -447,6 +467,81 @@ export const deleteConsultantImage = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Delete consultant image error:", error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+// Middleware for file upload (PDF/DOC)
+export const uploadFileMiddleware = (req: Request, res: Response, next: any) => {
+  uploadFile.single('file')(req, res, (err: any) => {
+    if (err) {
+      console.error('❌ [uploadFileMiddleware] Multer error:', err.message);
+      return res.status(400).json({ error: err.message || 'File upload error' });
+    }
+    
+    const file = (req as any).file;
+    if (file) {
+      console.log('✅ [uploadFileMiddleware] File received:', {
+        fieldname: file.fieldname,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+      });
+    } else {
+      console.warn('⚠️ [uploadFileMiddleware] No file in request');
+    }
+    
+    next();
+  });
+};
+
+// Upload file (PDF/DOC) for resumes
+export const uploadResumeFile = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.uid;
+    const file = req.file;
+    const { fileType = 'resume' } = req.body;
+
+    if (!file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    console.log('📤 [uploadResumeFile] Uploading file for user:', userId, 'File size:', file.size, 'bytes');
+
+    // Set timeout for file uploads
+    req.setTimeout(120000); // 2 minutes
+    res.setTimeout(120000);
+
+    // Upload to Cloudinary as raw file (not image)
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'raw', // Use 'raw' for PDF/DOC files
+          folder: `tray/${fileType}-files`,
+          public_id: `${userId}/${randomUUID()}`,
+          timeout: 60000, // 60 second timeout for Cloudinary
+        },
+        (error, result) => {
+          if (error) {
+            console.error('❌ [uploadResumeFile] Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            console.log('✅ [uploadResumeFile] File uploaded successfully to Cloudinary');
+            resolve(result);
+          }
+        }
+      ).end(file.buffer);
+    });
+
+    res.status(200).json({
+      message: "File uploaded successfully",
+      imageUrl: (result as any).secure_url, // Keep as imageUrl for compatibility
+      url: (result as any).secure_url, // Also provide as url
+      publicId: (result as any).public_id,
+    });
+
+  } catch (error: any) {
+    console.error("Upload file error:", error);
+    res.status(500).json({ error: error.message || 'Failed to upload file' });
   }
 };
 

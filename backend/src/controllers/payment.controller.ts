@@ -224,8 +224,8 @@ export const handleWebhook = async (req: Request, res: Response) => {
     }
 
     // Handle transfer paid (transfer completed)
-    if (event.type === "transfer.paid") {
-      const transfer = event.data.object as any;
+    if ((event.type as string) === "transfer.paid") {
+      const transfer = (event.data as any).object as any;
       const bookingId = transfer.metadata?.bookingId;
 
       if (bookingId) {
