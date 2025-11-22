@@ -198,6 +198,8 @@ api.interceptors.response.use(
       status === 404 && url.includes('/auth/users/');
     const isService404 =
       status === 404 && url.includes('/consultants/services/');
+    const isResume404 =
+      status === 404 && url.includes('/resumes/my');
     
     // Check if this is an ngrok connection error (backend is down)
     const isNgrokConnError = isNgrokError(error);
@@ -227,6 +229,7 @@ api.interceptors.response.use(
                        !isProfile404 && 
                        !isUser404 && 
                        !isService404 &&
+                       !isResume404 &&
                        !(status === 403 && url.includes('/auth/switch-role') && error.response?.data?.action === 'create_consultant_profile') &&
                        !(isUploadRequest && isTimeoutError) && // Don't retry uploads on timeout
                        // Only retry for network errors, client-side timeouts, or transient server errors
@@ -329,8 +332,8 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Don't show toast for expected 404s (availability, profile, user, service not found)
-    if (isAvailability404 || isProfile404 || isUser404 || isService404) {
+    // Don't show toast for expected 404s (availability, profile, user, service, resume not found)
+    if (isAvailability404 || isProfile404 || isUser404 || isService404 || isResume404) {
       // Only log expected 404s in dev mode, and only once per URL
       if (__DEV__) {
         // Suppress expected 404 warnings - they're normal (students don't have consultant profiles)
@@ -351,6 +354,20 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Check if this is an expected "resume not found" error (404 with specific message)
+    const isResumeNotFound = status === 404 && 
+      (error.response?.data?.error === 'Please create a resume first' ||
+       error.response?.data?.message === 'Please create a resume first' ||
+       url?.includes('/match-score'));
+    
+    // Check if error is "already applied" - this is expected and handled in components
+    const isAlreadyApplied = 
+      status === 400 && 
+      url?.includes('/jobs/') && 
+      url?.includes('/apply') &&
+      (error.response?.data?.error?.toLowerCase().includes('already applied') ||
+       error.response?.data?.message?.toLowerCase().includes('already applied'));
+    
     // Only show toast for unexpected errors (and only if retry didn't succeed)
     // Also skip if error is marked as handled or should suppress toast
     // Also skip for login-related backend unavailable errors (handled by login screen)
@@ -363,14 +380,16 @@ api.interceptors.response.use(
       config.__suppressErrorToast ||
       (error as any).__suppressErrorToast ||
       (error as any).__handled ||
-      isLoginBackendError;
+      isLoginBackendError ||
+      isResumeNotFound ||
+      isAlreadyApplied;
     
     if (status && status >= 400 && !shouldSuppressToast) {
       handleApiError(error);
     }
 
-    // Only log detailed error info in development (skip for ngrok errors, backend unavailable, and expected switch-role 403)
-    if (__DEV__ && !isNgrokConnError && !isBackendUnavailable && !isSwitchRole403) {
+    // Only log detailed error info in development (skip for ngrok errors, backend unavailable, expected switch-role 403, and resume not found)
+    if (__DEV__ && !isNgrokConnError && !isBackendUnavailable && !isSwitchRole403 && !isResumeNotFound) {
       if (config.__suppressOriginalError) {
         // Original error was suppressed because retry succeeded
         console.log('ℹ️ Original error suppressed (retry succeeded):', url);
@@ -384,7 +403,7 @@ api.interceptors.response.use(
         console.error('  - Error Message:', error.message);
         console.error('  - Error Code:', error.code);
       }
-    } else if (!isNgrokConnError && !isBackendUnavailable && !isSwitchRole403 && !config.__suppressOriginalError) {
+    } else if (!isNgrokConnError && !isBackendUnavailable && !isSwitchRole403 && !isResumeNotFound && !config.__suppressOriginalError) {
       // In production, only log minimal error info
       console.error('❌ API Error:', url, status, error.message);
     }
@@ -407,6 +426,7 @@ export const fetcher = async (url: string) => {
       err?.response?.status === 404 && (
         url.includes('/consultant-flow/profiles') ||
         url.includes('/auth/users/') ||
+        url.includes('/resumes/my') ||
         url.includes('/consultants/services/')
       );
     

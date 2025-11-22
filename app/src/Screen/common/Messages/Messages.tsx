@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, View, Text, TouchableOpacity, RefreshControl, Modal, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import SearchBar from '../../../components/shared/SearchBar';
@@ -127,15 +128,14 @@ const Messages = ({ navigation }: any) => {
   }, [refreshChats, userId]);
   
   // Refresh chats when screen comes into focus (navigation back from chat)
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+  useFocusEffect(
+    useCallback(() => {
       console.log('📱 [Messages] Screen focused, refreshing chats...');
       if (userId) {
         refreshChats();
       }
-    });
-    return unsubscribe;
-  }, [navigation, userId, refreshChats]);
+    }, [userId, refreshChats])
+  );
   
   // Track initial load completion
   useEffect(() => {

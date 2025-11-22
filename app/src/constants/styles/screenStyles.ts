@@ -69,6 +69,12 @@ export const screenStyles = StyleSheet.create({
         paddingHorizontal: 20,
     },
 
+    scrollViewContainerWhite: {
+        flex: 1,
+        backgroundColor: COLORS.white,
+        paddingHorizontal: 20,
+    },
+
     scrollViewContent: {
         paddingTop: 20,
         paddingBottom: 10,
@@ -85,6 +91,7 @@ export const screenStyles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 40,
+        backgroundColor: COLORS.white,
     },
 
     loadingText: {
@@ -106,6 +113,7 @@ export const screenStyles = StyleSheet.create({
     centerAlignedContainer: {
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: COLORS.white,
     },
 
     helpText: {
@@ -116,5 +124,6 @@ export const screenStyles = StyleSheet.create({
 
     centerAlignedText: {
         textAlign: 'center',
+        backgroundColor: COLORS.white,
     },
 });

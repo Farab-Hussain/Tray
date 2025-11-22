@@ -232,7 +232,8 @@ export const getApplicationById = async (req: Request, res: Response) => {
         job: job ? {
           id: job.id,
           title: job.title,
-          company: job.company,
+          company: job.company || '',
+          location: job.location || '',
           requiredSkills: job.requiredSkills,
         } : undefined,
       },

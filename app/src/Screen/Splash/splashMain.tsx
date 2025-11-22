@@ -42,6 +42,19 @@ const SplashMain = ({navigation}:any) => {
           style={globalStyles.yellowButton}
           textStyle={globalStyles.buttonTextBlack}
         />
+        <AppButton
+          title="REGISTER AS RECRUITER"
+          onPress={() => {
+            console.log('Splash Screen - REGISTER AS RECRUITER clicked, role: recruiter');
+            setIntendedRole('recruiter');
+            navigation.navigate('Auth', { 
+              screen: 'Register',
+              params: { role: 'recruiter' }
+            });
+          }}
+          style={globalStyles.blackButton}
+          textStyle={globalStyles.buttonTextWhite}
+        />
       </View>
     </View>
   );

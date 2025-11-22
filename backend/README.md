@@ -1,196 +1,880 @@
 # Tray Backend API
 
-Node.js/TypeScript service that powers Tray’s core platform features: authentication, consultant onboarding, bookings, Stripe payments, reminders, analytics, notifications, and content storage. The API is stateless, uses Firebase Admin as the system of record, and exposes a REST surface for mobile and web clients.
+Node.js/TypeScript REST API service that powers Tray's multi-platform consultant booking and job management system. The API is stateless, uses Firebase Admin SDK as the system of record, and exposes a comprehensive REST surface for mobile and web clients.
 
-## Highlights
+## Overview
 
-- Express 5 + TypeScript running on Node 20 with strict linting via the TypeScript compiler.
-- Firebase Admin SDK for auth, Firestore, Realtime Database, Storage, and FCM token distribution.
-- Domain-driven controllers/services covering auth, consultant workflows, bookings, payouts, notifications, and reporting.
-- Stripe integration for payment intents plus automated consultant payouts with configurable platform fees.
-- Cloudinary-backed media uploads with multer storage, and transactional email templates via Nodemailer.
-- Reminder engine that emails + pushes 24 hr appointment notices, and analytics endpoints for consultants/admins.
-- Drop-in logging middleware (`requestLogger`) and structured `Logger` utility to trace routes and user actions.
+The Tray backend provides a complete set of APIs for authentication, consultant onboarding, booking management, Stripe payments, job posting and applications, automated reminders, analytics, notifications, and content storage. Built with Express 5, TypeScript, and Firebase Admin SDK.
 
-## Project Layout
+## Key Features
+
+### Core Functionality
+- **Multi-Role Authentication**: Student, Consultant, Recruiter, and Admin roles with role-based access control
+- **Consultant Management**: Complete onboarding flow with profile creation, verification, and service applications
+- **Booking System**: Full lifecycle booking management with automated reminders
+- **Payment Processing**: Stripe integration for payment intents and automated consultant payouts
+- **Job Management**: Job posting, applications, resume management, and skill matching
+- **Real-time Notifications**: Firebase Cloud Messaging (FCM) integration
+- **Review System**: Rating and review functionality with aggregate calculations
+- **Analytics**: Consultant and admin analytics with revenue tracking
+- **File Uploads**: Cloudinary integration for images and resume files
+- **Automated Tasks**: Scheduled reminders and payouts
+
+### Technical Highlights
+- Express 5 + TypeScript running on Node 20
+- Firebase Admin SDK for auth, Firestore, Realtime Database, Storage, and FCM
+- Domain-driven architecture with controllers/services separation
+- Stripe integration for payments and automated payouts with configurable platform fees
+- Cloudinary-backed media uploads with multer
+- Transactional email templates via Nodemailer
+- In-memory LRU cache (max 1000 entries) with automatic cleanup
+- Request logging middleware and structured Logger utility
+- Comprehensive error handling and validation
+- Scheduled jobs with timeout protection and graceful shutdown
+
+## Tech Stack
+
+- **Runtime**: Node.js ≥ 20
+- **Framework**: Express 5.1.0
+- **Language**: TypeScript 5.9.3
+- **Database**: Firebase Firestore
+- **Authentication**: Firebase Admin SDK
+- **Storage**: Firebase Storage, Cloudinary
+- **Payment**: Stripe (Payment Intents, Connect)
+- **Email**: Nodemailer
+- **File Upload**: Multer, multer-storage-cloudinary
+- **Validation**: express-validator 7.3.0
+- **Testing**: Jest, Supertest
+- **Deployment**: Vercel serverless (optional)
+
+## Prerequisites
+
+- **Node.js** ≥ 20 (npm or nvm recommended)
+- **Firebase Project** with:
+  - Firestore Database enabled
+  - Authentication enabled
+  - Realtime Database enabled (for chat)
+  - Cloud Storage enabled
+  - Cloud Messaging enabled
+  - Service account JSON file
+- **Stripe Account** with:
+  - Secret key (test/live)
+  - Connect accounts enabled for payouts
+- **Cloudinary Account** for media storage
+- **SMTP Credentials** (Gmail, AWS SES, etc.) for transactional emails
+- **Environment Variables**: Create `.env` file (see Environment Variables section)
+
+## Project Structure
 
 ```
 backend/
 ├── src/
-│   ├── app.ts                 # Express app + middleware and route wiring
-│   ├── server.ts              # HTTP server bootstrap
-│   ├── config/firebase.ts     # Firebase Admin initialization (service account aware)
-│   ├── controllers/           # Route handlers grouped by domain
-│   ├── services/              # Business logic (analytics, reminders, payouts, etc.)
-│   ├── routes/                # Express routers mounted under /auth, /bookings, ...
-│   ├── middleware/            # Authentication + role guards
-│   ├── models/                # Firestore data helpers/types
-│   ├── utils/                 # Logger + email helpers
-│   └── functions/             # Optional Firebase Cloud Function samples
-├── scripts/                   # Operational scripts (e.g. create-admin placeholder)
-├── dist/                      # Compiled JavaScript output (created by `npm run build`)
-├── package.json               # Scripts and dependency manifest
-└── tsconfig.json              # TypeScript build settings
+│   ├── app.ts                      # Express app configuration, middleware, route wiring
+│   ├── server.ts                   # HTTP server bootstrap with scheduled jobs
+│   │
+│   ├── config/
+│   │   ├── firebase.ts             # Firebase Admin SDK initialization
+│   │   └── *.json                  # Service account JSON (DO NOT COMMIT)
+│   │
+│   ├── routes/                     # Express route definitions (15 route files)
+│   │   ├── auth.routes.ts          # Authentication routes
+│   │   ├── consultant.routes.ts    # Consultant CRUD and services
+│   │   ├── consultantFlow.routes.ts # Consultant onboarding flow
+│   │   ├── booking.routes.ts       # Booking management
+│   │   ├── payment.routes.ts       # Stripe payments and payouts
+│   │   ├── job.routes.ts           # Job posting and applications
+│   │   ├── resume.routes.ts        # Resume management
+│   │   ├── review.routes.ts        # Review and rating
+│   │   ├── upload.routes.ts        # File uploads
+│   │   ├── fcm.routes.ts           # FCM token management
+│   │   ├── notification.routes.ts  # Push notifications
+│   │   ├── reminder.routes.ts      # Reminder triggers
+│   │   ├── analytics.routes.ts     # Analytics endpoints
+│   │   ├── activity.routes.ts      # Activity logging
+│   │   └── support.routes.ts       # Support tickets
+│   │
+│   ├── controllers/                # Route handlers (17 controller files)
+│   │   ├── auth.Controller.ts      # Auth operations (register, login, profile)
+│   │   ├── consultant.controller.ts # Consultant CRUD
+│   │   ├── consultantFlow.controller.ts # Onboarding flow
+│   │   ├── booking.controller.ts   # Booking operations
+│   │   ├── payment.controller.ts   # Stripe payment intents
+│   │   ├── payout.controller.ts    # Payout management
+│   │   ├── job.controller.ts       # Job CRUD and search
+│   │   ├── jobApplication.controller.ts # Job applications
+│   │   ├── resume.controller.ts    # Resume operations
+│   │   ├── review.controller.ts    # Review operations
+│   │   ├── upload.controller.ts    # File upload handling
+│   │   ├── fcm.controller.ts       # FCM token management
+│   │   ├── notification.controller.ts # Push notification sending
+│   │   ├── reminder.controller.ts  # Reminder triggers
+│   │   ├── analytics.controller.ts # Analytics data
+│   │   ├── activity.controller.ts  # Activity logging
+│   │   └── support.controller.ts   # Support tickets
+│   │
+│   ├── services/                   # Business logic layer (11 service files)
+│   │   ├── consultant.service.ts   # Consultant business logic
+│   │   ├── consultantFlow.service.ts # Consultant flow orchestration
+│   │   ├── payment.service.ts      # Payment processing logic
+│   │   ├── payout.service.ts       # Automated payout processing
+│   │   ├── job.service.ts          # Job business logic
+│   │   ├── jobApplication.service.ts # Job application logic
+│   │   ├── resume.service.ts       # Resume operations
+│   │   ├── review.service.ts       # Review aggregation and calculations
+│   │   ├── reminder.service.ts     # Appointment reminder service
+│   │   ├── analytics.service.ts    # Analytics data aggregation
+│   │   └── platformSettings.service.ts # Platform settings
+│   │
+│   ├── models/                     # Data models and type definitions (7 model files)
+│   │   ├── consultant.model.ts
+│   │   ├── consultantProfile.model.ts
+│   │   ├── consultantApplication.model.ts
+│   │   ├── job.model.ts
+│   │   ├── jobApplication.model.ts
+│   │   ├── resume.model.ts
+│   │   └── review.model.ts
+│   │
+│   ├── middleware/                 # Express middleware (3 files)
+│   │   ├── authMiddleware.ts       # Authentication and authorization
+│   │   ├── consultantMiddleware.ts # Consultant-specific middleware
+│   │   └── validation.ts           # Request validation (express-validator)
+│   │
+│   ├── utils/                      # Utility functions (5 files)
+│   │   ├── logger.ts               # Structured logging utility
+│   │   ├── email.ts                # Email sending (Nodemailer)
+│   │   ├── cache.ts                # In-memory LRU cache
+│   │   ├── stripeClient.ts         # Stripe client configuration
+│   │   └── skillMatching.ts        # Job-resume skill matching
+│   │
+│   ├── functions/                  # Firebase Cloud Functions (optional)
+│   │   └── sendMessageNotification.function.ts
+│   │
+│   ├── types/                      # TypeScript type definitions
+│   │   └── express.d.ts            # Express type extensions
+│   │
+│   └── __tests__/                  # Jest test files
+│       ├── health.test.ts
+│       └── validation.test.ts
+│
+├── scripts/                        # Operational scripts
+│   ├── createAdmin.ts              # Create admin user script
+│   └── createConsultant.ts         # Create consultant script
+│
+├── dist/                           # Compiled JavaScript (generated by build)
+├── node_modules/
+│
+├── package.json                    # Dependencies and scripts
+├── tsconfig.json                   # TypeScript configuration
+├── jest.config.js                  # Jest test configuration
+├── vercel.json                     # Vercel serverless config (optional)
+├── serverless.ts                   # Serverless entry point (optional)
+├── .env                            # Environment variables (DO NOT COMMIT)
+└── README.md                       # This file
 ```
-
-Key entry points:
-
-- `src/app.ts` wires CORS, JSON parsing, request logging, health checks, and feature routers.
-- `src/config/firebase.ts` loads a service account JSON path from `SERVICE_ACCOUNT_PATH` or falls back to the bundled key; exports Firestore/Storage/Auth handles.
-- `src/utils/logger.ts` supplies `Logger.info/success/error/warn` and an Express `requestLogger`.
-- `src/services/` encapsulate longer-running processes (analytics, reminders, payouts, consultant flow orchestration).
-
-## Prerequisites
-
-- Node.js ≥ 20 and npm (nvm recommended).
-- Firebase project with Admin service account (Firestore + Realtime Database enabled).
-- Stripe account with secret key and connected accounts enabled for payouts.
-- Cloudinary credentials (or alternative storage if you swap out the uploader).
-- SMTP credentials (Gmail, SES, etc.) for transactional email; when absent, emails are logged but not sent.
-- Optionally, Google Cloud Storage auth if you extend file handling.
 
 ## Environment Variables
 
-Create `backend/.env` before running locally. The runtime reads the following keys (defaults indicated where applicable):
+Create a `.env` file in the `backend/` directory with the following variables:
 
-| Category | Variable | Notes |
-| --- | --- | --- |
-| Server | `PORT` (default `4000`), `NODE_ENV`, `BASE_URL` | `PORT` must be open for the API; `BASE_URL` is used in emails/links |
-| Firebase | `SERVICE_ACCOUNT_PATH` | Absolute/relative path to service account JSON; falls back to `src/config/*.json` |
-| Stripe | `STRIPE_SECRET_KEY`, `PLATFORM_FEE_AMOUNT` (default `5.00`), `MINIMUM_PAYOUT_AMOUNT` (default `10`) | Required for payments and automated payouts |
-| Cloudinary | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Used by `upload.controller.ts` |
-| Email | `SMTP_HOST` (`smtp.gmail.com`), `SMTP_PORT` (`587`), `SMTP_EMAIL`/`SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Without credentials, email helpers no-op |
-| Notifications | `FCM_SERVER_KEY` (optional – Firebase Admin handles most push duties) | Useful if you integrate REST FCM calls |
-| Misc | `GOOGLE_APPLICATION_CREDENTIALS` (if running on GCP) | Honors standard GOOGLE_APPLICATION_CREDENTIALS semantics |
+```env
+# Server Configuration
+PORT=4000                           # Server port (default: 4000)
+NODE_ENV=development                # Environment: development, production
+BASE_URL=http://localhost:4000     # Base URL for emails/links (use ngrok URL for mobile dev)
 
-Copy `src/config/tray-ed2f7-firebase-adminsdk-*.json` to a secure location or supply your own service account path. Keep secrets out of version control.
+# Firebase Configuration
+SERVICE_ACCOUNT_PATH=./src/config/tray-ed2f7-firebase-adminsdk-*.json  # Path to service account JSON
+# OR use default Firebase initialization (Google Cloud environments)
+# GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 
-## Installation & Runbook
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_...      # Stripe secret key (test or live)
+PLATFORM_FEE_AMOUNT=5.00           # Platform fee percentage (default: 5.00)
+MINIMUM_PAYOUT_AMOUNT=10           # Minimum payout amount in USD (default: 10)
 
-```sh
-# 1. Install dependencies
-npm install
+# Cloudinary Configuration
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
-# 2. Run locally with ts-node-dev autoreload
-npm run dev
+# Email Configuration (SMTP)
+SMTP_HOST=smtp.gmail.com           # SMTP host (default: smtp.gmail.com)
+SMTP_PORT=587                      # SMTP port (default: 587)
+SMTP_EMAIL=your_email@gmail.com    # SMTP email/username
+SMTP_USER=your_email@gmail.com     # SMTP username (usually same as email)
+SMTP_PASSWORD=your_app_password    # SMTP password or app-specific password
+SMTP_FROM=noreply@tray.com         # From email address
 
-# 3. Build TypeScript -> dist/
-npm run build        # or npm run build:clean
-
-# 4. Start compiled server
-npm run start        # uses dist/server.js
-npm run start:prod   # sets NODE_ENV=production
+# Firebase Cloud Messaging (Optional)
+FCM_SERVER_KEY=your_fcm_server_key # Optional - Firebase Admin handles most push duties
 ```
 
-Helpful scripts:
+**Important Notes:**
+- Never commit `.env` file or service account JSON files to version control
+- For mobile development, use an ngrok URL or deployed backend URL (not localhost)
+- Copy service account JSON to `src/config/` or set `SERVICE_ACCOUNT_PATH` to secure location
+- When SMTP credentials are missing, emails are logged but not sent (useful for development)
 
-- `npm run create-admin` (placeholder script to seed admin users; extend `scripts/createAdmin.ts`).
-- `npm run copy-files` runs postbuild to ensure service-account JSON lands in `dist/config/`.
-- `npm run test-auth` executes a quick token-verification sanity check (no formal test suite yet).
+## Installation
 
-Server exposes:
+### 1. Install Dependencies
 
-- `GET /` – sanity response.
-- `GET /health` – verifies Firestore connectivity and returns timestamp/status.
+```bash
+npm install
+```
 
-## Feature Modules
+### 2. Setup Environment Variables
 
-### Authentication & Users (`/auth`)
+- Create `.env` file in `backend/` directory
+- Add all required environment variables (see Environment Variables section)
+- Ensure Firebase service account JSON is in place
 
-- Registration persists user metadata in Firestore and validates role assignments.
-- Login verifies Firebase ID tokens and returns merged profile data.
-- Profile updates allow name/avatar changes; soft-delete flips `isActive`.
-- Password recovery implements OTP email with Firestore-backed reset sessions (`/auth/forgot-password`, `/auth/verify-otp`, `/auth/reset-password`).
+### 3. Verify Firebase Configuration
 
-### Consultant Lifecycle (`/consultants`, `/consultant-flow`)
+```bash
+# Test Firebase connection
+npm run test-auth
+```
 
-- CRUD endpoints for consultant listings, top consultants, and service catalogs.
-- Onboarding flow stores profile drafts, handles approvals/rejections, and emails updates.
-- Availability, applications, verification, and payout metadata live under `consultantFlow` controllers/services.
+### 4. Build TypeScript (Optional for Development)
 
-### Bookings & Sessions (`/bookings`)
+```bash
+npm run build
+```
 
-- Full lifecycle endpoints for students and consultants: create, list, status updates, cancellations.
-- Refund calculations, payment status tracking, and last-message metadata updates feed downstream services.
-- Reminder service (`src/services/reminder.service.ts`) sends 24 hr email/push notifications and marks `reminderSent` flags.
+The build process automatically copies service account JSON files to `dist/config/`.
 
-### Payments & Payouts (`/payment`, `payout.service.ts`)
+## Development
 
-- Stripe payment intents created via `/payment/create-intent`.
-- Automated consultant payouts aggregate completed, paid bookings, apply platform fees, create Stripe transfers, and persist payout documents (call `processAutomatedPayouts()` from cron or admin tooling).
+### Start Development Server
 
-### Notifications (`/fcm`, `/notifications`)
+```bash
+npm run dev
+```
 
-- Token registration and removal for device-specific FCM tokens (`/fcm/token`).
-- Explicit push notifications for chat messages and incoming calls (`/notifications/send-message`, `/notifications/send-call`) with device-specific payloads, APNS/Android categories, and invalid-token cleanup.
-- Optional Cloud Function (`functions/sendMessageNotification.function.ts`) if you migrate notifications to Firebase Functions instead of the REST endpoint.
+This starts the server with `ts-node-dev` for auto-reload on file changes.
 
-### Reviews & Ratings (`/reviews`)
+The server will:
+- Start on port 4000 (or PORT from .env)
+- Verify Firebase connection
+- Setup scheduled jobs (reminders hourly, payouts daily at 2 AM)
+- Log startup information
 
-- Students create reviews, fetch consultant feedback, and update aggregate rating counters referenced in analytics.
+### Available Scripts
 
-### Analytics & Reporting (`/analytics`, `/consultant-flow/admin/analytics`)
+- `npm run dev` - Start development server with auto-reload
+- `npm run build` - Build TypeScript to JavaScript (outputs to `dist/`)
+- `npm run build:clean` - Clean build (removes dist/ first)
+- `npm start` - Start production server (requires build first)
+- `npm run start:prod` - Start production server with NODE_ENV=production
+- `npm test` - Run Jest tests
+- `npm run test:watch` - Run tests in watch mode
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run create-admin` - Create admin user (interactive script)
+- `npm run create-consultant` - Create consultant user (interactive script)
+- `npm run test-auth` - Test Firebase authentication connection
 
-- Consultant analytics summarise revenue, booking counts, top services, retention, and trends by period (`week|month|year`).
-- Admin analytics return platform-wide metrics (user counts, bookings, revenue, growth deltas, recent activity).
+## API Endpoints
 
-### Reminders (`/reminders/send`)
+### Base URL
+- Development: `http://localhost:4000` (or ngrok URL)
+- Production: Your deployed backend URL
 
-- Authenticated admin endpoint triggers reminder processing manually—ideal for cron jobs, Cloud Scheduler, or testing.
-- Reminders send both email and push notifications to students/consultants, then patch bookings with timestamps.
+### Authentication
+Most endpoints require Firebase ID token in Authorization header:
+```
+Authorization: Bearer <firebase-id-token>
+```
 
-### File Uploads (`/upload/image`)
+### Health Check
+- `GET /` - Simple health check response
+- `GET /health` - Detailed health check with Firebase connection status, memory usage, uptime
 
-- Handles multipart uploads via multer, streams assets to Cloudinary, and returns URL + public ID.
+### Authentication Routes (`/auth`)
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - Login with Firebase ID token, returns user data
+- `GET /auth/me` - Get current user details (authenticated)
+- `GET /auth/admin/users` - Get all users with pagination (admin only)
+- `GET /auth/users/:uid` - Get user by UID (public, for fetching names)
+- `PUT /auth/profile` - Update user profile (authenticated)
+- `DELETE /auth/account` - Soft delete user account (authenticated)
+- `POST /auth/forgot-password` - Request password reset OTP via email
+- `POST /auth/verify-otp` - Verify OTP for password reset
+- `POST /auth/reset-password` - Reset password after OTP verification
+- `POST /auth/resend-verification-email` - Resend email verification (authenticated)
+- `POST /auth/verify-email` - Verify email with token
+- `POST /auth/request-consultant-role` - Request consultant role access (authenticated)
+- `POST /auth/switch-role` - Switch active role (authenticated)
+- `POST /auth/change-password` - Change password (authenticated)
+- `POST /auth/admin/create-admin` - Create admin user (admin only)
 
-## Data Model Cheatsheet
+### Consultant Routes (`/consultants`)
+- `GET /consultants` - Get all consultants (paginated, filterable)
+- `GET /consultants/top` - Get top-rated consultants
+- `GET /consultants/:uid` - Get consultant by UID
+- `POST /consultants/set-top` - Set top consultant (admin only)
+- `POST /consultants/services` - Add consultant service (authenticated)
+- `GET /consultants/services/default` - Get default platform services
+- `GET /consultants/services/available` - Get services consultants can apply for
+- `GET /consultants/services/all` - Get all services from all consultants
+- `GET /consultants/services` - Get services (paginated, filterable)
+- `GET /consultants/services/:serviceId` - Get service by ID
+- `GET /consultants/:consultantId/services` - Get consultant's services
+- `PUT /consultants/services/:serviceId` - Update service (authenticated)
+- `DELETE /consultants/services/:serviceId` - Delete service (authenticated)
 
-Primary Firestore collections consumed by the API:
+### Consultant Flow Routes (`/consultant-flow`)
+- `GET /consultant-flow/status` - Get consultant status (authenticated)
+- `POST /consultant-flow/profiles` - Create consultant profile (authenticated)
+- `GET /consultant-flow/profiles/:uid` - Get consultant profile
+- `GET /consultant-flow/profiles/:uid/availability` - Get consultant availability (public)
+- `PUT /consultant-flow/profiles/:uid` - Update consultant profile (authenticated)
+- `PUT /consultant-flow/profiles/:uid/availability-slots` - Set availability slots (authenticated)
+- `DELETE /consultant-flow/profiles/:uid/availability-slots` - Delete availability slot (authenticated)
+- `GET /consultant-flow/profiles` - Get all profiles (admin only, paginated)
+- `POST /consultant-flow/profiles/:uid/approve` - Approve consultant profile (admin only)
+- `POST /consultant-flow/profiles/:uid/reject` - Reject consultant profile (admin only)
+- `POST /consultant-flow/applications` - Create service application (authenticated)
+- `PUT /consultant-flow/applications/:id` - Update application (authenticated)
+- `GET /consultant-flow/applications/my` - Get my applications (authenticated)
+- `GET /consultant-flow/applications/:id` - Get application by ID (authenticated)
+- `DELETE /consultant-flow/applications/:id` - Delete application (authenticated)
+- `GET /consultant-flow/applications` - Get all applications (admin only, paginated)
+- `POST /consultant-flow/applications/:id/approve` - Approve application (admin only)
+- `POST /consultant-flow/applications/:id/reject` - Reject application (admin only)
+- `GET /consultant-flow/verification-status` - Get verification status (authenticated)
+- `GET /consultant-flow/verification/:uid` - Get verification details
 
-- `/users/{userId}` – core account metadata and nested `/fcmTokens/{tokenId}`.
-- `/consultantProfiles/{profileId}` & `/consultantApplications/{applicationId}` – onboarding records.
-- `/bookings/{bookingId}` – booking details, reminder/payment flags, session metadata.
-- `/payouts/{payoutId}` – Stripe transfer history and booking associations.
-- `/services/{serviceId}` – referenced by bookings/analytics (populated elsewhere).
-- `/chats/{chatId}` – message data for notification triggers (managed by mobile app).
+### Booking Routes (`/bookings`)
+- `POST /bookings` - Create booking (authenticated)
+- `GET /bookings/student` - Get student bookings (authenticated)
+- `GET /bookings/consultant` - Get consultant bookings (authenticated)
+- `GET /bookings/consultant/:consultantId/booked-slots` - Get booked slots (public, for availability checking)
+- `GET /bookings/my-consultants` - Get my consultants (authenticated)
+- `PUT /bookings/:bookingId/status` - Update booking status (authenticated)
+- `POST /bookings/:bookingId/cancel` - Cancel booking (authenticated)
+- `GET /bookings/has-access/:consultantId` - Check access to consultant (authenticated)
+- `GET /bookings/debug` - Debug endpoint (authenticated, for testing)
 
-Ensure indexes exist for compound queries (e.g., `bookings` filters on `status` and `paymentStatus`). Keep Firestore rules aligned with server logic to prevent unauthorized access.
+### Payment Routes (`/payment`)
+- `POST /payment/webhook` - Stripe webhook handler (raw body)
+- `POST /payment/create-payment-intent` - Create Stripe payment intent
+- `GET /payment/config` - Get Stripe configuration (publishable key)
+- `POST /payment/connect/create-account` - Create Stripe Connect account (authenticated)
+- `GET /payment/connect/account-status` - Get Connect account status (authenticated)
+- `POST /payment/transfer` - Transfer to consultant (authenticated)
+- `GET /payment/platform-fee` - Get platform fee configuration
+- `PUT /payment/platform-fee` - Update platform fee (admin only)
+- `POST /payment/payouts/process` - Trigger payout processing (authenticated)
+- `GET /payment/payouts/history` - Get payout history (authenticated)
 
-## Observability & Error Handling
+### Job Routes (`/jobs`)
+- `GET /jobs` - Get all active jobs (paginated, filterable, public)
+- `GET /jobs/search` - Search jobs (public)
+- `GET /jobs/my` - Get my posted jobs (authenticated)
+- `POST /jobs` - Create job posting (authenticated, admin/recruiter/consultant only)
+- `GET /jobs/:id` - Get job details (public)
+- `GET /jobs/:id/match-score` - Get match score for current user (authenticated)
+- `PUT /jobs/:id` - Update job (authenticated)
+- `DELETE /jobs/:id` - Delete job (authenticated)
+- `POST /jobs/:id/apply` - Apply for job (authenticated)
+- `GET /jobs/applications/my` - Get my applications (authenticated)
+- `GET /jobs/:id/applications` - Get applications for job (authenticated, sorted by rating)
+- `PUT /jobs/applications/:id/status` - Update application status (authenticated)
+- `GET /jobs/applications/:id` - Get application by ID (authenticated)
 
-- `requestLogger` logs method, path, status, and duration by default.
-- Use `Logger.info/success/warn/error(route, userId, message, error?)` inside controllers/services for structured breadcrumbs. Consider redirecting output to Stackdriver/CloudWatch when deploying.
-- Standard error responses follow `{ error: string }`. Extend with error codes if clients require more granularity.
+### Resume Routes (`/resumes`)
+- `POST /resumes` - Create/update resume (authenticated)
+- `GET /resumes/my` - Get my resume (authenticated)
+- `GET /resumes/:id` - Get resume by ID (authenticated)
+- `PUT /resumes` - Update resume (authenticated)
+- `PUT /resumes/skills` - Update resume skills (authenticated)
+- `DELETE /resumes` - Delete resume (authenticated)
 
-## Emails & Messaging
+### Review Routes (`/reviews`)
+- `GET /reviews/consultant/:consultantId` - Get consultant reviews (paginated, public)
+- `POST /reviews` - Create review (authenticated)
+- `GET /reviews/my-reviews` - Get my reviews (authenticated)
+- `PUT /reviews/:reviewId` - Update review (authenticated)
+- `DELETE /reviews/:reviewId` - Delete review (authenticated)
+- `GET /reviews/admin/all` - Get all reviews (admin only, paginated)
 
-- `src/utils/email.ts` centralizes Nodemailer configuration, verifies credentials on boot, and exposes helper functions for consultant onboarding and application lifecycle.
-- When SMTP creds are missing, the transport logs warnings and returns gracefully (OTP codes fall back to console logging in development).
+### Upload Routes (`/upload`)
+- `POST /upload/profile-image` - Upload profile image (authenticated, multipart/form-data)
+- `POST /upload/consultant-image` - Upload consultant image (authenticated, multipart/form-data)
+- `POST /upload/service-image` - Upload service image (authenticated, multipart/form-data)
+- `POST /upload/file` - Upload resume file (authenticated, multipart/form-data)
+- `DELETE /upload/profile-image` - Delete profile image (authenticated)
+- `DELETE /upload/consultant-image` - Delete consultant image (authenticated)
+- `POST /upload/upload-signature` - Get upload signature (authenticated, for direct Cloudinary upload)
 
-## Deployment Checklist
+### FCM Routes (`/fcm`)
+- `POST /fcm/token` - Register FCM token (authenticated)
+- `DELETE /fcm/token` - Delete FCM token (authenticated)
 
-1. **Secrets:** Provide production `.env`, Stripe key, Cloudinary creds, SMTP account, and secure service account file.
-2. **Build:** `npm run build:clean` to refresh the `dist/` bundle.
-3. **Copy Service Account:** Ensure `dist/config/` contains your service account JSON or set `SERVICE_ACCOUNT_PATH`.
-4. **Start:** `npm run start:prod` (or integrate with PM2, systemd, Docker, etc.).
-5. **Cron / Scheduler:** Schedule reminders (`POST /reminders/send`) and payouts (`processAutomatedPayouts`) using Cloud Scheduler, GitHub Actions, or similar.
-6. **Monitoring:** Ping `/health` and tail logs for `Logger.error` events; optional third-party uptime checks.
+### Notification Routes (`/notifications`)
+- `POST /notifications/send-message` - Send message notification (authenticated)
+- `POST /notifications/send-call` - Send call notification (authenticated)
+
+### Reminder Routes (`/reminders`)
+- `POST /reminders/send` - Trigger reminder processing (authenticated, for cron/admin)
+
+### Analytics Routes (`/analytics`)
+- `GET /analytics/consultant` - Get consultant analytics (authenticated, with period filter: week/month/year)
+
+### Activity Routes (`/admin/activities`)
+- `GET /admin/activities/recent` - Get recent activities (authenticated, admin)
+
+### Support Routes (`/support`)
+- Support ticket management endpoints (see `src/routes/support.routes.ts`)
+
+## Scheduled Jobs
+
+The server automatically runs scheduled jobs:
+
+### Appointment Reminders
+- **Frequency**: Every hour
+- **Function**: `sendAppointmentReminders()` from `src/services/reminder.service.ts`
+- **Purpose**: Sends email and push notifications for bookings 24 hours before appointment
+- **Timeout**: 30 minutes max execution time
+- **Error Handling**: Errors are logged but don't stop the scheduler
+
+### Automated Payouts
+- **Frequency**: Daily at 2:00 AM
+- **Function**: `processAutomatedPayouts()` from `src/services/payout.service.ts`
+- **Purpose**: Processes completed bookings, applies platform fees, creates Stripe transfers
+- **Timeout**: 2 hours max execution time
+- **Error Handling**: Errors are logged but don't stop the scheduler
+
+Both scheduled jobs have:
+- Timeout protection to prevent hanging
+- Graceful error handling
+- Cleanup on process shutdown (SIGTERM, SIGINT)
+
+## Data Models
+
+### Firestore Collections
+
+#### `/users/{userId}`
+- Core user account metadata
+- Roles: `student`, `consultant`, `recruiter`, `admin`
+- Subcollection: `/fcmTokens/{tokenId}` - Device tokens for push notifications
+
+#### `/consultantProfiles/{profileId}`
+- Consultant profile data
+- Status: `pending`, `approved`, `rejected`
+- Bio, experience, education, certifications
+
+#### `/consultantApplications/{applicationId}`
+- Service application records
+- Links consultant to platform services
+- Status: `pending`, `approved`, `rejected`
+
+#### `/bookings/{bookingId}`
+- Booking details, status, payment info
+- Flags: `reminderSent`, `paymentStatus`
+- Session metadata
+
+#### `/services/{serviceId}`
+- Service catalog entries
+- Referenced by bookings and analytics
+
+#### `/payouts/{payoutId}`
+- Stripe transfer history
+- Booking associations
+- Platform fee calculations
+
+#### `/jobs/{jobId}`
+- Job postings
+- Requirements, salary, location
+
+#### `/jobApplications/{applicationId}`
+- Job application records
+- Status: `pending`, `reviewing`, `accepted`, `rejected`
+- Match score for ranking
+
+#### `/resumes/{userId}`
+- Resume data for students
+- Skills, experience, education
+
+#### `/reviews/{reviewId}`
+- Review and rating records
+- Used for aggregate calculations
+
+#### `/chats/{chatId}`
+- Chat metadata (managed by mobile app)
+- Last message info
+
+## Middleware
+
+### Authentication (`authMiddleware.ts`)
+- Verifies Firebase ID tokens
+- Supports optional email verification check
+- Role-based authorization (`authorizeRole`)
+- Request timeout protection (12 seconds)
+- Comprehensive error handling and logging
+
+### Validation (`validation.ts`)
+- Request validation using `express-validator`
+- Validates all input fields
+- Returns detailed error messages
+- Sanitizes input data
+
+### Consultant Middleware (`consultantMiddleware.ts`)
+- Consultant-specific checks and validations
+
+## Services
+
+### Business Logic Services
+
+- **consultant.service.ts**: Consultant CRUD operations, top consultants, service management
+- **consultantFlow.service.ts**: Consultant onboarding orchestration, profile/application workflows
+- **payment.service.ts**: Payment intent creation, Stripe operations
+- **payout.service.ts**: Automated payout processing, platform fee calculations, Stripe transfers
+- **job.service.ts**: Job CRUD, search, matching
+- **jobApplication.service.ts**: Application processing, status updates, match score calculation
+- **resume.service.ts**: Resume operations, skill extraction
+- **review.service.ts**: Review aggregation, rating calculations
+- **reminder.service.ts**: Appointment reminder processing (email + push)
+- **analytics.service.ts**: Analytics data aggregation for consultants and admins
+- **platformSettings.service.ts**: Platform-wide settings management
+
+## Utilities
+
+### Logger (`utils/logger.ts`)
+- Structured logging with route, user ID, and message
+- Methods: `info`, `success`, `error`, `warn`
+- Request logging middleware for automatic request/response logging
+
+### Email (`utils/email.ts`)
+- Nodemailer configuration
+- Email template helpers for onboarding, application lifecycle
+- Graceful fallback when SMTP credentials are missing
+
+### Cache (`utils/cache.ts`)
+- In-memory LRU cache (max 1000 entries)
+- TTL (Time To Live) support
+- Automatic cleanup of expired entries every 5 minutes
+- Graceful shutdown handling
+
+### Stripe Client (`utils/stripeClient.ts`)
+- Stripe client initialization and configuration
+
+### Skill Matching (`utils/skillMatching.ts`)
+- Job-resume skill matching algorithm
+- Match score calculation
+
+## Error Handling
+
+### Global Error Handler
+- Catches all unhandled errors
+- Returns appropriate HTTP status codes
+- Detailed error messages in development
+- Generic messages in production
+
+### Error Response Format
+```json
+{
+  "error": "Error message",
+  "message": "Detailed message (development only)"
+}
+```
+
+### Validation Errors
+- Returns 400 with detailed field-level errors
+- Uses express-validator error format
+
+## Testing
+
+### Run Tests
+```bash
+npm test                 # Run all tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # Coverage report
+```
+
+### Test Structure
+- Tests in `src/__tests__/`
+- Jest configuration in `jest.config.js`
+- Test timeout: 10 seconds
+- Coverage reports: text, lcov, html
+
+### Current Test Coverage
+- Health check tests
+- Validation tests
+- Expand with service and controller tests
+
+## Building for Production
+
+### 1. Build TypeScript
+```bash
+npm run build:clean
+```
+
+This:
+- Removes `dist/` directory
+- Compiles TypeScript to JavaScript
+- Generates source maps and declarations
+- Copies service account JSON to `dist/config/`
+
+### 2. Verify Build Output
+```bash
+ls -la dist/
+```
+
+Ensure:
+- All compiled `.js` files are present
+- Service account JSON is in `dist/config/`
+- No TypeScript compilation errors
+
+### 3. Start Production Server
+```bash
+npm run start:prod
+```
+
+Or with PM2:
+```bash
+pm2 start dist/server.js --name tray-backend
+```
+
+### 4. Production Checklist
+- [ ] Set production environment variables
+- [ ] Use production Stripe keys
+- [ ] Configure production Firebase project
+- [ ] Set up SSL/HTTPS
+- [ ] Configure CORS for production domains
+- [ ] Set up monitoring and logging (CloudWatch, Stackdriver, etc.)
+- [ ] Schedule reminders and payouts via Cloud Scheduler or cron
+- [ ] Set up health check monitoring
+- [ ] Configure rate limiting (recommended)
+- [ ] Review and update platform fees/thresholds
+- [ ] Test all critical user flows
+- [ ] Verify scheduled jobs are running
+- [ ] Set up backup strategy for Firestore
+
+## Deployment
+
+### Vercel (Serverless)
+The project includes `vercel.json` for serverless deployment:
+
+```bash
+vercel deploy
+```
+
+### Other Platforms
+- **PM2**: `pm2 start dist/server.js`
+- **Docker**: Create Dockerfile and deploy to container platform
+- **Cloud Run**: Deploy as containerized service
+- **EC2/VM**: Traditional server deployment with systemd
+
+### Scheduled Jobs in Production
+Use external schedulers since serverless functions don't run continuously:
+- **Google Cloud Scheduler**: HTTP trigger to `/reminders/send` and `/payment/payouts/process`
+- **AWS EventBridge**: Schedule Lambda to call endpoints
+- **cron**: Traditional cron job with `curl` or HTTP client
+
+## Monitoring & Logging
+
+### Request Logging
+- All requests automatically logged via `requestLogger` middleware
+- Logs: method, path, status, duration, user ID
+- Sanitizes sensitive data (passwords, tokens)
+
+### Structured Logging
+Use `Logger` utility in controllers/services:
+```typescript
+Logger.info('GET /users', userId, 'User fetched successfully');
+Logger.error('POST /bookings', userId, 'Booking failed', error);
+```
+
+### Health Check Monitoring
+Monitor `/health` endpoint:
+- Firebase connection status
+- Memory usage
+- Server uptime
+- Response times
+
+### Production Logging
+- Redirect logs to CloudWatch, Stackdriver, or similar
+- Set up log aggregation and search
+- Configure alerts for errors and high response times
+
+## Performance Optimizations
+
+### Caching
+- In-memory LRU cache (1000 entries max)
+- Automatic TTL-based expiration
+- Cache user profiles and frequently accessed data
+
+### Pagination
+- All list endpoints support pagination
+- Query params: `page`, `limit`
+- Default limit: 50 items per page
+
+### Firestore Optimization
+- Optimized Firestore settings
+- Connection pre-warming on startup
+- Index creation for compound queries
+- Efficient query patterns
+
+### Request Timeouts
+- Auth middleware: 12 seconds
+- Reminder job: 30 minutes
+- Payout job: 2 hours
+- Prevents hanging requests
+
+## Security
+
+### Authentication
+- Firebase ID token verification
+- Role-based access control (RBAC)
+- Optional email verification checks
+
+### Input Validation
+- All inputs validated with express-validator
+- Input sanitization
+- SQL injection protection (using Firestore, not applicable)
+- XSS prevention via input sanitization
+
+### CORS
+- Configurable CORS settings
+- Production: restrict to specific origins
+- Development: allow all origins
+
+### Environment Variables
+- Never commit `.env` files
+- Never commit service account JSON
+- Use secure secret management in production
+
+### Recommendations
+- [ ] Rate limiting (to be implemented)
+- [ ] HTTPS only in production
+- [ ] Regular security audits
+- [ ] Dependency updates
 
 ## Extending the API
 
-- Add new routes under `src/routes/` and pair them with controllers/services; register them in `src/app.ts`.
-- Keep business logic in services; controllers should validate input, call service functions, and shape responses.
-- For long-running jobs, prefer idempotent services that can be invoked via HTTP or scheduled workers.
-- Update this README whenever new modules, env vars, or operational steps are introduced.
+### Adding New Routes
+
+1. Create route file in `src/routes/`
+```typescript
+import express from "express";
+import { authenticateUser } from "../middleware/authMiddleware";
+import * as controller from "../controllers/my.controller";
+
+const router = express.Router();
+router.get("/", authenticateUser(), controller.getItems);
+export default router;
+```
+
+2. Create controller in `src/controllers/`
+```typescript
+export const getItems = async (req, res) => {
+  // Controller logic
+};
+```
+
+3. Create service in `src/services/` (if business logic needed)
+```typescript
+export const getItems = async () => {
+  // Business logic
+};
+```
+
+4. Register route in `src/app.ts`
+```typescript
+import myRoutes from "./routes/my.routes";
+app.use("/my", myRoutes);
+```
+
+### Best Practices
+- Keep business logic in services, not controllers
+- Controllers should validate input, call services, shape responses
+- Use middleware for authentication and validation
+- Return consistent error response format
+- Log important operations with Logger utility
+- Update this README when adding new features
+
+## Troubleshooting
+
+### Firebase Connection Issues
+**Problem**: Firebase initialization fails
+
+**Solutions**:
+- Verify service account JSON path is correct
+- Check SERVICE_ACCOUNT_PATH environment variable
+- Ensure service account has required permissions
+- Verify Firebase project is configured correctly
+
+### Stripe Payment Issues
+**Problem**: Payment intents fail
+
+**Solutions**:
+- Verify STRIPE_SECRET_KEY is set correctly
+- Check Stripe account is active
+- Verify webhook endpoint is accessible
+- Check Stripe dashboard for error logs
+
+### Email Not Sending
+**Problem**: Emails not delivered
+
+**Solutions**:
+- Verify SMTP credentials are correct
+- Check email service (Gmail, SES) settings
+- For Gmail, use app-specific password
+- Check email is not in spam
+- When credentials missing, emails are logged but not sent (expected in dev)
+
+### Scheduled Jobs Not Running
+**Problem**: Reminders/payouts not executing
+
+**Solutions**:
+- Check server logs for errors
+- Verify server is running continuously
+- For serverless, use external scheduler (Cloud Scheduler, cron)
+- Check job timeout settings
+- Verify job endpoints are accessible
+
+### Build Errors
+**Problem**: TypeScript compilation fails
+
+**Solutions**:
+- Run `npm install` to ensure dependencies are installed
+- Check TypeScript version compatibility
+- Review `tsconfig.json` settings
+- Check for syntax errors in source files
 
 ## Resources
 
-- Express 5: https://expressjs.com/
-- Firebase Admin SDK: https://firebase.google.com/docs/admin/setup
-- Stripe Payments & Connect: https://stripe.com/docs/connect
-- Cloudinary Upload API: https://cloudinary.com/documentation
-- Nodemailer: https://nodemailer.com/about/
+### Documentation
+- [Express 5](https://expressjs.com/)
+- [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)
+- [Stripe Payments & Connect](https://stripe.com/docs/connect)
+- [Cloudinary Upload API](https://cloudinary.com/documentation)
+- [Nodemailer](https://nodemailer.com/about/)
+- [TypeScript](https://www.typescriptlang.org/docs/)
+- [Jest](https://jestjs.io/docs/getting-started)
+
+### Related Documentation
+- Mobile App README: `../app/README.md`
+- Web Dashboard README: `../web/README.md`
+- Complete Project Documentation: `../Docs/COMPLETE_PROJECT_DOCUMENTATION.md`
+- API Documentation: `../Docs/API_DOCUMENTATION.md`
+- Architecture Documentation: `../Docs/ARCHITECTURE.md`
+
+## Support
+
+For issues, questions, or contributions:
+- Check inline comments in `controllers/` and `services/`
+- Review error logs in server console
+- Check Firebase Console for Firestore errors
+- Coordinate with mobile (`app/`) and web (`web/`) teams
+- Keep secrets secure and update platform fees/thresholds before going live
 
 ---
 
-Questions or gotchas? Check inline comments across `controllers/` and `services/`, and coordinate updates with the mobile (`app/`) and web (`web/`) teams. Keep secrets secure and revisit platform fees/thresholds before going live.
+**Last Updated**: Based on complete backend codebase analysis  
+**Version**: 1.0.0  
+**Node.js**: ≥ 20  
+**Express**: 5.1.0  
+**TypeScript**: 5.9.3

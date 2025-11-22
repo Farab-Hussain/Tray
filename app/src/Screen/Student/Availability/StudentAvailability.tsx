@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, Alert, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import AppButton from '../../../components/ui/AppButton';
 import { COLORS } from '../../../constants/core/colors';
 import { servicesStackStyles as styles } from '../../../constants/styles/servicesStackStyles';
+import LoadingState from '../../../components/ui/LoadingState';
 import { ConsultantService } from '../../../services/consultant.service';
+import { studentAvailabilityStyles as customStyles } from '../../../constants/styles/studentAvailabilityStyles';
 
 interface AvailabilitySchedule {
   days: string[];
@@ -173,10 +175,7 @@ const StudentAvailability = ({ navigation, route }: any) => {
           title="Book Appointment" 
           onBackPress={() => navigation.goBack()} 
         />
-        <View style={customStyles.centerContainer}>
-          <ActivityIndicator size="large" color={COLORS.green} />
-          <Text style={customStyles.loadingText}>Loading consultant availability...</Text>
-        </View>
+        <LoadingState message="Loading consultant availability..." />
       </SafeAreaView>
     );
   }
@@ -318,60 +317,5 @@ const StudentAvailability = ({ navigation, route }: any) => {
   );
 };
 
-const customStyles = StyleSheet.create({
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  instructionsContainer: {
-    backgroundColor: COLORS.blue,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.blue,
-  },
-  instructionsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 8,
-  },
-  instructionsText: {
-    fontSize: 14,
-    color: COLORS.gray,
-    lineHeight: 20,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: COLORS.gray,
-  },
-  calendarTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  calendarSubtitle: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  noSlotsContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  noSlotsText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.gray,
-    textAlign: 'center',
-  },
-});
 
 export default StudentAvailability;

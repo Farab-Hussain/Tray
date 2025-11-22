@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   ScrollView,
   View,
   Text,
   TouchableOpacity,
   RefreshControl,
-  StyleSheet,
 } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -17,6 +17,7 @@ import { notification } from '../../../constants/styles/notification';
 import { COLORS } from '../../../constants/core/colors';
 import { useNotificationContext } from '../../../contexts/NotificationContext';
 import { useChatContext } from '../../../contexts/ChatContext';
+import { notificationsStyles } from '../../../constants/styles/notificationsStyles';
 
 const Notifications = ({ navigation }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,6 +30,13 @@ const Notifications = ({ navigation }: any) => {
     isLoading,
   } = useNotificationContext();
   const { openChatWith } = useChatContext();
+
+  // Auto-refresh notifications when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshNotifications();
+    }, [refreshNotifications])
+  );
 
   // Filter notifications based on search and category
   const filteredNotifications = notifications.filter(notif => {
@@ -139,50 +147,6 @@ const Notifications = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  badge: {
-    backgroundColor: COLORS.red,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  markAllButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  markAllText: {
-    color: COLORS.green,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginTop: 8,
-  },
-});
+const styles = notificationsStyles;
 
 export default Notifications;

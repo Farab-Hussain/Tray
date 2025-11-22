@@ -11,6 +11,7 @@ import {
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
+import LoadingState from '../../../components/ui/LoadingState';
 import {
   Calendar,
   Clock,
@@ -19,6 +20,8 @@ import {
   AlertCircle,
   MessageCircle,
 } from 'lucide-react-native';
+import { getStatusColor } from '../../../utils/statusUtils';
+import { formatDate } from '../../../utils/dateUtils';
 import { BookingService } from '../../../services/booking.service';
 import { ConsultantService } from '../../../services/consultant.service';
 import CancelBookingModal from '../../../components/ui/CancelBookingModal';
@@ -354,22 +357,6 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-      case 'accepted':
-      case 'approved':
-        return COLORS.white; // White text on red background
-      case 'completed':
-        return COLORS.white; // White text on green background
-      case 'pending':
-        return COLORS.white; // White text on red background
-      case 'cancelled':
-        return COLORS.white; // White text on red background
-      default:
-        return COLORS.white;
-    }
-  };
 
   const getStatusBackground = (status: string) => {
     switch (status.toLowerCase()) {
@@ -388,14 +375,6 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
   return (
     <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
@@ -410,10 +389,7 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <View style={screenStyles.centerContainer}>
-            <ActivityIndicator size="large" color={COLORS.green} />
-            <Text style={screenStyles.loadingText}>Loading bookings...</Text>
-          </View>
+          <LoadingState message="Loading bookings..." />
         ) : bookings.length === 0 ? (
           <View style={styles.emptyContainer}>
             <AlertCircle size={48} color={COLORS.gray} />
@@ -443,7 +419,7 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
                     <Text
                       style={[
                         styles.statusText,
-                        { color: getStatusColor(displayStatus) },
+                        { color: getStatusColor(displayStatus, 'booking') },
                       ]}
                     >
                       {displayStatus}

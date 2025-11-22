@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, RefreshControl, TouchableOpacity } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
+import { earningsStyles as styles } from '../../../constants/styles/earningsStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import Loader from '../../../components/ui/Loader';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -9,6 +10,10 @@ import { COLORS } from '../../../constants/core/colors';
 import { DollarSign, TrendingUp, Calendar, CreditCard, Star, Users, BarChart3 } from 'lucide-react-native';
 import { BookingService } from '../../../services/booking.service';
 import { api } from '../../../lib/fetcher';
+import { formatDate } from '../../../utils/dateUtils';
+import { getStatusColor } from '../../../utils/statusUtils';
+import ErrorDisplay from '../../../components/ui/ErrorDisplay';
+import StatCard from '../../../components/ui/StatCard';
 
 interface EarningsData {
   totalEarnings: number;
@@ -336,27 +341,6 @@ const Earnings = ({ navigation }: any) => {
     return `$${amount.toFixed(2)}`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return COLORS.green;
-      case 'pending':
-        return COLORS.orange;
-      case 'cancelled':
-        return COLORS.red;
-      default:
-        return COLORS.gray;
-    }
-  };
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -390,16 +374,11 @@ const Earnings = ({ navigation }: any) => {
           title="Earnings" 
           onBackPress={() => navigation.goBack()} 
         />
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <Text 
-            style={styles.retryButton}
-            onPress={fetchEarningsData}
-          >
-            Retry
-          </Text>
-        </View>
+        <ErrorDisplay
+          error={error}
+          onRetry={fetchEarningsData}
+          retryLabel="Retry"
+        />
       </SafeAreaView>
     );
   }
@@ -475,28 +454,26 @@ const Earnings = ({ navigation }: any) => {
             )}
 
             <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{formatCurrency(earningsData.thisMonth)}</Text>
-                <Text style={styles.statLabel}>
-                  {selectedPeriod === 'week' ? 'This Week' : 
-                   selectedPeriod === 'month' ? 'This Month' : 'This Year'}
-                </Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{earningsData.totalClients}</Text>
-                <Text style={styles.statLabel}>Total Clients</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{formatCurrency(earningsData.averagePerClient)}</Text>
-                <Text style={styles.statLabel}>Avg per Client</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{formatCurrency(earningsData.lastMonth)}</Text>
-                <Text style={styles.statLabel}>
-                  {selectedPeriod === 'week' ? 'Last Week' : 
-                   selectedPeriod === 'month' ? 'Last Month' : 'Last Year'}
-                </Text>
-              </View>
+              {[
+                {
+                  value: formatCurrency(earningsData.thisMonth),
+                  label: selectedPeriod === 'week' ? 'This Week' : 
+                         selectedPeriod === 'month' ? 'This Month' : 'This Year'
+                },
+                { value: earningsData.totalClients, label: 'Total Clients' },
+                { value: formatCurrency(earningsData.averagePerClient), label: 'Avg per Client' },
+                {
+                  value: formatCurrency(earningsData.lastMonth),
+                  label: selectedPeriod === 'week' ? 'Last Week' : 
+                         selectedPeriod === 'month' ? 'Last Month' : 'Last Year'
+                },
+              ].map((statConfig, index) => (
+                <StatCard
+                  key={index}
+                  value={statConfig.value}
+                  label={statConfig.label}
+                />
+              ))}
             </View>
           </View>
         )}
@@ -507,26 +484,21 @@ const Earnings = ({ navigation }: any) => {
             <Text style={styles.sectionTitle}>Analytics</Text>
             
             <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <BarChart3 size={20} color={COLORS.green} />
-                <Text style={styles.statValue}>{analytics.totalBookings}</Text>
-                <Text style={styles.statLabel}>Total Bookings</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Calendar size={20} color={COLORS.blue} />
-                <Text style={styles.statValue}>{analytics.completedBookings}</Text>
-                <Text style={styles.statLabel}>Completed</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Star size={20} color={COLORS.orange} />
-                <Text style={styles.statValue}>{analytics.averageRating.toFixed(1)}</Text>
-                <Text style={styles.statLabel}>Avg Rating</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Users size={20} color={COLORS.purple || COLORS.green} />
-                <Text style={styles.statValue}>{analytics.clientRetention.toFixed(0)}%</Text>
-                <Text style={styles.statLabel}>Retention</Text>
-              </View>
+              {[
+                { icon: BarChart3, iconColor: COLORS.green, value: analytics.totalBookings, label: 'Total Bookings' },
+                { icon: Calendar, iconColor: COLORS.blue, value: analytics.completedBookings, label: 'Completed' },
+                { icon: Star, iconColor: COLORS.orange, value: analytics.averageRating.toFixed(1), label: 'Avg Rating' },
+                { icon: Users, iconColor: COLORS.purple || COLORS.green, value: `${analytics.clientRetention.toFixed(0)}%`, label: 'Retention' },
+              ].map((statConfig, index) => (
+                <StatCard
+                  key={index}
+                  icon={statConfig.icon}
+                  iconSize={20}
+                  iconColor={statConfig.iconColor}
+                  value={statConfig.value}
+                  label={statConfig.label}
+                />
+              ))}
             </View>
 
             {/* Booking Trends */}
@@ -614,7 +586,7 @@ const Earnings = ({ navigation }: any) => {
                       </Text>
                       <View style={[
                         styles.statusBadge,
-                        { backgroundColor: getStatusColor(transaction.status) }
+                        { backgroundColor: getStatusColor(transaction.status, 'transaction') }
                       ]}>
                         <Text style={styles.statusText}>
                           {getStatusText(transaction.status)}
@@ -671,315 +643,5 @@ const Earnings = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    color: COLORS.orange,
-    textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  retryButton: {
-    fontSize: 16,
-    color: COLORS.green,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-  periodSelector: {
-    flexDirection: 'row',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-  },
-  periodButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  periodButtonActive: {
-    backgroundColor: COLORS.green,
-  },
-  periodButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.gray,
-  },
-  periodButtonTextActive: {
-    color: COLORS.white,
-  },
-  overviewContainer: {
-    marginBottom: 20,
-  },
-  mainEarningsCard: {
-    backgroundColor: COLORS.green,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  totalEarningsLabel: {
-    fontSize: 16,
-    color: COLORS.white,
-    marginBottom: 8,
-    opacity: 0.9,
-  },
-  totalEarningsAmount: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: 12,
-  },
-  growthContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  growthText: {
-    fontSize: 14,
-    color: COLORS.white,
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  pendingEarningsCard: {
-    backgroundColor: COLORS.orange,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  pendingEarningsLabel: {
-    fontSize: 16,
-    color: COLORS.white,
-    marginBottom: 8,
-    opacity: 0.9,
-  },
-  pendingEarningsAmount: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: 8,
-  },
-  pendingEarningsSubtitle: {
-    fontSize: 12,
-    color: COLORS.white,
-    opacity: 0.8,
-    textAlign: 'center',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    width: '48%',
-    marginBottom: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: COLORS.gray,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  transactionsSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 16,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.black,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.gray,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  transactionsList: {
-    gap: 12,
-  },
-  transactionCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  clientName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.black,
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.green,
-  },
-  serviceTitle: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginBottom: 8,
-  },
-  transactionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  transactionDate: {
-    fontSize: 12,
-    color: COLORS.gray,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 10,
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-  analyticsCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  analyticsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 12,
-  },
-  trendRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  trendItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  trendLabel: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginBottom: 4,
-  },
-  trendValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 4,
-  },
-  trendChange: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  serviceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  serviceRank: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.green,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  serviceRankText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  serviceInfo: {
-    flex: 1,
-  },
-  serviceName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.black,
-    marginBottom: 4,
-  },
-  serviceStats: {
-    fontSize: 12,
-    color: COLORS.gray,
-  },
-});
 
 export default Earnings;

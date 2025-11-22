@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, ScrollView, View, TouchableOpacity, RefreshControl, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text, ScrollView, View, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import HomeHeader from '../../../components/shared/HomeHeader';
@@ -8,6 +8,8 @@ import SearchBar from '../../../components/shared/SearchBar';
 import { notification } from '../../../constants/styles/notification';
 import { useNotificationContext } from '../../../contexts/NotificationContext';
 import { useChatContext } from '../../../contexts/ChatContext';
+import { consultantNotificationsStyles } from '../../../constants/styles/consultantNotificationsStyles';
+import LoadingState from '../../../components/ui/LoadingState';
 
 const ConsultantNotifications = ({ navigation }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,10 +79,7 @@ const ConsultantNotifications = ({ navigation }: any) => {
 
         {/* Notifications List */}
         {isLoading && notifications.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text style={styles.loadingText}>Loading notifications...</Text>
-          </View>
+          <LoadingState message="Loading notifications..." color="#3B82F6" />
         ) : filteredNotifications.length === 0 ? (
           <View style={styles.centerContainer}>
             <Text style={styles.emptyText}>📭</Text>
@@ -105,59 +104,6 @@ const ConsultantNotifications = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  headerContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  badge: {
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  markAllButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  markAllText: {
-    color: '#3B82F6',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  loadingText: {
-    marginTop: 16,
-    color: '#6B7280',
-    fontSize: 16,
-  },
-  emptyText: {
-    fontSize: 48,
-    marginBottom: 8,
-    color: '#6B7280',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 8,
-  },
-});
+const styles = consultantNotificationsStyles;
 
 export default ConsultantNotifications;

@@ -57,19 +57,32 @@ export const getAllJobs = async (req: Request, res: Response) => {
       try {
         const userResume = await resumeServices.getByUserId(user.uid).catch(() => null);
         
-        if (userResume && userResume.skills.length > 0) {
+        if (userResume && Array.isArray(userResume.skills) && userResume.skills.length > 0) {
           jobsWithMatch = jobs.map(job => {
-            const matchResult = calculateMatchScore(job.requiredSkills, userResume.skills);
-            return {
-              ...job,
-              matchScore: matchResult.score,
-              matchRating: matchResult.rating,
-            } as JobCard;
+            try {
+              // Ensure requiredSkills is an array
+              const requiredSkills = Array.isArray(job.requiredSkills) ? job.requiredSkills : [];
+              if (requiredSkills.length === 0) {
+                // No skills required, return job without match score
+                return job;
+              }
+              
+              const matchResult = calculateMatchScore(requiredSkills, userResume.skills);
+              return {
+                ...job,
+                matchScore: matchResult.score,
+                matchRating: matchResult.rating,
+              } as JobCard;
+            } catch (jobError: any) {
+              // If match calculation fails for a specific job, return job without match score
+              console.error(`Error calculating match score for job ${job.id}:`, jobError.message);
+              return job;
+            }
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         // If resume fetch fails, just return jobs without match scores
-        console.error("Error calculating match scores:", error);
+        console.error("Error calculating match scores:", error.message || error);
       }
     }
 

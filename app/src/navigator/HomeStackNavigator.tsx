@@ -1,9 +1,12 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import { useNavigation } from '@react-navigation/native';
 import HomeScreen from '../Screen/Student/Home/home';
+import RecruiterHome from '../Screen/Recruiter/Home/RecruiterHome';
 import AllConsultants from '../Screen/Student/Consultants/AllConsultants';
 import BookingSlots from '../Screen/Student/Booking/BookingSlots';
 import Cart from '../Screen/Student/Cart/Cart';
+import { useAuth } from '../contexts/AuthContext';
 
 const Stack = createStackNavigator();
 
@@ -60,6 +63,29 @@ const scaleAndSlide = ({ current, layouts }: any) => {
   };
 };
 
+// Wrapper component that conditionally renders the correct home screen
+const HomeScreenWrapper = () => {
+  const { activeRole, roles } = useAuth();
+  const navigation = useNavigation();
+  
+  // Determine which home screen to show based on role
+  // Use activeRole if available, fallback to roles array
+  const currentRole = activeRole || (roles.length > 0 ? roles[0] : 'student');
+  const isRecruiter = currentRole === 'recruiter' || roles.includes('recruiter');
+  
+  // Debug logging for role changes
+  React.useEffect(() => {
+    console.log('🔄 [HomeScreenWrapper] Role changed:', { activeRole, roles, currentRole, isRecruiter });
+  }, [activeRole, roles, currentRole, isRecruiter]);
+  
+  // Conditionally render based on role, passing navigation prop
+  if (isRecruiter) {
+    return <RecruiterHome navigation={navigation} />;
+  }
+  
+  return <HomeScreen navigation={navigation} />;
+};
+
 const HomeStackNavigator = () => {
   return (
     <Stack.Navigator
@@ -87,7 +113,7 @@ const HomeStackNavigator = () => {
     >
       <Stack.Screen 
         name="HomeScreen" 
-        component={HomeScreen}
+        component={HomeScreenWrapper}
         options={{
           cardStyleInterpolator: slideFromRight,
         }}

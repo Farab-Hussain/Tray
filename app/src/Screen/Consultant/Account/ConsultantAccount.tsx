@@ -13,7 +13,6 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { Camera } from 'lucide-react-native';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { UserService } from '../../../services/user.service';
-import { StyleSheet } from 'react-native';
 
 const ConsultantAccount = ({ navigation }: any) => {
   const { user, logout } = useAuth();
@@ -359,72 +358,7 @@ const ConsultantAccount = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  roleSwitcherContainer: {
-    marginVertical: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleSwitcherLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.black,
-    marginBottom: 10,
-  },
-  roleButtonsContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  roleButton: {
-    flex: 1,
-    maxWidth: 120,
-    minWidth: 100,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    backgroundColor: COLORS.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleButtonActive: {
-    borderColor: COLORS.green,
-    backgroundColor: COLORS.lightBackground,
-  },
-  roleButtonDisabled: {
-    opacity: 0.5,
-  },
-  roleButtonInactive: {
-    opacity: 0.6,
-    borderColor: COLORS.lightGray,
-  },
-  roleButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: COLORS.gray,
-    textAlign: 'center',
-  },
-  roleButtonTextActive: {
-    color: COLORS.green,
-    fontWeight: '600',
-  },
-  roleButtonTextInactive: {
-    opacity: 0.7,
-  },
-  switchingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    gap: 6,
-  },
-  switchingText: {
-    fontSize: 12,
-    color: COLORS.green,
-  },
-});
+// Styles removed - role switcher code is commented out
+// If needed in the future, uncomment the role switcher code and add styles back
 
 export default ConsultantAccount;

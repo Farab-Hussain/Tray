@@ -61,10 +61,15 @@ const EmailVerification = ({ route }: any) => {
         
         try {
           const res = await api.get('/auth/me');
-          const userRole = res.data?.role || 'student';
+          const userRole = res.data?.activeRole || res.data?.role || 'student';
+          const userRoles = res.data?.roles || (res.data?.role ? [res.data.role] : ['student']);
           
-          // Save role to AsyncStorage
+          // Save role in both old and new formats for compatibility
           await AsyncStorage.setItem('role', userRole);
+          await AsyncStorage.setItem('activeRole', userRole);
+          await AsyncStorage.setItem('roles', JSON.stringify(userRoles));
+          
+          console.log('EmailVerification - Role saved:', { userRole, userRoles });
           
           // Navigate based on role
           if (userRole === 'consultant') {
@@ -73,7 +78,8 @@ const EmailVerification = ({ route }: any) => {
               screen: 'PendingApproval',
             });
           } else {
-            console.log('EmailVerification - Navigating to student tabs');
+            // Student or recruiter - navigate to MainTabs
+            console.log(`EmailVerification - Navigating to MainTabs with role: ${userRole}`);
             (navigation as any).replace('Screen', {
               screen: 'MainTabs',
               params: { role: userRole },
@@ -88,11 +94,12 @@ const EmailVerification = ({ route }: any) => {
         console.log('EmailVerification - Completing registration with role:', role);
         
         // Send user data to backend
+        const userName = name || user.email?.split('@')[0] || null;
         await api.post('/auth/register', {
           uid: user.uid,
           email: user.email,
           role: role || 'student',
-          name: name || user.email?.split('@')[0],
+          ...(userName && { name: userName }), // Only include name if it's not empty
         });
 
         console.log('EmailVerification - Backend registration completed');
@@ -104,7 +111,8 @@ const EmailVerification = ({ route }: any) => {
             screen: 'ConsultantProfileFlow',
           });
         } else {
-          console.log('EmailVerification - Navigating to student tabs');
+          // Student or recruiter - navigate to MainTabs
+          console.log(`EmailVerification - Navigating to MainTabs with role: ${role || 'student'}`);
           (navigation as any).replace('Screen', {
             screen: 'MainTabs',
             params: { role: role || 'student' },
@@ -470,11 +478,11 @@ const EmailVerification = ({ route }: any) => {
       
       // Provide user feedback based on result
       if (emailSent) {
-        Alert.alert(
-          'Verification Email Sent ✓',
-          `Firebase reports the email was sent to:\n\n${user.email}\n\n⚠️ IMPORTANT - If you don't receive it:\n\n1. Check SPAM/JUNK folder (most common)\n2. Check Gmail Promotions tab\n3. Wait 2-3 minutes (delivery delay)\n4. Check Firebase Console → Authentication → Usage (quota may be exceeded)\n5. Gmail often blocks Firebase emails\n\n📧 Common Issues:\n• Firebase daily email quota exceeded\n• Email provider blocking Firebase\n• Email in spam (check spam folder!)\n\nIf email still doesn't arrive after checking spam and waiting, you may need to:\n• Verify manually from Firebase Console (contact admin)\n• Try a different email address\n• Check Firebase project email settings`,
-          [{ text: 'OK' }]
-        );
+        // Alert.alert(
+        //   'Verification Email Sent ✓',
+        //   // `Firebase reports the email was sent to:\n\n${user.email}\n\n⚠️ IMPORTANT - If you don't receive it:\n\n1. Check SPAM/JUNK folder (most common)\n2. Check Gmail Promotions tab\n3. Wait 2-3 minutes (delivery delay)\n4. Check Firebase Console → Authentication → Usage (quota may be exceeded)\n5. Gmail often blocks Firebase emails\n\n📧 Common Issues:\n• Firebase daily email quota exceeded\n• Email provider blocking Firebase\n• Email in spam (check spam folder!)\n\nIf email still doesn't arrive after checking spam and waiting, you may need to:\n• Verify manually from Firebase Console (contact admin)\n• Try a different email address\n• Check Firebase project email settings`,
+        //   // [{ text: 'OK' }]
+        // );
         
         // Reset timer
         setTimeLeft(60);

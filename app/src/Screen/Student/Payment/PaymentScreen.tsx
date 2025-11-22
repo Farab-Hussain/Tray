@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -18,6 +17,7 @@ import { BookingService } from '../../../services/booking.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import * as NotificationStorage from '../../../services/notification-storage.service';
 import { UserService } from '../../../services/user.service';
+import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
 
 interface BookedSlot {
   date: string;
@@ -58,7 +58,14 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const { user } = useAuth();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [cartItems] = useState<CartItem[]>(route.params.cartItems);
+  const [cartItems, setCartItems] = useState<CartItem[]>(route.params.cartItems);
+  
+  // Update cartItems when route params change
+  React.useEffect(() => {
+    if (route.params?.cartItems) {
+      setCartItems(route.params.cartItems);
+    }
+  }, [route.params?.cartItems]);
   const [platformFeeAmount, setPlatformFeeAmount] = useState<number>(5.00);
   const [platformFeeLoading, setPlatformFeeLoading] = useState<boolean>(true);
   const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
@@ -90,13 +97,14 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
     };
   }, []);
 
-  // Calculate totals
+  // Calculate totals - use route params directly to ensure fresh data
+  const currentCartItems = route.params?.cartItems || cartItems;
   const subtotal = useMemo(() => {
-    return cartItems.reduce((sum, item) => {
+    return currentCartItems.reduce((sum, item) => {
       const itemTotal = item.totalPrice || (item.price || item.pricePerSlot || 0) * item.counter;
       return sum + itemTotal;
     }, 0);
-  }, [cartItems]);
+  }, [currentCartItems]);
 
   const total = useMemo(() => Number((subtotal + platformFeeAmount).toFixed(2)), [subtotal, platformFeeAmount]);
 
@@ -144,10 +152,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
         console.log('✅ Payment intent created successfully');
       } catch (error: any) {
         console.error('❌ Error creating payment intent:', error);
-        Alert.alert(
-          'Payment Error', 
-          error?.message || 'Failed to initialize payment. Please try again.'
-        );
+        Alert.alert('Payment Error', error?.message || 'Failed to initialize payment. Please try again.');
+        setPaymentLoading(false);
         return;
       }
 
@@ -165,6 +171,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       if (initError) {
         console.error('❌ Error initializing payment sheet:', initError);
         Alert.alert('Payment Error', initError.message || 'Failed to initialize payment form');
+        setPaymentLoading(false);
         return;
       }
 
@@ -176,8 +183,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       if (paymentError) {
         console.error('Payment failed:', paymentError);
         if (paymentError.code !== 'Canceled') {
-          Alert.alert('Payment Failed', paymentError.message);
+          Alert.alert('Payment Failed', paymentError.message || 'Payment could not be processed');
         }
+        setPaymentLoading(false);
         return;
       }
 
@@ -187,7 +195,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
     } catch (error: any) {
       console.error('Payment error:', error);
       Alert.alert('Payment Error', error.message || 'An unexpected error occurred');
-    } finally {
       setPaymentLoading(false);
     }
   };
@@ -362,40 +369,32 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       // Handle payment success
       await PaymentService.handlePaymentSuccess(paymentIntentId, `CART_${Date.now()}`);
 
-      // Reset navigation stack to prevent going back to payment screen
+      // Navigate to bookings screen after successful payment
       navigation.reset({
         index: 0,
         routes: [{ name: 'MainTabs' as never }],
       });
-
-      // Calculate total number of sessions booked
-      const totalSessions = cartItems.reduce((count, item) => {
-        return count + (item.bookedSlots?.length || 1);
-      }, 0);
-
-      // Show success message after navigation
       setTimeout(() => {
-        Alert.alert(
-          'Payment Successful! 🎉',
-          `Your ${totalSessions} consultation session${totalSessions > 1 ? 's have' : ' has'} been booked and payment processed successfully.`,
-          [
-            {
-              text: 'View My Bookings',
-              onPress: () => {
-                navigation.navigate('BookedConsultants' as never);
-              }
-            },
-            {
-              text: 'OK',
-              style: 'default'
-            }
-          ]
-        );
-      }, 500);
+        navigation.navigate('BookedConsultants' as never);
+      }, 100);
 
     } catch (error: any) {
       console.error('Error creating bookings after payment:', error);
-      Alert.alert('Error', 'Payment successful but failed to create bookings. Please contact support.');
+      Alert.alert(
+        'Booking Error',
+        'Payment successful but failed to create bookings. Please contact support.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainTabs' as never }],
+              });
+            },
+          },
+        ]
+      );
     }
   };
 
@@ -410,7 +409,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
         {/* Order Summary */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Order Summary</Text>
-          {cartItems.map((item) => {
+          {currentCartItems.map((item) => {
             const itemPrice = item.totalPrice || (item.price || item.pricePerSlot || 0) * item.counter;
             const displayText = item.bookedSlots && item.bookedSlots.length > 0
               ? `${item.bookedSlots.length} session${item.bookedSlots.length > 1 ? 's' : ''} (${item.bookedSlots[0].date}${item.bookedSlots.length > 1 ? ' +' : ''})`
@@ -477,143 +476,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           )}
         </TouchableOpacity>
       </View>
+
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  scrollView: {
-    flex: 1,
-    padding: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.black,
-    marginBottom: 16,
-  },
-  orderItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  itemInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.black,
-    marginBottom: 4,
-  },
-  itemService: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginBottom: 4,
-  },
-  itemDate: {
-    fontSize: 12,
-    color: COLORS.gray,
-  },
-  itemPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.green,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  summaryLabel: {
-    fontSize: 16,
-    color: COLORS.gray,
-  },
-  summaryValue: {
-    fontSize: 16,
-    color: COLORS.black,
-  },
-  platformFeeInfo: {
-    marginTop: 2,
-    fontSize: 12,
-    color: COLORS.gray,
-    textAlign: 'right',
-  },
-  platformFeeWarning: {
-    marginTop: 2,
-    fontSize: 12,
-    color: COLORS.orange,
-    textAlign: 'right',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
-    marginTop: 8,
-  },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.black,
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.green,
-  },
-  securityNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  securityIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  securityText: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.gray,
-    lineHeight: 20,
-  },
-  paymentButtonContainer: {
-    padding: 20,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
-  },
-  paymentButton: {
-    backgroundColor: COLORS.green,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  paymentButtonDisabled: {
-    backgroundColor: COLORS.gray,
-  },
-  paymentButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.white,
-  },
-});
+const styles = paymentScreenStyles;
 
 export default PaymentScreen;

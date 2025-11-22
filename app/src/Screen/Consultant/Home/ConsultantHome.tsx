@@ -14,6 +14,7 @@ import { BookingService } from '../../../services/booking.service';
 import { showSuccess, handleApiError } from '../../../utils/toast';
 import { api } from '../../../lib/fetcher';
 import { useChatContext } from '../../../contexts/ChatContext';
+import { useRefresh } from '../../../hooks/useRefresh';
 
 interface Booking {
   id: string;
@@ -34,7 +35,6 @@ const ConsultantHome = ({ navigation }: any) => {
   const { openChatWith } = useChatContext();
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [availableSlots, setAvailableSlots] = useState(0);
   const [totalSlots, setTotalSlots] = useState(0);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
@@ -234,10 +234,15 @@ const ConsultantHome = ({ navigation }: any) => {
       handleApiError(error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
       isFetchingRef.current = false;
     }
-  }, [user?.uid, refreshing, lastFetchTime]);
+  }, [user?.uid, lastFetchTime]);
+
+  const handleRefreshAction = useCallback(async () => {
+    await fetchBookingRequests(true);
+  }, [fetchBookingRequests]);
+
+  const { refreshing, handleRefresh } = useRefresh(handleRefreshAction);
 
   // Load data on component mount only
   useEffect(() => {
@@ -325,10 +330,6 @@ const ConsultantHome = ({ navigation }: any) => {
     }
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchBookingRequests(true);
-  };
 
   return (
     <SafeAreaView style={screenStyles.safeArea} edges={['top']}>

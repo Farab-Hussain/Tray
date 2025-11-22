@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -8,13 +8,16 @@ import Loader from '../../../components/ui/Loader';
 import { JobService } from '../../../services/job.service';
 import { COLORS } from '../../../constants/core/colors';
 import { showError } from '../../../utils/toast';
+import { useRefresh } from '../../../hooks/useRefresh';
+import { consultantJobApplicationsScreenStyles } from '../../../constants/styles/consultantJobApplicationsScreenStyles';
+import { getStatusColor } from '../../../utils/statusUtils';
+import SummaryCard from '../../../components/ui/SummaryCard';
 
 const JobApplicationsScreen = ({ navigation, route }: any) => {
   const { jobId } = route.params;
   const [applications, setApplications] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   const fetchApplications = useCallback(async () => {
     try {
@@ -27,20 +30,16 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       showError(error.message || 'Failed to load applications');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [jobId]);
+
+  const { refreshing, handleRefresh } = useRefresh(fetchApplications);
 
   useFocusEffect(
     useCallback(() => {
       fetchApplications();
     }, [fetchApplications])
   );
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchApplications();
-  };
 
   const getRatingColor = (rating?: string) => {
     switch (rating) {
@@ -61,20 +60,11 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'hired': return COLORS.green;
-      case 'shortlisted': return COLORS.blue;
-      case 'reviewed': return COLORS.orange;
-      case 'rejected': return COLORS.red;
-      default: return COLORS.gray;
-    }
-  };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ScreenHeader title="Applications" navigation={navigation} />
+        <ScreenHeader title="Applications" onBackPress={() => navigation.goBack()} />
         <Loader />
       </SafeAreaView>
     );
@@ -82,7 +72,7 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Applications" navigation={navigation} />
+      <ScreenHeader title="Applications" onBackPress={() => navigation.goBack()} />
       
       <ScrollView
         style={styles.scrollView}
@@ -93,33 +83,15 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       >
         {/* Summary Card */}
         {summary && (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Application Summary</Text>
-            <View style={styles.summaryStats}>
-              {summary.gold > 0 && (
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>Gold</Text>
-                  <Text style={[styles.summaryValue, { color: '#FFD700' }]}>{summary.gold}</Text>
-                </View>
-              )}
-              {summary.silver > 0 && (
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>Silver</Text>
-                  <Text style={[styles.summaryValue, { color: '#C0C0C0' }]}>{summary.silver}</Text>
-                </View>
-              )}
-              {summary.bronze > 0 && (
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>Bronze</Text>
-                  <Text style={[styles.summaryValue, { color: '#CD7F32' }]}>{summary.bronze}</Text>
-                </View>
-              )}
-              <View style={styles.summaryStat}>
-                <Text style={styles.summaryLabel}>Total</Text>
-                <Text style={styles.summaryValue}>{summary.total}</Text>
-              </View>
-            </View>
-          </View>
+          <SummaryCard
+            title="Application Summary"
+            stats={[
+              { label: 'Gold', value: summary.gold || 0, color: '#FFD700' },
+              { label: 'Silver', value: summary.silver || 0, color: '#C0C0C0' },
+              { label: 'Bronze', value: summary.bronze || 0, color: '#CD7F32' },
+              { label: 'Total', value: summary.total || 0 },
+            ]}
+          />
         )}
 
         {/* Applications List - Sorted by Rating (Gold first) */}
@@ -184,7 +156,7 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
               )}
 
               <View style={styles.footer}>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(application.status) }]}>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(application.status, 'application') }]}>
                   <Text style={styles.statusText}>
                     {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
                   </Text>
@@ -201,195 +173,6 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.lightBackground,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 24,
-  },
-  summaryCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 16,
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 24,
-  },
-  summaryStat: {
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: COLORS.gray,
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  summaryValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.black,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 32,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: COLORS.black,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: COLORS.gray,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  applicationCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    borderLeftWidth: 4,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  titleContainer: {
-    flex: 1,
-    marginRight: 12,
-  },
-  applicantName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 4,
-  },
-  applicantEmail: {
-    fontSize: 14,
-    color: COLORS.gray,
-    fontWeight: '500',
-  },
-  ratingBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  ratingText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.white,
-    letterSpacing: 0.5,
-  },
-  matchContainer: {
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightBackground,
-  },
-  matchLabel: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  matchValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.black,
-  },
-  skillsContainer: {
-    marginBottom: 12,
-  },
-  skillsLabel: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  skillsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  },
-  skillTag: {
-    backgroundColor: COLORS.green,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  skillText: {
-    fontSize: 12,
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-  moreSkillsText: {
-    fontSize: 12,
-    color: COLORS.gray,
-    fontStyle: 'italic',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightBackground,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  dateText: {
-    fontSize: 12,
-    color: COLORS.gray,
-    fontWeight: '500',
-  },
-});
+const styles = consultantJobApplicationsScreenStyles;
 
 export default JobApplicationsScreen;

@@ -111,23 +111,7 @@ function VerifyEmailContent() {
             <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h1>
             <p className="text-gray-600 mb-4">{message}</p>
-            <button
-              onClick={() => {
-                // Try to open the mobile app via deep link
-                const appDeepLink = 'tray://';
-                
-                // Attempt to open the app
-                window.location.href = appDeepLink;
-                
-                // Show message after a short delay if app might not have opened
-                setTimeout(() => {
-                  setMessage('If the app did not open, please return to the Tray app manually. Your email has been verified and you can now sign in.');
-                }, 1500);
-              }}
-              className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Continue to App
-            </button>
+            
             <p className="text-sm text-gray-500 mt-4">You can also safely close this page.</p>
           </>
         )}

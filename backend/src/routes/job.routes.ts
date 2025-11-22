@@ -36,7 +36,7 @@ router.get("/search", searchJobs); // GET /jobs/search - Search jobs
 
 // Protected routes - Must be before /:id to avoid route conflicts
 router.get("/my", authenticateUser(), getMyJobs); // GET /jobs/my - Get my posted jobs (MUST be before /:id)
-router.post("/", authenticateUser(), authorizeRole(["admin", "consultant"]), validateCreateJob, createJob); // POST /jobs - Create job posting
+router.post("/", authenticateUser(), authorizeRole(["admin", "recruiter", "consultant"]), validateCreateJob, createJob); // POST /jobs - Create job posting (Admin, Recruiter, or Consultant - Students cannot post)
 
 // Dynamic routes - Must be after specific routes
 router.get("/:id", validateJobId, getJobById); // GET /jobs/:id - Get job details

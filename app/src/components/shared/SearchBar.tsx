@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, TextInput } from 'react-native';
 import { Search } from 'lucide-react-native';
 import { COLORS } from '../../constants/core/colors';
+import { searchBarStyles } from '../../constants/styles/searchBarStyles';
 
 type SearchBarProps = {
   value?: string;
@@ -30,25 +31,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.lightBackground,
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    marginVertical: 10,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: COLORS.black,
-  },
-});
+const styles = searchBarStyles;
 
 export default SearchBar;
 

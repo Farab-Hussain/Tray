@@ -7,11 +7,12 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import ReviewCard from '../../../components/ui/ReviewCard';
 import { ReviewService } from '../../../services/review.service';
 import { COLORS } from '../../../constants/core/colors';
+import { useRefresh } from '../../../hooks/useRefresh';
+import LoadingState from '../../../components/ui/LoadingState';
 
 const MyReviews = ({ navigation }: any) => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   const fetchMyReviews = async () => {
     try {
@@ -30,9 +31,10 @@ const MyReviews = ({ navigation }: any) => {
       setReviews([]);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
+
+  const { refreshing, onRefresh } = useRefresh(fetchMyReviews);
 
   // Fetch reviews when screen comes into focus
   useFocusEffect(
@@ -41,11 +43,6 @@ const MyReviews = ({ navigation }: any) => {
       fetchMyReviews();
     }, [])
   );
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchMyReviews();
-  };
 
   const handleEdit = (reviewId: string) => {
     const review = reviews.find(r => r.id === reviewId);
@@ -109,10 +106,7 @@ const MyReviews = ({ navigation }: any) => {
         }
       >
         {loading ? (
-          <View style={screenStyles.centerContainer}>
-            <ActivityIndicator size="large" color={COLORS.green} />
-            <Text style={screenStyles.loadingText}>Loading your reviews...</Text>
-          </View>
+          <LoadingState message="Loading your reviews..." />
         ) : reviews.length === 0 ? (
           <View style={screenStyles.centerContainer}>
             <Text style={screenStyles.emptyStateText}>

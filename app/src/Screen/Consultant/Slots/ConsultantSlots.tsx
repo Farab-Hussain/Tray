@@ -6,7 +6,9 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
 import { ConsultantService } from '../../../services/consultant.service';
+import LoadingState from '../../../components/ui/LoadingState';
 import { Calendar, Clock, XCircle } from 'lucide-react-native';
+import { formatDateWithWeekday, formatTimeString } from '../../../utils/dateUtils';
 
 interface Slot {
   date: string;
@@ -80,20 +82,6 @@ const ConsultantSlots = ({ navigation }: any) => {
     fetchSlots();
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const formatTime = (timeStr: string) => {
-    // Time is already in format like "01:00 PM", just return it
-    return timeStr;
-  };
 
   const handleDeleteSlot = async (date: string, time: string) => {
     try {
@@ -107,7 +95,7 @@ const ConsultantSlots = ({ navigation }: any) => {
       // Show confirmation alert
       Alert.alert(
         'Delete Slot',
-        `Are you sure you want to delete the slot "${time}" on ${formatDate(date)}?`,
+        `Are you sure you want to delete the slot "${formatTimeString(time)}" on ${formatDateWithWeekday(date)}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -157,10 +145,7 @@ const ConsultantSlots = ({ navigation }: any) => {
         }
       >
         {isLoading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={COLORS.green} />
-            <Text style={styles.loadingText}>Loading your slots...</Text>
-          </View>
+          <LoadingState message="Loading your slots..." />
         ) : slots.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Calendar size={64} color={COLORS.gray} />
@@ -183,7 +168,7 @@ const ConsultantSlots = ({ navigation }: any) => {
                 {/* Date Header */}
                 <View style={styles.dateHeader}>
                   <Calendar size={20} color={COLORS.green} />
-                  <Text style={styles.dateText}>{formatDate(slotGroup.date)}</Text>
+                  <Text style={styles.dateText}>{formatDateWithWeekday(slotGroup.date)}</Text>
                   <Text style={styles.slotCount}>
                     {slotGroup.slots.length} {slotGroup.slots.length === 1 ? 'slot' : 'slots'}
                   </Text>
@@ -195,7 +180,7 @@ const ConsultantSlots = ({ navigation }: any) => {
                     <View key={slotIndex} style={styles.slotItem}>
                       <View style={styles.slotInfo}>
                         <Clock size={16} color={COLORS.green} />
-                        <Text style={styles.slotTime}>{formatTime(slot.time)}</Text>
+                        <Text style={styles.slotTime}>{formatTimeString(slot.time)}</Text>
                       </View>
                       <TouchableOpacity
                         style={styles.deleteButton}

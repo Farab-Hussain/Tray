@@ -24,6 +24,10 @@ import ReviewEmployer from '../Screen/Student/Review/ReviewEmployer';
 import EditProfile from '../Screen/common/Account/EditProfile';
 import ChangePassword from '../Screen/common/Account/ChangePassword';
 import ChangeUsername from '../Screen/common/Account/ChangeUsername';
+import StudentProfile from '../Screen/Student/Profile/StudentProfile';
+import RecruiterProfile from '../Screen/Recruiter/Profile/RecruiterProfile';
+import RecruiterJobs from '../Screen/Recruiter/Jobs/RecruiterJobs';
+import AllApplicationsScreen from '../Screen/Recruiter/Jobs/AllApplicationsScreen';
 import MyReviews from '../Screen/Student/Review/MyReviews';
 import ConsultantReviews from '../Screen/Consultant/Reviews/ConsultantReviews';
 import EditReview from '../Screen/Student/Review/EditReview';
@@ -48,6 +52,11 @@ import MyJobsScreen from '../Screen/Consultant/Jobs/MyJobsScreen';
 import JobApplicationsScreen from '../Screen/Consultant/Jobs/JobApplicationsScreen';
 import ApplicationReviewScreen from '../Screen/Consultant/Jobs/ApplicationReviewScreen';
 import ApplicationDetailScreen from '../Screen/Student/Jobs/ApplicationDetailScreen';
+// Recruiter Job screens
+import RecruiterPostJobScreen from '../Screen/Recruiter/Jobs/PostJobScreen';
+import RecruiterMyJobsScreen from '../Screen/Recruiter/Jobs/MyJobsScreen';
+import RecruiterJobApplicationsScreen from '../Screen/Recruiter/Jobs/JobApplicationsScreen';
+import RecruiterApplicationReviewScreen from '../Screen/Recruiter/Jobs/ApplicationReviewScreen';
 
 const Stack = createStackNavigator();
 
@@ -204,6 +213,12 @@ const RoleBasedTabs = () => {
     return <PendingApproval />;
   }
   
+  // For recruiters, show student tabs (they use the same navigation structure)
+  if (currentRole === 'recruiter') {
+    console.log('✅ [RoleBasedTabs] Showing student tabs for recruiter role');
+    return <BottomTabs />;
+  }
+  
   // Default: show student tabs (for student role or if role is null/undefined)
   console.log('✅ [RoleBasedTabs] Showing student tabs for role:', currentRole);
   return <BottomTabs />;
@@ -353,6 +368,33 @@ const ScreenNavigator = () => {
       <Stack.Screen
         name="ChangeUsername"
         component={ChangeUsername}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Student Profile Screen */}
+      <Stack.Screen
+        name="StudentProfile"
+        component={StudentProfile}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Recruiter Profile Screen */}
+      <Stack.Screen
+        name="RecruiterProfile"
+        component={RecruiterProfile}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+
+      {/* Recruiter Jobs Screen */}
+      <Stack.Screen
+        name="RecruiterJobs"
+        component={RecruiterJobs}
         options={{
           cardStyleInterpolator: slideFromRight,
         }}
@@ -923,6 +965,53 @@ const ScreenNavigator = () => {
       <Stack.Screen 
         name="ApplicationReview" 
         component={ApplicationReviewScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+
+      {/* Recruiter Job System Screens */}
+      <Stack.Screen 
+        name="RecruiterPostJob" 
+        component={RecruiterPostJobScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="RecruiterMyJobs" 
+        component={RecruiterMyJobsScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="RecruiterJobApplications" 
+        component={RecruiterJobApplicationsScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="RecruiterApplicationReview" 
+        component={RecruiterApplicationReviewScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+
+      {/* All Applications Screen */}
+      <Stack.Screen
+        name="RecruiterAllApplications"
+        component={AllApplicationsScreen}
         options={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,

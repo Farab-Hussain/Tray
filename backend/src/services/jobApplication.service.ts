@@ -127,12 +127,67 @@ export const jobApplicationServices = {
    * Get applications by user ID
    */
   async getByUserId(userId: string): Promise<JobApplication[]> {
-    const snapshot = await db.collection(COLLECTION)
-      .where("userId", "==", userId)
-      .orderBy("appliedAt", "desc")
-      .get();
+    try {
+      // Try to use orderBy first (if index exists)
+      try {
+        const snapshot = await db.collection(COLLECTION)
+          .where("userId", "==", userId)
+          .orderBy("appliedAt", "desc")
+          .get();
 
-    return snapshot.docs.map(doc => doc.data() as JobApplication);
+        return snapshot.docs.map(doc => {
+          const data = doc.data() as JobApplication;
+          if (!data.id) {
+            data.id = doc.id;
+          }
+          return data;
+        });
+      } catch (orderByError: any) {
+        // If orderBy fails (likely due to missing index), fetch without orderBy and sort in memory
+        console.warn("orderBy failed for applications, sorting in memory:", orderByError.message);
+        
+        const snapshot = await db.collection(COLLECTION)
+          .where("userId", "==", userId)
+          .get();
+
+        const applications = snapshot.docs
+          .map(doc => {
+            const data = doc.data() as JobApplication;
+            if (!data.id) {
+              data.id = doc.id;
+            }
+            return data;
+          })
+          .sort((a, b) => {
+            // Handle Timestamp objects from Firestore Admin SDK
+            let aTime = 0;
+            let bTime = 0;
+            
+            if (a.appliedAt) {
+              if (a.appliedAt instanceof Timestamp) {
+                aTime = a.appliedAt.toMillis();
+              } else if ((a.appliedAt as any)?._seconds) {
+                aTime = (a.appliedAt as any)._seconds * 1000 + ((a.appliedAt as any)?._nanoseconds || 0) / 1000000;
+              }
+            }
+            
+            if (b.appliedAt) {
+              if (b.appliedAt instanceof Timestamp) {
+                bTime = b.appliedAt.toMillis();
+              } else if ((b.appliedAt as any)?._seconds) {
+                bTime = (b.appliedAt as any)._seconds * 1000 + ((b.appliedAt as any)?._nanoseconds || 0) / 1000000;
+              }
+            }
+            
+            return bTime - aTime; // Descending order (newest first)
+          });
+
+        return applications;
+      }
+    } catch (error: any) {
+      console.error("Error in getByUserId applications:", error);
+      throw error;
+    }
   },
 
   /**

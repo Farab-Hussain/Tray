@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import {
   Home,
   BookOpen,
@@ -27,6 +27,7 @@ import Account from '../Screen/common/Account/Account';
 import { COLORS } from '../constants/core/colors';
 import { useChatContext } from '../contexts/ChatContext';
 import { useNotificationContext } from '../contexts/NotificationContext';
+import { bottomNavigationStyles } from '../constants/styles/bottomNavigationStyles';
 
 const Tab = createBottomTabNavigator();
 
@@ -199,22 +200,4 @@ const BottomTabs = () => {
 
 export default BottomTabs;
 
-const styles = StyleSheet.create({
-  iconWrapper: {
-    paddingTop: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: 4,
-    right: 12,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: COLORS.yellow,
-    borderWidth: 1,
-    borderColor: COLORS.white,
-  },
-});
+const styles = bottomNavigationStyles;

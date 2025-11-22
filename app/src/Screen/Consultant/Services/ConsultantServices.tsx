@@ -18,6 +18,8 @@ import { ConsultantService } from '../../../services/consultant.service';
 import { getConsultantVerificationStatus } from '../../../services/consultantFlow.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
+import ErrorDisplay from '../../../components/ui/ErrorDisplay';
+import LoadingState from '../../../components/ui/LoadingState';
 
 interface Service {
   id: string;
@@ -213,10 +215,7 @@ const ConsultantServices = ({ navigation }: any) => {
           title="My Services"
           onBackPress={() => navigation.goBack()}
         />
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={COLORS.green} />
-          <Text style={styles.loadingText}>Loading your services...</Text>
-        </View>
+        <LoadingState message="Loading your services..." />
       </SafeAreaView>
     );
   }
@@ -228,13 +227,11 @@ const ConsultantServices = ({ navigation }: any) => {
           title="My Services"
           onBackPress={() => navigation.goBack()}
         />
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <Text style={styles.retryButton} onPress={fetchConsultantServices}>
-            Retry
-          </Text>
-        </View>
+        <ErrorDisplay
+          error={error}
+          onRetry={fetchConsultantServices}
+          retryLabel="Retry"
+        />
       </SafeAreaView>
     );
   }

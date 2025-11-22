@@ -68,7 +68,10 @@ const Register = ({ navigation, route }: any) => {
       await AsyncStorage.setItem('isRegistering', 'true');
       console.log('Register - Registration flag set');
       
+      // Save role in both old and new formats for compatibility
       await AsyncStorage.setItem('role', role);
+      await AsyncStorage.setItem('activeRole', role);
+      await AsyncStorage.setItem('roles', JSON.stringify([role]));
       console.log('Register - Role saved to AsyncStorage FIRST:', role);
 
       if (role === 'consultant') {
@@ -242,8 +245,10 @@ const Register = ({ navigation, route }: any) => {
       // Register with backend (useSocialLogin already handles this, but we ensure it's done)
       console.log('Social Register - Backend sync should be complete');
       
-      // Save role to AsyncStorage
+      // Save role in both old and new formats for compatibility
       await AsyncStorage.setItem('role', role);
+      await AsyncStorage.setItem('activeRole', role);
+      await AsyncStorage.setItem('roles', JSON.stringify([role]));
       console.log('Social Register - Role saved to AsyncStorage:', role);
 
       // For consultants, also save initial status
@@ -259,7 +264,8 @@ const Register = ({ navigation, route }: any) => {
           screen: 'ConsultantProfileFlow',
         });
       } else {
-        console.log('Social Register - Navigating to student tabs');
+        // Student or recruiter - navigate to MainTabs
+        console.log(`Social Register - Navigating to MainTabs with role: ${role || 'student'}`);
         navigation.replace('Screen', {
           screen: 'MainTabs',
           params: { role: role || 'student' },

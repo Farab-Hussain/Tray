@@ -1,0 +1,289 @@
+import { StyleSheet } from 'react-native';
+import { COLORS } from '../core/colors';
+
+export const resumeScreenStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.lightBackground,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  section: {
+    marginBottom: 28,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.black,
+    marginBottom: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    fontSize: 15,
+    backgroundColor: COLORS.white,
+    color: COLORS.black,
+  },
+  inputError: {
+    borderColor: COLORS.red,
+    borderWidth: 1.5,
+  },
+  errorText: {
+    color: COLORS.red,
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+    paddingTop: 14,
+  },
+  addSkillContainer: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  addSkillInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 12,
+    padding: 14,
+    marginRight: 8,
+    fontSize: 15,
+    backgroundColor: COLORS.white,
+    color: COLORS.black,
+  },
+  addButton: {
+    backgroundColor: COLORS.green,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  skillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  skillTag: {
+    backgroundColor: COLORS.green,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  skillText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  removeSkillButton: {
+    padding: 2,
+  },
+  addSectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addSectionText: {
+    color: COLORS.green,
+    fontWeight: '600',
+    marginLeft: 4,
+    fontSize: 15,
+  },
+  itemCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.lightBackground,
+  },
+  itemCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  itemCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.black,
+  },
+  removeText: {
+    color: COLORS.red,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfInput: {
+    flex: 1,
+  },
+  dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateInputText: {
+    fontSize: 15,
+    color: COLORS.black,
+  },
+  dateInputPlaceholder: {
+    fontSize: 15,
+    color: COLORS.lightGray,
+  },
+  modalOverlayIOS: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContentIOS: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 0,
+    maxHeight: '70%',
+    minHeight: 350,
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    maxHeight: '80%',
+  },
+  datePickerContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    minHeight: 250,
+    width: '100%',
+    flex: 1,
+  },
+  datePicker: {
+    width: '100%',
+    flex: 1,
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.black,
+    flex: 1,
+    textAlign: 'center',
+  },
+  modalCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  modalCancelText: {
+    color: COLORS.black,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalDoneButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  modalDoneText: {
+    color: COLORS.green,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 2,
+    borderColor: COLORS.lightGray,
+    borderRadius: 4,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.green,
+    borderColor: COLORS.green,
+  },
+  checkmark: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    color: COLORS.black,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  certificateImageSection: {
+    marginTop: 12,
+  },
+  certificateImageLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: 8,
+  },
+  certificateImageUpload: {
+    marginTop: 0,
+  },
+  saveButton: {
+    marginTop: 8,
+  },
+});
+

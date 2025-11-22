@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { Text, View, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import HomeHeader from '../../../components/shared/HomeHeader';
 import { screenStyles } from '../../../constants/styles/screenStyles';
@@ -11,14 +11,18 @@ import { BookingService } from '../../../services/booking.service';
 import { showWarning, showError } from '../../../utils/toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useChatContext } from '../../../contexts/ChatContext';
+import { useRefresh } from '../../../hooks/useRefresh';
 
 const Home = ({ navigation }: any) => {
   const [topConsultant, setTopConsultant] = useState<any>(null);
   const [consultants, setConsultants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [imageCacheKey, setImageCacheKey] = useState(0);
-  const { user } = useAuth();
+  const { user, activeRole, roles } = useAuth();
   const { openChatWith } = useChatContext();
+  
+  // Check if user is a recruiter
+  const isRecruiter = activeRole === 'recruiter' || roles.includes('recruiter');
 
   // Handle icon presses (message, phone, video)
   const handleIconPress = async (
@@ -206,6 +210,8 @@ const Home = ({ navigation }: any) => {
     }
   }, []);
 
+  const { refreshing, handleRefresh } = useRefresh(fetchConsultants);
+
   useEffect(() => {
     fetchConsultants();
   }, [fetchConsultants]);
@@ -216,6 +222,63 @@ const Home = ({ navigation }: any) => {
       fetchConsultants();
     }, [fetchConsultants])
   );
+
+  // If recruiter, show different content
+  if (isRecruiter) {
+    return (
+      <SafeAreaView style={screenStyles.safeArea} edges={['top']}>
+        <HomeHeader />
+        <ScrollView
+          style={screenStyles.scrollViewContainer}
+          contentContainerStyle={screenStyles.scrollViewContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
+          <View style={{ padding: 20, alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+            <Text style={[screenStyles.heading, { marginBottom: 16, textAlign: 'center' }]}>
+              Welcome, Recruiter!
+            </Text>
+            <Text style={{ fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center', lineHeight: 24 }}>
+              Manage your job postings and review applications from your Account screen.
+            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('RecruiterMyJobs')}
+              style={{
+                backgroundColor: '#4CAF50',
+                paddingHorizontal: 24,
+                paddingVertical: 14,
+                borderRadius: 12,
+                marginBottom: 12,
+                width: '100%',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+                View My Jobs
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('RecruiterPostJob')}
+              style={{
+                backgroundColor: '#4CAF50',
+                paddingHorizontal: 24,
+                paddingVertical: 14,
+                borderRadius: 12,
+                width: '100%',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+                Post a New Job
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={screenStyles.safeArea} edges={['top']}>

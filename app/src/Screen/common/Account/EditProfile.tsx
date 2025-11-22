@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
@@ -11,6 +11,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
 import { UserService } from '../../../services/user.service';
+import { editProfileStyles } from '../../../constants/styles/editProfileStyles';
 
 const EditProfile = ({ navigation }: any) => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -202,8 +203,4 @@ const EditProfile = ({ navigation }: any) => {
 
 export default EditProfile;
 
-const styles = StyleSheet.create({
-  imageUploadSpacing: {
-    marginBottom: 20,
-  },
-});
+const styles = editProfileStyles;

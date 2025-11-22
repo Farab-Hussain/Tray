@@ -5,7 +5,9 @@ import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
 import { bookedConsultantsStyles } from '../../../constants/styles/bookedConsultantsStyles';
+import LoadingState from '../../../components/ui/LoadingState';
 import { Calendar, Clock, Phone,  Star } from 'lucide-react-native';
+import { getStatusColor } from '../../../utils/statusUtils';
 import { BookingService } from '../../../services/booking.service';
 
 const BookedConsultants = ({ navigation }: any) => {
@@ -77,18 +79,6 @@ const BookedConsultants = ({ navigation }: any) => {
   //     console.error('❌ Debug error:', error);
   //   }
   // };
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Confirmed':
-        return COLORS.white; // White text on red background
-      case 'Completed':
-        return COLORS.white; // White text on green background
-      case 'Pending':
-        return COLORS.white; // White text on red background
-      default:
-        return COLORS.white;
-    }
-  };
 
   const getStatusBackground = (status: string) => {
     switch (status) {
@@ -124,10 +114,7 @@ const BookedConsultants = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <View style={screenStyles.centerContainer}>
-            <ActivityIndicator size="large" color={COLORS.green} />
-            <Text style={screenStyles.loadingText}>Loading your bookings...</Text>
-          </View>
+          <LoadingState message="Loading your bookings..." />
         ) : bookedConsultants.length === 0 ? (
           <View style={bookedConsultantsStyles.emptyContainer}>
             <Text style={bookedConsultantsStyles.emptyTitle}>No Booked Consultants</Text>
@@ -210,7 +197,7 @@ const BookedConsultants = ({ navigation }: any) => {
                     ]}>
                       <Text style={[
                         bookedConsultantsStyles.statusText, 
-                        { color: getStatusColor(displayStatus) }
+                        { color: getStatusColor(displayStatus, 'booking') }
                       ]}>
                         {displayStatus}
                       </Text>

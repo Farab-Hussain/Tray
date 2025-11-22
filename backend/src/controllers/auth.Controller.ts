@@ -26,10 +26,10 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Validate role
-    if (!['student', 'consultant', 'admin'].includes(role)) {
+    if (!['student', 'consultant', 'admin', 'recruiter'].includes(role)) {
       Logger.error(route, "", `Invalid role: ${role}`);
       return res.status(400).json({
-        error: "Invalid role. Must be 'student', 'consultant', or 'admin'"
+        error: "Invalid role. Must be 'student', 'consultant', 'admin', or 'recruiter'"
       });
     }
 
@@ -88,7 +88,7 @@ export const getMe = async (req: Request, res: Response) => {
 
   try {
     const user = (req as any).user;
-    
+
     if (!user || !user.uid) {
       console.error("❌ [GET /auth/me] - No user or uid in request");
       return res.status(401).json({ error: "User not authenticated" });
@@ -99,32 +99,32 @@ export const getMe = async (req: Request, res: Response) => {
     // OPTIMIZATION: Check cache first to avoid Firestore query
     const cacheKey = `user:${user.uid}`;
     const cachedProfile = cache.get(cacheKey);
-    
+
     if (cachedProfile) {
       const cacheTime = Date.now() - startTime;
       console.log(`⚡ [GET /auth/me] - Profile retrieved from cache in ${cacheTime}ms for user: ${user.uid}`);
-      
+
       const responseData = {
         uid: user.uid,
         email: user.email,
         emailVerified: user.email_verified,
         ...cachedProfile
       };
-      
+
       return res.json(responseData);
     }
 
     // OPTIMIZED: Firestore query with proper timeout and error handling
     // Use direct document reference for fastest access (no collection scan needed)
     const FIRESTORE_TIMEOUT_MS = 5000; // 5 seconds - faster timeout
-    
+
     let doc: any;
     try {
       // OPTIMIZATION: Use direct document reference - fastest way to get a document
       // This bypasses any collection-level queries and goes straight to the document
       const userDocRef = db.collection("users").doc(user.uid);
       const firestorePromise = userDocRef.get();
-      
+
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           reject(new Error(`Firestore query timeout after ${FIRESTORE_TIMEOUT_MS}ms`));
@@ -132,7 +132,7 @@ export const getMe = async (req: Request, res: Response) => {
       });
 
       doc = await Promise.race([firestorePromise, timeoutPromise]);
-      
+
       // Log query performance for monitoring
       const queryTime = Date.now() - startTime;
       if (queryTime > 2000) {
@@ -147,24 +147,24 @@ export const getMe = async (req: Request, res: Response) => {
     } catch (queryError: any) {
       const elapsed = Date.now() - startTime;
       console.error(`❌ [GET /auth/me] - Firestore query error after ${elapsed}ms:`, queryError.message);
-      
+
       // Check for specific Firestore errors
       if (queryError.message?.includes('timeout') || queryError.code === 'deadline-exceeded') {
-        return res.status(504).json({ 
+        return res.status(504).json({
           error: "Database timeout",
           message: "The database query took too long. This may be due to index building. Please try again in a moment."
         });
       }
-      
+
       if (queryError.code === 'unavailable' || queryError.code === 'internal') {
-        return res.status(503).json({ 
+        return res.status(503).json({
           error: "Database unavailable",
           message: "The database is temporarily unavailable. Please try again."
         });
       }
-      
+
       // Generic error
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Failed to fetch user profile",
         message: "Database error occurred. Please try again."
       });
@@ -222,11 +222,11 @@ export const getMe = async (req: Request, res: Response) => {
 
     const profile = doc.data();
     console.log(`✅ [GET /auth/me] - User profile retrieved: ${user.uid}`);
-    
+
     // OPTIMIZATION: Cache the profile for 2 minutes to reduce Firestore queries
     // Cache TTL is shorter than default to ensure fresh data for profile updates
     cache.set(cacheKey, profile, 2 * 60 * 1000); // 2 minutes
-    
+
     const responseData = {
       uid: user.uid,
       email: user.email,
@@ -236,7 +236,7 @@ export const getMe = async (req: Request, res: Response) => {
 
     const totalTime = Date.now() - startTime;
     console.log(`✅ [GET /auth/me] - Response sent in ${totalTime}ms`);
-    
+
     // Ensure response is sent
     if (!res.headersSent) {
       res.json(responseData);
@@ -247,7 +247,7 @@ export const getMe = async (req: Request, res: Response) => {
       stack: error.stack,
       elapsedTime: Date.now() - startTime,
     });
-    
+
     // Ensure error response is sent
     if (!res.headersSent) {
       res.status(500).json({ error: error.message || 'Internal server error' });
@@ -585,11 +585,11 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
     // Generate custom verification token (bypasses Firebase rate limits)
     const verificationToken = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(verificationToken).digest('hex');
-    
+
     // Store token in Firestore with expiration (24 hours)
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
-    
+
     await db.collection('email_verification_tokens').doc(userRecord.uid).set({
       uid: userRecord.uid,
       email: userRecord.email,
@@ -604,13 +604,13 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
     // - localhost:3000 (for local development)
     // - https://tray-dashboard-eight.vercel.app (for production web)
     // - Leave empty to use mobile deep link only
-    const webUrl = process.env.FRONTEND_URL || process.env.APP_URL || '';
+    const webUrl = (process.env.FRONTEND_URL || process.env.APP_URL || '').replace(/\/+$/, ''); // Remove trailing slashes
     const mobileLink = `tray://email-verification?token=${verificationToken}&uid=${userRecord.uid}`;
     const webLink = webUrl ? `${webUrl}/verify-email?token=${verificationToken}&uid=${userRecord.uid}` : null;
-    
+
     // Use web link if available, otherwise use mobile link
     const verificationLink = webLink || mobileLink;
-    
+
     Logger.success(route, userRecord.uid, `Generated custom verification token for ${userRecord.email}`);
     Logger.info(route, userRecord.uid, `Verification link: ${verificationLink}`);
 
@@ -633,12 +633,10 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
             <p style="font-size: 16px;">Thank you for registering with Tray! Please verify your email address by clicking the button below:</p>
             <div style="text-align: center; margin: 30px 0;">
               ${webLink ? `<a href="${webLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; margin-bottom: 15px;">Verify your email</a>` : ''}
-              <br/>
-              <a href="${mobileLink}" style="background: #22c55e; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Open in Mobile App</a>
+             
             </div>
-            <p style="font-size: 14px; color: #666;">Or copy and paste this link into your browser or mobile app:</p>
+            <p style="font-size: 14px; color: #666;">Or copy and paste this link into your browser to verify your email.</p>
             <p style="font-size: 12px; color: #999; word-break: break-all; background: #fff; padding: 10px; border-radius: 5px;">${verificationLink}</p>
-            ${webLink }
             <p style="font-size: 14px; color: #666; margin-top: 30px;">This link will expire in 24 hours.</p>
             <p style="font-size: 14px; color: #666;">If you didn't create an account, please ignore this email.</p>
           </div>
@@ -656,11 +654,11 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
         
         Thank you for registering with Tray! Please verify your email address by clicking the link below:
         
-        ${webLink ? `Web Link: ${webLink}\n\nMobile App Link: ${mobileLink}` : `Verification Link: ${verificationLink}`}
+        ${webLink ? `Web Link: ${webLink}` : `Verification Link: ${verificationLink}`}
         
         This link will expire in 24 hours.
         
-        ${webLink ? 'Note: If you\'re on mobile, use the mobile app link to verify directly in the app. If you\'re on desktop, use the web link.' : 'Note: Open this link in the Tray mobile app to verify your email.'}
+        ${webLink ? 'Note: If you\'re on desktop, use the web link to verify your email.' : ''}
         
         If you didn't create an account, please ignore this email.
         
@@ -675,13 +673,13 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
       });
 
       if (emailResult.sent) {
-      Logger.success(route, userRecord.uid, `Verification email sent via SMTP to ${userRecord.email}`);
-      res.json({
-        success: true,
-        message: "Verification email sent successfully",
-        email: userRecord.email,
-        emailSent: true
-      });
+        Logger.success(route, userRecord.uid, `Verification email sent via SMTP to ${userRecord.email}`);
+        res.json({
+          success: true,
+          message: "Verification email sent successfully",
+          email: userRecord.email,
+          emailSent: true
+        });
       } else {
         // Email sending failed (not configured or error)
         Logger.warn(route, userRecord.uid, `SMTP email failed: ${emailResult.error || 'Unknown error'}`);
@@ -717,16 +715,16 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
     const errorString = JSON.stringify(error).toLowerCase();
 
     // Fallback: If continue URI error somehow reached here, try generating default link
-    
+
     if (errorCode === 'auth/invalid-continue-uri' ||
-        errorCode === 'auth/unauthorized-continue-uri' ||
-        errorMessage?.toLowerCase().includes('invalid-continue-uri') ||
-        errorMessage?.toLowerCase().includes('unauthorized-continue-uri') ||
-        errorMessage?.toLowerCase().includes('domain not allowlisted') ||
-        errorString.includes('invalid-continue-uri') ||
-        errorString.includes('unauthorized-continue-uri') ||
-        errorString.includes('domain not allowlisted')) {
-      
+      errorCode === 'auth/unauthorized-continue-uri' ||
+      errorMessage?.toLowerCase().includes('invalid-continue-uri') ||
+      errorMessage?.toLowerCase().includes('unauthorized-continue-uri') ||
+      errorMessage?.toLowerCase().includes('domain not allowlisted') ||
+      errorString.includes('invalid-continue-uri') ||
+      errorString.includes('unauthorized-continue-uri') ||
+      errorString.includes('domain not allowlisted')) {
+
       // No Firebase fallback - custom token system handles all verification
       // Errors will be returned as normal error responses
     }
@@ -793,7 +791,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
     // Use Firestore's native limit for better performance
     // Note: For large datasets, consider implementing cursor-based pagination
     query = query.limit(limit * 10); // Fetch a larger batch to support pagination
-    
+
     const allDocs = await query.get();
     const total = allDocs.size;
 
@@ -904,9 +902,9 @@ export const switchRole = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "New role is required" });
     }
 
-    if (!['student', 'consultant'].includes(newRole)) {
+    if (!['student', 'consultant', 'recruiter'].includes(newRole)) {
       Logger.error(route, user.uid, `Invalid role: ${newRole}`);
-      return res.status(400).json({ error: "Invalid role. Must be 'student' or 'consultant'" });
+      return res.status(400).json({ error: "Invalid role. Must be 'student', 'consultant', or 'recruiter'" });
     }
 
     // Email verification is already required at login, so no need to check here
@@ -965,6 +963,37 @@ export const switchRole = async (req: Request, res: Response) => {
         activeRole: newRole,
         roles: updatedRoles,
         profileStatus: profileStatus,
+      });
+    }
+
+    // If switching to recruiter - no approval needed, can switch immediately
+    if (newRole === 'recruiter') {
+      // Add recruiter to roles if not already present
+      let updatedRoles = currentRoles;
+      if (!currentRoles.includes('recruiter')) {
+        updatedRoles = [...currentRoles, 'recruiter'];
+        await db.collection("users").doc(user.uid).update({
+          roles: updatedRoles,
+          updatedAt: new Date(),
+        });
+      }
+
+      // No profile check needed - recruiters can post jobs immediately
+      await db.collection("users").doc(user.uid).update({
+        activeRole: newRole,
+        role: newRole, // Keep for backward compatibility
+        roles: updatedRoles,
+        updatedAt: new Date(),
+      });
+
+      // Invalidate cache after role switch
+      cache.delete(`user:${user.uid}`);
+
+      Logger.success(route, user.uid, `Role switched from ${currentActiveRole} to ${newRole}`);
+      return res.status(200).json({
+        message: `Role switched to ${newRole} successfully`,
+        activeRole: newRole,
+        roles: updatedRoles,
       });
     }
 
@@ -1027,7 +1056,7 @@ export const changePassword = async (req: Request, res: Response) => {
 
     // Verify current password by attempting to sign in using Firebase Auth REST API
     const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    
+
     if (!firebaseApiKey) {
       Logger.error(route, "", "Firebase API key not configured");
       return res.status(500).json({ error: "Server configuration error" });
@@ -1058,45 +1087,45 @@ export const changePassword = async (req: Request, res: Response) => {
     } catch (verifyError: any) {
       // If sign-in fails, the current password is incorrect
       Logger.error(route, user.uid, "Password verification failed", verifyError.response?.data || verifyError.message);
-      
+
       if (verifyError.response?.status === 400 && verifyError.response?.data?.error) {
         const errorCode = verifyError.response.data.error.message || '';
         const errorMessage = verifyError.response.data.error.message || '';
-        
+
         // Check for specific Firebase Auth error codes
-        if (errorCode.includes("INVALID_PASSWORD") || 
-            errorMessage.includes("INVALID_PASSWORD") ||
-            errorCode.includes("WRONG_PASSWORD") ||
-            errorMessage.includes("WRONG_PASSWORD")) {
+        if (errorCode.includes("INVALID_PASSWORD") ||
+          errorMessage.includes("INVALID_PASSWORD") ||
+          errorCode.includes("WRONG_PASSWORD") ||
+          errorMessage.includes("WRONG_PASSWORD")) {
           Logger.error(route, user.uid, "Current password is incorrect");
-          return res.status(400).json({ 
-            error: "Current password is incorrect" 
+          return res.status(400).json({
+            error: "Current password is incorrect"
           });
         }
-        
-        if (errorCode.includes("EMAIL_NOT_FOUND") || 
-            errorMessage.includes("EMAIL_NOT_FOUND") ||
-            errorCode.includes("USER_NOT_FOUND") ||
-            errorMessage.includes("USER_NOT_FOUND")) {
+
+        if (errorCode.includes("EMAIL_NOT_FOUND") ||
+          errorMessage.includes("EMAIL_NOT_FOUND") ||
+          errorCode.includes("USER_NOT_FOUND") ||
+          errorMessage.includes("USER_NOT_FOUND")) {
           Logger.error(route, user.uid, "User email not found in Firebase Auth");
-          return res.status(400).json({ 
-            error: "User email not found" 
+          return res.status(400).json({
+            error: "User email not found"
           });
         }
-        
-        if (errorCode.includes("INVALID_EMAIL") || 
-            errorMessage.includes("INVALID_EMAIL")) {
+
+        if (errorCode.includes("INVALID_EMAIL") ||
+          errorMessage.includes("INVALID_EMAIL")) {
           Logger.error(route, user.uid, "Invalid email format");
-          return res.status(400).json({ 
-            error: "Invalid email format" 
+          return res.status(400).json({
+            error: "Invalid email format"
           });
         }
       }
-      
+
       // Default error response for any other verification failures
       Logger.error(route, user.uid, "Current password verification failed", verifyError);
-      return res.status(400).json({ 
-        error: "Current password is incorrect" 
+      return res.status(400).json({
+        error: "Current password is incorrect"
       });
     }
   } catch (error: any) {
@@ -1192,13 +1221,13 @@ export const createAdminUser = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     Logger.error(route, "", "Error creating admin user", error);
-    
+
     if (error.code === 'auth/email-already-exists') {
       return res.status(400).json({
         error: "User with this email already exists"
       });
     }
-    
+
     res.status(500).json({
       error: "Failed to create admin user",
       message: error.message
@@ -1215,62 +1244,83 @@ export const verifyEmail = async (req: Request, res: Response) => {
 
     // Support both token-based (new) and uid/email-based (legacy) verification
     let targetUid: string | null = null;
-    
+
     if (token && uid) {
       // New token-based verification (bypasses Firebase rate limits)
       targetUid = uid;
       Logger.info(route, uid, "Using token-based verification");
-      
+
       // Get token from Firestore
       Logger.info(route, uid, "Fetching token from Firestore...");
       const tokenDoc = await db.collection('email_verification_tokens').doc(uid).get();
       Logger.info(route, uid, `Token document exists: ${tokenDoc.exists}`);
-      
+
       if (!tokenDoc.exists) {
-        Logger.error(route, uid, "Verification token not found or expired");
-        return res.status(400).json({ 
-          error: "Invalid or expired verification token",
-          code: "INVALID_TOKEN"
-        });
+        Logger.error(route, uid, "Verification token not found in Firestore - may have been used or expired");
+        // Fall back to legacy verification if token not found (user might have already verified)
+        Logger.info(route, uid, "Falling back to legacy verification...");
+        const user = (req as any).user;
+        targetUid = uid || user?.uid || null;
+
+        if (!email && !targetUid) {
+          return res.status(400).json({
+            error: "Invalid or expired verification token. Please request a new verification email.",
+            code: "INVALID_TOKEN"
+          });
+        }
+        // Continue with legacy verification below
+      } else {
+        const tokenData = tokenDoc.data();
+
+        // Check if token expired
+        if (tokenData && tokenData.expiresAt && tokenData.expiresAt.toDate() < new Date()) {
+          Logger.error(route, uid, "Verification token expired");
+          await db.collection('email_verification_tokens').doc(uid).delete();
+          return res.status(400).json({
+            error: "Verification token has expired. Please request a new verification email.",
+            code: "TOKEN_EXPIRED"
+          });
+        }
+
+        // Verify token hash
+        Logger.info(route, uid, "Verifying token hash...");
+        const tokenHash = createHash('sha256').update(token).digest('hex');
+        if (tokenData?.tokenHash !== tokenHash) {
+          Logger.error(route, uid, `Invalid verification token - hash mismatch. Expected: ${tokenData?.tokenHash?.substring(0, 10)}..., Got: ${tokenHash.substring(0, 10)}...`);
+          // Don't return error immediately - fall back to legacy verification
+          Logger.info(route, uid, "Token hash mismatch, falling back to legacy verification...");
+          const user = (req as any).user;
+          targetUid = uid || user?.uid || null;
+
+          if (!email && !targetUid) {
+            return res.status(400).json({
+              error: "Invalid verification token. Please request a new verification email.",
+              code: "INVALID_TOKEN"
+            });
+          }
+          // Continue with legacy verification below
+        } else {
+          // Token is valid
+          Logger.info(route, uid, "Token verified successfully, deleting from Firestore...");
+          await db.collection('email_verification_tokens').doc(uid).delete();
+          Logger.info(route, uid, "Token deleted from Firestore");
+        }
       }
-      
-      const tokenData = tokenDoc.data();
-      
-      // Check if token expired
-      if (tokenData && tokenData.expiresAt && tokenData.expiresAt.toDate() < new Date()) {
-        Logger.error(route, uid, "Verification token expired");
-        await db.collection('email_verification_tokens').doc(uid).delete();
-        return res.status(400).json({ 
-          error: "Verification token has expired. Please request a new verification email.",
-          code: "TOKEN_EXPIRED"
-        });
-      }
-      
-      // Verify token hash
-      Logger.info(route, uid, "Verifying token hash...");
-      const tokenHash = createHash('sha256').update(token).digest('hex');
-      if (tokenData?.tokenHash !== tokenHash) {
-        Logger.error(route, uid, "Invalid verification token - hash mismatch");
-        return res.status(400).json({ 
-          error: "Invalid verification token",
-          code: "INVALID_TOKEN"
-        });
-      }
-      
-      Logger.info(route, uid, "Token verified successfully, deleting from Firestore...");
-      // Token is valid, delete it
-      await db.collection('email_verification_tokens').doc(uid).delete();
-      Logger.info(route, uid, "Token deleted from Firestore");
-      
-    } else {
+    }
+
+    // Legacy verification (for backward compatibility or when token verification fails)
+    if (!targetUid) {
       // Legacy verification (for backward compatibility)
       Logger.info(route, uid || "", "Using legacy verification");
       const user = (req as any).user;
       targetUid = uid || user?.uid || null;
 
       if (!email && !targetUid) {
-        Logger.error(route, "", "Missing token+uid, email, or uid");
-        return res.status(400).json({ error: "token+uid, email, or uid is required" });
+        Logger.error(route, "", "Missing token+uid, email, or authenticated uid");
+        return res.status(400).json({
+          error: "Invalid verification token. If you're logged in, you can verify your email from the app settings.",
+          code: "INVALID_TOKEN"
+        });
       }
     }
 

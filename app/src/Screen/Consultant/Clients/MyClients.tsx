@@ -19,6 +19,8 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
 import { MessageCircle, User, Search } from 'lucide-react-native';
+import ErrorDisplay from '../../../components/ui/ErrorDisplay';
+import LoadingState from '../../../components/ui/LoadingState';
 import { BookingService } from '../../../services/booking.service';
 import { api } from '../../../lib/fetcher';
 
@@ -228,10 +230,7 @@ const MyClients = ({ navigation }: any) => {
           title="My Clients"
           onBackPress={() => navigation.goBack()}
         />
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={COLORS.green} />
-          <Text style={styles.loadingText}>Loading your clients...</Text>
-        </View>
+        <LoadingState message="Loading your clients..." />
       </SafeAreaView>
     );
   }
@@ -243,15 +242,11 @@ const MyClients = ({ navigation }: any) => {
           title="My Clients"
           onBackPress={() => navigation.goBack()}
         />
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => fetchMyClients(true)}>
-            <Text style={styles.retryButton}>
-              Retry
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorDisplay
+          error={error}
+          onRetry={() => fetchMyClients(true)}
+          retryLabel="Retry"
+        />
       </SafeAreaView>
     );
   }

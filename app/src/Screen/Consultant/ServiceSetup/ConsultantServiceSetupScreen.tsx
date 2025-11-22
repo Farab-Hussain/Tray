@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +26,8 @@ import {
   ConsultantApplication,
 } from '../../../services/consultantFlow.service';
 import { COLORS } from '../../../constants/core/colors';
+import { consultantServiceSetupScreenStyles as styles } from '../../../constants/styles/consultantServiceSetupScreenStyles';
+import StatCard from '../../../components/ui/StatCard';
 
 export default function ConsultantServiceSetupScreen() {
   const navigation = useNavigation();
@@ -229,23 +230,21 @@ export default function ConsultantServiceSetupScreen() {
             <Text style={styles.statsTitle}>Your Service Applications</Text>
             
             <View style={styles.statsRow}>
-              <View style={[styles.statCard, styles.statCardPending]}>
-                <Clock size={24} color="#F59E0B" />
-                <Text style={styles.statValue}>{pendingApplications.length}</Text>
-                <Text style={styles.statLabel}>Pending</Text>
-              </View>
-
-              <View style={[styles.statCard, styles.statCardApproved]}>
-                <CheckCircle size={24} color="#10B981" />
-                <Text style={styles.statValue}>{approvedApplications.length}</Text>
-                <Text style={styles.statLabel}>Approved</Text>
-              </View>
-
-              <View style={[styles.statCard, styles.statCardRejected]}>
-                <FileText size={24} color="#EF4444" />
-                <Text style={styles.statValue}>{rejectedApplications.length}</Text>
-                <Text style={styles.statLabel}>Rejected</Text>
-              </View>
+              {[
+                { icon: Clock, iconColor: '#F59E0B', value: pendingApplications.length, label: 'Pending', variant: 'pending' as const },
+                { icon: CheckCircle, iconColor: '#10B981', value: approvedApplications.length, label: 'Approved', variant: 'approved' as const },
+                { icon: FileText, iconColor: '#EF4444', value: rejectedApplications.length, label: 'Rejected', variant: 'rejected' as const },
+              ].map((statConfig, index) => (
+                <StatCard
+                  key={index}
+                  icon={statConfig.icon}
+                  iconSize={24}
+                  iconColor={statConfig.iconColor}
+                  value={statConfig.value}
+                  label={statConfig.label}
+                  variant={statConfig.variant}
+                />
+              ))}
             </View>
           </View>
         )}
@@ -365,260 +364,3 @@ export default function ConsultantServiceSetupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 40, // Add extra top padding to ensure content doesn't overlap with status bar
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  headerIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#D1FAE5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: 20,
-  },
-  stepsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  stepsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 20,
-  },
-  stepItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  stepIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  stepIconCompleted: {
-    backgroundColor: COLORS.green,
-  },
-  stepIconPending: {
-    backgroundColor: '#6B7280',
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  stepDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  statsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  statCardPending: {
-    backgroundColor: '#FEF3C7',
-  },
-  statCardApproved: {
-    backgroundColor: '#D1FAE5',
-  },
-  statCardRejected: {
-    backgroundColor: '#FEE2E2',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  benefitsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  benefitsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  benefitContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  benefitTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  benefitDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  actionsContainer: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.green,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.green,
-    gap: 8,
-  },
-  secondaryButtonText: {
-    color: COLORS.green,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  tertiaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    gap: 8,
-    marginTop: 8,
-  },
-  tertiaryButtonText: {
-    color: '#6B7280',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  manualNavButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#059669',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
-    marginTop: 8,
-    borderWidth: 2,
-    borderColor: '#047857',
-  },
-  manualNavButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  helpContainer: {
-    backgroundColor: '#F0F9FF',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-  },
-  helpText: {
-    fontSize: 14,
-    color: '#0369A1',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});

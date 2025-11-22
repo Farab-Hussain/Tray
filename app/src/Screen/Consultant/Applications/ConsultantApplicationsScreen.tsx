@@ -5,7 +5,6 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   ActivityIndicator,
   Modal,
@@ -18,6 +17,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, Plus, X, CheckCircle, Clock, XCircle, FileText, Trash2, Pencil } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
+import { consultantApplicationsScreenStyles as styles } from '../../../constants/styles/consultantApplicationsScreenStyles';
+import { getStatusColor } from '../../../utils/statusUtils';
+import EmptyState from '../../../components/ui/EmptyState';
 import {
   createConsultantApplication,
   getConsultantApplications,
@@ -26,6 +28,7 @@ import {
   ConsultantApplication,
 } from '../../../services/consultantFlow.service';
 import ImageUpload from '../../../components/ui/ImageUpload';
+import StatCard from '../../../components/ui/StatCard';
 import { api } from '../../../lib/fetcher';
 import { ConsultantService } from '../../../services/consultant.service';
 import axios from 'axios';
@@ -645,14 +648,6 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
   setMutatingApplicationId(null);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return COLORS.green;
-      case 'pending': return COLORS.orange;
-      case 'rejected': return COLORS.red;
-      default: return COLORS.gray;
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -696,47 +691,43 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
 
       {/* Stats */}
       <View style={styles.statsContainer}>
-        <View style={[styles.statCard, styles.statCardPending]}>
-          <Text style={[styles.statValue, styles.statValuePending]}>{pendingCount}</Text>
-          <Text style={[styles.statLabel, styles.statLabelPending]}>Pending</Text>
-        </View>
-        <View style={[styles.statCard, styles.statCardApproved]}>
-          <Text style={[styles.statValue, styles.statValueApproved]}>{approvedCount}</Text>
-          <Text style={[styles.statLabel, styles.statLabelApproved]}>Approved</Text>
-        </View>
-        <View style={[styles.statCard, styles.statCardRejected]}>
-          <Text style={[styles.statValue, styles.statValueRejected]}>{rejectedCount}</Text>
-          <Text style={[styles.statLabel, styles.statLabelRejected]}>Rejected</Text>
-        </View>
+        {[
+          { value: pendingCount, label: 'Pending', variant: 'pending' as const },
+          { value: approvedCount, label: 'Approved', variant: 'approved' as const },
+          { value: rejectedCount, label: 'Rejected', variant: 'rejected' as const },
+        ].map((statConfig, index) => (
+          <StatCard
+            key={index}
+            value={statConfig.value}
+            label={statConfig.label}
+            variant={statConfig.variant}
+          />
+        ))}
       </View>
 
       {/* Applications List */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {applications.length === 0 ? (
-          <View style={styles.emptyState}>
-            <FileText size={48} color={COLORS.lightGray} />
-            <Text style={styles.emptyTitle}>No Applications Yet</Text>
-            <Text style={styles.emptyText}>Browse and apply from existing platform services</Text>
-            <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={() => {
-                navigation.navigate('BrowseServices' as never);
-              }}
-            >
-              <Plus size={20} color={COLORS.white} />
-              <Text style={styles.emptyButtonText}>Apply from Existing Services</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon={FileText}
+            iconSize={48}
+            iconColor={COLORS.lightGray}
+            title="No Applications Yet"
+            description="Browse and apply from existing platform services"
+            actionLabel="Apply from Existing Services"
+            onAction={() => navigation.navigate('BrowseServices' as never)}
+            actionIcon={Plus}
+          />
         ) : (
           <View style={styles.applicationsList}>
             {applications.map((app) => (
               <View key={app.id} style={styles.applicationCard}>
                 <View style={styles.cardHeader}>
                   <FileText size={20} color={COLORS.green} />
-                  <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(app.status)}20` }]}>
+                  <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(app.status, 'service')}20` }]}>
                     <View style={styles.statusContent}>
                       {getStatusIcon(app.status)}
-                      <Text style={[styles.statusText, { color: getStatusColor(app.status) }]}>
+                      <Text style={[styles.statusText, { color: getStatusColor(app.status, 'service') }]}>
                         {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
                       </Text>
                     </View>
@@ -1012,386 +1003,4 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: COLORS.gray,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: 20, // Add extra top padding
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  headerButton: {
-    width: 24,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.black,
-    flex: 1,
-    textAlign: 'center',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statCardPending: {
-    backgroundColor: COLORS.yellow,
-  },
-  statValuePending: {
-    color: COLORS.orange,
-  },
-  statLabelPending: {
-    color: COLORS.orange,
-  },
-  statCardApproved: {
-    backgroundColor: COLORS.green,
-  },
-  statValueApproved: {
-    color: COLORS.white,
-  },
-  statLabelApproved: {
-    color: COLORS.white,
-  },
-  statCardRejected: {
-    backgroundColor: COLORS.red,
-  },
-  statValueRejected: {
-    color: COLORS.white,
-  },
-  statLabelRejected: {
-    color: COLORS.white,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.black,
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginTop: 8,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.green,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
-    gap: 8,
-  },
-  emptyButtonText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  applicationsList: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  applicationCard: {
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.black,
-    marginBottom: 8,
-  },
-  videoPreviewContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  playButtonOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
-  playButtonText: {
-    color: COLORS.white,
-    fontSize: 48,
-    fontWeight: 'bold',
-  },
-  serviceImageContainer: {
-    marginBottom: 12,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  serviceImage: {
-    width: '100%',
-    height: 120,
-    borderRadius: 8,
-  },
-  cardDescription: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginBottom: 8,
-  },
-  cardDetails: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  cardDetailText: {
-    fontSize: 13,
-    color: COLORS.lightGray,
-  },
-  reviewNotes: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.red,
-  },
-  reviewNotesLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.red,
-    marginBottom: 4,
-  },
-  reviewNotesText: {
-    fontSize: 13,
-    color: COLORS.black,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  editButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#E6F7EE',
-    gap: 6,
-  },
-  editButtonText: {
-    color: COLORS.green,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  deleteButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#FEE2E2',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  deleteButtonEmphasis: {
-    backgroundColor: '#F87171',
-    borderColor: '#F87171',
-  },
-  deleteButtonText: {
-    color: COLORS.red,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  deleteButtonTextStrong: {
-    color: COLORS.white,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.black,
-  },
-  modalForm: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.black,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: COLORS.black,
-  },
-  imageUpload: {
-    marginTop: 8,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  charCount: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginTop: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfWidth: {
-    flex: 1,
-  },
-  priceInput: {
-    position: 'relative',
-  },
-  priceSymbol: {
-    position: 'absolute',
-    left: 12,
-    top: 10,
-    fontSize: 14,
-    color: COLORS.gray,
-    zIndex: 1,
-  },
-  priceInputField: {
-    paddingLeft: 28,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: COLORS.lightGray,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: COLORS.black,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  submitButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: COLORS.green,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    backgroundColor: COLORS.gray,
-  },
-  submitButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bottomSpacer: {
-    height: 20,
-  },
-});
 

@@ -1,6 +1,12 @@
-import { BadgeInfo, Bell, LogOut, MessageCircle, User, Star, ShoppingCart, Lock, UserCircle, Briefcase, FileText, ClipboardList } from "lucide-react-native";
+import { BadgeInfo, Bell, LogOut, MessageCircle, User, Star, ShoppingCart, Lock, UserCircle, Briefcase, FileText, ClipboardList, UserCog } from "lucide-react-native";
 
 export const ProfileListData = [
+    {
+        id: 0.5,
+        icon: UserCog,
+        text: "Profile",
+        route: "StudentProfile",
+    },
     {
         id: 1,
         icon: MessageCircle,
@@ -39,12 +45,6 @@ export const ProfileListData = [
         route: "MyApplications",
     },
     {
-        id: 4.7,
-        icon: FileText,
-        text: "My Resume",
-        route: "Resume",
-    },
-    {
         id: 5,
         icon: Bell,
         text: "Notifications",
@@ -56,18 +56,6 @@ export const ProfileListData = [
         icon: BadgeInfo,
         text: "Help & Support",
         route: "Help",
-    },
-    {
-        id: 7,
-        icon: Lock,
-        text: "Change Password",
-        route: "ChangePassword",
-    },
-    {
-        id: 8,
-        icon: UserCircle,
-        text: "Change Username",
-        route: "ChangeUsername",
     },
     {
         id: 9,

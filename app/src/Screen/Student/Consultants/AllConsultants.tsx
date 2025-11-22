@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Alert, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ConsultantCard from '../../../components/ui/ConsultantCard';
@@ -11,6 +11,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { showError } from '../../../utils/toast';
 import { COLORS } from '../../../constants/core/colors';
+import { useRefresh } from '../../../hooks/useRefresh';
+import LoadMoreButton from '../../../components/ui/LoadMoreButton';
 
 const AllConsultants = ({ navigation }: any) => {
   const [consultants, setConsultants] = useState<any[]>([]);
@@ -194,6 +196,14 @@ const AllConsultants = ({ navigation }: any) => {
     }
   }, []);
 
+  const handleRefreshAction = useCallback(async () => {
+    setPage(1);
+    setHasMore(true);
+    await fetchConsultants(1, false);
+  }, [fetchConsultants]);
+
+  const { refreshing, handleRefresh } = useRefresh(handleRefreshAction);
+
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore) {
       fetchConsultants(page + 1, true);
@@ -222,6 +232,9 @@ const AllConsultants = ({ navigation }: any) => {
         style={screenStyles.scrollViewContainer}
         contentContainerStyle={screenStyles.scrollViewContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
         {loading ? (
           <Text style={screenStyles.loadingText}>Loading consultants...</Text>
@@ -263,29 +276,11 @@ const AllConsultants = ({ navigation }: any) => {
                 />
               </View>
             ))}
-            {hasMore && (
-              <View style={{ padding: 16, alignItems: 'center' }}>
-                <TouchableOpacity
-                  onPress={loadMore}
-                  disabled={loadingMore}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 24,
-                    backgroundColor: COLORS.green,
-                    borderRadius: 8,
-                    opacity: loadingMore ? 0.6 : 1,
-                  }}
-                >
-                  {loadingMore ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={{ color: '#fff', fontWeight: '600' }}>
-                      Load More
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
+            <LoadMoreButton
+              onPress={loadMore}
+              loading={loadingMore}
+              hasMore={hasMore}
+            />
           </View>
         ) : (
           <Text style={screenStyles.emptyStateText}>No consultants available</Text>

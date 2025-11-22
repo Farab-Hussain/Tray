@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, Alert, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -12,6 +12,8 @@ import { ConsultantService } from '../../../services/consultant.service';
 import { ReviewService } from '../../../services/review.service';
 import { COLORS } from '../../../constants/core/colors';
 import { Star } from 'lucide-react-native';
+import { useRefresh } from '../../../hooks/useRefresh';
+import LoadMoreButton from '../../../components/ui/LoadMoreButton';
 
 const Services = ({ navigation, route }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -193,6 +195,23 @@ const Services = ({ navigation, route }: any) => {
       setLoadingMore(false);
     }
   }, [resolveServiceImage, servicesPage]);
+
+  const handleRefreshAction = useCallback(async () => {
+    setServicesPage(1);
+    setReviewsPage(1);
+    setHasMoreServices(true);
+    setHasMoreReviews(true);
+    if (consultantId) {
+      await Promise.all([
+        fetchServices(consultantId, 1, false),
+        fetchReviews(1, false),
+      ]);
+    } else {
+      await fetchServices(undefined, 1, false);
+    }
+  }, [consultantId, fetchServices, fetchReviews]);
+
+  const { refreshing, handleRefresh } = useRefresh(handleRefreshAction);
   useEffect(() => {
     const parent = navigation.getParent?.();
     if (!parent) {
@@ -356,6 +375,9 @@ const Services = ({ navigation, route }: any) => {
         style={screenStyles.scrollViewContainer}
         contentContainerStyle={screenStyles.scrollViewContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
         {/* Search Bar */}
         <SearchBar 
@@ -440,6 +462,14 @@ const Services = ({ navigation, route }: any) => {
                 );
               })}
             </View>
+            {!consultantId && (
+              <LoadMoreButton
+                onPress={loadMoreServices}
+                loading={loadingMore}
+                hasMore={hasMoreServices}
+                label="Load More Services"
+              />
+            )}
           </View>
         ) : searchQuery ? (
           <Text style={screenStyles.emptyStateText}>

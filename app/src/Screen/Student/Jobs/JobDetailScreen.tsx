@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
-import { screenStyles } from '../../../constants/styles/screenStyles';
+import { ScrollView, View, Text, Alert, RefreshControl } from 'react-native';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import AppButton from '../../../components/ui/AppButton';
 import Loader from '../../../components/ui/Loader';
 import { JobService } from '../../../services/job.service';
 import { ResumeService } from '../../../services/resume.service';
 import { COLORS } from '../../../constants/core/colors';
-import { showError, showSuccess } from '../../../utils/toast';
+import { showError, showSuccess, showInfo } from '../../../utils/toast';
 import { useAuth } from '../../../contexts/AuthContext';
+import { jobDetailScreenStyles } from '../../../constants/styles/jobDetailScreenStyles';
+import { useRefresh } from '../../../hooks/useRefresh';
 
 const JobDetailScreen = ({ navigation, route }: any) => {
   const { jobId } = route.params;
@@ -20,13 +21,45 @@ const JobDetailScreen = ({ navigation, route }: any) => {
   const [matchScore, setMatchScore] = useState<any>(null);
   const [hasResume, setHasResume] = useState(false);
   const [resumeId, setResumeId] = useState<string | null>(null);
+  const [hasApplied, setHasApplied] = useState(false);
 
-  useEffect(() => {
-    fetchJobDetails();
-    checkResume();
-  }, [jobId]);
+  const checkResume = useCallback(async () => {
+    if (!user?.uid) return;
 
-  const fetchJobDetails = async () => {
+    try {
+      const response = await ResumeService.getMyResume();
+      if (response.resume) {
+        setHasResume(true);
+        setResumeId(response.resume.id);
+      }
+    } catch {
+      // No resume found
+      setHasResume(false);
+    }
+  }, [user?.uid]);
+
+  const checkApplicationStatus = useCallback(async () => {
+    if (!user?.uid) {
+      setHasApplied(false);
+      return;
+    }
+
+    try {
+      const response = await JobService.getMyApplications();
+      const applications = response.applications || [];
+      // Check if user has already applied for this job
+      const hasAppliedForThisJob = applications.some(
+        (app: any) => app.job?.id === jobId || app.jobId === jobId
+      );
+      setHasApplied(hasAppliedForThisJob);
+    } catch (error) {
+      // If we can't fetch applications, assume not applied
+      console.log('Could not check application status:', error);
+      setHasApplied(false);
+    }
+  }, [jobId, user?.uid]);
+
+  const fetchJobDetails = useCallback(async () => {
     try {
       setLoading(true);
       const response = await JobService.getJobById(jobId);
@@ -37,7 +70,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
         try {
           const matchResponse = await JobService.getMatchScore(jobId);
           setMatchScore(matchResponse);
-        } catch (error) {
+        } catch {
           // User might not have resume yet
           console.log('No match score available');
         }
@@ -48,22 +81,23 @@ const JobDetailScreen = ({ navigation, route }: any) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobId, user?.uid]);
 
-  const checkResume = async () => {
-    if (!user?.uid) return;
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      fetchJobDetails(),
+      checkResume(),
+      checkApplicationStatus(),
+    ]);
+  }, [fetchJobDetails, checkResume, checkApplicationStatus]);
 
-    try {
-      const response = await ResumeService.getMyResume();
-      if (response.resume) {
-        setHasResume(true);
-        setResumeId(response.resume.id);
-      }
-    } catch (error) {
-      // No resume found
-      setHasResume(false);
-    }
-  };
+  const { refreshing } = useRefresh(handleRefresh);
+
+  useEffect(() => {
+    fetchJobDetails();
+    checkResume();
+    checkApplicationStatus();
+  }, [fetchJobDetails, checkResume, checkApplicationStatus]);
 
   const handleApply = () => {
     if (!user?.uid) {
@@ -134,9 +168,27 @@ const JobDetailScreen = ({ navigation, route }: any) => {
       } else {
         navigation.navigate('MyApplications');
       }
+      
+      // Update application status after successful application
+      setHasApplied(true);
     } catch (error: any) {
       console.error('Error applying for job:', error);
-      showError(error.message || 'Failed to submit application');
+      
+      // Check if user has already applied for this job
+      const errorMessage = error.response?.data?.error || error.message || '';
+      const isAlreadyApplied = errorMessage.toLowerCase().includes('already applied');
+      
+      if (isAlreadyApplied) {
+        // Update state and show friendly info message
+        setHasApplied(true);
+        showInfo(
+          'You have already applied for this job',
+          'Application Submitted'
+        );
+      } else {
+        // Show error for other cases
+        showError(errorMessage || 'Failed to submit application');
+      }
     } finally {
       setApplying(false);
     }
@@ -154,7 +206,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ScreenHeader title="Job Details" navigation={navigation} />
+        <ScreenHeader title="Job Details" onBackPress={() => navigation.goBack()} />
         <Loader />
       </SafeAreaView>
     );
@@ -163,7 +215,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
   if (!job) {
     return (
       <SafeAreaView style={styles.container}>
-        <ScreenHeader title="Job Details" navigation={navigation} />
+        <ScreenHeader title="Job Details" onBackPress={() => navigation.goBack()} />
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>Job not found</Text>
         </View>
@@ -173,30 +225,63 @@ const JobDetailScreen = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="Job Details" navigation={navigation} />
+      <ScreenHeader title="Job Details" onBackPress={() => navigation.goBack()} />
       
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
         {/* Match Score Banner */}
         {matchScore && (
-          <View style={[styles.matchBanner, { backgroundColor: getRatingColor(matchScore.matchRating) }]}>
-            <Text style={styles.matchBannerTitle}>
-              {matchScore.matchRating.toUpperCase()} MATCH ⭐
-            </Text>
-            <Text style={styles.matchBannerSubtitle}>
-              {matchScore.score}/{matchScore.totalRequired} skills matched ({matchScore.matchPercentage.toFixed(0)}%)
-            </Text>
-            {matchScore.matchedSkills.length > 0 && (
-              <View style={styles.matchSkillsContainer}>
-                <Text style={styles.matchSkillsLabel}>Matched: </Text>
-                <Text style={styles.matchSkillsText}>{matchScore.matchedSkills.join(', ')}</Text>
+          <View style={styles.matchBannerWrapper}>
+            <View style={[styles.matchBanner, { borderLeftColor: getRatingColor(matchScore.matchRating) }]}>
+              <View style={styles.matchBannerHeader}>
+                <View style={[styles.matchBadge, { backgroundColor: getRatingColor(matchScore.matchRating) }]}>
+                  <Text style={styles.matchBadgeText}>
+                    {matchScore.matchRating.toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={styles.matchBannerTitle}>MATCH ⭐</Text>
               </View>
-            )}
-            {matchScore.missingSkills.length > 0 && (
-              <View style={styles.matchSkillsContainer}>
-                <Text style={styles.matchSkillsLabel}>Missing: </Text>
-                <Text style={styles.matchSkillsText}>{matchScore.missingSkills.join(', ')}</Text>
+              <View style={styles.matchStatsRow}>
+                <View style={styles.matchStat}>
+                  <Text style={styles.matchStatValue}>{matchScore.score}/{matchScore.totalRequired}</Text>
+                  <Text style={styles.matchStatLabel}>Skills Matched</Text>
+                </View>
+                <View style={styles.matchStatDivider} />
+                <View style={styles.matchStat}>
+                  <Text style={styles.matchStatValue}>{matchScore.matchPercentage.toFixed(0)}%</Text>
+                  <Text style={styles.matchStatLabel}>Match Rate</Text>
+                </View>
               </View>
-            )}
+              {matchScore.matchedSkills.length > 0 && (
+                <View style={styles.matchSkillsSection}>
+                  <Text style={styles.matchSkillsSectionTitle}>✓ Matched Skills</Text>
+                  <View style={styles.matchSkillsTags}>
+                    {matchScore.matchedSkills.map((skill: string, index: number) => (
+                      <View key={index} style={styles.matchSkillTag}>
+                        <Text style={styles.matchSkillTagText}>{skill}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+              {matchScore.missingSkills.length > 0 && (
+                <View style={styles.matchSkillsSection}>
+                  <Text style={styles.missingSkillsSectionTitle}>Missing Skills</Text>
+                  <View style={styles.matchSkillsTags}>
+                    {matchScore.missingSkills.map((skill: string, index: number) => (
+                      <View key={index} style={styles.missingSkillTag}>
+                        <Text style={styles.missingSkillTagText}>{skill}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
         )}
 
@@ -278,16 +363,32 @@ const JobDetailScreen = ({ navigation, route }: any) => {
 
         {/* Apply Button */}
         <View style={styles.buttonContainer}>
-          <AppButton
-            title={applying ? 'Applying...' : 'Apply for Job'}
-            onPress={handleApply}
-            disabled={applying || job.status !== 'active'}
-            loading={applying}
-          />
-          {job.status !== 'active' && (
-            <Text style={styles.statusWarning}>
-              This job is no longer accepting applications
-            </Text>
+          {hasApplied ? (
+            <>
+              <AppButton
+                title="Already Applied ✓"
+                onPress={() => navigation.navigate('MyApplications')}
+                disabled={false}
+                style={styles.appliedButton}
+              />
+              <Text style={styles.appliedMessage}>
+                You have already applied for this job. View your application status.
+              </Text>
+            </>
+          ) : (
+            <>
+              <AppButton
+                title={applying ? 'Applying...' : 'Apply for Job'}
+                onPress={handleApply}
+                disabled={applying || job.status !== 'active'}
+                loading={applying}
+              />
+              {job.status !== 'active' && (
+                <Text style={styles.statusWarning}>
+                  This job is no longer accepting applications
+                </Text>
+              )}
+            </>
           )}
         </View>
       </ScrollView>
@@ -295,161 +396,6 @@ const JobDetailScreen = ({ navigation, route }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.lightBackground,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 24,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: COLORS.gray,
-  },
-  matchBanner: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  matchBannerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  matchBannerSubtitle: {
-    fontSize: 14,
-    color: COLORS.white,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  matchSkillsContainer: {
-    flexDirection: 'row',
-    marginTop: 6,
-  },
-  matchSkillsLabel: {
-    fontSize: 12,
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-  matchSkillsText: {
-    fontSize: 12,
-    color: COLORS.white,
-    flex: 1,
-  },
-  headerSection: {
-    marginBottom: 20,
-  },
-  jobTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 8,
-    lineHeight: 32,
-  },
-  companyName: {
-    fontSize: 18,
-    color: COLORS.gray,
-    fontWeight: '500',
-  },
-  infoCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    alignItems: 'flex-start',
-  },
-  infoRowLast: {
-    marginBottom: 0,
-  },
-  infoIcon: {
-    fontSize: 20,
-    marginRight: 12,
-    marginTop: 2,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: 15,
-    color: COLORS.black,
-    fontWeight: '600',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 12,
-  },
-  descriptionText: {
-    fontSize: 15,
-    color: COLORS.black,
-    lineHeight: 24,
-    fontWeight: '400',
-  },
-  skillsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  skillTag: {
-    backgroundColor: COLORS.lightBackground,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 10,
-    marginBottom: 10,
-  },
-  skillTagMatched: {
-    backgroundColor: COLORS.green,
-  },
-  skillText: {
-    fontSize: 14,
-    color: COLORS.black,
-    fontWeight: '500',
-  },
-  skillTextMatched: {
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-  buttonContainer: {
-    marginTop: 8,
-  },
-  statusWarning: {
-    fontSize: 13,
-    color: COLORS.red,
-    textAlign: 'center',
-    marginTop: 12,
-    fontWeight: '500',
-  },
-});
+const styles = jobDetailScreenStyles;
 
 export default JobDetailScreen;

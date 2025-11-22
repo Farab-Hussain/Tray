@@ -10,12 +10,18 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
     console.error('❌ [Validation] Validation failed:', {
       path: req.path,
       method: req.method,
+      body: req.body,
       params: req.params,
       errors: errors.array(),
     });
     return res.status(400).json({
       error: 'Validation failed',
       errors: errors.array(),
+      details: errors.array().map(err => ({
+        field: err.type === 'field' ? err.path : 'unknown',
+        message: err.msg,
+        value: err.type === 'field' ? (req.body as any)[err.path] : undefined,
+      })),
     });
   }
   next();
@@ -27,8 +33,8 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
 export const validateRegister = [
   body('uid').notEmpty().withMessage('UID is required'),
   body('email').isEmail().withMessage('Valid email is required'),
-  body('role').isIn(['student', 'consultant', 'admin']).withMessage('Role must be student, consultant, or admin'),
-  body('name').optional().isString().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be between 1 and 100 characters'),
+  body('role').isIn(['student', 'consultant', 'admin', 'recruiter']).withMessage('Role must be student, consultant, admin, or recruiter'),
+  body('name').optional({ nullable: true, checkFalsy: true }).if(body('name').exists()).isString().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be between 1 and 100 characters'),
   handleValidationErrors,
 ];
 

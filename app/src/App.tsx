@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import Toast from 'react-native-toast-message';
@@ -10,6 +10,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { NetworkProvider } from './contexts/NetworkContext';
 import OfflineOverlay from './components/ui/OfflineOverlay';
 import { navigationRef } from './navigator/navigationRef';
+import { appStyles } from './constants/styles/appStyles';
 
 // Initialize React Native Firebase App (required for messaging)
 // Do this silently to avoid deprecation warnings during initialization
@@ -162,30 +163,4 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  centeredContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#ffffff',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#333333',
-    textAlign: 'center',
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#b91c1c',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 16,
-    color: '#4b5563',
-    textAlign: 'center',
-  },
-});
+const styles = appStyles;

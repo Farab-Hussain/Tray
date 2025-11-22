@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 import { COLORS } from '../../constants/core/colors';
+import { loaderStyles } from '../../constants/styles/loaderStyles';
 
 type LoaderProps = {
   message?: string;
@@ -25,19 +26,7 @@ const Loader: React.FC<LoaderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  text: {
-    marginTop: 16,
-    color: COLORS.gray,
-    fontSize: 16,
-  },
-});
+const styles = loaderStyles;
 
 export default Loader;
 

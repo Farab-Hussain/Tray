@@ -188,74 +188,99 @@ export const getFCMToken = async (): Promise<string | null> => {
       throw linkError;
     }
     
-    // Get token with retry mechanism - iOS needs explicit registration
+    // On iOS, register for remote messages FIRST before getting token
+    // This ensures APNS token is available before FCM token request
+    if (Platform.OS === 'ios') {
+      try {
+        if (__DEV__) {
+          console.log('📱 [FCM] Registering iOS device for remote messages (APNS)...');
+        }
+        await messagingInstance.registerDeviceForRemoteMessages();
+        // Wait for APNS token to be obtained (iOS needs time to register with APNS)
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 3000));
+        if (__DEV__) {
+          console.log('✅ [FCM] iOS device registered for remote messages');
+        }
+      } catch (registerError: any) {
+        const errorMsg = registerError?.message || '';
+        if (errorMsg.includes('already registered')) {
+          if (__DEV__) {
+            console.log('ℹ️ [FCM] Device already registered for remote messages');
+          }
+          // Still wait a bit to ensure APNS token is ready
+          await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
+        } else {
+          if (__DEV__) {
+            console.warn('⚠️ [FCM] Error registering for remote messages:', registerError.message || 'Unknown');
+          }
+          // Continue anyway - might still work
+        }
+      }
+    }
+    
+    // Get token with retry mechanism
     let token: string | null = null;
-    let retries = 5;
-    let registrationAttempted = false;
+    let retries = 3;
     
     while (retries > 0 && !token) {
       try {
         token = await messagingInstance.getToken();
         break; // Success, exit loop
       } catch (tokenError: any) {
-        if (tokenError?.code === 'messaging/unregistered') {
-          // On iOS, register device for remote messages if not already attempted
-          if (Platform.OS === 'ios' && !registrationAttempted) {
+        const errorCode = tokenError?.code || '';
+        const errorMessage = tokenError?.message || '';
+        
+        // Handle APNS token not ready error
+        if (errorCode === 'messaging/unknown' && 
+            (errorMessage.includes('APNS token') || errorMessage.includes('No APNS token'))) {
+          if (retries > 1) {
+            if (__DEV__) {
+              console.log(`ℹ️ [FCM] APNS token not ready, waiting... (${retries - 1} retries left)`);
+            }
+            // Wait longer for APNS token to be ready
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+            retries--;
+            continue;
+          } else {
+            // Last retry failed
+            if (__DEV__) {
+              console.warn('⚠️ [FCM] APNS token not available after retries');
+            }
+            restoreConsoleWarn(originalWarn);
+            return null;
+          }
+        }
+        
+        // Handle unregistered device error
+        if (errorCode === 'messaging/unregistered') {
+          if (Platform.OS === 'ios') {
+            // Try registering again
             try {
-              if (__DEV__) {
-                console.log('📱 [FCM] Registering device for remote messages...');
-              }
               await messagingInstance.registerDeviceForRemoteMessages();
-              registrationAttempted = true;
-              // Wait for native registration to complete
               await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
-              if (__DEV__) {
-                console.log('✅ [FCM] Device registered, retrying token...');
-              }
-              retries--;
-              continue;
-            } catch (registerError: any) {
-              const errorMsg = registerError?.message || '';
-              if (errorMsg.includes('already registered')) {
-                registrationAttempted = true;
-                if (__DEV__) {
-                  console.log('ℹ️ [FCM] Device already registered');
-                }
-                // Wait a bit and retry
-                await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
-                retries--;
-                continue;
-              } else {
-                // Registration failed, but continue to retry
-                registrationAttempted = true;
-                if (__DEV__) {
-                  console.log('ℹ️ [FCM] Registration attempt:', registerError.message || 'Unknown');
-                }
-              }
+            } catch (e) {
+              // Ignore registration errors
             }
           }
           
-          // If still unregistered, wait longer and retry
           if (retries > 1) {
             if (__DEV__) {
-              console.log(`ℹ️ [FCM] Token not ready, waiting... (${retries - 1} retries left)`);
+              console.log(`ℹ️ [FCM] Device not registered, retrying... (${retries - 1} retries left)`);
             }
-            // Exponential backoff: 2s, 3s, 4s
-            const waitTime = (6 - retries) * 1000;
-            await new Promise<void>(resolve => setTimeout(() => resolve(), waitTime));
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
             retries--;
+            continue;
           } else {
-            // Last retry failed - return null instead of throwing
             if (__DEV__) {
               console.warn('⚠️ [FCM] Failed to get token after all retries');
             }
             restoreConsoleWarn(originalWarn);
             return null;
           }
-        } else {
-          // Other error, throw immediately
-          throw tokenError;
         }
+        
+        // Other errors - throw immediately
+        throw tokenError;
       }
     }
     restoreConsoleWarn(originalWarn);

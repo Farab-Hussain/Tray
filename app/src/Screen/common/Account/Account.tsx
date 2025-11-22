@@ -1,12 +1,13 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  Image,
-  Text,
   View,
-  TouchableOpacity,
   Alert,
   ScrollView,
+  RefreshControl,
+  Image,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 // import { navigationRef } from '../../../navigator/navigationRef';
@@ -17,24 +18,27 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { Profile } from '../../../constants/styles/profile';
 import ProfileList from '../../../components/ui/ProfileList';
 import { ProfileListData } from '../../../constants/data/ProfileListData';
+import { RecruiterProfileListData } from '../../../constants/data/RecruiterProfileListData';
 import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useRefresh } from '../../../hooks/useRefresh';
+import { showConfirmation, showErrorAlert, showSuccessAlert } from '../../../utils/alertUtils';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useNotificationContext } from '../../../contexts/NotificationContext';
 import { UserService } from '../../../services/user.service';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { Camera, User } from 'lucide-react-native';
 import Loader from '../../../components/ui/Loader';
-import { StyleSheet } from 'react-native';
 
 const Account = ({ navigation }: any) => {
-  const { user, logout } = useAuth();
+  const { user, logout, activeRole, roles } = useAuth();
   // const [switchingRole, setSwitchingRole] = useState(false);
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [apiUnavailable, setApiUnavailable] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [imageCacheKey, setImageCacheKey] = useState(0);
   const lastLoadTimeRef = useRef(0);
+  // const [switchingToRecruiter, setSwitchingToRecruiter] = useState(false); // Commented out - recruiters register from Splash screen
   const { chats } = useChatContext();
   const { notifications, unreadCount: notificationUnreadCount } =
     useNotificationContext();
@@ -100,6 +104,7 @@ const Account = ({ navigation }: any) => {
       }
       
       setBackendProfile(response);
+      setImageCacheKey(prev => prev + 1);
       setApiUnavailable(false); // Reset unavailable flag on success
       lastLoadTimeRef.current = Date.now();
     } catch (error: any) {
@@ -131,6 +136,8 @@ const Account = ({ navigation }: any) => {
     }
   }, [user, apiUnavailable]);
 
+  const { refreshing, handleRefresh } = useRefresh(fetchBackendProfile);
+
   // Safety timeout: ensure loading is always set to false after maximum wait time
   useEffect(() => {
     // Only set up safety timeout if we're currently loading
@@ -141,7 +148,7 @@ const Account = ({ navigation }: any) => {
       setLoadingProfile(false);
       // Set minimal Firebase profile as fallback
       if (user) {
-        setBackendProfile(prev => prev || {
+        setBackendProfile((prev: any) => prev || {
           name: user.displayName || null,
           email: user.email || null,
           profileImage: user.photoURL || null,
@@ -185,32 +192,23 @@ const Account = ({ navigation }: any) => {
         lastLoadTimeRef.current = now;
         console.log('🔄 [Account] Screen focused, reloading profile');
         fetchBackendProfile();
-        setImageCacheKey(prev => prev + 1);
       }
     }, [user?.uid, fetchBackendProfile])
   );
 
-  // Get user's name from backend profile, Firebase, or use email as fallback
-  const displayName =
-    backendProfile?.name ||
-    user?.displayName ||
-    user?.email?.split('@')[0] ||
-    'User';
-  const email = backendProfile?.email || user?.email || 'No email available';
-
   const handlePress = async (route: string) => {
     if (route === 'Logout') {
-      Alert.alert('Logout', 'Are you sure you want to log out?', [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            navigation.replace('Auth', { screen: 'Login' });
-          },
+      showConfirmation(
+        'Logout',
+        'Are you sure you want to log out?',
+        async () => {
+          await logout();
+          navigation.replace('Auth', { screen: 'Login' });
         },
-      ]);
+        undefined,
+        'Logout',
+        'Cancel'
+      );
       return;
     }
 
@@ -228,7 +226,7 @@ const Account = ({ navigation }: any) => {
   // This prevents getting stuck on loading screen if backend API is slow or unavailable
   if (loadingProfile && !user && !backendProfile) {
     return (
-      <SafeAreaView style={screenStyles.safeAreaWhite}>
+      <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
         <ScreenHeader title="Account" onBackPress={() => navigation.goBack()} />
         <Loader message="Loading your account..." />
       </SafeAreaView>
@@ -236,20 +234,34 @@ const Account = ({ navigation }: any) => {
   }
 
   return (
-    <SafeAreaView style={screenStyles.safeAreaWhite}>
+    <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
       <ScreenHeader title="Account" onBackPress={() => navigation.goBack()} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
         <View style={Profile.container}>
           {/* <Text style={screenStyles.heading}>Account</Text> */}
 
-          {/* Clickable Profile Image */}
+          {/* Clickable Profile Image - Navigates to Profile Screen */}
           <TouchableOpacity
-            onPress={() => navigation.navigate('EditProfile')}
+            onPress={() => {
+              // Check if user is a recruiter or student to navigate to appropriate profile
+              const isRecruiter = activeRole === 'recruiter' || 
+                                   roles.includes('recruiter') || 
+                                   backendProfile?.roles?.includes('recruiter');
+              if (isRecruiter) {
+                navigation.navigate('RecruiterProfile');
+              } else {
+                navigation.navigate('StudentProfile');
+              }
+            }}
             style={authStyles.profileImageWrapper}
+            activeOpacity={0.8}
           >
             {backendProfile?.profileImage || user?.photoURL ? (
               <Image
@@ -257,7 +269,7 @@ const Account = ({ navigation }: any) => {
                   uri: `${backendProfile?.profileImage || user?.photoURL || ''}?t=${imageCacheKey}`,
                 }}
                 style={Profile.avatar}
-                key={`${backendProfile?.profileImage || user?.photoURL}-${imageCacheKey}`} // Force re-render when cache key changes
+                key={`${backendProfile?.profileImage || user?.photoURL}-${imageCacheKey}`}
               />
             ) : (
               <View
@@ -280,8 +292,22 @@ const Account = ({ navigation }: any) => {
             </View>
           </TouchableOpacity>
 
-          <Text style={Profile.name}>{displayName}</Text>
-          <Text style={Profile.email}>{email}</Text>
+          {/* Display Name and Email */}
+          {(() => {
+            const displayName =
+              backendProfile?.name ||
+              user?.displayName ||
+              user?.email?.split('@')[0] ||
+              'User';
+            const email = backendProfile?.email || user?.email || 'No email available';
+            
+            return (
+              <>
+                <Text style={Profile.name}>{displayName}</Text>
+                <Text style={Profile.email}>{email}</Text>
+              </>
+            );
+          })()}
 
           {/* Role Switcher - Always show when user is logged in */}
           {/* {user && (
@@ -425,7 +451,7 @@ const Account = ({ navigation }: any) => {
                             error?.message ||
                             'Failed to switch role';
                           console.error('❌ [Account] Role switch error:', errorMessage);
-                          Alert.alert('Error', errorMessage);
+                          showErrorAlert(errorMessage);
                         }
                         // Note: Don't set switchingRole to false here if reload is successful
                         // The app will reload, so state will reset anyway
@@ -458,8 +484,44 @@ const Account = ({ navigation }: any) => {
           )} */}
 
           <View style={Profile.listContainer}>
-            {ProfileListData.length > 0 &&
-              ProfileListData.map(item => {
+            {/* Show "Become a Recruiter" button if user doesn't have recruiter role */}
+            {/* COMMENTED OUT - Recruiters should register from Splash screen */}
+            {/* {!backendProfile?.roles?.includes('recruiter') && (
+              <TouchableOpacity
+                style={styles.hiringManagerButton}
+                onPress={async () => {
+                  try {
+                    setSwitchingToRecruiter(true);
+                    await switchRole('recruiter');
+                    showSuccessAlert('You are now a Recruiter. You can post jobs and manage applications.');
+                    // Refresh profile to show new menu items
+                    await fetchBackendProfile();
+                  } catch (error: any) {
+                    console.error('Error switching to recruiter:', error);
+                    showErrorAlert(error?.response?.data?.error || error?.message || 'Failed to become a Recruiter');
+                  } finally {
+                    setSwitchingToRecruiter(false);
+                  }
+                }}
+                disabled={switchingToRecruiter}
+              >
+                <Briefcase size={20} color={COLORS.white} />
+                <Text style={styles.hiringManagerButtonText}>
+                  {switchingToRecruiter ? 'Switching...' : 'Become a Recruiter'}
+                </Text>
+              </TouchableOpacity>
+            )} */}
+            
+            {/* Profile menu items - different lists for recruiters vs students */}
+            {(() => {
+              // Check if user is a recruiter - check both activeRole and roles array
+              const isRecruiter = activeRole === 'recruiter' || 
+                                   roles.includes('recruiter') || 
+                                   backendProfile?.roles?.includes('recruiter');
+              
+              const profileListData = isRecruiter ? RecruiterProfileListData : ProfileListData;
+              
+              return profileListData.length > 0 && profileListData.map(item => {
                 const showDot =
                   item.route === 'Messages'
                     ? hasUnreadMessages
@@ -482,7 +544,8 @@ const Account = ({ navigation }: any) => {
                     showDot={showDot}
                   />
                 );
-              })}
+              });
+            })()}
           </View>
         </View>
       </ScrollView>
@@ -490,72 +553,7 @@ const Account = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  roleSwitcherContainer: {
-    marginVertical: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleSwitcherLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.black,
-    marginBottom: 10,
-  },
-  roleButtonsContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  roleButton: {
-    flex: 1,
-    maxWidth: 120,
-    minWidth: 100,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    backgroundColor: COLORS.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleButtonActive: {
-    borderColor: COLORS.green,
-    backgroundColor: COLORS.lightBackground,
-  },
-  roleButtonDisabled: {
-    opacity: 0.5,
-  },
-  roleButtonInactive: {
-    opacity: 0.6,
-    borderColor: COLORS.lightGray,
-  },
-  roleButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: COLORS.gray,
-    textAlign: 'center',
-  },
-  roleButtonTextActive: {
-    color: COLORS.green,
-    fontWeight: '600',
-  },
-  roleButtonTextInactive: {
-    opacity: 0.7,
-  },
-  switchingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    gap: 6,
-  },
-  switchingText: {
-    fontSize: 12,
-    color: COLORS.green,
-  },
-});
+// Styles removed - role switcher and hiring manager button code is commented out
+// If needed in the future, uncomment the role switcher code and add styles back
 
 export default Account;

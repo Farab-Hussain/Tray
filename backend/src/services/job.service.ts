@@ -11,7 +11,7 @@ export const jobServices = {
   async create(data: JobInput, postedBy: string): Promise<Job> {
     const jobRef = db.collection(COLLECTION).doc();
     const now = Timestamp.now();
-    
+
     const jobData: Job = {
       id: jobRef.id,
       postedBy,
@@ -38,37 +38,131 @@ export const jobServices = {
     page?: number;
     limit?: number;
   }): Promise<{ jobs: Job[]; total: number }> {
-    let query: FirebaseFirestore.Query = db.collection(COLLECTION);
+    try {
+      let query: FirebaseFirestore.Query = db.collection(COLLECTION);
 
-    // Apply filters
-    if (filters?.status) {
-      query = query.where("status", "==", filters.status);
+      // Apply filters
+      if (filters?.status) {
+        query = query.where("status", "==", filters.status);
+      }
+      if (filters?.jobType) {
+        query = query.where("jobType", "==", filters.jobType);
+      }
+      if (filters?.location) {
+        query = query.where("location", "==", filters.location);
+      }
+
+
+      try {
+        query = query.orderBy("createdAt", "desc");
+        const snapshot = await query.get();
+        const allJobs = snapshot.docs
+          .map(doc => {
+            try {
+              const data = doc.data() as Job;
+              // Ensure required fields exist
+              if (!data.id) {
+                data.id = doc.id;
+              }
+              if (!data.requiredSkills) {
+                data.requiredSkills = [];
+              }
+              return data;
+            } catch (error) {
+              console.error(`Error processing job document ${doc.id}:`, error);
+              return null;
+            }
+          })
+          .filter((job): job is Job => job !== null);
+
+
+        const page = filters?.page || 1;
+        const limit = filters?.limit || 20;
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+
+        const paginatedJobs = allJobs.slice(startIndex, endIndex);
+
+        return {
+          jobs: paginatedJobs,
+          total: allJobs.length,
+        };
+      } catch (orderByError: any) {
+        // If orderBy fails (likely due to missing index), fetch without orderBy and sort in memory
+        console.warn("orderBy failed, sorting in memory:", orderByError.message);
+
+        // Rebuild query without orderBy
+        query = db.collection(COLLECTION);
+        if (filters?.status) {
+          query = query.where("status", "==", filters.status);
+        }
+        if (filters?.jobType) {
+          query = query.where("jobType", "==", filters.jobType);
+        }
+        if (filters?.location) {
+          query = query.where("location", "==", filters.location);
+        }
+
+        const snapshot = await query.get();
+        const allJobs = snapshot.docs
+          .map(doc => {
+            try {
+              const data = doc.data() as Job;
+              // Ensure required fields exist
+              if (!data.id) {
+                data.id = doc.id;
+              }
+              if (!data.requiredSkills) {
+                data.requiredSkills = [];
+              }
+              return data;
+            } catch (error) {
+              console.error(`Error processing job document ${doc.id}:`, error);
+              return null;
+            }
+          })
+          .filter((job): job is Job => job !== null) // Remove null entries
+          .sort((a, b) => {
+            // Handle Timestamp objects from Firestore Admin SDK
+            let aTime = 0;
+            let bTime = 0;
+
+            if (a.createdAt) {
+              if (a.createdAt instanceof Timestamp) {
+                aTime = a.createdAt.toMillis();
+              } else if ((a.createdAt as any)?._seconds) {
+                aTime = (a.createdAt as any)._seconds * 1000 + ((a.createdAt as any)?._nanoseconds || 0) / 1000000;
+              }
+            }
+
+            if (b.createdAt) {
+              if (b.createdAt instanceof Timestamp) {
+                bTime = b.createdAt.toMillis();
+              } else if ((b.createdAt as any)?._seconds) {
+                bTime = (b.createdAt as any)._seconds * 1000 + ((b.createdAt as any)?._nanoseconds || 0) / 1000000;
+              }
+            }
+
+            return bTime - aTime; // Descending order (newest first)
+          });
+
+        // Apply pagination
+        const page = filters?.page || 1;
+        const limit = filters?.limit || 20;
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+
+        const paginatedJobs = allJobs.slice(startIndex, endIndex);
+
+        return {
+          jobs: paginatedJobs,
+          total: allJobs.length,
+        };
+      }
+    } catch (error: any) {
+      console.error("Error in getAll jobs:", error);
+      throw error;
     }
-    if (filters?.jobType) {
-      query = query.where("jobType", "==", filters.jobType);
-    }
-    if (filters?.location) {
-      query = query.where("location", "==", filters.location);
-    }
-
-    // Order by creation date (newest first)
-    query = query.orderBy("createdAt", "desc");
-
-    const snapshot = await query.get();
-    const allJobs = snapshot.docs.map(doc => doc.data() as Job);
-
-    // Apply pagination
-    const page = filters?.page || 1;
-    const limit = filters?.limit || 20;
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-
-    const paginatedJobs = allJobs.slice(startIndex, endIndex);
-
-    return {
-      jobs: paginatedJobs,
-      total: allJobs.length,
-    };
   },
 
   /**
@@ -99,7 +193,7 @@ export const jobServices = {
           // Handle Timestamp objects from Firestore Admin SDK
           let aTime = 0;
           let bTime = 0;
-          
+
           if (a.createdAt) {
             if (a.createdAt instanceof Timestamp) {
               aTime = a.createdAt.toMillis();
@@ -107,7 +201,7 @@ export const jobServices = {
               aTime = (a.createdAt as any)._seconds * 1000 + ((a.createdAt as any)?._nanoseconds || 0) / 1000000;
             }
           }
-          
+
           if (b.createdAt) {
             if (b.createdAt instanceof Timestamp) {
               bTime = b.createdAt.toMillis();
@@ -115,7 +209,7 @@ export const jobServices = {
               bTime = (b.createdAt as any)._seconds * 1000 + ((b.createdAt as any)?._nanoseconds || 0) / 1000000;
             }
           }
-          
+
           return bTime - aTime; // Descending order (newest first)
         });
 
@@ -126,7 +220,7 @@ export const jobServices = {
       const snapshot = await db.collection(COLLECTION)
         .where("postedBy", "==", postedBy)
         .get();
-      
+
       return snapshot.docs.map(doc => doc.data() as Job);
     }
   },

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import AppButton from '../../../components/ui/AppButton';
@@ -11,9 +12,11 @@ import { ResumeService, ResumeData } from '../../../services/resume.service';
 import { UploadService } from '../../../services/upload.service';
 import { COLORS } from '../../../constants/core/colors';
 import { showError, showSuccess } from '../../../utils/toast';
+import { showConfirmation } from '../../../utils/alertUtils';
 import { useAuth } from '../../../contexts/AuthContext';
-import { launchImageLibrary, MediaType } from 'react-native-image-picker';
-import { X, Plus } from 'lucide-react-native';
+import { X, Plus, Calendar as CalendarIcon, Image as ImageIcon } from 'lucide-react-native';
+import ImageUpload from '../../../components/ui/ImageUpload';
+import { resumeScreenStyles } from '../../../constants/styles/resumeScreenStyles';
 
 interface Experience {
   title: string;
@@ -35,10 +38,13 @@ interface Certification {
   name: string;
   issuer: string;
   date: string;
+  imageUrl?: string;
+  imagePublicId?: string;
 }
 
 const ResumeScreen = ({ navigation }: any) => {
-  const { user } = useAuth();
+  const { user, activeRole, roles } = useAuth();
+  const isRecruiter = activeRole === 'recruiter' || roles.includes('recruiter');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -52,6 +58,24 @@ const ResumeScreen = ({ navigation }: any) => {
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState('');
 
+  // Validation errors
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    skills?: string;
+    experience?: { [key: number]: { title?: string; company?: string; startDate?: string } };
+    education?: { [key: number]: { degree?: string; institution?: string; graduationYear?: string } };
+    certification?: { [key: number]: { name?: string; issuer?: string; date?: string } };
+  }>({});
+
+  // Date picker state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerType, setDatePickerType] = useState<'start' | 'end' | 'certification' | null>(null);
+  const [datePickerIndex, setDatePickerIndex] = useState<number>(-1);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
   // Experience
   const [experience, setExperience] = useState<Experience[]>([]);
 
@@ -61,11 +85,8 @@ const ResumeScreen = ({ navigation }: any) => {
   // Certifications
   const [certifications, setCertifications] = useState<Certification[]>([]);
 
-  // Background & Resume File
+  // Background Information
   const [backgroundInformation, setBackgroundInformation] = useState('');
-  const [resumeFileUrl, setResumeFileUrl] = useState<string | null>(null);
-  const [resumeFilePublicId, setResumeFilePublicId] = useState<string | null>(null);
-  const [uploadingResume, setUploadingResume] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -77,12 +98,18 @@ const ResumeScreen = ({ navigation }: any) => {
   useFocusEffect(
     useCallback(() => {
       loadResume();
-    }, [])
+    }, [isRecruiter])
   );
 
   const loadResume = async () => {
     try {
       setLoading(true);
+      // Recruiters don't have resumes - skip loading
+      if (isRecruiter) {
+        setLoading(false);
+        return;
+      }
+      
       const response = await ResumeService.getMyResume();
       if (response.resume) {
         const resume = response.resume;
@@ -95,10 +122,9 @@ const ResumeScreen = ({ navigation }: any) => {
         setEducation(resume.education || []);
         setCertifications(resume.certifications || []);
         setBackgroundInformation(resume.backgroundInformation || '');
-        setResumeFileUrl(resume.resumeFileUrl || null);
-        setResumeFilePublicId(resume.resumeFilePublicId || null);
       }
     } catch (error: any) {
+      // Silently handle 404 - resume not found is expected for new users
       if (error.response?.status !== 404) {
         console.error('Error loading resume:', error);
       }
@@ -111,11 +137,128 @@ const ResumeScreen = ({ navigation }: any) => {
     if (newSkill.trim()) {
       setSkills([...skills, newSkill.trim()]);
       setNewSkill('');
+      // Clear error when skill is added
+      if (errors.skills) {
+        setErrors({ ...errors, skills: undefined });
+      }
     }
   };
 
   const handleRemoveSkill = (index: number) => {
     setSkills(skills.filter((_, i) => i !== index));
+  };
+
+  const openDatePicker = (type: 'start' | 'end' | 'certification', index: number) => {
+    setDatePickerType(type);
+    setDatePickerIndex(index);
+    let currentDate = '';
+    if (type === 'start') {
+      currentDate = experience[index]?.startDate || '';
+    } else if (type === 'end') {
+      currentDate = experience[index]?.endDate || '';
+    } else if (type === 'certification') {
+      currentDate = certifications[index]?.date || '';
+    }
+    
+    // Parse current date or use today's date
+    if (currentDate) {
+      const [year, month] = currentDate.split('-');
+      const date = new Date();
+      date.setFullYear(parseInt(year) || new Date().getFullYear());
+      date.setMonth((parseInt(month) || new Date().getMonth() + 1) - 1);
+      date.setDate(1);
+      setSelectedDate(date);
+    } else {
+      // Default to current year and month
+      const date = new Date();
+      date.setDate(1);
+      setSelectedDate(date);
+    }
+    setShowDatePicker(true);
+  };
+
+  const handleDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (event.type === 'set' && date) {
+        handleDateConfirm(date);
+      } else {
+        // User cancelled
+        setDatePickerType(null);
+        setDatePickerIndex(-1);
+      }
+    } else {
+      // iOS - update selected date as user scrolls
+      if (date) {
+        setSelectedDate(date);
+      }
+    }
+  };
+
+  const handleDateConfirm = (date?: Date) => {
+    const finalDate = date || selectedDate;
+    if (datePickerType !== null && datePickerIndex >= 0) {
+      // Format as YYYY-MM
+      const year = finalDate.getFullYear();
+      const month = finalDate.getMonth() + 1;
+      const dateStr = `${year}-${String(month).padStart(2, '0')}`;
+      
+      if (datePickerType === 'start') {
+        handleUpdateExperience(datePickerIndex, 'startDate', dateStr);
+        // Clear error when date is selected
+        if (errors.experience?.[datePickerIndex]?.startDate) {
+          const newExpErrors = { ...errors.experience };
+          if (newExpErrors[datePickerIndex]) {
+            delete newExpErrors[datePickerIndex].startDate;
+            if (Object.keys(newExpErrors[datePickerIndex]).length === 0) {
+              delete newExpErrors[datePickerIndex];
+            }
+          }
+          setErrors({ ...errors, experience: Object.keys(newExpErrors).length > 0 ? newExpErrors : undefined });
+        }
+      } else if (datePickerType === 'end') {
+        handleUpdateExperience(datePickerIndex, 'endDate', dateStr);
+        // Clear error when date is selected
+        if (errors.experience?.[datePickerIndex]?.endDate) {
+          const newExpErrors = { ...errors.experience };
+          if (newExpErrors[datePickerIndex]) {
+            delete newExpErrors[datePickerIndex].endDate;
+            if (Object.keys(newExpErrors[datePickerIndex]).length === 0) {
+              delete newExpErrors[datePickerIndex];
+            }
+          }
+          setErrors({ ...errors, experience: Object.keys(newExpErrors).length > 0 ? newExpErrors : undefined });
+        }
+      } else if (datePickerType === 'certification') {
+        handleUpdateCertification(datePickerIndex, 'date', dateStr);
+        // Clear error when date is selected
+        if (errors.certification?.[datePickerIndex]?.date) {
+          const newCertErrors = { ...errors.certification };
+          if (newCertErrors[datePickerIndex]) {
+            delete newCertErrors[datePickerIndex].date;
+            if (Object.keys(newCertErrors[datePickerIndex]).length === 0) {
+              delete newCertErrors[datePickerIndex];
+            }
+          }
+          setErrors({ ...errors, certification: Object.keys(newCertErrors).length > 0 ? newCertErrors : undefined });
+        }
+      }
+      
+      setShowDatePicker(false);
+      setDatePickerType(null);
+      setDatePickerIndex(-1);
+    }
+  };
+
+  const formatDateDisplay = (dateStr: string): string => {
+    if (!dateStr) return '';
+    // If already in YYYY-MM format, convert to readable format
+    if (dateStr.match(/^\d{4}-\d{2}$/)) {
+      const [year, month] = dateStr.split('-');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${monthNames[parseInt(month) - 1]} ${year}`;
+    }
+    return dateStr;
   };
 
   const handleAddExperience = () => {
@@ -139,14 +282,14 @@ const ResumeScreen = ({ navigation }: any) => {
   };
 
   const handleRemoveExperience = (index: number) => {
-    Alert.alert('Remove Experience', 'Are you sure you want to remove this experience?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => setExperience(experience.filter((_, i) => i !== index)),
-      },
-    ]);
+    showConfirmation(
+      'Remove Experience',
+      'Are you sure you want to remove this experience?',
+      () => setExperience(experience.filter((_, i) => i !== index)),
+      undefined,
+      'Remove',
+      'Cancel'
+    );
   };
 
   const handleAddEducation = () => {
@@ -168,14 +311,14 @@ const ResumeScreen = ({ navigation }: any) => {
   };
 
   const handleRemoveEducation = (index: number) => {
-    Alert.alert('Remove Education', 'Are you sure you want to remove this education?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => setEducation(education.filter((_, i) => i !== index)),
-      },
-    ]);
+    showConfirmation(
+      'Remove Education',
+      'Are you sure you want to remove this education?',
+      () => setEducation(education.filter((_, i) => i !== index)),
+      undefined,
+      'Remove',
+      'Cancel'
+    );
   };
 
   const handleAddCertification = () => {
@@ -185,6 +328,8 @@ const ResumeScreen = ({ navigation }: any) => {
         name: '',
         issuer: '',
         date: '',
+        imageUrl: undefined,
+        imagePublicId: undefined,
       },
     ]);
   };
@@ -196,66 +341,133 @@ const ResumeScreen = ({ navigation }: any) => {
   };
 
   const handleRemoveCertification = (index: number) => {
-    Alert.alert('Remove Certification', 'Are you sure you want to remove this certification?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => setCertifications(certifications.filter((_, i) => i !== index)),
-      },
-    ]);
+    showConfirmation(
+      'Remove Certification',
+      'Are you sure you want to remove this certification?',
+      () => setCertifications(certifications.filter((_, i) => i !== index)),
+      undefined,
+      'Remove',
+      'Cancel'
+    );
   };
 
-  const handleUploadResume = async () => {
-    try {
-      setUploadingResume(true);
-      const options: any = {
-        mediaType: 'mixed' as MediaType,
-        allowsEditing: false,
-        quality: 1,
-      };
-
-      launchImageLibrary(options, async (response) => {
-        if (response.didCancel || response.errorCode) {
-          setUploadingResume(false);
-          return;
-        }
-
-        const asset = response.assets?.[0];
-        if (!asset) {
-          setUploadingResume(false);
-          return;
-        }
-
-        try {
-          const uploadResponse = await UploadService.uploadFile(asset, 'resume');
-          setResumeFileUrl(uploadResponse.imageUrl || uploadResponse.url);
-          setResumeFilePublicId(uploadResponse.publicId);
-          showSuccess('Resume uploaded successfully');
-        } catch (error: any) {
-          console.error('Error uploading resume:', error);
-          showError(error.message || 'Failed to upload resume');
-        } finally {
-          setUploadingResume(false);
-        }
-      });
-    } catch (error: any) {
-      console.error('Error selecting resume:', error);
-      showError(error.message || 'Failed to select resume');
-      setUploadingResume(false);
-    }
-  };
 
   const handleSave = async () => {
-    if (!name.trim() || !email.trim()) {
-      showError('Name and email are required');
-      return;
+    // Validate all required fields
+    const newErrors: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      location?: string;
+      skills?: string;
+      experience?: { [key: number]: { title?: string; company?: string; startDate?: string } };
+      education?: { [key: number]: { degree?: string; institution?: string; graduationYear?: string } };
+      certification?: { [key: number]: { name?: string; issuer?: string; date?: string } };
+    } = {};
+
+    // Personal Information validation
+    if (!name.trim()) {
+      newErrors.name = 'Full name is required';
+    }
+
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (phone.trim().length < 10) {
+      newErrors.phone = 'Phone number must be at least 10 digits';
+    }
+
+    if (!location.trim()) {
+      newErrors.location = 'Location is required';
     }
 
     if (skills.length === 0) {
-      showError('Please add at least one skill');
+      newErrors.skills = 'Please add at least one skill';
+    }
+
+    // Experience validation - if any experience exists, all fields are required
+    if (experience.length > 0) {
+      const experienceErrors: { [key: number]: { title?: string; company?: string; startDate?: string } } = {};
+      experience.forEach((exp, index) => {
+        const expErrors: { title?: string; company?: string; startDate?: string } = {};
+        if (!exp.title.trim()) {
+          expErrors.title = 'Job title is required';
+        }
+        if (!exp.company.trim()) {
+          expErrors.company = 'Company is required';
+        }
+        if (!exp.startDate.trim()) {
+          expErrors.startDate = 'Start date is required';
+        }
+        if (Object.keys(expErrors).length > 0) {
+          experienceErrors[index] = expErrors;
+        }
+      });
+      if (Object.keys(experienceErrors).length > 0) {
+        newErrors.experience = experienceErrors;
+      }
+    }
+
+    // Education validation - if any education exists, all fields are required
+    if (education.length > 0) {
+      const educationErrors: { [key: number]: { degree?: string; institution?: string; graduationYear?: string } } = {};
+      education.forEach((edu, index) => {
+        const eduErrors: { degree?: string; institution?: string; graduationYear?: string } = {};
+        if (!edu.degree.trim()) {
+          eduErrors.degree = 'Degree is required';
+        }
+        if (!edu.institution.trim()) {
+          eduErrors.institution = 'Institution is required';
+        }
+        if (!edu.graduationYear) {
+          eduErrors.graduationYear = 'Graduation year is required';
+        }
+        if (Object.keys(eduErrors).length > 0) {
+          educationErrors[index] = eduErrors;
+        }
+      });
+      if (Object.keys(educationErrors).length > 0) {
+        newErrors.education = educationErrors;
+      }
+    }
+
+    // Certification validation - if any certification exists, all fields are required
+    if (certifications.length > 0) {
+      const certificationErrors: { [key: number]: { name?: string; issuer?: string; date?: string } } = {};
+      certifications.forEach((cert, index) => {
+        const certErrors: { name?: string; issuer?: string; date?: string } = {};
+        if (!cert.name.trim()) {
+          certErrors.name = 'Certification name is required';
+        }
+        if (!cert.issuer.trim()) {
+          certErrors.issuer = 'Issuer is required';
+        }
+        if (!cert.date.trim()) {
+          certErrors.date = 'Date is required';
+        }
+        if (Object.keys(certErrors).length > 0) {
+          certificationErrors[index] = certErrors;
+        }
+      });
+      if (Object.keys(certificationErrors).length > 0) {
+        newErrors.certification = certificationErrors;
+      }
+    }
+
+    // If there are errors, set them and scroll to first error
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      showError('Please fill in all required fields');
       return;
     }
+
+    // Clear any previous errors
+    setErrors({});
 
     try {
       setSaving(true);
@@ -272,8 +484,6 @@ const ResumeScreen = ({ navigation }: any) => {
         education,
         certifications: certifications.length > 0 ? certifications : undefined,
         backgroundInformation: backgroundInformation.trim() || undefined,
-        resumeFileUrl: resumeFileUrl || undefined,
-        resumeFilePublicId: resumeFilePublicId || undefined,
       };
 
       await ResumeService.createOrUpdateResume(resumeData);
@@ -290,7 +500,7 @@ const ResumeScreen = ({ navigation }: any) => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ScreenHeader title="My Resume" navigation={navigation} />
+        <ScreenHeader title="My Resume" onBackPress={() => navigation.goBack()} />
         <Loader />
       </SafeAreaView>
     );
@@ -298,7 +508,7 @@ const ResumeScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="My Resume" navigation={navigation} />
+      <ScreenHeader title="My Resume" onBackPress={() => navigation.goBack()} />
       
       <KeyboardAwareScrollView
         style={styles.scrollView}
@@ -311,39 +521,69 @@ const ResumeScreen = ({ navigation }: any) => {
           <Text style={styles.sectionTitle}>Personal Information</Text>
           
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.name && styles.inputError]}
             placeholder="Full Name *"
             placeholderTextColor={COLORS.lightGray}
             value={name}
-            onChangeText={setName}
+            onChangeText={(text) => {
+              setName(text);
+              // Clear error when user starts typing
+              if (errors.name) {
+                setErrors({ ...errors, name: undefined });
+              }
+            }}
           />
+          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
           
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.email && styles.inputError]}
             placeholder="Email *"
             placeholderTextColor={COLORS.lightGray}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              // Clear error when user starts typing
+              if (errors.email) {
+                setErrors({ ...errors, email: undefined });
+              }
+            }}
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
           
           <TextInput
-            style={styles.input}
-            placeholder="Phone"
+            style={[styles.input, errors.phone && styles.inputError]}
+            placeholder="Phone *"
             placeholderTextColor={COLORS.lightGray}
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={(text) => {
+              // Only allow numbers and + character
+              const filteredText = text.replace(/[^0-9+]/g, '');
+              setPhone(filteredText);
+              // Clear error when user starts typing
+              if (errors.phone) {
+                setErrors({ ...errors, phone: undefined });
+              }
+            }}
             keyboardType="phone-pad"
           />
+          {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
           
           <TextInput
-            style={styles.input}
-            placeholder="Location"
+            style={[styles.input, errors.location && styles.inputError]}
+            placeholder="Location *"
             placeholderTextColor={COLORS.lightGray}
             value={location}
-            onChangeText={setLocation}
+            onChangeText={(text) => {
+              setLocation(text);
+              // Clear error when user starts typing
+              if (errors.location) {
+                setErrors({ ...errors, location: undefined });
+              }
+            }}
           />
+          {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
         </View>
 
         {/* Skills */}
@@ -368,13 +608,21 @@ const ResumeScreen = ({ navigation }: any) => {
             </TouchableOpacity>
           </View>
           
+          {errors.skills && <Text style={styles.errorText}>{errors.skills}</Text>}
+          
           {skills.length > 0 && (
             <View style={styles.skillsContainer}>
               {skills.map((skill, index) => (
                 <View key={index} style={styles.skillTag}>
                   <Text style={styles.skillText}>{skill}</Text>
                   <TouchableOpacity
-                    onPress={() => handleRemoveSkill(index)}
+                    onPress={() => {
+                      handleRemoveSkill(index);
+                      // Clear error when user removes a skill (if they add one)
+                      if (errors.skills && skills.length > 1) {
+                        setErrors({ ...errors, skills: undefined });
+                      }
+                    }}
                     style={styles.removeSkillButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
@@ -406,40 +654,75 @@ const ResumeScreen = ({ navigation }: any) => {
               </View>
               
               <TextInput
-                style={styles.input}
-                placeholder="Job Title"
+                style={[styles.input, errors.experience?.[index]?.title && styles.inputError]}
+                placeholder="Job Title *"
                 placeholderTextColor={COLORS.lightGray}
                 value={exp.title}
-                onChangeText={(value) => handleUpdateExperience(index, 'title', value)}
+                onChangeText={(value) => {
+                  handleUpdateExperience(index, 'title', value);
+                  // Clear error when user starts typing
+                  if (errors.experience?.[index]?.title) {
+                    const newExpErrors = { ...errors.experience };
+                    if (newExpErrors[index]) {
+                      delete newExpErrors[index].title;
+                      if (Object.keys(newExpErrors[index]).length === 0) {
+                        delete newExpErrors[index];
+                      }
+                    }
+                    setErrors({ ...errors, experience: Object.keys(newExpErrors).length > 0 ? newExpErrors : undefined });
+                  }
+                }}
               />
+              {errors.experience?.[index]?.title && <Text style={styles.errorText}>{errors.experience[index].title}</Text>}
               
               <TextInput
-                style={styles.input}
-                placeholder="Company"
+                style={[styles.input, errors.experience?.[index]?.company && styles.inputError]}
+                placeholder="Company *"
                 placeholderTextColor={COLORS.lightGray}
                 value={exp.company}
-                onChangeText={(value) => handleUpdateExperience(index, 'company', value)}
+                onChangeText={(value) => {
+                  handleUpdateExperience(index, 'company', value);
+                  // Clear error when user starts typing
+                  if (errors.experience?.[index]?.company) {
+                    const newExpErrors = { ...errors.experience };
+                    if (newExpErrors[index]) {
+                      delete newExpErrors[index].company;
+                      if (Object.keys(newExpErrors[index]).length === 0) {
+                        delete newExpErrors[index];
+                      }
+                    }
+                    setErrors({ ...errors, experience: Object.keys(newExpErrors).length > 0 ? newExpErrors : undefined });
+                  }
+                }}
               />
+              {errors.experience?.[index]?.company && <Text style={styles.errorText}>{errors.experience[index].company}</Text>}
               
               <View style={styles.rowInputs}>
-                <TextInput
-                  style={[styles.input, styles.halfInput]}
-                  placeholder="Start Date (YYYY-MM)"
-                  placeholderTextColor={COLORS.lightGray}
-                  value={exp.startDate}
-                  onChangeText={(value) => handleUpdateExperience(index, 'startDate', value)}
-                />
+                <TouchableOpacity
+                  style={[styles.input, styles.halfInput, styles.dateInput, errors.experience?.[index]?.startDate && styles.inputError]}
+                  onPress={() => openDatePicker('start', index)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={exp.startDate ? styles.dateInputText : styles.dateInputPlaceholder}>
+                    {exp.startDate ? formatDateDisplay(exp.startDate) : 'Start Date *'}
+                  </Text>
+                  <CalendarIcon size={20} color={COLORS.gray} />
+                </TouchableOpacity>
                 
                 {!exp.current && (
-                  <TextInput
-                    style={[styles.input, styles.halfInput]}
-                    placeholder="End Date (YYYY-MM)"
-                    placeholderTextColor={COLORS.lightGray}
-                    value={exp.endDate}
-                    onChangeText={(value) => handleUpdateExperience(index, 'endDate', value)}
-                  />
+                  <TouchableOpacity
+                    style={[styles.input, styles.halfInput, styles.dateInput]}
+                    onPress={() => openDatePicker('end', index)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={exp.endDate ? styles.dateInputText : styles.dateInputPlaceholder}>
+                      {exp.endDate ? formatDateDisplay(exp.endDate) : 'End Date'}
+                    </Text>
+                    <CalendarIcon size={20} color={COLORS.gray} />
+                  </TouchableOpacity>
                 )}
               </View>
+              {errors.experience?.[index]?.startDate && <Text style={styles.errorText}>{errors.experience[index].startDate}</Text>}
               
               <TouchableOpacity
                 onPress={() => handleUpdateExperience(index, 'current', !exp.current)}
@@ -483,28 +766,69 @@ const ResumeScreen = ({ navigation }: any) => {
               </View>
               
               <TextInput
-                style={styles.input}
-                placeholder="Degree"
+                style={[styles.input, errors.education?.[index]?.degree && styles.inputError]}
+                placeholder="Degree *"
                 placeholderTextColor={COLORS.lightGray}
                 value={edu.degree}
-                onChangeText={(value) => handleUpdateEducation(index, 'degree', value)}
+                onChangeText={(value) => {
+                  handleUpdateEducation(index, 'degree', value);
+                  // Clear error when user starts typing
+                  if (errors.education?.[index]?.degree) {
+                    const newEduErrors = { ...errors.education };
+                    if (newEduErrors[index]) {
+                      delete newEduErrors[index].degree;
+                      if (Object.keys(newEduErrors[index]).length === 0) {
+                        delete newEduErrors[index];
+                      }
+                    }
+                    setErrors({ ...errors, education: Object.keys(newEduErrors).length > 0 ? newEduErrors : undefined });
+                  }
+                }}
               />
+              {errors.education?.[index]?.degree && <Text style={styles.errorText}>{errors.education[index].degree}</Text>}
               
               <TextInput
-                style={styles.input}
-                placeholder="Institution"
+                style={[styles.input, errors.education?.[index]?.institution && styles.inputError]}
+                placeholder="Institution *"
                 placeholderTextColor={COLORS.lightGray}
                 value={edu.institution}
-                onChangeText={(value) => handleUpdateEducation(index, 'institution', value)}
+                onChangeText={(value) => {
+                  handleUpdateEducation(index, 'institution', value);
+                  // Clear error when user starts typing
+                  if (errors.education?.[index]?.institution) {
+                    const newEduErrors = { ...errors.education };
+                    if (newEduErrors[index]) {
+                      delete newEduErrors[index].institution;
+                      if (Object.keys(newEduErrors[index]).length === 0) {
+                        delete newEduErrors[index];
+                      }
+                    }
+                    setErrors({ ...errors, education: Object.keys(newEduErrors).length > 0 ? newEduErrors : undefined });
+                  }
+                }}
               />
+              {errors.education?.[index]?.institution && <Text style={styles.errorText}>{errors.education[index].institution}</Text>}
               
               <View style={styles.rowInputs}>
                 <TextInput
-                  style={[styles.input, styles.halfInput]}
-                  placeholder="Graduation Year"
+                  style={[styles.input, styles.halfInput, errors.education?.[index]?.graduationYear && styles.inputError]}
+                  placeholder="Graduation Year *"
                   placeholderTextColor={COLORS.lightGray}
                   value={edu.graduationYear?.toString()}
-                  onChangeText={(value) => handleUpdateEducation(index, 'graduationYear', value ? parseInt(value) : undefined)}
+                  onChangeText={(value) => {
+                    handleUpdateEducation(index, 'graduationYear', value ? parseInt(value) : undefined);
+                    // Clear error when user starts typing
+                    if (errors.education?.[index]?.graduationYear) {
+                      const newEduErrors = { ...errors.education };
+                      if (newEduErrors[index]) {
+                        delete newEduErrors[index].graduationYear;
+                        if (Object.keys(newEduErrors[index]).length === 0) {
+                          delete newEduErrors[index];
+                        }
+                      }
+                      setErrors({ ...errors, education: Object.keys(newEduErrors).length > 0 ? newEduErrors : undefined });
+                    }
+                  }}
                   keyboardType="numeric"
                 />
                 
@@ -517,6 +841,7 @@ const ResumeScreen = ({ navigation }: any) => {
                   keyboardType="decimal-pad"
                 />
               </View>
+              {errors.education?.[index]?.graduationYear && <Text style={styles.errorText}>{errors.education[index].graduationYear}</Text>}
             </View>
           ))}
         </View>
@@ -541,28 +866,84 @@ const ResumeScreen = ({ navigation }: any) => {
               </View>
               
               <TextInput
-                style={styles.input}
-                placeholder="Certification Name"
+                style={[styles.input, errors.certification?.[index]?.name && styles.inputError]}
+                placeholder="Certification Name *"
                 placeholderTextColor={COLORS.lightGray}
                 value={cert.name}
-                onChangeText={(value) => handleUpdateCertification(index, 'name', value)}
+                onChangeText={(value) => {
+                  handleUpdateCertification(index, 'name', value);
+                  // Clear error when user starts typing
+                  if (errors.certification?.[index]?.name) {
+                    const newCertErrors = { ...errors.certification };
+                    if (newCertErrors[index]) {
+                      delete newCertErrors[index].name;
+                      if (Object.keys(newCertErrors[index]).length === 0) {
+                        delete newCertErrors[index];
+                      }
+                    }
+                    setErrors({ ...errors, certification: Object.keys(newCertErrors).length > 0 ? newCertErrors : undefined });
+                  }
+                }}
               />
+              {errors.certification?.[index]?.name && <Text style={styles.errorText}>{errors.certification[index].name}</Text>}
               
               <TextInput
-                style={styles.input}
-                placeholder="Issuer"
+                style={[styles.input, errors.certification?.[index]?.issuer && styles.inputError]}
+                placeholder="Issuer *"
                 placeholderTextColor={COLORS.lightGray}
                 value={cert.issuer}
-                onChangeText={(value) => handleUpdateCertification(index, 'issuer', value)}
+                onChangeText={(value) => {
+                  handleUpdateCertification(index, 'issuer', value);
+                  // Clear error when user starts typing
+                  if (errors.certification?.[index]?.issuer) {
+                    const newCertErrors = { ...errors.certification };
+                    if (newCertErrors[index]) {
+                      delete newCertErrors[index].issuer;
+                      if (Object.keys(newCertErrors[index]).length === 0) {
+                        delete newCertErrors[index];
+                      }
+                    }
+                    setErrors({ ...errors, certification: Object.keys(newCertErrors).length > 0 ? newCertErrors : undefined });
+                  }
+                }}
               />
+              {errors.certification?.[index]?.issuer && <Text style={styles.errorText}>{errors.certification[index].issuer}</Text>}
               
-              <TextInput
-                style={styles.input}
-                placeholder="Date (YYYY-MM)"
-                placeholderTextColor={COLORS.lightGray}
-                value={cert.date}
-                onChangeText={(value) => handleUpdateCertification(index, 'date', value)}
-              />
+              <TouchableOpacity
+                style={[styles.input, styles.dateInput, errors.certification?.[index]?.date && styles.inputError]}
+                onPress={() => openDatePicker('certification', index)}
+                activeOpacity={0.7}
+              >
+                <Text style={cert.date ? styles.dateInputText : styles.dateInputPlaceholder}>
+                  {cert.date ? formatDateDisplay(cert.date) : 'Date *'}
+                </Text>
+                <CalendarIcon size={20} color={COLORS.gray} />
+              </TouchableOpacity>
+              {errors.certification?.[index]?.date && <Text style={styles.errorText}>{errors.certification[index].date}</Text>}
+              
+              {/* Certificate Image Upload */}
+              <View style={styles.certificateImageSection}>
+                <Text style={styles.certificateImageLabel}>Certificate Image (Optional)</Text>
+                <ImageUpload
+                  currentImageUrl={cert.imageUrl}
+                  currentPublicId={cert.imagePublicId}
+                  onImageUploaded={(imageUrl, publicId) => {
+                    const updated = [...certifications];
+                    updated[index] = { ...updated[index], imageUrl, imagePublicId: publicId };
+                    setCertifications(updated);
+                    showSuccess('Certificate image uploaded successfully');
+                  }}
+                  onImageDeleted={() => {
+                    const updated = [...certifications];
+                    updated[index] = { ...updated[index], imageUrl: undefined, imagePublicId: undefined };
+                    setCertifications(updated);
+                  }}
+                  placeholder="Upload certificate image"
+                  style={styles.certificateImageUpload}
+                  uploadType="user"
+                  showDeleteButton={!!cert.imageUrl}
+                />
+              </View>
             </View>
           ))}
         </View>
@@ -581,31 +962,6 @@ const ResumeScreen = ({ navigation }: any) => {
           />
         </View>
 
-        {/* Resume File Upload */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resume File (PDF/DOC)</Text>
-          
-          <TouchableOpacity
-            onPress={handleUploadResume}
-            disabled={uploadingResume}
-            style={[styles.uploadButton, uploadingResume && styles.uploadButtonDisabled]}
-            activeOpacity={0.7}
-          >
-            {uploadingResume ? (
-              <ActivityIndicator color={COLORS.green} />
-            ) : (
-              <>
-                <Text style={styles.uploadButtonText}>
-                  {resumeFileUrl ? '✓ Resume Uploaded' : '+ Upload Resume File'}
-                </Text>
-                <Text style={styles.uploadButtonSubtext}>
-                  {resumeFileUrl ? 'Tap to change' : 'PDF or DOC file'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
         {/* Save Button */}
         <AppButton
           title={saving ? 'Saving...' : 'Save Resume'}
@@ -615,195 +971,93 @@ const ResumeScreen = ({ navigation }: any) => {
           style={styles.saveButton}
         />
       </KeyboardAwareScrollView>
+
+      {/* Date Picker */}
+      {Platform.OS === 'ios' && showDatePicker && (
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => {
+            setShowDatePicker(false);
+            setDatePickerType(null);
+            setDatePickerIndex(-1);
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalOverlay}
+            onPress={() => {
+              setShowDatePicker(false);
+              setDatePickerType(null);
+              setDatePickerIndex(-1);
+            }}
+          >
+            <View 
+              style={styles.modalContent}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={styles.modalHeader}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    setDatePickerType(null);
+                    setDatePickerIndex(-1);
+                  }}
+                  style={styles.modalCancelButton}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>
+                  Select {datePickerType === 'start' ? 'Start' : datePickerType === 'end' ? 'End' : 'Certification'} Date
+                </Text>
+                <TouchableOpacity
+                  onPress={() => handleDateConfirm()}
+                  style={styles.modalDoneButton}
+                >
+                  <Text style={styles.modalDoneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.datePickerContainer}>
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={handleDateChange}
+                  style={styles.datePicker}
+                  textColor={COLORS.black}
+                  minimumDate={datePickerType === 'end' && datePickerIndex >= 0 && experience[datePickerIndex]?.startDate
+                    ? (() => {
+                        const [year, month] = experience[datePickerIndex].startDate.split('-');
+                        return new Date(parseInt(year), parseInt(month) - 1, 1);
+                      })()
+                    : undefined}
+                  maximumDate={new Date()}
+                />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          minimumDate={datePickerType === 'end' && datePickerIndex >= 0 && experience[datePickerIndex]?.startDate
+            ? (() => {
+                const [year, month] = experience[datePickerIndex].startDate.split('-');
+                return new Date(parseInt(year), parseInt(month) - 1, 1);
+              })()
+            : undefined}
+          maximumDate={new Date()}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.lightBackground,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 24,
-  },
-  section: {
-    marginBottom: 28,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.black,
-    marginBottom: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    fontSize: 15,
-    backgroundColor: COLORS.white,
-    color: COLORS.black,
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-    paddingTop: 14,
-  },
-  addSkillContainer: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  addSkillInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    borderRadius: 12,
-    padding: 14,
-    marginRight: 8,
-    fontSize: 15,
-    backgroundColor: COLORS.white,
-    color: COLORS.black,
-  },
-  addButton: {
-    backgroundColor: COLORS.green,
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  skillsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  skillTag: {
-    backgroundColor: COLORS.green,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  skillText: {
-    color: COLORS.white,
-    fontSize: 13,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  removeSkillButton: {
-    padding: 2,
-  },
-  addSectionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  addSectionText: {
-    color: COLORS.green,
-    fontWeight: '600',
-    marginLeft: 4,
-    fontSize: 15,
-  },
-  itemCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.lightBackground,
-  },
-  itemCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  itemCardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.black,
-  },
-  removeText: {
-    color: COLORS.red,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  rowInputs: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfInput: {
-    flex: 1,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderWidth: 2,
-    borderColor: COLORS.lightGray,
-    borderRadius: 4,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: COLORS.green,
-    borderColor: COLORS.green,
-  },
-  checkmark: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  checkboxLabel: {
-    color: COLORS.black,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  uploadButton: {
-    borderWidth: 2,
-    borderColor: COLORS.green,
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-  },
-  uploadButtonDisabled: {
-    opacity: 0.6,
-  },
-  uploadButtonText: {
-    fontSize: 16,
-    color: COLORS.green,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  uploadButtonSubtext: {
-    fontSize: 12,
-    color: COLORS.gray,
-  },
-  saveButton: {
-    marginTop: 8,
-  },
-});
+const styles = resumeScreenStyles;
 
 export default ResumeScreen;

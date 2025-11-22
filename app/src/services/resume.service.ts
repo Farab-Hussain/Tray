@@ -46,8 +46,17 @@ export const ResumeService = {
    * Get my resume (Student)
    */
   async getMyResume() {
-    const response = await api.get('/resumes/my');
-    return response.data;
+    try {
+      const response = await api.get('/resumes/my');
+      return response.data;
+    } catch (error: any) {
+      // If resume not found (404), return empty resume object instead of throwing
+      // This is expected for recruiters or users who haven't created a resume yet
+      if (error.response?.status === 404) {
+        return { resume: null };
+      }
+      throw error;
+    }
   },
 
   /**
