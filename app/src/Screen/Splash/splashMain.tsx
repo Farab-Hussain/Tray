@@ -19,7 +19,9 @@ const SplashMain = ({navigation}:any) => {
         <AppButton
           title="REGISTER AS CONSULTANT"
           onPress={() => {
-            console.log('Splash Screen - REGISTER AS CONSULTANT clicked, role: consultant');
+                        if (__DEV__) {
+              console.log('Splash Screen - REGISTER AS CONSULTANT clicked, role: consultant')
+            };
             setIntendedRole('consultant');
             navigation.navigate('Auth', { 
               screen: 'Register',
@@ -32,7 +34,9 @@ const SplashMain = ({navigation}:any) => {
         <AppButton
           title="REGISTER AS STUDENT"
           onPress={() => {
-            console.log('Splash Screen - REGISTER clicked, role: student');
+                        if (__DEV__) {
+              console.log('Splash Screen - REGISTER clicked, role: student')
+            };
             setIntendedRole('student');
             navigation.navigate('Auth', { 
               screen: 'Register',
@@ -45,7 +49,9 @@ const SplashMain = ({navigation}:any) => {
         <AppButton
           title="REGISTER AS RECRUITER"
           onPress={() => {
-            console.log('Splash Screen - REGISTER AS RECRUITER clicked, role: recruiter');
+                        if (__DEV__) {
+              console.log('Splash Screen - REGISTER AS RECRUITER clicked, role: recruiter')
+            };
             setIntendedRole('recruiter');
             navigation.navigate('Auth', { 
               screen: 'Register',

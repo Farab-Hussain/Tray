@@ -4,7 +4,7 @@ import { COLORS } from '../core/colors';
 export const jobListScreenStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.lightBackground,
+    backgroundColor: COLORS.white,
   },
   searchContainer: {
     paddingHorizontal: 16,
@@ -14,10 +14,12 @@ export const jobListScreenStyles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    backgroundColor: COLORS.white,
   },
   scrollContent: {
     padding: 16,
     paddingBottom: 24,
+    backgroundColor: COLORS.white,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -144,12 +146,21 @@ export const jobListScreenStyles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: COLORS.lightBackground,
+    borderTopColor: '#E5E5E5',
   },
   matchText: {
     fontSize: 12,
     color: COLORS.gray,
     fontWeight: '500',
+  },
+  applyButtonContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+  },
+  applyButton: {
+    marginTop: 0,
   },
   loadMoreButton: {
     backgroundColor: COLORS.green,

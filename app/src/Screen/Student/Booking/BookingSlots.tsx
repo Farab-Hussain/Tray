@@ -16,7 +16,9 @@ const calculateEndTime = (startTime: string, durationMinutes: number): string =>
   // Parse start time - handle both formats: "09:00 AM" and "09.00 AM"
   const timeMatch = startTime.match(/(\d+)[:.](\d+)\s*(AM|PM)/i);
   if (!timeMatch) {
-    console.warn('Could not parse time:', startTime);
+        if (__DEV__) {
+      console.warn('Could not parse time:', startTime)
+    };
     return startTime;
   }
   
@@ -24,7 +26,9 @@ const calculateEndTime = (startTime: string, durationMinutes: number): string =>
   let minutes = parseInt(timeMatch[2], 10);
   const period = timeMatch[3];
   
-  console.log('Parsed time:', { hours, minutes, period, durationMinutes });
+    if (__DEV__) {
+    console.log('Parsed time:', { hours, minutes, period, durationMinutes })
+  };
   
   // Convert to 24-hour format
   if (period === 'PM' && hours !== 12) hours += 12;
@@ -41,7 +45,9 @@ const calculateEndTime = (startTime: string, durationMinutes: number): string =>
   if (endHours === 0) endHours = 12;
   
   const result = `${String(endHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${endPeriod}`;
-  console.log('Calculated end time:', result);
+    if (__DEV__) {
+    console.log('Calculated end time:', result)
+  };
   
   return result;
 };
@@ -129,9 +135,13 @@ const BookingSlots = ({ navigation, route }: any) => {
     if (!consultantId) return;
     
     try {
-      console.log('🔍 Fetching booked slots for consultant:', consultantId);
+            if (__DEV__) {
+        console.log('🔍 Fetching booked slots for consultant:', consultantId)
+      };
       const response = await BookingService.getConsultantBookedSlots(consultantId);
-      console.log('📅 Booked slots response:', response);
+            if (__DEV__) {
+        console.log('📅 Booked slots response:', response)
+      };
       
       if (response?.bookedSlots) {
         const bookedSlotsSet = new Set<string>();
@@ -141,10 +151,14 @@ const BookingSlots = ({ navigation, route }: any) => {
         });
         
         setBookedSlots(bookedSlotsSet);
-        console.log('✅ Loaded booked slots for consultant:', Array.from(bookedSlotsSet));
+                if (__DEV__) {
+          console.log('✅ Loaded booked slots for consultant:', Array.from(bookedSlotsSet))
+        };
       }
     } catch (error) {
-      console.error('❌ Error fetching booked slots:', error);
+            if (__DEV__) {
+        console.error('❌ Error fetching booked slots:', error)
+      };
       // Don't fail the entire component if booked slots can't be fetched
     }
   }, [consultantId]);
@@ -308,7 +322,9 @@ const BookingSlots = ({ navigation, route }: any) => {
           fetchBookedSlots(),
         ]);
 
-        console.log('✅ Availability response:', availabilityResponse);
+                if (__DEV__) {
+          console.log('✅ Availability response:', availabilityResponse)
+        };
 
         if (availabilityResponse?.available) {
           const hasAvailability =
@@ -320,23 +336,31 @@ const BookingSlots = ({ navigation, route }: any) => {
 
           if (hasAvailability || hasAvailabilitySlots) {
             setConsultantAvailability(availabilityResponse);
-            console.log(
+                        if (__DEV__) {
+              console.log(
               '✅ Consultant availability loaded:',
               availabilityResponse.availability,
-            );
+            )
+            };
           } else {
-            console.log('⚠️ Consultant has no availability set');
+                        if (__DEV__) {
+              console.log('⚠️ Consultant has no availability set')
+            };
             setConsultantAvailability(null);
           }
         } else {
-          console.log(
+                    if (__DEV__) {
+            console.log(
             '⚠️ Consultant not available:',
             availabilityResponse?.message,
-          );
+          )
+          };
           setConsultantAvailability(null);
         }
       } catch (error: any) {
-        console.error('❌ Error fetching consultant data:', error);
+                if (__DEV__) {
+          console.error('❌ Error fetching consultant data:', error)
+        };
         setConsultantAvailability(null);
       } finally {
         setLoadingAvailability(false);
@@ -430,7 +454,9 @@ const BookingSlots = ({ navigation, route }: any) => {
     });
     setSelectedTimeSlots([]); // Reset current selections
     
-    console.log('✅ Added slots for date:', selectedDate, 'Slots:', newSlots.length);
+        if (__DEV__) {
+      console.log('✅ Added slots for date:', selectedDate, 'Slots:', newSlots.length)
+    };
   };
 
   // Handle removing a slot from main selection
@@ -474,12 +500,14 @@ const BookingSlots = ({ navigation, route }: any) => {
       duration: serviceDuration,
     };
 
-    console.log('📦 Adding to cart:', {
+        if (__DEV__) {
+      console.log('📦 Adding to cart:', {
       consultant: cartItem.consultantName,
       service: cartItem.serviceTitle,
       totalSlots: selectedSlots.length,
       slots: selectedSlots
-    });
+    })
+    };
 
     // Navigate to cart with the new item
     navigation.navigate('Cart', cartItem);

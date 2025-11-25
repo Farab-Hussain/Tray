@@ -115,22 +115,26 @@ export default function BrowseServicesScreen() {
           };
 
           // Debug logging for each service
-          console.log(`Service ${service.title}:`, {
+                    if (__DEV__) {
+            console.log(`Service ${service.title}:`, {
             serviceId: service.id,
             hasApplication: !!application,
             applicationStatus: application?.status || 'no application',
             applicationId: application?.id || 'none',
             consultantId: application?.consultantId || 'none',
             currentUserId: user?.uid,
-          });
+          })
+          };
 
           return result;
         });
 
       if (servicesWithStatus.length === 0) {
-        console.log(
+                if (__DEV__) {
+          console.log(
           'No platform services available. Loading top consultant services as fallback.',
-        );
+        )
+        };
         try {
           const topResponse = await ConsultantService.getTopConsultants();
           const topConsultants: TopConsultant[] =
@@ -146,10 +150,12 @@ export default function BrowseServicesScreen() {
               topConsultants[0],
             );
 
-            console.log(
+                        if (__DEV__) {
+              console.log(
               'Using top consultant services fallback:',
               selectedTopConsultant?.name,
-            );
+            )
+            };
 
             const consultantServicesResponse =
               await ConsultantService.getConsultantServices(
@@ -178,21 +184,31 @@ export default function BrowseServicesScreen() {
               } as ServiceWithApplication;
             });
           } else {
-            console.log('Top consultants response empty. No fallback services.');
+                        if (__DEV__) {
+              console.log('Top consultants response empty. No fallback services.')
+            };
           }
         } catch (fallbackError) {
-          console.error(
+                    if (__DEV__) {
+            console.error(
             'Failed to load top consultant services fallback:',
             fallbackError,
-          );
+          )
+          };
         }
       }
 
-      console.log('Services with application status:', servicesWithStatus);
-      console.log('My applications:', myApplications);
+            if (__DEV__) {
+        console.log('Services with application status:', servicesWithStatus)
+      };
+            if (__DEV__) {
+        console.log('My applications:', myApplications)
+      };
       setServices(servicesWithStatus);
     } catch (error: any) {
-      console.error('Error loading services:', error);
+            if (__DEV__) {
+        console.error('Error loading services:', error)
+      };
       handleApiError(error);
     } finally {
       setIsLoading(false);
@@ -240,7 +256,9 @@ export default function BrowseServicesScreen() {
               // Reload services to show updated status
               await loadServicesWithApplications();
             } catch (error: any) {
-              console.error('Error applying for service:', error);
+                            if (__DEV__) {
+                console.error('Error applying for service:', error)
+              };
               handleApiError(error);
             } finally {
               setApplyingServiceId(null);
@@ -262,11 +280,13 @@ export default function BrowseServicesScreen() {
     const hasApplication = !!service.applicationStatus;
 
     // Debug logging
-    console.log(`Button for ${service.title}:`, {
+        if (__DEV__) {
+      console.log(`Button for ${service.title}:`, {
       applicationStatus: service.applicationStatus,
       hasApplication,
       isApplying,
-    });
+    })
+    };
 
     // Determine button style and content based on status
     if (isApplying) {
@@ -403,9 +423,11 @@ export default function BrowseServicesScreen() {
                   style={styles.serviceImage}
                   resizeMode="cover"
                   onError={() => {
-                    console.log(
+                                        if (__DEV__) {
+                      console.log(
                       `Failed to load image for service: ${service.title}`,
-                    );
+                    )
+                    };
                   }}
                 />
               ) : (

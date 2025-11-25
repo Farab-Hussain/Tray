@@ -52,7 +52,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       });
 
       if (initError) {
-        console.error('Error initializing payment sheet:', initError);
+                if (__DEV__) {
+          console.error('Error initializing payment sheet:', initError)
+        };
         Alert.alert('Payment Error', initError.message);
         onFailure(initError.message);
         return;
@@ -62,7 +64,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       const { error: paymentError } = await presentPaymentSheet();
 
       if (paymentError) {
-        console.error('Payment failed:', paymentError);
+                if (__DEV__) {
+          console.error('Payment failed:', paymentError)
+        };
         if (paymentError.code !== 'Canceled') {
           Alert.alert('Payment Failed', paymentError.message);
           onFailure(paymentError.message);
@@ -86,7 +90,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       );
 
     } catch (error: any) {
-      console.error('Payment error:', error);
+            if (__DEV__) {
+        console.error('Payment error:', error)
+      };
       Alert.alert('Payment Error', error.message || 'An unexpected error occurred');
       onFailure(error.message || 'Payment failed');
     } finally {

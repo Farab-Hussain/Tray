@@ -114,7 +114,9 @@ const AllConsultants = ({ navigation }: any) => {
             },
           });
         } catch (error) {
-          console.error('Error opening chat:', error);
+                    if (__DEV__) {
+            console.error('Error opening chat:', error)
+          };
           showError('Failed to open chat');
         }
       } else if (iconType === 'phone') {
@@ -153,7 +155,9 @@ const AllConsultants = ({ navigation }: any) => {
         });
       }
     } catch (error) {
-      console.error('Error checking booking access:', error);
+            if (__DEV__) {
+        console.error('Error checking booking access:', error)
+      };
       showError('Unable to verify booking status');
     }
   };
@@ -189,7 +193,9 @@ const AllConsultants = ({ navigation }: any) => {
         setHasMore(allConsultantsData.length >= 20);
       }
     } catch (err) {
-      console.error('Error fetching all consultants:', err);
+            if (__DEV__) {
+        console.error('Error fetching all consultants:', err)
+      };
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -252,10 +258,18 @@ const AllConsultants = ({ navigation }: any) => {
                   }
                   rating={item.rating ?? 0}
                   onBookPress={() => {
-                    console.log('📍 Book Now Clicked - AllConsultants Screen');
-                    console.log('🆔 Consultant UID:', item.uid);
-                    console.log('👤 Consultant Name:', item.name);
-                    console.log('📂 Consultant Category:', item.category);
+                                        if (__DEV__) {
+                      console.log('📍 Book Now Clicked - AllConsultants Screen')
+                    };
+                                        if (__DEV__) {
+                      console.log('🆔 Consultant UID:', item.uid)
+                    };
+                                        if (__DEV__) {
+                      console.log('👤 Consultant Name:', item.name)
+                    };
+                                        if (__DEV__) {
+                      console.log('📂 Consultant Category:', item.category)
+                    };
                     navigation.navigate('MainTabs', {
                       screen: 'Services',
                       params: {

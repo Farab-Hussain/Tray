@@ -44,7 +44,9 @@ export const useAutoRefresh = (
         try {
           await refreshFunction();
         } catch (error) {
-          console.error('Error in auto-refresh:', error);
+                    if (__DEV__) {
+            console.error('Error in auto-refresh:', error)
+          };
         }
       }
     }, debounceMs);

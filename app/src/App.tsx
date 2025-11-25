@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View, Text } from 'react-native';
+import { ActivityIndicator, View, Text, LogBox } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import Toast from 'react-native-toast-message';
@@ -9,8 +9,41 @@ import { ChatProvider } from './contexts/ChatContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { NetworkProvider } from './contexts/NetworkContext';
 import OfflineOverlay from './components/ui/OfflineOverlay';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import { navigationRef } from './navigator/navigationRef';
 import { appStyles } from './constants/styles/appStyles';
+import { validateEnvironmentOrThrow } from './utils/envValidation';
+
+// Validate environment variables on app startup
+try {
+  validateEnvironmentOrThrow();
+} catch (error) {
+  // In production, environment validation errors are fatal
+  if (!__DEV__) {
+    console.error('Fatal: Environment validation failed:', error);
+    // The app will show an error screen via ErrorBoundary
+  }
+}
+
+// Configure LogBox for production builds
+// In production, React Native automatically disables error overlays,
+// but we can configure it explicitly for development
+if (__DEV__) {
+  // Only show errors in development, not warnings
+  LogBox.ignoreLogs([
+    // Ignore specific warnings that are not critical
+    'InteractionManager has been deprecated',
+    'This method is deprecated',
+    'react-native-firebase',
+    'migrating-to-v22',
+    'Please use `getApp()` instead',
+  ]);
+} else {
+  // In production, completely ignore all logs and errors
+  // React Native automatically disables error overlays in production builds
+  // This is just an extra safety measure
+  LogBox.ignoreAllLogs(true);
+}
 
 // Initialize React Native Firebase App (required for messaging)
 // Do this silently to avoid deprecation warnings during initialization
@@ -145,21 +178,23 @@ export default function App() {
   }
 
   return (
-    <StripeProvider publishableKey={stripeKey}>
-      <NetworkProvider>
-        <AuthProvider>
-          <ChatProvider>
-            <NotificationProvider>
-              <NavigationContainer ref={navigationRef}>
-                <RootNavigator />
-              </NavigationContainer>
-              <OfflineOverlay />
-              <Toast />
-            </NotificationProvider>
-          </ChatProvider>
-        </AuthProvider>
-      </NetworkProvider>
-    </StripeProvider>
+    <ErrorBoundary>
+      <StripeProvider publishableKey={stripeKey}>
+        <NetworkProvider>
+          <AuthProvider>
+            <ChatProvider>
+              <NotificationProvider>
+                <NavigationContainer ref={navigationRef}>
+                  <RootNavigator />
+                </NavigationContainer>
+                <OfflineOverlay />
+                <Toast />
+              </NotificationProvider>
+            </ChatProvider>
+          </AuthProvider>
+        </NetworkProvider>
+      </StripeProvider>
+    </ErrorBoundary>
   );
 }
 

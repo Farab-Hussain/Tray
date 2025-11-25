@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AppButton from '../../../components/ui/AppButton';
 import { SessionCompletionService, RefundRequest } from '../../../services/sessionCompletion.service';
 import { EmailService } from '../../../services/email.service';
+import { UserService } from '../../../services/user.service';
 import { refundReviewStyles } from '../../../constants/styles/refundReviewStyles';
 
 interface AdminRefundReviewProps {
@@ -25,7 +26,9 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
       const requests = await SessionCompletionService.getAllRefundRequests();
       setRefundRequests(requests);
     } catch (error) {
-      console.error('Error fetching refund requests:', error);
+            if (__DEV__) {
+        console.error('Error fetching refund requests:', error)
+      };
       Alert.alert('Error', 'Failed to load refund requests');
     } finally {
       setLoading(false);
@@ -55,19 +58,30 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
                 adminNotes
               );
 
+              // Fetch user data for email notifications
+              const [studentData, consultantData] = await Promise.all([
+                UserService.getUserById(selectedRequest.studentId),
+                UserService.getUserById(selectedRequest.consultantId),
+              ]);
+
+              const studentEmail = studentData?.email || 'student@example.com';
+              const studentName = studentData?.name || studentData?.username || 'Student';
+              const consultantEmail = consultantData?.email || 'consultant@example.com';
+              const consultantName = consultantData?.name || consultantData?.username || 'Consultant';
+
               // Send email notifications
               await EmailService.sendRefundDecisionToStudent(
-                'student@example.com', // TODO: Fetch actual student email using selectedRequest.studentId
-                'Student Name', // TODO: Fetch actual student name using selectedRequest.studentId
+                studentEmail,
+                studentName,
                 'approved',
                 selectedRequest.amount,
                 adminNotes
               );
 
               await EmailService.sendRefundDecisionToConsultant(
-                'consultant@example.com', // TODO: Fetch actual consultant email using selectedRequest.consultantId
-                'Consultant Name', // TODO: Fetch actual consultant name using selectedRequest.consultantId
-                'Student Name', // TODO: Fetch actual student name using selectedRequest.studentId
+                consultantEmail,
+                consultantName,
+                studentName,
                 'approved',
                 selectedRequest.amount,
                 adminNotes
@@ -77,7 +91,9 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
               setSelectedRequest(null);
               fetchRefundRequests();
             } catch (error) {
-              console.error('Error approving refund:', error);
+                            if (__DEV__) {
+                console.error('Error approving refund:', error)
+              };
               Alert.alert('Error', 'Failed to approve refund');
             }
           }
@@ -105,19 +121,30 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
                 adminNotes
               );
 
+              // Fetch user data for email notifications
+              const [studentData, consultantData] = await Promise.all([
+                UserService.getUserById(selectedRequest.studentId),
+                UserService.getUserById(selectedRequest.consultantId),
+              ]);
+
+              const studentEmail = studentData?.email || 'student@example.com';
+              const studentName = studentData?.name || studentData?.username || 'Student';
+              const consultantEmail = consultantData?.email || 'consultant@example.com';
+              const consultantName = consultantData?.name || consultantData?.username || 'Consultant';
+
               // Send email notifications
               await EmailService.sendRefundDecisionToStudent(
-                'student@example.com', // TODO: Fetch actual student email using selectedRequest.studentId
-                'Student Name', // TODO: Fetch actual student name using selectedRequest.studentId
+                studentEmail,
+                studentName,
                 'denied',
                 selectedRequest.amount,
                 adminNotes
               );
 
               await EmailService.sendRefundDecisionToConsultant(
-                'consultant@example.com', // TODO: Fetch actual consultant email using selectedRequest.consultantId
-                'Consultant Name', // TODO: Fetch actual consultant name using selectedRequest.consultantId
-                'Student Name', // TODO: Fetch actual student name using selectedRequest.studentId
+                consultantEmail,
+                consultantName,
+                studentName,
                 'denied',
                 selectedRequest.amount,
                 adminNotes
@@ -127,7 +154,9 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
               setSelectedRequest(null);
               fetchRefundRequests();
             } catch (error) {
-              console.error('Error denying refund:', error);
+                            if (__DEV__) {
+                console.error('Error denying refund:', error)
+              };
               Alert.alert('Error', 'Failed to deny refund');
             }
           }

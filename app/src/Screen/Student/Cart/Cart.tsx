@@ -55,17 +55,23 @@ const Cart = ({ navigation, route }: any) => {
         // Fetch service images for items that don't have them
         const itemsNeedingImages = existingItems.filter(item => !item.serviceImageUrl);
         if (itemsNeedingImages.length > 0) {
-          console.log('🖼️ Fetching service images for', itemsNeedingImages.length, 'cart items');
+                    if (__DEV__) {
+            console.log('🖼️ Fetching service images for', itemsNeedingImages.length, 'cart items')
+          };
           for (const item of itemsNeedingImages) {
             try {
               const services = await ConsultantService.getConsultantServices(item.consultantId);
               const service = services.services?.find((s: any) => s.id === item.serviceId);
               if (service && service.imageUrl) {
                 item.serviceImageUrl = service.imageUrl;
-                console.log('✅ Found service image for:', item.serviceTitle, service.imageUrl);
+                                if (__DEV__) {
+                  console.log('✅ Found service image for:', item.serviceTitle, service.imageUrl)
+                };
               }
             } catch (error) {
-              console.error('❌ Error fetching service image for', item.serviceTitle, error);
+                            if (__DEV__) {
+                console.error('❌ Error fetching service image for', item.serviceTitle, error)
+              };
             }
           }
           // Save updated items back to AsyncStorage
@@ -77,8 +83,12 @@ const Cart = ({ navigation, route }: any) => {
         // If coming from BookingSlots with new booking data
         const newBooking = route?.params;
         if (newBooking && newBooking.consultantId && newBooking.serviceId) {
-          console.log('📦 Adding new item to cart:', newBooking);
-          console.log('🖼️ Service image URL:', (newBooking as any).serviceImageUrl);
+                    if (__DEV__) {
+            console.log('📦 Adding new item to cart:', newBooking)
+          };
+                    if (__DEV__) {
+            console.log('🖼️ Service image URL:', (newBooking as any).serviceImageUrl)
+          };
 
           // Check if this consultant+service combination already exists
           const existingItemIndex = existingItems.findIndex(
@@ -124,11 +134,13 @@ const Cart = ({ navigation, route }: any) => {
               
               await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(existingItems));
               
-              console.log('✅ Merged slots to existing cart item:', {
+                            if (__DEV__) {
+                console.log('✅ Merged slots to existing cart item:', {
                 consultant: existingItem.consultantName,
                 addedSlots: uniqueNewSlots.length,
                 totalSlots: existingItems[existingItemIndex].counter
-              });
+              })
+              };
             }
           } else if (newBooking.bookedSlots && newBooking.bookedSlots.length > 0) {
             // New consultant+service - add new item with all booked slots
@@ -149,18 +161,22 @@ const Cart = ({ navigation, route }: any) => {
             existingItems.push(newItem);
             await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(existingItems));
             
-            console.log('✅ Added new booking to cart:', {
+                        if (__DEV__) {
+              console.log('✅ Added new booking to cart:', {
               consultant: newItem.consultantName,
               service: newItem.serviceTitle,
               totalSlots: newItem.counter,
               totalItemsInCart: existingItems.length
-            });
+            })
+            };
           }
         }
 
         setCartItemsState(existingItems);
       } catch (error) {
-        console.error('Error loading cart:', error);
+                if (__DEV__) {
+          console.error('Error loading cart:', error)
+        };
       } finally {
         setLoading(false);
       }
@@ -246,11 +262,15 @@ const Cart = ({ navigation, route }: any) => {
                 if (item.serviceImageUrl && item.serviceImageUrl.trim() !== '') {
                   // Use the actual service image from database
                   imageUri = { uri: item.serviceImageUrl };
-                  console.log('🖼️ Using real service image for', item.serviceTitle, ':', item.serviceImageUrl);
+                                    if (__DEV__) {
+                    console.log('🖼️ Using real service image for', item.serviceTitle, ':', item.serviceImageUrl)
+                  };
                 } else {
                   // Use default placeholder if no image URL
                   imageUri = require('../../../assets/image/services.png');
-                  console.log('⚠️ No service image URL for', item.serviceTitle, '- using placeholder');
+                                    if (__DEV__) {
+                    console.log('⚠️ No service image URL for', item.serviceTitle, '- using placeholder')
+                  };
                 }
                 
                 return (

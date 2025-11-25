@@ -55,37 +55,47 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
   const needsReadMore = description.length > 150;
 
   // Debug logging for image
-  console.log(`🔍 [ConsultantServiceCard] Service: ${title}`, {
+    if (__DEV__) {
+    console.log(`🔍 [ConsultantServiceCard] Service: ${title}`, {
     imageUri: imageUri,
     hasImageUri: !!imageUri,
     imageUriType: typeof imageUri,
     imageUriUri: (imageUri as any)?.uri,
     imageUriUriLength: (imageUri as any)?.uri?.length || 0,
     imageLoadError: imageLoadError
-  });
+  })
+  };
 
   // Debug logging
-  console.log(
+    if (__DEV__) {
+    console.log(
     'Description length:',
     description.length,
     'needsReadMore:',
     needsReadMore,
-  );
+  )
+  };
 
   const isTitleLong = title.length > 10;
 
   // Debug: Log which rendering path we're taking
-  console.log(`🎨 [ConsultantServiceCard] ${title} - imageUri: ${!!imageUri}, imageLoadError: ${imageLoadError}, will show: ${imageUri && !imageLoadError ? 'Image' : 'Custom Background'}`);
+    if (__DEV__) {
+    console.log(`🎨 [ConsultantServiceCard] ${title} - imageUri: ${!!imageUri}, imageLoadError: ${imageLoadError}, will show: ${imageUri && !imageLoadError ? 'Image' : 'Custom Background'}`)
+  };
 
   // Set up image load timeout
   useEffect(() => {
     if (imageUri && !imageLoadError) {
-      console.log('🔄 [ConsultantServiceCard] Starting image load for:', (imageUri as any)?.uri);
+            if (__DEV__) {
+        console.log('🔄 [ConsultantServiceCard] Starting image load for:', (imageUri as any)?.uri)
+      };
       setImageLoading(true);
       
       // Set a timeout to show fallback if image takes too long to load
       const timeout = setTimeout(() => {
-        console.log('⏰ [ConsultantServiceCard] Image load timeout, showing fallback');
+                if (__DEV__) {
+          console.log('⏰ [ConsultantServiceCard] Image load timeout, showing fallback')
+        };
         setImageLoadError(true);
         setImageLoading(false);
       }, 10000); // 10 second timeout
@@ -131,15 +141,25 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
                 source={imageUri} 
                 style={styles.image}
                 onError={(error) => {
-                  console.log('❌ [ConsultantServiceCard] Image failed to load:', error.nativeEvent.error);
-                  console.log('❌ [ConsultantServiceCard] Image URL:', imageUri);
-                  console.log('❌ [ConsultantServiceCard] Error details:', JSON.stringify(error.nativeEvent, null, 2));
-                  console.log('🔄 [ConsultantServiceCard] Setting imageLoadError to true');
+                                    if (__DEV__) {
+                    console.log('❌ [ConsultantServiceCard] Image failed to load:', error.nativeEvent.error)
+                  };
+                                    if (__DEV__) {
+                    console.log('❌ [ConsultantServiceCard] Image URL:', imageUri)
+                  };
+                                    if (__DEV__) {
+                    console.log('❌ [ConsultantServiceCard] Error details:', JSON.stringify(error.nativeEvent, null, 2))
+                  };
+                                    if (__DEV__) {
+                    console.log('🔄 [ConsultantServiceCard] Setting imageLoadError to true')
+                  };
                   setImageLoadError(true);
                   setImageLoading(false);
                 }}
                 onLoad={() => {
-                  console.log('✅ [ConsultantServiceCard] Image loaded successfully:', imageUri);
+                                    if (__DEV__) {
+                    console.log('✅ [ConsultantServiceCard] Image loaded successfully:', imageUri)
+                  };
                   setImageLoadError(false);
                   setImageLoading(false);
                   // Clear timeout since image loaded successfully

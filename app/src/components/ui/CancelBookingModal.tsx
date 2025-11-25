@@ -43,7 +43,9 @@ const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
       await onConfirm(reason);
       setReason(''); // Reset reason after successful cancellation
     } catch (error) {
-      console.error('Error cancelling booking:', error);
+            if (__DEV__) {
+        console.error('Error cancelling booking:', error)
+      };
     } finally {
       setLoading(false);
     }

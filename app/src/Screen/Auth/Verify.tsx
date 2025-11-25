@@ -31,7 +31,9 @@ const Verify = ({ navigation, route }: any) => {
       Alert.alert('Success', data.data.message);
       navigation.navigate("ResetPassword", { resetSessionId });
     } catch (err: any) {
-      console.error('Verify OTP error:', err.response?.data || err.message);
+            if (__DEV__) {
+        console.error('Verify OTP error:', err.response?.data || err.message)
+      };
       Alert.alert("Error", err.response?.data?.error || "Invalid or expired code");
     } finally {
       setLoading(false);
@@ -49,7 +51,9 @@ const Verify = ({ navigation, route }: any) => {
       // Reset countdown
       setCountdown(60);
     } catch (err: any) {
-      console.error('Resend code error:', err.response?.data || err.message);
+            if (__DEV__) {
+        console.error('Resend code error:', err.response?.data || err.message)
+      };
       Alert.alert("Error", err.response?.data?.error || "Failed to resend code");
     } finally {
       setResending(false);

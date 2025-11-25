@@ -55,12 +55,16 @@ const StudentProfile = ({ navigation }: any) => {
       } catch (error: any) {
         // Resume not found is okay
         if (error?.response?.status !== 404) {
-          console.log('Error fetching resume:', error);
+                    if (__DEV__) {
+            console.log('Error fetching resume:', error)
+          };
         }
         setResume(null);
       }
     } catch (error: any) {
-      console.error('Error fetching profile data:', error);
+            if (__DEV__) {
+        console.error('Error fetching profile data:', error)
+      };
       // Set fallback profile from Firebase
       setBackendProfile({
         name: user.displayName || null,
@@ -97,7 +101,9 @@ const StudentProfile = ({ navigation }: any) => {
           avatarUrl: imageUrl,
         });
       } catch (error) {
-        console.log('Backend update failed, but Firebase updated');
+                if (__DEV__) {
+          console.log('Backend update failed, but Firebase updated')
+        };
       }
 
       await refreshUser();
@@ -105,7 +111,9 @@ const StudentProfile = ({ navigation }: any) => {
       showSuccess('Profile image updated successfully');
       fetchProfileData();
     } catch (error: any) {
-      console.error('Error updating profile image:', error);
+            if (__DEV__) {
+        console.error('Error updating profile image:', error)
+      };
       showError(error.message || 'Failed to update profile image');
     } finally {
       setUpdatingImage(false);

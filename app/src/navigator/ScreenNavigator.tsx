@@ -26,12 +26,14 @@ import ChangePassword from '../Screen/common/Account/ChangePassword';
 import ChangeUsername from '../Screen/common/Account/ChangeUsername';
 import StudentProfile from '../Screen/Student/Profile/StudentProfile';
 import RecruiterProfile from '../Screen/Recruiter/Profile/RecruiterProfile';
+import ConsultantProfile from '../Screen/Consultant/Profile/ConsultantProfile';
 import RecruiterJobs from '../Screen/Recruiter/Jobs/RecruiterJobs';
 import AllApplicationsScreen from '../Screen/Recruiter/Jobs/AllApplicationsScreen';
 import MyReviews from '../Screen/Student/Review/MyReviews';
 import ConsultantReviews from '../Screen/Consultant/Reviews/ConsultantReviews';
 import EditReview from '../Screen/Student/Review/EditReview';
 import ConsultantProfileFlow from '../Screen/Consultant/Profile/ConsultantProfileFlow';
+import ConsultantDashboard from '../Screen/Consultant/Dashboard/ConsultantDashboard';
 import ConsultantApplicationsScreen from '../Screen/Consultant/Applications/ConsultantApplicationsScreen';
 import BrowseServicesScreen from '../Screen/Consultant/Applications/BrowseServicesScreen';
 import ConsultantAvailability from '../Screen/Consultant/Availability/ConsultantAvailability';
@@ -47,13 +49,12 @@ import JobListScreen from '../Screen/Student/Jobs/JobListScreen';
 import JobDetailScreen from '../Screen/Student/Jobs/JobDetailScreen';
 import ResumeScreen from '../Screen/Student/Jobs/ResumeScreen';
 import MyApplicationsScreen from '../Screen/Student/Jobs/MyApplicationsScreen';
-import PostJobScreen from '../Screen/Consultant/Jobs/PostJobScreen';
+import PostJobScreen from '../Screen/common/Jobs/PostJobScreen';
 import MyJobsScreen from '../Screen/Consultant/Jobs/MyJobsScreen';
 import JobApplicationsScreen from '../Screen/Consultant/Jobs/JobApplicationsScreen';
 import ApplicationReviewScreen from '../Screen/Consultant/Jobs/ApplicationReviewScreen';
 import ApplicationDetailScreen from '../Screen/Student/Jobs/ApplicationDetailScreen';
 // Recruiter Job screens
-import RecruiterPostJobScreen from '../Screen/Recruiter/Jobs/PostJobScreen';
 import RecruiterMyJobsScreen from '../Screen/Recruiter/Jobs/MyJobsScreen';
 import RecruiterJobApplicationsScreen from '../Screen/Recruiter/Jobs/JobApplicationsScreen';
 import RecruiterApplicationReviewScreen from '../Screen/Recruiter/Jobs/ApplicationReviewScreen';
@@ -86,7 +87,9 @@ const RoleBasedTabs = () => {
   
   // Debug logging for role changes
   React.useEffect(() => {
-    console.log('🔄 [RoleBasedTabs] Role changed:', { role, activeRole, currentRole });
+        if (__DEV__) {
+      console.log('🔄 [RoleBasedTabs] Role changed:', { role, activeRole, currentRole })
+    };
   }, [role, activeRole, currentRole]);
   
   // Check if email is verified - redirect to EmailVerification if not
@@ -160,7 +163,9 @@ const RoleBasedTabs = () => {
           const approvedServices = applications.filter((app: any) => app.status === 'approved');
           setHasApprovedServices(approvedServices.length > 0);
         } catch (error) {
-          console.error('Error checking approved services:', error);
+                    if (__DEV__) {
+            console.error('Error checking approved services:', error)
+          };
           setHasApprovedServices(false);
         }
       } else {
@@ -209,18 +214,24 @@ const RoleBasedTabs = () => {
     }
     
     // Default fallback - should not reach here, but show pending approval as fallback
-    console.warn('⚠️ [RoleBasedTabs] Unexpected consultant state, showing pending approval');
+        if (__DEV__) {
+      console.warn('⚠️ [RoleBasedTabs] Unexpected consultant state, showing pending approval')
+    };
     return <PendingApproval />;
   }
   
   // For recruiters, show student tabs (they use the same navigation structure)
   if (currentRole === 'recruiter') {
-    console.log('✅ [RoleBasedTabs] Showing student tabs for recruiter role');
+        if (__DEV__) {
+      console.log('✅ [RoleBasedTabs] Showing student tabs for recruiter role')
+    };
     return <BottomTabs />;
   }
   
   // Default: show student tabs (for student role or if role is null/undefined)
-  console.log('✅ [RoleBasedTabs] Showing student tabs for role:', currentRole);
+    if (__DEV__) {
+    console.log('✅ [RoleBasedTabs] Showing student tabs for role:', currentRole)
+  };
   return <BottomTabs />;
 };
 
@@ -386,6 +397,24 @@ const ScreenNavigator = () => {
       <Stack.Screen
         name="RecruiterProfile"
         component={RecruiterProfile}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Consultant Profile Screen */}
+      <Stack.Screen
+        name="ConsultantProfile"
+        component={ConsultantProfile}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Consultant Dashboard Screen */}
+      <Stack.Screen
+        name="ConsultantDashboard"
+        component={ConsultantDashboard}
         options={{
           cardStyleInterpolator: slideFromRight,
         }}
@@ -974,7 +1003,7 @@ const ScreenNavigator = () => {
       {/* Recruiter Job System Screens */}
       <Stack.Screen 
         name="RecruiterPostJob" 
-        component={RecruiterPostJobScreen}
+        component={PostJobScreen}
         options={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,

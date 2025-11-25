@@ -57,7 +57,9 @@ const EmailVerification = ({ route }: any) => {
       
       if (isFromLoginParam) {
         // User is logging in, just navigate to appropriate screen
-        console.log('EmailVerification - User verified from login, fetching role...');
+                if (__DEV__) {
+          console.log('EmailVerification - User verified from login, fetching role...')
+        };
         
         try {
           const res = await api.get('/auth/me');
@@ -69,29 +71,39 @@ const EmailVerification = ({ route }: any) => {
           await AsyncStorage.setItem('activeRole', userRole);
           await AsyncStorage.setItem('roles', JSON.stringify(userRoles));
           
-          console.log('EmailVerification - Role saved:', { userRole, userRoles });
+                    if (__DEV__) {
+            console.log('EmailVerification - Role saved:', { userRole, userRoles })
+          };
           
           // Navigate based on role
           if (userRole === 'consultant') {
-            console.log('EmailVerification - Navigating to consultant flow');
+                        if (__DEV__) {
+              console.log('EmailVerification - Navigating to consultant flow')
+            };
             (navigation as any).replace('Screen', {
               screen: 'PendingApproval',
             });
           } else {
             // Student or recruiter - navigate to MainTabs
-            console.log(`EmailVerification - Navigating to MainTabs with role: ${userRole}`);
+                        if (__DEV__) {
+              console.log(`EmailVerification - Navigating to MainTabs with role: ${userRole}`)
+            };
             (navigation as any).replace('Screen', {
               screen: 'MainTabs',
               params: { role: userRole },
             });
           }
         } catch (error) {
-          console.error('Error fetching user role:', error);
+                    if (__DEV__) {
+            console.error('Error fetching user role:', error)
+          };
           Alert.alert('Error', 'Failed to fetch user information. Please try logging in again.');
         }
       } else {
         // User is registering, complete registration process
-        console.log('EmailVerification - Completing registration with role:', role);
+                if (__DEV__) {
+          console.log('EmailVerification - Completing registration with role:', role)
+        };
         
         // Send user data to backend
         const userName = name || user.email?.split('@')[0] || null;
@@ -102,17 +114,23 @@ const EmailVerification = ({ route }: any) => {
           ...(userName && { name: userName }), // Only include name if it's not empty
         });
 
-        console.log('EmailVerification - Backend registration completed');
+                if (__DEV__) {
+          console.log('EmailVerification - Backend registration completed')
+        };
 
         // Navigate based on role
         if (role === 'consultant') {
-          console.log('EmailVerification - Navigating to consultant profile flow');
+                    if (__DEV__) {
+            console.log('EmailVerification - Navigating to consultant profile flow')
+          };
           (navigation as any).replace('Screen', {
             screen: 'ConsultantProfileFlow',
           });
         } else {
           // Student or recruiter - navigate to MainTabs
-          console.log(`EmailVerification - Navigating to MainTabs with role: ${role || 'student'}`);
+                    if (__DEV__) {
+            console.log(`EmailVerification - Navigating to MainTabs with role: ${role || 'student'}`)
+          };
           (navigation as any).replace('Screen', {
             screen: 'MainTabs',
             params: { role: role || 'student' },
@@ -120,7 +138,9 @@ const EmailVerification = ({ route }: any) => {
         }
       }
     } catch (error: any) {
-      console.error('Complete registration error:', error);
+            if (__DEV__) {
+        console.error('Complete registration error:', error)
+      };
       Alert.alert(
         'Error',
         'Failed to complete the process. Please try again.',
@@ -142,7 +162,9 @@ const EmailVerification = ({ route }: any) => {
         
         if (isSocialLogin) {
           // Social logins don't need email verification - skip this screen
-          console.log('EmailVerification - Social login detected, skipping verification');
+                    if (__DEV__) {
+            console.log('EmailVerification - Social login detected, skipping verification')
+          };
           await completeRegistration();
           return;
         }
@@ -158,7 +180,9 @@ const EmailVerification = ({ route }: any) => {
     // Handle deep link for email verification
     const handleDeepLink = async (url: string) => {
       try {
-        console.log('EmailVerification - Deep link received:', url);
+                if (__DEV__) {
+          console.log('EmailVerification - Deep link received:', url)
+        };
         
         // Extract oobCode from URL (handles both tray:// and https:// formats)
         // Use regex parsing directly for React Native compatibility
@@ -180,7 +204,9 @@ const EmailVerification = ({ route }: any) => {
         }
         
         if (token && uid) {
-          console.log('EmailVerification - Processing custom token verification...');
+                    if (__DEV__) {
+            console.log('EmailVerification - Processing custom token verification...')
+          };
           
           try {
             const user = auth.currentUser;
@@ -200,7 +226,9 @@ const EmailVerification = ({ route }: any) => {
               });
               
               if (backendResponse.data?.success) {
-                console.log('✅ EmailVerification - Email verified via custom token!');
+                                if (__DEV__) {
+                  console.log('✅ EmailVerification - Email verified via custom token!')
+                };
                 await user.reload();
                 
                 if (user.emailVerified) {
@@ -218,7 +246,9 @@ const EmailVerification = ({ route }: any) => {
               }
             }
           } catch (error: any) {
-            console.error('EmailVerification - Token verification failed:', error);
+                        if (__DEV__) {
+              console.error('EmailVerification - Token verification failed:', error)
+            };
             Alert.alert(
               'Verification Failed',
               error?.response?.data?.error || 'Failed to verify email. The link may be expired or invalid. Please request a new verification email.',
@@ -227,7 +257,9 @@ const EmailVerification = ({ route }: any) => {
           }
         } else {
           // Unknown verification link format
-          console.warn('EmailVerification - Unknown verification link format:', url);
+                    if (__DEV__) {
+            console.warn('EmailVerification - Unknown verification link format:', url)
+          };
           Alert.alert(
             'Invalid Link',
             'This verification link is invalid or expired. Please request a new verification email.',
@@ -235,7 +267,9 @@ const EmailVerification = ({ route }: any) => {
           );
         }
       } catch (error: any) {
-        console.error('EmailVerification - Deep link handling error:', error);
+                if (__DEV__) {
+          console.error('EmailVerification - Deep link handling error:', error)
+        };
       }
     };
 
@@ -273,7 +307,9 @@ const EmailVerification = ({ route }: any) => {
           try {
             await currentUser.reload();
             if (currentUser.emailVerified) {
-              console.log('✅ EmailVerification - Email verified after app returned to foreground!');
+                            if (__DEV__) {
+                console.log('✅ EmailVerification - Email verified after app returned to foreground!')
+              };
               // User is verified - trigger completeRegistration if available
               if (completeRegistration) {
                 completeRegistration();
@@ -299,11 +335,15 @@ const EmailVerification = ({ route }: any) => {
                   }
                 }
               } catch (error) {
-                console.warn('EmailVerification - Backend check on app state change failed:', error);
+                                if (__DEV__) {
+                  console.warn('EmailVerification - Backend check on app state change failed:', error)
+                };
               }
             }
           } catch (error) {
-            console.warn('EmailVerification - Error reloading user on app state change:', error);
+                        if (__DEV__) {
+              console.warn('EmailVerification - Error reloading user on app state change:', error)
+            };
           }
         }
       }
@@ -333,15 +373,27 @@ const EmailVerification = ({ route }: any) => {
       // Reload user to ensure latest state
       try {
         await user.reload();
-        console.log('EmailVerification - User reloaded successfully');
+                if (__DEV__) {
+          console.log('EmailVerification - User reloaded successfully')
+        };
       } catch (reloadError: any) {
-        console.warn('EmailVerification - User reload warning:', reloadError?.message);
+                if (__DEV__) {
+          console.warn('EmailVerification - User reload warning:', reloadError?.message)
+        };
       }
       
-      console.log('EmailVerification - Resending verification email...');
-      console.log('EmailVerification - User email:', user.email);
-      console.log('EmailVerification - User UID:', user.uid);
-      console.log('EmailVerification - User emailVerified:', user.emailVerified);
+            if (__DEV__) {
+        console.log('EmailVerification - Resending verification email...')
+      };
+            if (__DEV__) {
+        console.log('EmailVerification - User email:', user.email)
+      };
+            if (__DEV__) {
+        console.log('EmailVerification - User UID:', user.uid)
+      };
+            if (__DEV__) {
+        console.log('EmailVerification - User emailVerified:', user.emailVerified)
+      };
       
       let emailSent = false;
       let emailError: any = null;
@@ -349,7 +401,9 @@ const EmailVerification = ({ route }: any) => {
       
       // Use backend SMTP as primary method
       try {
-        console.log('EmailVerification - Sending email via backend SMTP...');
+                if (__DEV__) {
+          console.log('EmailVerification - Sending email via backend SMTP...')
+        };
             const token = await user.getIdToken();
             const backendResponse = await api.post('/auth/resend-verification-email', {
               email: user.email,
@@ -363,13 +417,17 @@ const EmailVerification = ({ route }: any) => {
             if (backendResponse.data?.success) {
           // Check if email is already verified
           if (backendResponse.data?.emailVerified) {
-            console.log('✅ EmailVerification - Backend reports email already verified!');
+                        if (__DEV__) {
+              console.log('✅ EmailVerification - Backend reports email already verified!')
+            };
             // Reload user to check Firebase verification status
             await user.reload();
             
             if (user.emailVerified) {
               // Email is verified in Firebase too, proceed with registration
-              console.log('✅ EmailVerification - Email verified in Firebase, proceeding...');
+                            if (__DEV__) {
+                console.log('✅ EmailVerification - Email verified in Firebase, proceeding...')
+              };
               Alert.alert(
                 'Email Already Verified ✓',
                 'Your email is already verified! Completing registration...',
@@ -383,7 +441,9 @@ const EmailVerification = ({ route }: any) => {
               return; // Exit early since we're proceeding
             } else {
               // Backend says verified but Firebase doesn't - sync them
-              console.log('⚠️ EmailVerification - Backend verified but Firebase not, syncing...');
+                            if (__DEV__) {
+                console.log('⚠️ EmailVerification - Backend verified but Firebase not, syncing...')
+              };
               try {
                 // Try to verify directly via backend
                 const verifyResponse = await api.post('/auth/verify-email', {
@@ -413,11 +473,15 @@ const EmailVerification = ({ route }: any) => {
                 }
               } catch (verifyError: any) {
                 // Silently ignore verification errors - just log for debugging
-                console.warn('EmailVerification - Direct verification failed (silently ignored):', verifyError?.response?.status || verifyError?.message);
+                                if (__DEV__) {
+                  console.warn('EmailVerification - Direct verification failed (silently ignored):', verifyError?.response?.status || verifyError?.message)
+                };
               }
             }
           } else if (backendResponse.data?.emailSent) {
-                console.log('✅ EmailVerification - Backend sent verification email via SMTP!');
+                                if (__DEV__) {
+                  console.log('✅ EmailVerification - Backend sent verification email via SMTP!')
+                };
                 emailSent = true;
                 Alert.alert(
                   'Verification Email Sent ✓',
@@ -425,7 +489,9 @@ const EmailVerification = ({ route }: any) => {
                   [{ text: 'OK' }]
                 );
               } else if (backendResponse.data?.verificationLink) {
-            console.log('✅ EmailVerification - Backend generated verification link (SMTP failed, but link available)');
+                        if (__DEV__) {
+              console.log('✅ EmailVerification - Backend generated verification link (SMTP failed, but link available)')
+            };
                 Alert.alert(
                   'Verification Link Generated',
                   `Backend generated a verification link. SMTP email failed, but you can use the link to verify.\n\nPlease check:\n• SPAM/JUNK folder\n• Wait 2-3 minutes\n\nIf email still doesn't arrive, contact support.`,
@@ -441,7 +507,9 @@ const EmailVerification = ({ route }: any) => {
         
         if (isBackendUnavailable) {
           // Backend is down/unavailable - skip to Firebase immediately
-          console.warn('⚠️ EmailVerification - Backend unavailable (ngrok connection error), skipping to Firebase...');
+                    if (__DEV__) {
+            console.warn('⚠️ EmailVerification - Backend unavailable (ngrok connection error), skipping to Firebase...')
+          };
           emailError = {
             message: backendErrorMessage,
             code: 'backend_unavailable',
@@ -459,10 +527,18 @@ const EmailVerification = ({ route }: any) => {
                                       'Backend SMTP service unavailable';
           
           // Log backend error details
-          console.error('❌ EmailVerification - Backend SMTP error details:');
-          console.error('   Status:', backendStatus);
-          console.error('   Response Data:', backendError?.response?.data);
-          console.error('   Error Message:', backendError?.message);
+                    if (__DEV__) {
+            console.error('❌ EmailVerification - Backend SMTP error details:')
+          };
+                    if (__DEV__) {
+            console.error('   Status:', backendStatus)
+          };
+                    if (__DEV__) {
+            console.error('   Response Data:', backendError?.response?.data)
+          };
+                    if (__DEV__) {
+            console.error('   Error Message:', backendError?.message)
+          };
           
           emailError = {
             message: backendErrorMessage,
@@ -559,7 +635,9 @@ const EmailVerification = ({ route }: any) => {
         Alert.alert('Error', userMessage, [{ text: 'OK' }]);
       }
     } catch (error: any) {
-      console.error('EmailVerification - Unexpected error:', error);
+            if (__DEV__) {
+        console.error('EmailVerification - Unexpected error:', error)
+      };
       Alert.alert(
         'Error',
         `An unexpected error occurred: ${error?.message || 'Unknown error'}. Please try again.`,
@@ -592,7 +670,9 @@ const EmailVerification = ({ route }: any) => {
           );
         } else {
           // Firebase says not verified, but check with backend
-          console.log('EmailVerification - Firebase shows unverified, checking backend...');
+                    if (__DEV__) {
+            console.log('EmailVerification - Firebase shows unverified, checking backend...')
+          };
           try {
             const token = await user.getIdToken();
             const backendCheck = await api.post('/auth/resend-verification-email', {
@@ -606,14 +686,18 @@ const EmailVerification = ({ route }: any) => {
             
             // If backend says email is verified, reload Firebase user and check again
             if (backendCheck.data?.emailVerified) {
-              console.log('EmailVerification - Backend says email is verified, reloading Firebase user...');
+                            if (__DEV__) {
+                console.log('EmailVerification - Backend says email is verified, reloading Firebase user...')
+              };
               
               // Reload Firebase user to sync verification status
               await user.reload();
               
               // Check again after reload
               if (user.emailVerified) {
-                console.log('EmailVerification - Email verified confirmed after reload!');
+                                if (__DEV__) {
+                  console.log('EmailVerification - Email verified confirmed after reload!')
+                };
                 Alert.alert(
                   'Email Verified! ✓',
                   'Your email has been verified! Completing your registration...',
@@ -627,7 +711,9 @@ const EmailVerification = ({ route }: any) => {
                 return;
               } else {
                 // Backend says verified but Firebase doesn't - force sync via verify-email endpoint
-                console.log('EmailVerification - Backend verified but Firebase not synced, forcing sync...');
+                                if (__DEV__) {
+                  console.log('EmailVerification - Backend verified but Firebase not synced, forcing sync...')
+                };
                 try {
                   const verifyResponse = await api.post('/auth/verify-email', {
                     email: user.email,
@@ -657,7 +743,9 @@ const EmailVerification = ({ route }: any) => {
                   }
                 } catch (verifyError: any) {
                   // Silently ignore verification errors - just log for debugging
-                  console.warn('EmailVerification - Force sync failed (silently ignored):', verifyError?.response?.status || verifyError?.message);
+                                    if (__DEV__) {
+                    console.warn('EmailVerification - Force sync failed (silently ignored):', verifyError?.response?.status || verifyError?.message)
+                  };
                 }
               }
             }
@@ -666,10 +754,14 @@ const EmailVerification = ({ route }: any) => {
             // Just log for debugging but don't show errors to user
             const isBackendUnavailable = isNgrokError(backendError) || (backendError as any)?.isBackendUnavailable;
             if (isBackendUnavailable) {
-              console.warn('EmailVerification - Backend unavailable, skipping backend check');
+                            if (__DEV__) {
+                console.warn('EmailVerification - Backend unavailable, skipping backend check')
+              };
             } else {
               // Silently log backend check errors - don't show to user
-              console.warn('EmailVerification - Backend check failed (silently ignored):', backendError?.response?.status || backendError?.message);
+                            if (__DEV__) {
+                console.warn('EmailVerification - Backend check failed (silently ignored):', backendError?.response?.status || backendError?.message)
+              };
             }
           }
           
@@ -695,7 +787,9 @@ const EmailVerification = ({ route }: any) => {
       }
     } catch (error: any) {
       // Silently ignore errors when checking verification - just log for debugging
-      console.warn('Check verification error (silently ignored):', error?.message || error);
+            if (__DEV__) {
+        console.warn('Check verification error (silently ignored):', error?.message || error)
+      };
       // Don't show error alert - just show "not verified" message if email is not verified
       const user = auth.currentUser;
       if (user) {
@@ -710,7 +804,9 @@ const EmailVerification = ({ route }: any) => {
           }
         } catch (reloadError) {
           // Silently ignore reload errors too
-          console.warn('User reload error (silently ignored):', reloadError);
+                    if (__DEV__) {
+            console.warn('User reload error (silently ignored):', reloadError)
+          };
         }
       }
     } finally {

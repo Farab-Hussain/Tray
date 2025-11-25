@@ -31,7 +31,9 @@ export const NetworkProvider: React.FC<NetworkProviderProps> = ({ children }) =>
         });
       }
     } catch (error) {
-      console.error('❌ [Network] Error checking connection:', error);
+            if (__DEV__) {
+        console.error('❌ [Network] Error checking connection:', error)
+      };
       setIsConnected(false);
       setIsInternetReachable(false);
     }

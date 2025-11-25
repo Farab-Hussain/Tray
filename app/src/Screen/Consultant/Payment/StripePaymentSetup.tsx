@@ -70,7 +70,9 @@ const StripePaymentSetup = ({ navigation }: any) => {
           setPlatformFeeAmount(config.platformFeeAmount);
         }
       } catch (error) {
-        console.error('Error fetching platform fee configuration:', error);
+                if (__DEV__) {
+          console.error('Error fetching platform fee configuration:', error)
+        };
       } finally {
         if (isMounted) {
           setPlatformFeeLoading(false);
@@ -90,7 +92,9 @@ const StripePaymentSetup = ({ navigation }: any) => {
       const status = await PaymentService.getConnectAccountStatus();
       setAccountStatus(status);
     } catch (error: any) {
-      console.error('Error checking account status:', error);
+            if (__DEV__) {
+        console.error('Error checking account status:', error)
+      };
       Alert.alert('Error', error.message || 'Failed to check account status');
     } finally {
       setLoading(false);
@@ -110,7 +114,9 @@ const StripePaymentSetup = ({ navigation }: any) => {
         Alert.alert('Error', 'Cannot open Stripe onboarding page');
       }
     } catch (error: any) {
-      console.error('Error creating account:', error);
+            if (__DEV__) {
+        console.error('Error creating account:', error)
+      };
       Alert.alert('Error', error.message || 'Failed to create Stripe account');
     } finally {
       setCreatingAccount(false);
@@ -130,7 +136,9 @@ const StripePaymentSetup = ({ navigation }: any) => {
         Alert.alert('Error', 'Cannot open Stripe onboarding page');
       }
     } catch (error: any) {
-      console.error('Error opening onboarding:', error);
+            if (__DEV__) {
+        console.error('Error opening onboarding:', error)
+      };
       Alert.alert('Error', 'Failed to open onboarding page');
     }
   };

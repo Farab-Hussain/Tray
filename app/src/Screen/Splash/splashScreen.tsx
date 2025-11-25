@@ -14,7 +14,9 @@ const SplashScreen = ({ navigation }: any) => {
     const checkAuthAndNavigate = async () => {
       // Wait for Firebase auth to initialize
       if (loading) {
-        console.log('SplashScreen - Waiting for auth to initialize...');
+                if (__DEV__) {
+          console.log('SplashScreen - Waiting for auth to initialize...')
+        };
         return;
       }
 
@@ -24,7 +26,9 @@ const SplashScreen = ({ navigation }: any) => {
 
       try {
         if (user) {
-          console.log('SplashScreen - User found, checking verification status...');
+                    if (__DEV__) {
+            console.log('SplashScreen - User found, checking verification status...')
+          };
           
           // First, reload user to get latest status from Firebase
           let reloadedUser = user;
@@ -32,16 +36,22 @@ const SplashScreen = ({ navigation }: any) => {
             await user.reload();
             reloadedUser = auth.currentUser || user;
           } catch (reloadError) {
-            console.warn('SplashScreen - Error reloading user:', reloadError);
+                        if (__DEV__) {
+              console.warn('SplashScreen - Error reloading user:', reloadError)
+            };
           }
           
           // Check Firebase verification status first
           let isVerified = reloadedUser?.emailVerified || false;
-          console.log('SplashScreen - Initial Firebase emailVerified status:', isVerified);
+                    if (__DEV__) {
+            console.log('SplashScreen - Initial Firebase emailVerified status:', isVerified)
+          };
           
           // If Firebase shows unverified, double-check with backend (web verification might have happened)
           if (!isVerified) {
-            console.log('SplashScreen - Firebase shows unverified, checking backend...');
+                        if (__DEV__) {
+              console.log('SplashScreen - Firebase shows unverified, checking backend...')
+            };
             try {
               const token = await reloadedUser.getIdToken();
               
@@ -63,11 +73,15 @@ const SplashScreen = ({ navigation }: any) => {
               
               // Check what backend says about verification status
               const backendSaysVerified = backendCheck?.data?.emailVerified === true;
-              console.log('SplashScreen - Backend says emailVerified:', backendSaysVerified);
+                            if (__DEV__) {
+                console.log('SplashScreen - Backend says emailVerified:', backendSaysVerified)
+              };
               
               // If backend says verified but Firebase doesn't, try to sync
               if (backendSaysVerified && !isVerified) {
-                console.log('SplashScreen - Backend says verified but Firebase doesn\'t, syncing...');
+                                if (__DEV__) {
+                  console.log('SplashScreen - Backend says verified but Firebase doesn\'t, syncing...')
+                };
                 try {
                   // Try to sync via verify-email endpoint
                   const syncPromise = api.post('/auth/verify-email', {
@@ -85,38 +99,56 @@ const SplashScreen = ({ navigation }: any) => {
                   await reloadedUser.reload();
                   reloadedUser = auth.currentUser || reloadedUser;
                   isVerified = reloadedUser?.emailVerified || false;
-                  console.log('SplashScreen - After sync, Firebase emailVerified status:', isVerified);
+                                    if (__DEV__) {
+                    console.log('SplashScreen - After sync, Firebase emailVerified status:', isVerified)
+                  };
                   
                   // If still not verified, use backend's answer as truth
                   if (!isVerified && backendSaysVerified) {
-                    console.log('SplashScreen - Firebase still shows unverified, trusting backend (verified)');
+                                        if (__DEV__) {
+                      console.log('SplashScreen - Firebase still shows unverified, trusting backend (verified)')
+                    };
                     isVerified = true; // Trust backend if it says verified
                   }
                 } catch (syncError) {
-                  console.warn('SplashScreen - Sync attempt failed:', syncError);
+                                    if (__DEV__) {
+                    console.warn('SplashScreen - Sync attempt failed:', syncError)
+                  };
                   // If backend says verified, trust it even if sync fails
                   if (backendSaysVerified) {
-                    console.log('SplashScreen - Sync failed but backend says verified, trusting backend');
+                                        if (__DEV__) {
+                      console.log('SplashScreen - Sync failed but backend says verified, trusting backend')
+                    };
                     isVerified = true;
                   }
                 }
               } else if (backendSaysVerified) {
                 // Backend says verified and Firebase already shows verified
-                console.log('SplashScreen - Both backend and Firebase confirm email is verified');
+                                if (__DEV__) {
+                  console.log('SplashScreen - Both backend and Firebase confirm email is verified')
+                };
                 isVerified = true;
               }
             } catch (backendError: any) {
-              console.warn('SplashScreen - Backend check failed or timed out:', backendError?.message || backendError);
+                            if (__DEV__) {
+                console.warn('SplashScreen - Backend check failed or timed out:', backendError?.message || backendError)
+              };
               // If backend check fails, trust Firebase's current status
-              console.log('SplashScreen - Using Firebase status as source of truth:', isVerified);
+                            if (__DEV__) {
+                console.log('SplashScreen - Using Firebase status as source of truth:', isVerified)
+              };
             }
           } else {
-            console.log('SplashScreen - Email is verified according to Firebase');
+                        if (__DEV__) {
+              console.log('SplashScreen - Email is verified according to Firebase')
+            };
           }
           
           // Final check: Only navigate to EmailVerification if email is NOT verified
           if (!isVerified) {
-            console.log('SplashScreen - Email NOT verified, redirecting to EmailVerification screen');
+                        if (__DEV__) {
+              console.log('SplashScreen - Email NOT verified, redirecting to EmailVerification screen')
+            };
             const elapsedTime = Date.now() - startTime;
             const remainingTime = Math.max(0, minSplashTime - elapsedTime);
             
@@ -133,7 +165,9 @@ const SplashScreen = ({ navigation }: any) => {
           }
 
           // Email IS verified - navigate to home
-          console.log('SplashScreen - Email is VERIFIED, navigating to home screen');
+                    if (__DEV__) {
+            console.log('SplashScreen - Email is VERIFIED, navigating to home screen')
+          };
           
           // User is logged in and email verified - get their role and navigate to home
           const storedRole = await AsyncStorage.getItem('role');
@@ -157,34 +191,46 @@ const SplashScreen = ({ navigation }: any) => {
           }, remainingTime);
         } else {
           // User is not logged in - show role selection/login screen
-          console.log('SplashScreen - No user logged in, showing SplashMain');
+                    if (__DEV__) {
+            console.log('SplashScreen - No user logged in, showing SplashMain')
+          };
 
           // Calculate remaining time to show splash
           const elapsedTime = Date.now() - startTime;
           const remainingTime = Math.max(0, minSplashTime - elapsedTime);
 
           setTimeout(() => {
-            console.log('SplashScreen - Navigating to SplashMain');
+                        if (__DEV__) {
+              console.log('SplashScreen - Navigating to SplashMain')
+            };
             navigation.replace('SplashMain');
           }, remainingTime);
         }
       } catch (error) {
-        console.error('SplashScreen - Error checking auth status:', error);
+                if (__DEV__) {
+          console.error('SplashScreen - Error checking auth status:', error)
+        };
         // Ensure navigation happens even on error
         const elapsedTime = Date.now() - startTime;
         const remainingTime = Math.max(0, minSplashTime - elapsedTime);
         
         setTimeout(() => {
-          console.log('SplashScreen - Navigating to SplashMain (error fallback)');
+                    if (__DEV__) {
+            console.log('SplashScreen - Navigating to SplashMain (error fallback)')
+          };
           try {
             navigation.replace('SplashMain');
           } catch (navError) {
-            console.error('SplashScreen - Navigation error:', navError);
+                        if (__DEV__) {
+              console.error('SplashScreen - Navigation error:', navError)
+            };
             // Last resort - try navigate instead of replace
             try {
               navigation.navigate('SplashMain');
             } catch (finalError) {
-              console.error('SplashScreen - Final navigation error:', finalError);
+                            if (__DEV__) {
+                console.error('SplashScreen - Final navigation error:', finalError)
+              };
             }
           }
         }, remainingTime);
@@ -196,7 +242,9 @@ const SplashScreen = ({ navigation }: any) => {
     // Safety timeout - ensure navigation happens even if something goes wrong
     // But only navigate to EmailVerification if email is actually not verified
     const safetyTimeout = setTimeout(async () => {
-      console.warn('SplashScreen - Safety timeout triggered, forcing navigation');
+            if (__DEV__) {
+        console.warn('SplashScreen - Safety timeout triggered, forcing navigation')
+      };
       try {
         if (user) {
           // Check verification status before deciding where to navigate
@@ -205,7 +253,9 @@ const SplashScreen = ({ navigation }: any) => {
             await user.reload();
             const currentUser = auth.currentUser || user;
             isVerified = currentUser?.emailVerified || false;
-            console.log('SplashScreen - Safety timeout: emailVerified status:', isVerified);
+                        if (__DEV__) {
+              console.log('SplashScreen - Safety timeout: emailVerified status:', isVerified)
+            };
             
             // If still not verified, check with backend
             if (!isVerified) {
@@ -222,20 +272,28 @@ const SplashScreen = ({ navigation }: any) => {
                 });
                 
                 if (backendCheck.data?.emailVerified === true) {
-                  console.log('SplashScreen - Safety timeout: Backend confirms email is verified');
+                                    if (__DEV__) {
+                    console.log('SplashScreen - Safety timeout: Backend confirms email is verified')
+                  };
                   isVerified = true;
                 }
               } catch (backendError) {
-                console.warn('SplashScreen - Safety timeout: Backend check failed:', backendError);
+                                if (__DEV__) {
+                  console.warn('SplashScreen - Safety timeout: Backend check failed:', backendError)
+                };
               }
             }
           } catch (reloadError) {
-            console.warn('SplashScreen - Safety timeout: Error checking verification:', reloadError);
+                        if (__DEV__) {
+              console.warn('SplashScreen - Safety timeout: Error checking verification:', reloadError)
+            };
           }
           
           // Only navigate to EmailVerification if email is NOT verified
           if (!isVerified) {
-            console.log('SplashScreen - Safety timeout: Navigating to EmailVerification (not verified)');
+                        if (__DEV__) {
+              console.log('SplashScreen - Safety timeout: Navigating to EmailVerification (not verified)')
+            };
             navigation.replace('Auth', {
               screen: 'EmailVerification',
               params: { 
@@ -244,7 +302,9 @@ const SplashScreen = ({ navigation }: any) => {
               }
             });
           } else {
-            console.log('SplashScreen - Safety timeout: Email verified, navigating to home');
+                        if (__DEV__) {
+              console.log('SplashScreen - Safety timeout: Email verified, navigating to home')
+            };
             const storedRole = await AsyncStorage.getItem('role');
             const userRole = storedRole || 'student';
             navigation.replace('Screen', {
@@ -256,12 +316,16 @@ const SplashScreen = ({ navigation }: any) => {
           navigation.replace('SplashMain');
         }
       } catch (error) {
-        console.error('SplashScreen - Safety timeout navigation error:', error);
+                if (__DEV__) {
+          console.error('SplashScreen - Safety timeout navigation error:', error)
+        };
         // Fallback: navigate to SplashMain on error
         try {
           navigation.replace('SplashMain');
         } catch (finalError) {
-          console.error('SplashScreen - Final fallback navigation error:', finalError);
+                    if (__DEV__) {
+            console.error('SplashScreen - Final fallback navigation error:', finalError)
+          };
         }
       }
     }, 10000); // 10 second safety timeout

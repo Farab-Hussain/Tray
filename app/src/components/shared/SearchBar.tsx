@@ -34,4 +34,3 @@ const SearchBar: React.FC<SearchBarProps> = ({
 const styles = searchBarStyles;
 
 export default SearchBar;
-

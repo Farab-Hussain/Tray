@@ -30,7 +30,9 @@ const MyJobsScreen = ({ navigation }: any) => {
       const response = await JobService.getMyJobs();
       setJobs(response.jobs || []);
     } catch (error: any) {
-      console.error('Error fetching jobs:', error);
+            if (__DEV__) {
+        console.error('Error fetching jobs:', error)
+      };
       showError(error.message || 'Failed to load jobs');
     } finally {
       setLoading(false);

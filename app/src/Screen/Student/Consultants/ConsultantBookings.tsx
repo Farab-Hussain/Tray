@@ -77,9 +77,11 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
       // Prevent rapid successive calls (debounce)
       const now = Date.now();
       if (!forceRefresh && now - lastFetchTime < 3000) {
-        console.log(
+                if (__DEV__) {
+          console.log(
           '🚫 [ConsultantBookings] Skipping fetch - too soon since last fetch',
-        );
+        )
+        };
         return;
       }
 
@@ -88,9 +90,13 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
 
       try {
         setLoading(true);
-        console.log('📅 [ConsultantBookings] Fetching all bookings...');
+                if (__DEV__) {
+          console.log('📅 [ConsultantBookings] Fetching all bookings...')
+        };
         const response = await BookingService.getMyBookings();
-        console.log('✅ [ConsultantBookings] Bookings response:', response);
+                if (__DEV__) {
+          console.log('✅ [ConsultantBookings] Bookings response:', response)
+        };
 
         // Filter bookings for this consultant
         const allBookings = response?.bookings || [];
@@ -98,9 +104,11 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
           (booking: Booking) => booking.consultantId === consultantId,
         );
 
-        console.log(
+                if (__DEV__) {
+          console.log(
           `📊 [ConsultantBookings] Found ${consultantBookings.length} bookings for consultant ${consultantId}`,
-        );
+        )
+        };
 
         // Batch fetch service details to reduce API calls
         const serviceIds = [
@@ -123,9 +131,11 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
               }
             }
           } catch {
-            console.log(
+                        if (__DEV__) {
+              console.log(
               `⚠️ [ConsultantBookings] Could not fetch service details for ${serviceId}`,
-            );
+            )
+            };
           }
         });
 
@@ -150,14 +160,18 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
         });
 
         setBookings(bookingsWithServiceDetails);
-        console.log(
+                if (__DEV__) {
+          console.log(
           `✅ [ConsultantBookings] Successfully loaded ${bookingsWithServiceDetails.length} bookings`,
-        );
+        )
+        };
       } catch (error: unknown) {
-        console.error(
+                if (__DEV__) {
+          console.error(
           '❌ [ConsultantBookings] Error fetching bookings:',
           error,
-        );
+        )
+        };
         showError('Failed to load bookings');
         setBookings([]);
       } finally {
@@ -223,12 +237,16 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
     if (!selectedBooking) return;
 
     try {
-      console.log('🚫 Cancelling booking:', selectedBooking.id);
+            if (__DEV__) {
+        console.log('🚫 Cancelling booking:', selectedBooking.id)
+      };
       const response = await BookingService.cancelBooking(
         selectedBooking.id,
         reason,
       );
-      console.log('✅ Cancellation response:', response);
+            if (__DEV__) {
+        console.log('✅ Cancellation response:', response)
+      };
 
       const refundAmount =
         typeof response.refundAmount === 'number'
@@ -255,7 +273,9 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
       setCancelModalVisible(false);
       setSelectedBooking(null);
     } catch (error: unknown) {
-      console.error('❌ Error cancelling booking:', error);
+            if (__DEV__) {
+        console.error('❌ Error cancelling booking:', error)
+      };
       let errorMessage = 'Failed to cancel booking';
 
       if (error && typeof error === 'object') {
@@ -352,7 +372,9 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
         },
       });
     } catch (error) {
-      console.error('❌ Error opening chat:', error);
+            if (__DEV__) {
+        console.error('❌ Error opening chat:', error)
+      };
       showError('Failed to open chat');
     }
   };

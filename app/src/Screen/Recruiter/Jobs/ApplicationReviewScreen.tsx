@@ -29,7 +29,9 @@ const ApplicationReviewScreen = ({ navigation, route }: any) => {
       const response = await JobService.getApplicationById(applicationId);
       setApplication(response.application);
     } catch (error: any) {
-      console.error('Error fetching application:', error);
+            if (__DEV__) {
+        console.error('Error fetching application:', error)
+      };
       showError(error.message || 'Failed to load application');
     } finally {
       setLoading(false);

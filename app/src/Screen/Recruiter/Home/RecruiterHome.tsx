@@ -56,7 +56,9 @@ const RecruiterHome = ({ navigation }: any) => {
           ).length;
         } catch (error:any) { 
           // Ignore errors for individual job applications
-          console.log(`Could not fetch applications for job ${job.id},error:`, error );
+                    if (__DEV__) {
+            console.log(`Could not fetch applications for job ${job.id},error:`, error )
+          };
         }
       }
       
@@ -84,8 +86,12 @@ const RecruiterHome = ({ navigation }: any) => {
             });
           });
         } catch (error:any) {
-          console.log(`Error fetching applications for job ${job.id}:`, error);
-          console.log(`Could not fetch applications for job ${job.id}`);
+                    if (__DEV__) {
+            console.log(`Error fetching applications for job ${job.id}:`, error)
+          };
+                    if (__DEV__) {
+            console.log(`Could not fetch applications for job ${job.id}`)
+          };
         }
       }
       
@@ -98,7 +104,9 @@ const RecruiterHome = ({ navigation }: any) => {
       
       setRecentApplications(allApplications.slice(0, 5));
     } catch (error: any) {
-      console.error('Error fetching recruiter data:', error);
+            if (__DEV__) {
+        console.error('Error fetching recruiter data:', error)
+      };
       showError(error.message || 'Failed to load data');
     } finally {
       setLoading(false);

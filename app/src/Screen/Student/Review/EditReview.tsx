@@ -34,7 +34,9 @@ const EditReview = ({ navigation, route }: any) => {
 
     setSubmitting(true);
     try {
-      console.log('📝 Updating review:', { reviewId, rating, reviewText, recommendation });
+            if (__DEV__) {
+        console.log('📝 Updating review:', { reviewId, rating, reviewText, recommendation })
+      };
 
       await ReviewService.updateReview(reviewId, {
         rating,
@@ -42,12 +44,16 @@ const EditReview = ({ navigation, route }: any) => {
         recommend: recommendation === 'yes',
       });
 
-      console.log('✅ Review updated successfully');
+            if (__DEV__) {
+        console.log('✅ Review updated successfully')
+      };
       Alert.alert('Success', 'Your review has been updated!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
-      console.error('❌ Error updating review:', error);
+            if (__DEV__) {
+        console.error('❌ Error updating review:', error)
+      };
 
       if (error?.response?.status === 404) {
         Alert.alert(

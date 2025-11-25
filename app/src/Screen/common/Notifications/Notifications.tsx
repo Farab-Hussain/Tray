@@ -1,6 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import {
   ScrollView,
   View,
@@ -31,12 +30,8 @@ const Notifications = ({ navigation }: any) => {
   } = useNotificationContext();
   const { openChatWith } = useChatContext();
 
-  // Auto-refresh notifications when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      refreshNotifications();
-    }, [refreshNotifications])
-  );
+  // Note: Notifications are automatically updated via real-time listener in NotificationContext
+  // No need to refresh on focus - the listener handles all updates
 
   // Filter notifications based on search and category
   const filteredNotifications = notifications.filter(notif => {

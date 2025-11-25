@@ -75,7 +75,9 @@ export const formatDate = (
       year: 'numeric',
     });
   } catch (error) {
-    console.error('Error formatting date:', error);
+        if (__DEV__) {
+      console.error('Error formatting date:', error)
+    };
     return 'N/A';
   }
 };

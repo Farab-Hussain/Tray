@@ -242,17 +242,21 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     }
 
     try {
-      console.log(
+            if (__DEV__) {
+        console.log(
         '📦 [ConsultantAvailability] Fetching consultant services for slot duration...',
-      );
+      )
+      };
       const response = await ConsultantService.getConsultantServices(user.uid);
       const fetchedServices = response?.services || response || [];
       setServices(fetchedServices);
 
       if (fetchedServices.length === 0) {
-        console.log(
+                if (__DEV__) {
+          console.log(
           'ℹ️ [ConsultantAvailability] No services found for consultant; using default slot duration',
-        );
+        )
+        };
         return;
       }
 
@@ -284,10 +288,12 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
         }
       }
     } catch (error) {
-      console.error(
+            if (__DEV__) {
+        console.error(
         '❌ [ConsultantAvailability] Error fetching consultant services:',
         error,
-      );
+      )
+      };
     }
   }, [user?.uid, initialServiceId, initialServiceTitle, initialServiceDuration]);
 
@@ -324,7 +330,9 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     // Filter out past dates before processing
     const validDates = selectedDates.filter(dateString => {
       if (isPastDate(dateString)) {
-        console.warn(`⚠️ Skipping past date: ${dateString}`);
+                if (__DEV__) {
+          console.warn(`⚠️ Skipping past date: ${dateString}`)
+        };
         return false;
       }
       return true;
@@ -475,38 +483,52 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
   };
 
   const saveAvailabilitySlots = async () => {
-    console.log('🚨🚨🚨 SAVE AVAILABILITY SLOTS FUNCTION CALLED 🚨🚨🚨');
+        if (__DEV__) {
+      console.log('🚨🚨🚨 SAVE AVAILABILITY SLOTS FUNCTION CALLED 🚨🚨🚨')
+    };
 
     if (!user?.uid) {
-      console.error('❌ [ConsultantAvailability] No user UID available');
+            if (__DEV__) {
+        console.error('❌ [ConsultantAvailability] No user UID available')
+      };
       return;
     }
 
     try {
       setSaving(true);
-      console.log(
+            if (__DEV__) {
+        console.log(
         '💾 [ConsultantAvailability] Starting to save availability slots...',
-      );
-      console.log('👤 [ConsultantAvailability] User UID:', user.uid);
-      console.log(
+      )
+      };
+            if (__DEV__) {
+        console.log('👤 [ConsultantAvailability] User UID:', user.uid)
+      };
+            if (__DEV__) {
+        console.log(
         '📊 [ConsultantAvailability] Availability slots to save:',
         draftSlots.length,
-      );
+      )
+      };
 
       const result = await ConsultantService.setAvailabilitySlots(
         user.uid,
         draftSlots,
       );
-      console.log('✅ [ConsultantAvailability] Save result:', result);
+            if (__DEV__) {
+        console.log('✅ [ConsultantAvailability] Save result:', result)
+      };
       setAvailabilitySlots(cloneAvailabilitySlots(draftSlots));
       handleCloseAvailabilityModal(draftSlots);
       await fetchConsultantAvailability();
       Alert.alert('Success', 'Availability slots saved successfully!');
     } catch (error: any) {
-      console.error(
+            if (__DEV__) {
+        console.error(
         '❌ [ConsultantAvailability] Error saving availability slots:',
         error,
-      );
+      )
+      };
       Alert.alert('Error', 'Failed to save availability slots');
     } finally {
       setSaving(false);
@@ -515,20 +537,26 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
   const fetchConsultantAvailability = useCallback(async () => {
     try {
-      console.log(
+            if (__DEV__) {
+        console.log(
         '📅 [ConsultantAvailability] Fetching consultant availability...',
-      );
+      )
+      };
 
       if (!user?.uid) {
-        console.log(
+                if (__DEV__) {
+          console.log(
           '⚠️ [ConsultantAvailability] No user UID available, using defaults',
-        );
+        )
+        };
         return;
       }
 
       try {
         const profile = await getConsultantProfile(user.uid);
-        console.log('✅ [ConsultantAvailability] Profile response:', profile);
+                if (__DEV__) {
+          console.log('✅ [ConsultantAvailability] Profile response:', profile)
+        };
 
         if ((profile as any)?.professionalInfo?.availability) {
           setAvailability((profile as any).professionalInfo.availability);
@@ -536,14 +564,18 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
         if ((profile as any)?.professionalInfo?.availabilitySlots) {
           const slots = (profile as any).professionalInfo.availabilitySlots;
-          console.log(
+                    if (__DEV__) {
+            console.log(
             '✅ [ConsultantAvailability] Availability slots loaded:',
             slots.length,
-          );
+          )
+          };
           // Filter out past dates from loaded slots
           const validSlots = slots.filter((slot: AvailabilitySlot) => {
             if (isPastDate(slot.date)) {
-              console.warn(`⚠️ Filtering out past date slot: ${slot.date}`);
+                            if (__DEV__) {
+                console.warn(`⚠️ Filtering out past date slot: ${slot.date}`)
+              };
               return false;
             }
             return true;
@@ -551,25 +583,31 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
           setAvailabilitySlots(validSlots);
           setDraftSlots(cloneAvailabilitySlots(validSlots));
           if (validSlots.length < slots.length) {
-            console.log(
+                        if (__DEV__) {
+              console.log(
               `ℹ️ [ConsultantAvailability] Filtered out ${slots.length - validSlots.length} past date slot(s)`,
-            );
+            )
+            };
           }
         } else {
           setAvailabilitySlots([]);
           setDraftSlots([]);
         }
       } catch (profileError) {
-        console.log(
+                if (__DEV__) {
+          console.log(
           '⚠️ [ConsultantAvailability] Profile fetch failed, using defaults:',
           profileError,
-        );
+        )
+        };
       }
     } catch (error: any) {
-      console.error(
+            if (__DEV__) {
+        console.error(
         '❌ [ConsultantAvailability] Error in fetchConsultantAvailability:',
         error,
-      );
+      )
+      };
     } finally {
       setLoading(false);
     }
@@ -634,10 +672,12 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
                   await fetchConsultantAvailability();
                 } catch (error: any) {
-                  console.error(
+                                    if (__DEV__) {
+                    console.error(
                     '❌ [ConsultantAvailability] Error deleting slot:',
                     error,
-                  );
+                  )
+                  };
                   Alert.alert(
                     'Error',
                     'Failed to delete the availability slot. Please try again.',
@@ -656,7 +696,9 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
   );
 
   useEffect(() => {
-    console.log('🚀 ConsultantAvailability useEffect starting...');
+        if (__DEV__) {
+      console.log('🚀 ConsultantAvailability useEffect starting...')
+    };
 
     setAvailability({
       days: [],
@@ -668,7 +710,9 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     setDraftSlots([]);
 
     const forceLoadingTimeout = setTimeout(() => {
-      console.log('⏰ Force loading timeout - showing calendar');
+            if (__DEV__) {
+        console.log('⏰ Force loading timeout - showing calendar')
+      };
       setLoading(false);
     }, 1000);
 
@@ -682,7 +726,9 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
   // Refetch data when screen comes into focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('🔄 ConsultantAvailability screen focused - refetching data');
+            if (__DEV__) {
+        console.log('🔄 ConsultantAvailability screen focused - refetching data')
+      };
       fetchConsultantAvailability();
     });
 

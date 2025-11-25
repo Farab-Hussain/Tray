@@ -13,7 +13,9 @@ type MessageProps = {
 const Message = ({ name, avatar, lastMessage, time, unreadCount }: MessageProps) => {
   // Debug: Log unread count
   if (__DEV__ && unreadCount > 0) {
-    console.log(`🔔 [Message] Rendering badge for ${name}: unreadCount=${unreadCount}`);
+        if (__DEV__) {
+      console.log(`🔔 [Message] Rendering badge for ${name}: unreadCount=${unreadCount}`)
+    };
   }
 
   return (

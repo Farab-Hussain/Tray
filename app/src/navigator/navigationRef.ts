@@ -17,13 +17,17 @@ export function navigate(name: string, params?: any) {
             })
           );
         } catch (error: any) {
-          console.error('❌ [Navigation] Error navigating:', error);
+                    if (__DEV__) {
+            console.error('❌ [Navigation] Error navigating:', error)
+          };
         }
       } else if (retries < maxRetries) {
         retries++;
         setTimeout(checkAndNavigate, 100);
       } else {
-        console.error('❌ [Navigation] Navigation not ready after', maxRetries, 'retries');
+                if (__DEV__) {
+          console.error('❌ [Navigation] Navigation not ready after', maxRetries, 'retries')
+        };
       }
     };
     setTimeout(checkAndNavigate, 100);
@@ -38,7 +42,9 @@ export function navigate(name: string, params?: any) {
       })
     );
   } catch (error: any) {
-    console.error('❌ [Navigation] Error navigating:', error);
+        if (__DEV__) {
+      console.error('❌ [Navigation] Error navigating:', error)
+    };
     // Retry after a short delay
     setTimeout(() => {
       if (navigationRef.isReady()) {
@@ -50,7 +56,9 @@ export function navigate(name: string, params?: any) {
             })
           );
         } catch (retryError: any) {
-          console.error('❌ [Navigation] Retry navigation failed:', retryError);
+                    if (__DEV__) {
+            console.error('❌ [Navigation] Retry navigation failed:', retryError)
+          };
         }
       }
     }, 500);

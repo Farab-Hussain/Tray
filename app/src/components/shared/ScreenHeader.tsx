@@ -20,7 +20,7 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   showBackButton = true,
 }) => {
   const navigation = useNavigation();
-  
+
   const handleBackPress = () => {
     if (onBackPress) {
       onBackPress();
@@ -33,7 +33,7 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
     <View style={screenStyles.header}>
       {showBackButton ? (
         <TouchableOpacity onPress={handleBackPress} activeOpacity={0.7}>
-          <ChevronLeft color={COLORS.black} style={authStyles.back}/>
+          <ChevronLeft color={COLORS.black} style={authStyles.back} />
         </TouchableOpacity>
       ) : (
         <View style={screenStyles.spacer} />
@@ -49,4 +49,3 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({
 };
 
 export default ScreenHeader;
-

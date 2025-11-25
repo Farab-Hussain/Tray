@@ -23,7 +23,9 @@ const MyApplicationsScreen = ({ navigation }: any) => {
       const response = await JobService.getMyApplications();
       setApplications(response.applications || []);
     } catch (error: any) {
-      console.error('Error fetching applications:', error);
+            if (__DEV__) {
+        console.error('Error fetching applications:', error)
+      };
       showError(error.message || 'Failed to load applications');
     } finally {
       setLoading(false);
@@ -130,7 +132,7 @@ const MyApplicationsScreen = ({ navigation }: any) => {
 
               <View style={styles.dateContainer}>
                 <Text style={styles.dateText}>
-                  Applied: {formatDate(application.appliedAt)}
+                  Applied: {formatDate(application.appliedAt || application.createdAt || new Date())}
                 </Text>
               </View>
             </TouchableOpacity>

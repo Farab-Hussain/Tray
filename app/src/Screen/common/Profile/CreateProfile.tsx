@@ -50,7 +50,9 @@ const CreateProfile = ({ navigation }: any) => {
         },
       ]);
     } catch (error: any) {
-      console.error('Profile creation error:', error);
+            if (__DEV__) {
+        console.error('Profile creation error:', error)
+      };
       Alert.alert('Error', error.response?.data?.error || 'Failed to create profile');
     } finally {
       setIsLoading(false);

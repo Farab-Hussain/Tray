@@ -12,27 +12,31 @@ export const allApplicationsScreenStyles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   combinedRow: {
-    paddingHorizontal: 16,
     paddingVertical: 12,
   },
   combinedFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingRight: 16,
   },
   filterGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 20,
+    flexShrink: 0,
   },
   filterGroupLabel: {
     fontSize: 13,
     fontWeight: '600',
     color: COLORS.gray,
     marginRight: 8,
+    flexShrink: 0,
   },
   filterGroupContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   filterChip: {
     paddingHorizontal: 12,
@@ -42,6 +46,7 @@ export const allApplicationsScreenStyles = StyleSheet.create({
     marginRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   filterChipActive: {
     backgroundColor: COLORS.green,
@@ -71,6 +76,7 @@ export const allApplicationsScreenStyles = StyleSheet.create({
     paddingTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingRight: 16,
   },
   subFilterChip: {
     paddingHorizontal: 12,
@@ -80,6 +86,7 @@ export const allApplicationsScreenStyles = StyleSheet.create({
     marginRight: 8,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    flexShrink: 0,
   },
   subFilterChipActive: {
     backgroundColor: COLORS.green,

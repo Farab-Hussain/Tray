@@ -44,10 +44,18 @@ const TopConsultantCard: React.FC<TopConsultantCardProps> = ({
           <AppButton
             title="Book Now"
             onPress={() => {
-              console.log('📍 Book Now Clicked - TopConsultantCard');
-              console.log('🆔 Consultant ID:', consultantId);
-              console.log('👤 Consultant Name:', name);
-              console.log('📂 Consultant Category:', title);
+                            if (__DEV__) {
+                console.log('📍 Book Now Clicked - TopConsultantCard')
+              };
+                            if (__DEV__) {
+                console.log('🆔 Consultant ID:', consultantId)
+              };
+                            if (__DEV__) {
+                console.log('👤 Consultant Name:', name)
+              };
+                            if (__DEV__) {
+                console.log('📂 Consultant Category:', title)
+              };
               navigation.navigate('MainTabs', {
                 screen: 'Services',
                 params: {

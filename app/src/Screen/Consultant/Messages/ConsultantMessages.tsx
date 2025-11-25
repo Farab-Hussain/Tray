@@ -33,11 +33,15 @@ const ConsultantMessages = ({ navigation }: any) => {
         if (otherUserId && !nameMap.has(otherUserId)) {
           try {
             const userData = await UserService.getUserById(otherUserId);
-            console.log('📥 [ConsultantMessages] User data for', otherUserId, ':', userData);
+                        if (__DEV__) {
+              console.log('📥 [ConsultantMessages] User data for', otherUserId, ':', userData)
+            };
             
             if (userData) {
               const userName = userData.name || userData.displayName || 'User';
-              console.log('✅ [ConsultantMessages] Setting name:', userName);
+                            if (__DEV__) {
+                console.log('✅ [ConsultantMessages] Setting name:', userName)
+              };
               
               // Try multiple possible profile image fields
               const profileImage = 
@@ -47,18 +51,24 @@ const ConsultantMessages = ({ navigation }: any) => {
                 userData.profile?.profileImage ||
                 userData.profile?.avatarUrl;
               
-              console.log('🖼️ [ConsultantMessages] Profile image:', profileImage);
+                            if (__DEV__) {
+                console.log('🖼️ [ConsultantMessages] Profile image:', profileImage)
+              };
               
               nameMap.set(otherUserId, {
                 name: userName,
                 avatar: profileImage
               });
             } else {
-              console.log('⚠️ [ConsultantMessages] No user data for', otherUserId);
+                            if (__DEV__) {
+                console.log('⚠️ [ConsultantMessages] No user data for', otherUserId)
+              };
               nameMap.set(otherUserId, { name: 'Student' });
             }
           } catch (error) {
-            console.error('❌ [ConsultantMessages] Error fetching user name:', error);
+                        if (__DEV__) {
+              console.error('❌ [ConsultantMessages] Error fetching user name:', error)
+            };
             nameMap.set(otherUserId, { name: 'Student' });
           }
         }
@@ -86,7 +96,9 @@ const ConsultantMessages = ({ navigation }: any) => {
       setShowDeleteModal(false);
       setSelectedChatId(null);
     } catch (error: any) {
-      console.error('❌ Error deleting chat:', error);
+            if (__DEV__) {
+        console.error('❌ Error deleting chat:', error)
+      };
       Alert.alert(
         'Error',
         error?.message || 'Failed to delete chat. Please try again.',

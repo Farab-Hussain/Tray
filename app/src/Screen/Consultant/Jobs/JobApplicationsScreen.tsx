@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, View, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import Loader from '../../../components/ui/Loader';
 import { JobService } from '../../../services/job.service';
@@ -26,7 +25,9 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       setApplications(response.applications || []);
       setSummary(response.summary || null);
     } catch (error: any) {
-      console.error('Error fetching applications:', error);
+            if (__DEV__) {
+        console.error('Error fetching applications:', error)
+      };
       showError(error.message || 'Failed to load applications');
     } finally {
       setLoading(false);
@@ -108,10 +109,7 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
             <TouchableOpacity
               key={application.id}
               onPress={() => navigation.navigate('ApplicationReview', { applicationId: application.id })}
-              style={[
-                styles.applicationCard,
-                { borderLeftColor: getRatingColor(application.matchRating) },
-              ]}
+              style={styles.applicationCard}
               activeOpacity={0.7}
             >
               <View style={styles.cardHeader}>

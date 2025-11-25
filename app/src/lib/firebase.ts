@@ -39,7 +39,9 @@ if (!FIREBASE_AUTH_DOMAIN || FIREBASE_AUTH_DOMAIN.trim() === '') {
 
 if (missingConfig.length > 0) {
   const errorMessage = `❌ [Firebase] Missing required configuration: ${missingConfig.join(', ')}\n\nPlease check your .env file and ensure all Firebase configuration variables are set.`;
-  console.error(errorMessage);
+    if (__DEV__) {
+    console.error(errorMessage)
+  };
   
   // In production, we should not throw to prevent app crash, but log the error
   // In development, throw to alert developers immediately

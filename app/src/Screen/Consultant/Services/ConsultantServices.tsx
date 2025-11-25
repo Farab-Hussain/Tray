@@ -59,15 +59,21 @@ const ConsultantServices = ({ navigation }: any) => {
       setError(null);
 
       // Get consultant's profile to get their UID
-      console.log('📡 Fetching consultant status...');
+            if (__DEV__) {
+        console.log('📡 Fetching consultant status...')
+      };
       const statusResponse = await getConsultantVerificationStatus();
-      console.log(
+            if (__DEV__) {
+        console.log(
         '📊 Status response:',
         JSON.stringify(statusResponse, null, 2),
-      );
+      )
+      };
 
       if (!statusResponse.profile?.uid) {
-        console.error('❌ No profile UID found in response');
+                if (__DEV__) {
+          console.error('❌ No profile UID found in response')
+        };
         setError('Consultant profile not found. Please complete your profile.');
         setServices([]);
         setFilteredServices([]);
@@ -76,16 +82,22 @@ const ConsultantServices = ({ navigation }: any) => {
 
       const uid = statusResponse.profile.uid;
       setConsultantUid(uid);
-      console.log('✅ Got consultant UID:', uid);
+            if (__DEV__) {
+        console.log('✅ Got consultant UID:', uid)
+      };
 
-      console.log('📡 Fetching services for consultant:', uid);
+            if (__DEV__) {
+        console.log('📡 Fetching services for consultant:', uid)
+      };
       const servicesResponse = await ConsultantService.getConsultantServices(
         uid,
       );
-      console.log(
+            if (__DEV__) {
+        console.log(
         '📊 Services response:',
         JSON.stringify(servicesResponse, null, 2),
-      );
+      )
+      };
 
       const servicesData = servicesResponse?.services || servicesResponse || [];
 
@@ -103,19 +115,23 @@ const ConsultantServices = ({ navigation }: any) => {
               const defaultService =
                 defaultServiceResponse?.service || defaultServiceResponse;
               if (defaultService?.imageUrl) {
-                console.log(
+                                if (__DEV__) {
+                  console.log(
                   `🖼️ [ConsultantServices] Using fallback image for ${service.title} from default service ${service.basedOnDefaultService}`,
-                );
+                )
+                };
                 return {
                   ...service,
                   imageUrl: defaultService.imageUrl,
                 };
               }
             } catch (fallbackError) {
-              console.warn(
+                            if (__DEV__) {
+                console.warn(
                 `⚠️ [ConsultantServices] Unable to load fallback image for ${service.title}:`,
                 fallbackError,
-              );
+              )
+              };
             }
           }
           return service;
@@ -123,17 +139,21 @@ const ConsultantServices = ({ navigation }: any) => {
       );
 
       // Debug: Log service data to see imageUrl values
-      console.log(
+            if (__DEV__) {
+        console.log(
         '🔍 [ConsultantServices] Services data:',
         JSON.stringify(servicesData, null, 2),
-      );
+      )
+      };
       servicesData.forEach((service: any, index: number) => {
-        console.log(`🔍 [ConsultantServices] Service ${index + 1}:`, {
+                if (__DEV__) {
+          console.log(`🔍 [ConsultantServices] Service ${index + 1}:`, {
           title: service.title,
           imageUrl: service.imageUrl,
           hasImageUrl: !!service.imageUrl,
           imageUrlLength: service.imageUrl?.length || 0,
-        });
+        })
+        };
       });
 
       const activeServices = enrichedServices.filter(service => {
@@ -146,17 +166,27 @@ const ConsultantServices = ({ navigation }: any) => {
       setServices(activeServices);
       setFilteredServices(activeServices);
 
-      console.log(
+            if (__DEV__) {
+        console.log(
         '✅ Loaded',
         enrichedServices.length,
         'services for consultant:',
         uid,
-      );
+      )
+      };
     } catch (err: any) {
-      console.error('❌ Error fetching consultant services:', err);
-      console.error('❌ Error response:', err.response?.data);
-      console.error('❌ Error status:', err.response?.status);
-      console.error('❌ Error message:', err.message);
+            if (__DEV__) {
+        console.error('❌ Error fetching consultant services:', err)
+      };
+            if (__DEV__) {
+        console.error('❌ Error response:', err.response?.data)
+      };
+            if (__DEV__) {
+        console.error('❌ Error status:', err.response?.status)
+      };
+            if (__DEV__) {
+        console.error('❌ Error message:', err.message)
+      };
       setError(
         err.response?.data?.error ||
           err.message ||
@@ -172,9 +202,11 @@ const ConsultantServices = ({ navigation }: any) => {
   useFocusEffect(
     useCallback(() => {
       if (user?.uid) {
-        console.log(
+                if (__DEV__) {
+          console.log(
           '🔄 [ConsultantServices] Screen focused, refreshing services...',
-        );
+        )
+        };
         fetchConsultantServices();
       }
     }, [user?.uid, fetchConsultantServices]),
@@ -200,7 +232,9 @@ const ConsultantServices = ({ navigation }: any) => {
   };
 
   const handleSetAvailability = (service: Service) => {
-    console.log('Set availability for service:', service.title, service.id);
+        if (__DEV__) {
+      console.log('Set availability for service:', service.title, service.id)
+    };
     navigation.navigate('ConsultantAvailability', {
       serviceId: service.id,
       serviceTitle: service.title,
@@ -302,11 +336,13 @@ const ConsultantServices = ({ navigation }: any) => {
                 item.imageUrl && item.imageUrl.trim() !== ''
                   ? { uri: item.imageUrl }
                   : undefined;
-              console.log(`🔍 [ConsultantServices] Rendering ${item.title}:`, {
+                            if (__DEV__) {
+                console.log(`🔍 [ConsultantServices] Rendering ${item.title}:`, {
                 imageUrl: item.imageUrl,
                 imageUri: imageUri,
                 hasImageUri: !!imageUri,
-              });
+              })
+              };
 
               return (
                 <View key={item.id} style={screenStyles.consultantCardWrapper}>

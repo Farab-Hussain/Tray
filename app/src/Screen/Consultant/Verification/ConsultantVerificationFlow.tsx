@@ -129,9 +129,13 @@ export default function ConsultantVerificationFlow() {
       if (activeRole !== 'consultant') {
         try {
           await switchRole('consultant');
-          console.log('ConsultantVerificationFlow - Successfully switched to consultant role');
+                    if (__DEV__) {
+            console.log('ConsultantVerificationFlow - Successfully switched to consultant role')
+          };
         } catch (error: any) {
-          console.error('ConsultantVerificationFlow - Error switching role:', error);
+                    if (__DEV__) {
+            console.error('ConsultantVerificationFlow - Error switching role:', error)
+          };
           // Continue navigation even if role switch fails
         }
       }
@@ -144,7 +148,9 @@ export default function ConsultantVerificationFlow() {
       return; // Exit early, don't update state
 
     } catch (error) {
-      console.error('Verification flow error:', error);
+            if (__DEV__) {
+        console.error('Verification flow error:', error)
+      };
       setVerificationState({
         step: 'profile_not_found',
         message: 'Unable to verify your status. Please try again.',

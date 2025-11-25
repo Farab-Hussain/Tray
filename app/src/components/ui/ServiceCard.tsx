@@ -34,7 +34,9 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   // const [showVideoModal, setShowVideoModal] = useState(false);
 
   // Debug: Log media for debugging
-  console.log(`🖼️ [ServiceCard] "${title}" received imageUri:`, imageUri);
+    if (__DEV__) {
+    console.log(`🖼️ [ServiceCard] "${title}" received imageUri:`, imageUri)
+  };
   // VIDEO UPLOAD CODE - COMMENTED OUT
   // console.log(`🎥 [ServiceCard] "${title}" received videoUrl:`, videoUrl);
   

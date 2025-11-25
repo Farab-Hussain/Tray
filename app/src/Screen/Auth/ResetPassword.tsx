@@ -48,7 +48,9 @@ const ResetPassword = ({ navigation, route }: any) => {
         { text: 'OK', onPress: () => navigation.navigate('Login') },
       ]);
     } catch (err: any) {
-      console.error('Reset password error:', err);
+            if (__DEV__) {
+        console.error('Reset password error:', err)
+      };
       
       // Handle different error scenarios
       let errorMessage = "Something went wrong";

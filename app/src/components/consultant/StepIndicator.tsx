@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { CheckCircle } from 'lucide-react-native';
 import { consultantFlowStyles } from '../../constants/styles/consultantFlowStyles';
-import { COLORS } from '../../constants/core/colors';
 
 interface Step {
   id: string;
@@ -32,7 +31,10 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
 
   const getStepLabelStyle = (stepIndex: number) => {
     if (stepIndex === currentStep) {
-      return [consultantFlowStyles.stepLabel, consultantFlowStyles.stepLabelActive];
+      return [
+        consultantFlowStyles.stepLabel,
+        consultantFlowStyles.stepLabelActive,
+      ];
     }
     return consultantFlowStyles.stepLabel;
   };
@@ -43,7 +45,11 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
         <View key={step.id} style={consultantFlowStyles.stepItem}>
           <View style={getStepDotStyle(index)} />
           {completedSteps.includes(index) && (
-            <CheckCircle size={12} color="#10B981" style={{ position: 'absolute', left: -2, top: -2 }} />
+            <CheckCircle
+              size={12}
+              color="#10B981"
+              style={{ position: 'absolute', left: -2, top: -2 }}
+            />
           )}
           <Text style={getStepLabelStyle(index)}>{step.title}</Text>
         </View>

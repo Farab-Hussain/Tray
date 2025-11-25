@@ -49,9 +49,13 @@ export async function createPeer({
     iceServers.forEach((server, index) => {
       if (server.urls) {
         const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-        console.log(`🌐 [ICE]   Server ${index + 1}: ${urls.join(', ')}`);
+                if (__DEV__) {
+          console.log(`🌐 [ICE]   Server ${index + 1}: ${urls.join(', ')}`)
+        };
         if (server.username) {
-          console.log(`🌐 [ICE]     Username: ${server.username}`);
+                    if (__DEV__) {
+            console.log(`🌐 [ICE]     Username: ${server.username}`)
+          };
         }
       }
     });
@@ -86,9 +90,15 @@ export async function createPeer({
       if (currentState === 'checking' || currentState === 'new') {
         iceStateCheckCount++;
         if (iceStateCheckCount > 10) { // After 20 seconds (2s * 10)
-          console.warn(`⚠️ [ICE] Still in ${currentState} state after ${iceStateCheckCount * 2} seconds`);
-          console.warn(`⚠️ [ICE] This may indicate TURN server connectivity issues or network problems.`);
-          console.warn(`⚠️ [ICE] Check network connectivity and TURN server configuration.`);
+                    if (__DEV__) {
+            console.warn(`⚠️ [ICE] Still in ${currentState} state after ${iceStateCheckCount * 2} seconds`)
+          };
+                    if (__DEV__) {
+            console.warn(`⚠️ [ICE] This may indicate TURN server connectivity issues or network problems.`)
+          };
+                    if (__DEV__) {
+            console.warn(`⚠️ [ICE] Check network connectivity and TURN server configuration.`)
+          };
         }
       } else {
         if (iceStateCheckInterval) {
@@ -108,34 +118,66 @@ export async function createPeer({
       clearInterval(iceStateCheckInterval);
       iceStateCheckInterval = null;
     }
-    console.log(`🌐 [ICE] State changed to: ${state}`);
+        if (__DEV__) {
+      console.log(`🌐 [ICE] State changed to: ${state}`)
+    };
     
     // Notify callback
     onIceConnectionStateChange?.(state);
     
     if (state === 'connected' || state === 'completed') {
-      console.log(`✅ [ICE] ✅✅✅ CONNECTION ESTABLISHED SUCCESSFULLY ✅✅✅`);
-      console.log(`✅ [ICE] Media should now be flowing between peers!`);
+            if (__DEV__) {
+        console.log(`✅ [ICE] ✅✅✅ CONNECTION ESTABLISHED SUCCESSFULLY ✅✅✅`)
+      };
+            if (__DEV__) {
+        console.log(`✅ [ICE] Media should now be flowing between peers!`)
+      };
     } else if (state === 'failed') {
       const errorMsg = 'ICE connection failed. TURN servers may be unreachable or devices are behind incompatible NATs.';
-      console.error(`🚨 [ICE] ❌❌❌ CONNECTION FAILED ❌❌❌`);
-      console.error(`🚨 [ICE] This usually indicates a NAT/firewall traversal issue.`);
-      console.error(`🚨 [ICE] Possible causes:`);
-      console.error(`🚨 [ICE]   1. TURN servers are not reachable or misconfigured (MOST LIKELY)`);
-      console.error(`🚨 [ICE]   2. Both devices are behind symmetric NATs`);
-      console.error(`🚨 [ICE]   3. Firewall blocking UDP/TCP traffic`);
-      console.error(`🚨 [ICE]   4. Network connectivity issues`);
-      console.error(`🚨 [ICE]   5. Free TURN servers are down or rate-limited`);
-      console.error(`🚨 [ICE]`);
-      console.error(`🚨 [ICE] If you see "0 relay" candidates in the summary above, TURN servers are not working.`);
-      console.error(`🚨 [ICE] For production, use a reliable paid TURN service (Twilio, Metered.ca, Xirsys, or self-hosted).`);
+            if (__DEV__) {
+        console.error(`🚨 [ICE] ❌❌❌ CONNECTION FAILED ❌❌❌`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE] This usually indicates a NAT/firewall traversal issue.`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE] Possible causes:`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE]   1. TURN servers are not reachable or misconfigured (MOST LIKELY)`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE]   2. Both devices are behind symmetric NATs`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE]   3. Firewall blocking UDP/TCP traffic`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE]   4. Network connectivity issues`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE]   5. Free TURN servers are down or rate-limited`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE]`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE] If you see "0 relay" candidates in the summary above, TURN servers are not working.`)
+      };
+            if (__DEV__) {
+        console.error(`🚨 [ICE] For production, use a reliable paid TURN service (Twilio, Metered.ca, Xirsys, or self-hosted).`)
+      };
       onError?.(errorMsg);
     } else if (state === 'disconnected') {
-      console.warn(`⚠️ [ICE] Connection disconnected - attempting to reconnect...`);
+            if (__DEV__) {
+        console.warn(`⚠️ [ICE] Connection disconnected - attempting to reconnect...`)
+      };
       // Restart monitoring if disconnected
       startIceStateMonitoring();
     } else if (state === 'closed') {
-      console.log(`🔒 [ICE] Connection closed.`);
+            if (__DEV__) {
+        console.log(`🔒 [ICE] Connection closed.`)
+      };
     } else if (state === 'checking' || state === 'new') {
       // Restart monitoring if back to checking/new
       startIceStateMonitoring();
@@ -179,16 +221,20 @@ export async function createPeer({
   // 🎧 Step 1: Confirm Local Audio Track Is Active
   const audioTracks = stream.getAudioTracks();
   if (audioTracks.length === 0) {
-    console.error('❌ [Audio Debug] No audio tracks found in local stream!');
+        if (__DEV__) {
+      console.error('❌ [Audio Debug] No audio tracks found in local stream!')
+    };
   } else {
     audioTracks.forEach((audioTrack: any, index: number) => {
-      console.log(`🎤 [Audio Debug] Audio track ${index + 1}/${audioTracks.length}:`, {
+            if (__DEV__) {
+        console.log(`🎤 [Audio Debug] Audio track ${index + 1}/${audioTracks.length}:`, {
         id: audioTrack.id,
         enabled: audioTrack.enabled,
         readyState: audioTrack.readyState,
         kind: audioTrack.kind,
         label: audioTrack.label,
-      });
+      })
+      };
       
       // Get audio track settings
       // Note: getSettings() may return undefined values on React Native WebRTC
@@ -205,31 +251,45 @@ export async function createPeer({
         if (settings.groupId !== undefined) settingsInfo.groupId = settings.groupId;
         
         if (Object.keys(settingsInfo).length > 0) {
-          console.log(`🎤 [Audio Debug] Audio track ${index + 1} settings:`, settingsInfo);
+                    if (__DEV__) {
+            console.log(`🎤 [Audio Debug] Audio track ${index + 1} settings:`, settingsInfo)
+          };
         } else {
-          console.log(`🎤 [Audio Debug] Audio track ${index + 1} settings: (not available - this is normal for React Native WebRTC)`);
+                    if (__DEV__) {
+            console.log(`🎤 [Audio Debug] Audio track ${index + 1} settings: (not available - this is normal for React Native WebRTC)`)
+          };
         }
       } catch (error: any) {
-        console.warn(`⚠️ [Audio Debug] Could not get audio track settings:`, error.message);
+                if (__DEV__) {
+          console.warn(`⚠️ [Audio Debug] Could not get audio track settings:`, error.message)
+        };
       }
       
       // Ensure audio track is enabled
       if (!audioTrack.enabled) {
-        console.warn(`⚠️ [Audio Debug] Audio track ${index + 1} was disabled, enabling now...`);
+                if (__DEV__) {
+          console.warn(`⚠️ [Audio Debug] Audio track ${index + 1} was disabled, enabling now...`)
+        };
         audioTrack.enabled = true;
       }
       
       // Monitor audio track state changes
       audioTrack.addEventListener('ended', () => {
-        console.warn(`⚠️ [Audio Debug] Audio track ${index + 1} ended!`);
+                if (__DEV__) {
+          console.warn(`⚠️ [Audio Debug] Audio track ${index + 1} ended!`)
+        };
       });
       
       audioTrack.addEventListener('mute', () => {
-        console.warn(`⚠️ [Audio Debug] Audio track ${index + 1} muted!`);
+                if (__DEV__) {
+          console.warn(`⚠️ [Audio Debug] Audio track ${index + 1} muted!`)
+        };
       });
       
       audioTrack.addEventListener('unmute', () => {
-        console.log(`✅ [Audio Debug] Audio track ${index + 1} unmuted`);
+                if (__DEV__) {
+          console.log(`✅ [Audio Debug] Audio track ${index + 1} unmuted`)
+        };
       });
     });
   }
@@ -289,12 +349,18 @@ export async function createPeer({
           if (settings.autoGainControl !== undefined) settingsInfo.autoGainControl = settings.autoGainControl;
           
           if (Object.keys(settingsInfo).length > 0) {
-            console.log('🎤 [Audio Debug] Remote audio track settings:', settingsInfo);
+                        if (__DEV__) {
+              console.log('🎤 [Audio Debug] Remote audio track settings:', settingsInfo)
+            };
           } else {
-            console.log('🎤 [Audio Debug] Remote audio track settings: (not available - this is normal for remote tracks)');
+                        if (__DEV__) {
+              console.log('🎤 [Audio Debug] Remote audio track settings: (not available - this is normal for remote tracks)')
+            };
           }
         } catch (error: any) {
-          console.warn('⚠️ [Audio Debug] Could not get remote audio track settings:', error.message);
+                    if (__DEV__) {
+            console.warn('⚠️ [Audio Debug] Could not get remote audio track settings:', error.message)
+          };
         }
       }
     }
@@ -315,16 +381,22 @@ export async function createPeer({
           });
           
           // 🔎 Step 3: Verify Remote Audio Tracks
-          console.log('🔎 [Audio Debug] Remote stream audio tracks count:', eventAudioTracks.length);
+                    if (__DEV__) {
+            console.log('🔎 [Audio Debug] Remote stream audio tracks count:', eventAudioTracks.length)
+          };
           if (eventAudioTracks.length === 0) {
-            console.error('❌ [Audio Debug] WARNING: Remote stream has no audio tracks!');
+                        if (__DEV__) {
+              console.error('❌ [Audio Debug] WARNING: Remote stream has no audio tracks!')
+            };
           } else {
             eventAudioTracks.forEach((t: any, index: number) => {
-              console.log(`🔎 [Audio Debug] Remote audio track ${index + 1}:`, {
+                            if (__DEV__) {
+                console.log(`🔎 [Audio Debug] Remote audio track ${index + 1}:`, {
                 id: t.id,
                 enabled: t.enabled,
                 readyState: t.readyState,
-              });
+              })
+              };
               // Ensure enabled
               t.enabled = true;
             });
@@ -364,16 +436,22 @@ export async function createPeer({
             });
             
             // 🔎 Step 3: Verify Remote Audio Tracks
-            console.log('🔎 [Audio Debug] Remote stream audio tracks count:', updatedAudioTracks.length);
+                        if (__DEV__) {
+              console.log('🔎 [Audio Debug] Remote stream audio tracks count:', updatedAudioTracks.length)
+            };
             if (updatedAudioTracks.length === 0) {
-              console.error('❌ [Audio Debug] WARNING: Remote stream has no audio tracks!');
+                            if (__DEV__) {
+                console.error('❌ [Audio Debug] WARNING: Remote stream has no audio tracks!')
+              };
             } else {
               updatedAudioTracks.forEach((t: any, index: number) => {
-                console.log(`🔎 [Audio Debug] Remote audio track ${index + 1}:`, {
+                                if (__DEV__) {
+                  console.log(`🔎 [Audio Debug] Remote audio track ${index + 1}:`, {
                   id: t.id,
                   enabled: t.enabled,
                   readyState: t.readyState,
-                });
+                })
+                };
               });
             }
           }
@@ -401,12 +479,14 @@ export async function createPeer({
               console.log(`📹 Added ${track.kind} track to existing remote stream:`, track.id);
               const videoTracks = remoteStream.getVideoTracks();
               const manualAudioTracks = remoteStream.getAudioTracks();
-              console.log('📹 Remote stream updated:', {
+                            if (__DEV__) {
+                console.log('📹 Remote stream updated:', {
                 streamId: remoteStream.id,
                 totalTracks: remoteStream.getTracks().length,
                 videoTracks: videoTracks.length,
                 audioTracks: manualAudioTracks.length,
-              });
+              })
+              };
             }
           }
           onRemoteStream?.(remoteStream);
@@ -461,13 +541,17 @@ export async function createPeer({
           // 🔎 Step 3: Verify Remote Audio Tracks for newly created stream
           if (track.kind === 'audio') {
             const newStreamAudioTracks = remoteStream.getAudioTracks();
-            console.log('🔎 [Audio Debug] Remote stream audio tracks count:', newStreamAudioTracks.length);
+                        if (__DEV__) {
+              console.log('🔎 [Audio Debug] Remote stream audio tracks count:', newStreamAudioTracks.length)
+            };
             newStreamAudioTracks.forEach((t: any, index: number) => {
-              console.log(`🔎 [Audio Debug] Remote audio track ${index + 1}:`, {
+                            if (__DEV__) {
+                console.log(`🔎 [Audio Debug] Remote audio track ${index + 1}:`, {
                 id: t.id,
                 enabled: t.enabled,
                 readyState: t.readyState,
-              });
+              })
+              };
             });
           }
         }
@@ -490,13 +574,17 @@ export async function createPeer({
             
             // 🔎 Step 3: Verify Remote Audio Tracks after adding
             if (track.kind === 'audio') {
-              console.log('🔎 [Audio Debug] Remote stream audio tracks count:', finalAudioTracks.length);
+                            if (__DEV__) {
+                console.log('🔎 [Audio Debug] Remote stream audio tracks count:', finalAudioTracks.length)
+              };
               finalAudioTracks.forEach((t: any, index: number) => {
-                console.log(`🔎 [Audio Debug] Remote audio track ${index + 1}:`, {
+                                if (__DEV__) {
+                  console.log(`🔎 [Audio Debug] Remote audio track ${index + 1}:`, {
                   id: t.id,
                   enabled: t.enabled,
                   readyState: t.readyState,
-                });
+                })
+                };
               });
             }
           }
@@ -532,7 +620,9 @@ export async function createPeer({
       if (__DEV__) {
         console.warn(`⚠️ [ICE] ICE gathering timeout after ${ICE_GATHERING_TIMEOUT}ms`);
         console.warn(`⚠️ [ICE] Proceeding with available candidates (${candidateCount} total)`);
-        console.warn(`⚠️ [ICE] TURN servers may be slow or unreachable, but connection may still work with host/srflx candidates`);
+                if (__DEV__) {
+          console.warn(`⚠️ [ICE] TURN servers may be slow or unreachable, but connection may still work with host/srflx candidates`)
+        };
       }
       // Force ICE gathering to complete if possible
       // Note: We can't actually force it, but we can log that we're proceeding
@@ -580,13 +670,21 @@ export async function createPeer({
           ip = ipMatch ? ipMatch[1] : 'unknown';
         }
         
-        console.log(`🧊 [ICE] Candidate #${candidateCount} [${candidateType}] ${protocol}://${ip}:${port} - ${candidateStr.substring(0, 100)}`);
+                if (__DEV__) {
+          console.log(`🧊 [ICE] Candidate #${candidateCount} [${candidateType}] ${protocol}://${ip}:${port} - ${candidateStr.substring(0, 100)}`)
+        };
         
         // Log TURN relay candidates specifically with more detail
         if (candidateType === 'relay (TURN)') {
-          console.log('✅ [ICE] ✅✅✅ TURN RELAY CANDIDATE DETECTED ✅✅✅');
-          console.log('✅ [ICE] TURN servers are working! This candidate will be used if direct P2P connection fails.');
-          console.log(`✅ [ICE] Relay candidate details: ${protocol}://${ip}:${port}`);
+                    if (__DEV__) {
+            console.log('✅ [ICE] ✅✅✅ TURN RELAY CANDIDATE DETECTED ✅✅✅')
+          };
+                    if (__DEV__) {
+            console.log('✅ [ICE] TURN servers are working! This candidate will be used if direct P2P connection fails.')
+          };
+                    if (__DEV__) {
+            console.log(`✅ [ICE] Relay candidate details: ${protocol}://${ip}:${port}`)
+          };
         }
       }
       onIce?.(e.candidate);
@@ -600,28 +698,70 @@ export async function createPeer({
         console.log('✅ [ICE] ICE gathering complete');
         console.log(`📊 [ICE] Candidate summary: ${candidateCount} total (${hostCandidateCount} host, ${srflxCandidateCount} srflx, ${relayCandidateCount} relay, ${prflxCandidateCount} prflx)`);
         if (relayCandidateCount === 0) {
-          console.warn('⚠️ [ICE] ⚠️⚠️⚠️ WARNING: No TURN relay candidates generated! ⚠️⚠️⚠️');
-          console.warn('⚠️ [ICE] Connection may fail if devices are behind firewalls or symmetric NATs.');
-          console.warn('⚠️ [ICE] However, connection may still work if:');
-          console.warn('⚠️ [ICE]   - Both devices are on the same network');
-          console.warn('⚠️ [ICE]   - NATs are compatible (cone NATs)');
-          console.warn('⚠️ [ICE]   - STUN-reflexive candidates are sufficient');
-          console.warn('⚠️ [ICE]');
-          console.warn('⚠️ [ICE] Possible reasons for no TURN candidates:');
-          console.warn('⚠️ [ICE]   1. TURN servers are not reachable from your network');
-          console.warn('⚠️ [ICE]   2. TURN server credentials are incorrect or expired');
-          console.warn('⚠️ [ICE]   3. Firewall is blocking TURN server access (ports 80, 443, 3478)');
-          console.warn('⚠️ [ICE]   4. Free TURN servers may be down or rate-limited');
-          console.warn('⚠️ [ICE]');
-          console.warn('⚠️ [ICE] SOLUTION: For production, you MUST use a reliable TURN server:');
-          console.warn('⚠️ [ICE]   - Twilio Network Traversal (recommended): https://www.twilio.com/stun-turn');
-          console.warn('⚠️ [ICE]   - Self-hosted Coturn: https://github.com/coturn/coturn');
-          console.warn('⚠️ [ICE]   - Metered.ca paid TURN: https://www.metered.ca/tools/openrelay/');
-          console.warn('⚠️ [ICE]   - Xirsys TURN: https://xirsys.com/');
-          console.warn('⚠️ [ICE]');
-          console.warn('⚠️ [ICE] Free TURN servers are unreliable and should only be used for testing.');
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE] ⚠️⚠️⚠️ WARNING: No TURN relay candidates generated! ⚠️⚠️⚠️')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE] Connection may fail if devices are behind firewalls or symmetric NATs.')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE] However, connection may still work if:')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   - Both devices are on the same network')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   - NATs are compatible (cone NATs)')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   - STUN-reflexive candidates are sufficient')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE] Possible reasons for no TURN candidates:')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   1. TURN servers are not reachable from your network')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   2. TURN server credentials are incorrect or expired')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   3. Firewall is blocking TURN server access (ports 80, 443, 3478)')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   4. Free TURN servers may be down or rate-limited')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE] SOLUTION: For production, you MUST use a reliable TURN server:')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   - Twilio Network Traversal (recommended): https://www.twilio.com/stun-turn')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   - Self-hosted Coturn: https://github.com/coturn/coturn')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   - Metered.ca paid TURN: https://www.metered.ca/tools/openrelay/')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]   - Xirsys TURN: https://xirsys.com/')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE]')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [ICE] Free TURN servers are unreliable and should only be used for testing.')
+          };
         } else {
-          console.log(`✅ [ICE] ${relayCandidateCount} TURN relay candidate(s) generated - NAT traversal should work!`);
+                    if (__DEV__) {
+            console.log(`✅ [ICE] ${relayCandidateCount} TURN relay candidate(s) generated - NAT traversal should work!`)
+          };
         }
       }
     }
@@ -630,15 +770,21 @@ export async function createPeer({
   // Handle connection state changes
   pc.addEventListener('connectionstatechange', () => {
     const state = pc.connectionState;
-    console.log('🔌 [Peer] Connection state:', state);
+        if (__DEV__) {
+      console.log('🔌 [Peer] Connection state:', state)
+    };
     
     // Notify callback
     onConnectionStateChange?.(state);
     
     if (state === 'connected') {
-      console.log('✅ [Peer] ✅✅✅ PEER CONNECTION ESTABLISHED ✅✅✅');
+            if (__DEV__) {
+        console.log('✅ [Peer] ✅✅✅ PEER CONNECTION ESTABLISHED ✅✅✅')
+      };
     } else if (state === 'failed' || state === 'disconnected') {
-      console.error('❌ [Peer] Connection failed or disconnected:', state);
+            if (__DEV__) {
+        console.error('❌ [Peer] Connection failed or disconnected:', state)
+      };
       if (state === 'failed') {
         const errorMsg = 'Peer connection failed. This may be due to network issues or TURN server problems.';
         onError?.(errorMsg);
@@ -666,33 +812,43 @@ export async function applyAnswer(pc: any, answerSdp: any) {
   try {
     // Check if peer connection is still valid and in a state where we can set remote description
     if (!pc) {
-      console.warn('⚠️ [applyAnswer] Peer connection is null');
+            if (__DEV__) {
+        console.warn('⚠️ [applyAnswer] Peer connection is null')
+      };
       return;
     }
 
     // Check if peer connection is closed
     if (pc.signalingState === 'closed' || pc.connectionState === 'closed') {
-      console.warn(`⚠️ [applyAnswer] Peer connection is closed, skipping`);
+            if (__DEV__) {
+        console.warn(`⚠️ [applyAnswer] Peer connection is closed, skipping`)
+      };
       return;
     }
 
     // Check signaling state - can only set remote description if in 'have-local-offer' or 'have-remote-offer' state
     const signalingState = pc.signalingState;
     if (signalingState === 'closed' || signalingState === 'stable') {
-      console.warn(`⚠️ [applyAnswer] Cannot set remote answer in state: ${signalingState}`);
+            if (__DEV__) {
+        console.warn(`⚠️ [applyAnswer] Cannot set remote answer in state: ${signalingState}`)
+      };
       return;
     }
 
     // Check connection state - don't set if already closed or failed
     const connectionState = pc.connectionState;
     if (connectionState === 'closed' || connectionState === 'failed') {
-      console.warn(`⚠️ [applyAnswer] Cannot set remote answer, connection state: ${connectionState}`);
+            if (__DEV__) {
+        console.warn(`⚠️ [applyAnswer] Cannot set remote answer, connection state: ${connectionState}`)
+      };
       return;
     }
 
     // Validate answerSdp exists and is valid
     if (!answerSdp) {
-      console.warn('⚠️ [applyAnswer] Answer SDP is null or undefined');
+            if (__DEV__) {
+        console.warn('⚠️ [applyAnswer] Answer SDP is null or undefined')
+      };
       return;
     }
 
@@ -729,23 +885,33 @@ export async function applyAnswer(pc: any, answerSdp: any) {
       if (sdp && sdp.length > 0 && sdp.includes('v=') && sdp.includes('m=')) {
         try {
           answer = new RTCSessionDescription({ type, sdp });
-          console.log('✅ [applyAnswer] Created RTCSessionDescription from plain object');
+                    if (__DEV__) {
+            console.log('✅ [applyAnswer] Created RTCSessionDescription from plain object')
+          };
         } catch (createError: any) {
-          console.warn('⚠️ [applyAnswer] Failed to create RTCSessionDescription:', createError?.message || createError);
+                    if (__DEV__) {
+            console.warn('⚠️ [applyAnswer] Failed to create RTCSessionDescription:', createError?.message || createError)
+          };
           return;
         }
       } else {
-        console.warn('⚠️ [applyAnswer] Invalid SDP format - missing or malformed SDP');
+                if (__DEV__) {
+          console.warn('⚠️ [applyAnswer] Invalid SDP format - missing or malformed SDP')
+        };
         return;
       }
     } else {
-      console.warn('⚠️ [applyAnswer] Invalid answer format:', typeof answerSdp);
+            if (__DEV__) {
+        console.warn('⚠️ [applyAnswer] Invalid answer format:', typeof answerSdp)
+      };
       return;
     }
 
     // Final validation before setting
     if (!answer || !answer.sdp || typeof answer.sdp !== 'string' || answer.sdp.length === 0) {
-      console.warn('⚠️ [applyAnswer] Invalid answer object - missing or invalid SDP');
+            if (__DEV__) {
+        console.warn('⚠️ [applyAnswer] Invalid answer object - missing or invalid SDP')
+      };
       return;
     }
 
@@ -756,7 +922,9 @@ export async function applyAnswer(pc: any, answerSdp: any) {
       // Re-throw to be caught by outer catch block
       throw setError;
     }
-    console.log('✅ [applyAnswer] Remote answer set successfully');
+        if (__DEV__) {
+      console.log('✅ [applyAnswer] Remote answer set successfully')
+    };
   } catch (error: any) {
     // Safely extract error message without accessing nested properties
     let errorMessage = '';
@@ -793,12 +961,16 @@ export async function applyAnswer(pc: any, answerSdp: any) {
       errorMessage.includes('closed') ||
       errorMessage.includes('InvalidStateError') ||
       errorMessage.includes('receiver')) {
-      console.warn('⚠️ [applyAnswer] Ignoring error - connection state issue:', errorMessage);
+            if (__DEV__) {
+        console.warn('⚠️ [applyAnswer] Ignoring error - connection state issue:', errorMessage)
+      };
       return;
     }
 
     // Log error safely without accessing nested properties
-    console.error('❌ [applyAnswer] Error setting remote answer:', errorMessage);
+        if (__DEV__) {
+      console.error('❌ [applyAnswer] Error setting remote answer:', errorMessage)
+    };
     // Don't throw - just log the error to prevent uncaught promise rejections
     return;
   }

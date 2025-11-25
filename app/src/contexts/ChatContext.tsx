@@ -37,7 +37,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   
   const refreshChats = useCallback(async () => {
     if (!userId) {
-      console.log('⚠️ [ChatContext] No userId, skipping chat refresh');
+            if (__DEV__) {
+        console.log('⚠️ [ChatContext] No userId, skipping chat refresh')
+      };
       return;
     }
     
@@ -48,13 +50,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     
     // Schedule refresh after 300ms (debounce)
     refreshTimeoutRef.current = setTimeout(async () => {
-      console.log('🔄 [ChatContext] Refreshing chats for user:', userId);
+            if (__DEV__) {
+        console.log('🔄 [ChatContext] Refreshing chats for user:', userId)
+      };
       try {
         const userChats = await ChatService.fetchUserChats(userId);
-        console.log('📥 [ChatContext] Received chats:', userChats.length);
+                if (__DEV__) {
+          console.log('📥 [ChatContext] Received chats:', userChats.length)
+        };
         setChats(userChats);
       } catch (error) {
-        console.error('❌ [ChatContext] Error refreshing chats:', error);
+                if (__DEV__) {
+          console.error('❌ [ChatContext] Error refreshing chats:', error)
+        };
         setChats([]);
       }
     }, 300);
@@ -62,10 +70,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     if (userId) {
-      console.log('🚀 [ChatContext] User authenticated, starting chat refresh. UserId:', userId);
+            if (__DEV__) {
+        console.log('🚀 [ChatContext] User authenticated, starting chat refresh. UserId:', userId)
+      };
       refreshChats();
     } else {
-      console.log('⏳ [ChatContext] Waiting for user authentication...');
+            if (__DEV__) {
+        console.log('⏳ [ChatContext] Waiting for user authentication...')
+      };
     }
     // Optionally add a listener for real-time chat list updates (not implemented here)
   }, [refreshChats, userId]);

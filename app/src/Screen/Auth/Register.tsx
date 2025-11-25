@@ -66,23 +66,31 @@ const Register = ({ navigation, route }: any) => {
     try {
       // Set registration flag to prevent premature role fetching
       await AsyncStorage.setItem('isRegistering', 'true');
-      console.log('Register - Registration flag set');
+            if (__DEV__) {
+        console.log('Register - Registration flag set')
+      };
       
       // Save role in both old and new formats for compatibility
       await AsyncStorage.setItem('role', role);
       await AsyncStorage.setItem('activeRole', role);
       await AsyncStorage.setItem('roles', JSON.stringify([role]));
-      console.log('Register - Role saved to AsyncStorage FIRST:', role);
+            if (__DEV__) {
+        console.log('Register - Role saved to AsyncStorage FIRST:', role)
+      };
 
       if (role === 'consultant') {
         await AsyncStorage.setItem(
           'consultantVerificationStatus',
           'incomplete',
         );
-        console.log('Register - Initial consultant status saved: incomplete');
+                if (__DEV__) {
+          console.log('Register - Initial consultant status saved: incomplete')
+        };
       }
 
-      console.log('Register - Creating Firebase user...');
+            if (__DEV__) {
+        console.log('Register - Creating Firebase user...')
+      };
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -90,33 +98,51 @@ const Register = ({ navigation, route }: any) => {
       );
       const uid = userCredential.user.uid;
       
-      console.log('Register - Firebase user created, UID:', uid);
+            if (__DEV__) {
+        console.log('Register - Firebase user created, UID:', uid)
+      };
 
       // Update user profile with display name (non-blocking - continue even if it fails)
-      console.log('Register - Setting display name...');
+            if (__DEV__) {
+        console.log('Register - Setting display name...')
+      };
       try {
         await updateProfile(userCredential.user, {
           displayName: name.trim()
         });
-        console.log('Register - Display name set:', name.trim());
+                if (__DEV__) {
+          console.log('Register - Display name set:', name.trim())
+        };
       } catch (profileError: any) {
-        console.error('Register - Failed to set display name:', profileError);
-        console.error('Register - Profile error code:', profileError?.code);
-        console.error('Register - Profile error message:', profileError?.message);
+                if (__DEV__) {
+          console.error('Register - Failed to set display name:', profileError)
+        };
+                if (__DEV__) {
+          console.error('Register - Profile error code:', profileError?.code)
+        };
+                if (__DEV__) {
+          console.error('Register - Profile error message:', profileError?.message)
+        };
         // Continue anyway - display name is not critical for email verification
       }
 
       // Reload user to ensure all properties are synced before sending email
       try {
         await userCredential.user.reload();
-        console.log('Register - User reloaded successfully');
+                if (__DEV__) {
+          console.log('Register - User reloaded successfully')
+        };
       } catch (reloadError: any) {
-        console.warn('Register - User reload warning (non-critical):', reloadError?.message);
+                if (__DEV__) {
+          console.warn('Register - User reload warning (non-critical):', reloadError?.message)
+        };
         // Continue anyway - reload is not critical
       }
       
       // Send email verification via backend SMTP
-      console.log('Register - Sending email verification via backend SMTP...');
+            if (__DEV__) {
+        console.log('Register - Sending email verification via backend SMTP...')
+      };
       let emailSent = false;
       let emailError: any = null;
       
@@ -134,9 +160,13 @@ const Register = ({ navigation, route }: any) => {
         
         if (backendResponse.data?.success && backendResponse.data?.emailSent) {
           emailSent = true;
-          console.log('✅ Register - Backend sent verification email via SMTP!');
+                    if (__DEV__) {
+            console.log('✅ Register - Backend sent verification email via SMTP!')
+          };
         } else if (backendResponse.data?.verificationLink) {
-          console.log('✅ Register - Backend generated verification link (SMTP failed, but link available)');
+                    if (__DEV__) {
+            console.log('✅ Register - Backend generated verification link (SMTP failed, but link available)')
+          };
           emailSent = true; // Mark as sent since we have a link
         }
       } catch (backendError: any) {
@@ -147,7 +177,9 @@ const Register = ({ navigation, route }: any) => {
 
       // Clear registration flag
       await AsyncStorage.removeItem('isRegistering');
-      console.log('Register - Registration flag cleared');
+            if (__DEV__) {
+        console.log('Register - Registration flag cleared')
+      };
 
       // Show informational message about email verification (required)
       if (emailSent) {
@@ -208,10 +240,14 @@ const Register = ({ navigation, route }: any) => {
       }
       return;
     } catch (e: any) {
-      console.error('Register error:', e);
+            if (__DEV__) {
+        console.error('Register error:', e)
+      };
       // Clear registration flag on error
       await AsyncStorage.removeItem('isRegistering');
-      console.log('Register - Registration flag cleared due to error');
+            if (__DEV__) {
+        console.log('Register - Registration flag cleared due to error')
+      };
       Alert.alert('Error', e.message || 'Something went wrong');
     } finally {
       setLoading(false);
@@ -227,7 +263,21 @@ const Register = ({ navigation, route }: any) => {
   ) => {
     setSocialLoading(provider);
     try {
-      const user = await loginFunction({ role: role });
+      // Add timeout for social login to prevent hanging
+      // Facebook login can take longer due to browser redirects, so use longer timeout
+      // The login dialog itself has a 90s timeout, so we need at least 120s for the full process
+      const timeoutDuration = provider === 'facebook' ? 150000 : 60000; // 2.5 min for Facebook (includes dialog + token + Firebase), 1 min for others
+      
+      const loginPromise = loginFunction({ role: role });
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`${provider === 'facebook' ? 'Facebook' : 'Social'} login timed out. Please try again.`)), timeoutDuration)
+      );
+      
+      if (__DEV__) {
+        console.log(`Social Register - Starting ${provider} login with ${timeoutDuration/1000}s timeout`);
+      }
+      
+      const user = await Promise.race([loginPromise, timeoutPromise]) as any;
       
       if (!user) {
         // User cancelled
@@ -236,44 +286,82 @@ const Register = ({ navigation, route }: any) => {
       }
 
       // Social logins don't need email verification
-      console.log('Social Register - Email verified, proceeding with registration');
+            if (__DEV__) {
+        console.log('Social Register - Email verified, proceeding with registration')
+      };
       
       // Get token and set for backend calls
       const token = await user.getIdToken();
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common.Authorization = `Bearer ${token}`;
 
       // Register with backend (useSocialLogin already handles this, but we ensure it's done)
-      console.log('Social Register - Backend sync should be complete');
+            if (__DEV__) {
+        console.log('Social Register - Backend sync should be complete')
+      };
       
       // Save role in both old and new formats for compatibility
       await AsyncStorage.setItem('role', role);
       await AsyncStorage.setItem('activeRole', role);
       await AsyncStorage.setItem('roles', JSON.stringify([role]));
-      console.log('Social Register - Role saved to AsyncStorage:', role);
+            if (__DEV__) {
+        console.log('Social Register - Role saved to AsyncStorage:', role)
+      };
 
       // For consultants, also save initial status
       if (role === 'consultant') {
         await AsyncStorage.setItem('consultantVerificationStatus', 'incomplete');
-        console.log('Social Register - Initial consultant status saved: incomplete');
+                if (__DEV__) {
+          console.log('Social Register - Initial consultant status saved: incomplete')
+        };
       }
 
       // Navigate based on role
       if (role === 'consultant') {
-        console.log('Social Register - Navigating to consultant profile flow');
+                if (__DEV__) {
+          console.log('Social Register - Navigating to consultant profile flow')
+        };
         navigation.replace('Screen', {
           screen: 'ConsultantProfileFlow',
         });
       } else {
         // Student or recruiter - navigate to MainTabs
-        console.log(`Social Register - Navigating to MainTabs with role: ${role || 'student'}`);
+                if (__DEV__) {
+          console.log(`Social Register - Navigating to MainTabs with role: ${role || 'student'}`)
+        };
         navigation.replace('Screen', {
           screen: 'MainTabs',
           params: { role: role || 'student' },
         });
       }
     } catch (error: any) {
-      console.error(`Social Register - ${provider} error:`, error);
-      // Error is already handled in useSocialLogin hook
+      if (__DEV__) {
+        console.error(`Social Register - ${provider} error:`, error)
+      };
+      
+      // Don't show errors for user cancellations - they return null, not throw
+      // Only show errors for actual failures
+      
+      // Handle timeout errors specifically
+      if (error?.message?.includes('timeout') || error?.message?.includes('timed out')) {
+        Alert.alert(
+          'Registration Timeout',
+          `${provider === 'facebook' ? 'Facebook' : 'Social'} login took too long. This might happen if:\n\n• The redirect back to the app didn't complete\n• Your internet connection is slow\n• Facebook servers are experiencing issues\n\nPlease try again. If the problem persists, try:\n• Ensuring the Facebook app is installed\n• Checking your internet connection\n• Restarting the app`,
+          [{ text: 'OK' }]
+        );
+      } else if (error?.message && 
+                 !error?.message?.includes('cancelled') && 
+                 !error?.message?.includes('requires a user to be signed in') &&
+                 !error?.message?.includes('SIGN_IN_REQUIRED')) {
+        // Show other errors that weren't handled by useSocialLogin
+        // But skip cancellation-related errors (they should return null, but just in case)
+        Alert.alert(
+          'Registration Error',
+          error.message || `Failed to register with ${provider}. Please try again.`,
+          [{ text: 'OK' }]
+        );
+      }
+      // Note: useSocialLogin hook already shows errors for most cases via showError
+      // Cancellations return null and don't throw, so they won't reach here
     } finally {
       setSocialLoading(null);
     }

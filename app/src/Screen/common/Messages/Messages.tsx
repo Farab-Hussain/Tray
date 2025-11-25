@@ -29,17 +29,25 @@ const Messages = ({ navigation }: any) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  console.log('📱 [Messages] Component render - userId:', userId, 'chats count:', chats?.length || 0);
+    if (__DEV__) {
+    console.log('📱 [Messages] Component render - userId:', userId, 'chats count:', chats?.length || 0)
+  };
   
   // Debug: Log unread counts
   useEffect(() => {
     if (chats && chats.length > 0) {
-      console.log(`📊 [Messages] Total chats: ${chats.length}`);
+            if (__DEV__) {
+        console.log(`📊 [Messages] Total chats: ${chats.length}`)
+      };
       chats.forEach(chat => {
         const unread = chat.unreadCount || 0;
-        console.log(`📊 [Messages] Chat ${chat.id}: unreadCount=${unread}, lastMessage="${chat.lastMessage}"`);
+                if (__DEV__) {
+          console.log(`📊 [Messages] Chat ${chat.id}: unreadCount=${unread}, lastMessage="${chat.lastMessage}"`)
+        };
         if (unread > 0) {
-          console.log(`🔔 [Messages] ⚠️ Chat ${chat.id} has ${unread} unread messages!`);
+                    if (__DEV__) {
+            console.log(`🔔 [Messages] ⚠️ Chat ${chat.id} has ${unread} unread messages!`)
+          };
         }
       });
     }
@@ -111,7 +119,9 @@ const Messages = ({ navigation }: any) => {
 
   useEffect(() => {
     const loadChats = async () => {
-      console.log('🔄 [Messages] Refresh chats triggered');
+            if (__DEV__) {
+        console.log('🔄 [Messages] Refresh chats triggered')
+      };
       if (userId) {
         setIsLoadingChats(true);
         try {
@@ -120,7 +130,9 @@ const Messages = ({ navigation }: any) => {
           setIsLoadingChats(false);
         }
       } else {
-        console.warn('⚠️ [Messages] No userId available, cannot refresh chats');
+                if (__DEV__) {
+          console.warn('⚠️ [Messages] No userId available, cannot refresh chats')
+        };
         setIsLoadingChats(false);
       }
     };
@@ -130,7 +142,9 @@ const Messages = ({ navigation }: any) => {
   // Refresh chats when screen comes into focus (navigation back from chat)
   useFocusEffect(
     useCallback(() => {
-      console.log('📱 [Messages] Screen focused, refreshing chats...');
+            if (__DEV__) {
+        console.log('📱 [Messages] Screen focused, refreshing chats...')
+      };
       if (userId) {
         refreshChats();
       }
@@ -183,7 +197,9 @@ const Messages = ({ navigation }: any) => {
               // Try to fetch consultant profile (returns null if not a consultant)
               consultantData = await ConsultantService.getConsultantProfile(otherUserId);
               if (consultantData) {
-                console.log('📥 [Messages] Fetched consultant profile:', consultantData);
+                                if (__DEV__) {
+                  console.log('📥 [Messages] Fetched consultant profile:', consultantData)
+                };
               }
 
               // If we found consultant data, use it
@@ -219,7 +235,9 @@ const Messages = ({ navigation }: any) => {
             } catch (error: any) {
               // Only log unexpected errors (not 404s)
               if (error?.response?.status !== 404) {
-                console.error('❌ [Messages] Error fetching user info:', error);
+                                if (__DEV__) {
+                  console.error('❌ [Messages] Error fetching user info:', error)
+                };
               }
               nameMap.set(otherUserId, { name: 'User' });
             }
@@ -250,7 +268,9 @@ const Messages = ({ navigation }: any) => {
       setShowDeleteModal(false);
       setSelectedChatId(null);
     } catch (error: any) {
-      console.error('❌ Error deleting chat:', error);
+            if (__DEV__) {
+        console.error('❌ Error deleting chat:', error)
+      };
       Alert.alert(
         'Error',
         error?.message || 'Failed to delete chat. Please try again.',
@@ -286,7 +306,9 @@ const Messages = ({ navigation }: any) => {
           <RefreshControl
             refreshing={false}
             onRefresh={() => {
-              console.log('🔄 [Messages] Manual refresh triggered');
+                            if (__DEV__) {
+                console.log('🔄 [Messages] Manual refresh triggered')
+              };
               refreshChats();
             }}
           />

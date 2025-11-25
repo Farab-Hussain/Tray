@@ -49,9 +49,15 @@ const Services = ({ navigation, route }: any) => {
   const consultantName = currentConsultantName ?? paramsConsultantName;
   const consultantCategory = currentConsultantCategory ?? paramsConsultantCategory;
 
-  console.log('🔍 Services Screen - Route Params:', routeParams);
-  console.log('📋 Current Consultant ID:', consultantId);
-  console.log('👤 Current Consultant Name:', consultantName);
+    if (__DEV__) {
+    console.log('🔍 Services Screen - Route Params:', routeParams)
+  };
+    if (__DEV__) {
+    console.log('📋 Current Consultant ID:', consultantId)
+  };
+    if (__DEV__) {
+    console.log('👤 Current Consultant Name:', consultantName)
+  };
 
   // Fetch services function
   const resolveServiceImage = useCallback(
@@ -103,16 +109,20 @@ const Services = ({ navigation, route }: any) => {
 
         cache[defaultServiceId] = fallbackImageUrl ?? null;
         if (fallbackImageUrl) {
-          console.log(
+                    if (__DEV__) {
+            console.log(
             `🖼️ Applied fallback image for service ${service.title} from default service ${defaultServiceId}`,
-          );
+          )
+          };
         }
         return fallbackImageUrl;
       } catch (fallbackError) {
-        console.warn(
+                if (__DEV__) {
+          console.warn(
           `⚠️ Unable to load fallback image for service ${service.title} (default: ${defaultServiceId})`,
           fallbackError,
-        );
+        )
+        };
         cache[defaultServiceId] = null;
         return undefined;
       }
@@ -134,23 +144,43 @@ const Services = ({ navigation, route }: any) => {
 
       if (targetConsultantId) {
         // Fetch specific consultant's services (no pagination for single consultant)
-        console.log('🚀 Fetching services for consultant:', targetConsultantId);
+                if (__DEV__) {
+          console.log('🚀 Fetching services for consultant:', targetConsultantId)
+        };
         const response = await ConsultantService.getConsultantServices(targetConsultantId);
-        console.log('✅ Services Response:', response);
+                if (__DEV__) {
+          console.log('✅ Services Response:', response)
+        };
         servicesData = response?.services || [];
       } else {
         // Fetch all services (from Services tab) with pagination
-        console.log('🚀 Fetching all services from all consultants');
+                if (__DEV__) {
+          console.log('🚀 Fetching all services from all consultants')
+        };
         try {
           const response = await ConsultantService.getAllServices(pageNum, 20);
-          console.log('✅ All Services Response:', response);
-          console.log('📊 Total services found:', response?.services?.length || 0);
+                    if (__DEV__) {
+            console.log('✅ All Services Response:', response)
+          };
+                    if (__DEV__) {
+            console.log('📊 Total services found:', response?.services?.length || 0)
+          };
           if (response?.services && response.services.length > 0) {
-            console.log('📋 Sample service:', response.services[0]);
-            console.log('🖼️ Sample service imageUrl:', response.services[0].imageUrl);
-            console.log('🖼️ Sample service image:', response.services[0].image);
-            console.log('🖼️ Sample service imageUri:', response.services[0].imageUri);
-            console.log('🔍 All service keys:', Object.keys(response.services[0]));
+                        if (__DEV__) {
+              console.log('📋 Sample service:', response.services[0])
+            };
+                        if (__DEV__) {
+              console.log('🖼️ Sample service imageUrl:', response.services[0].imageUrl)
+            };
+                        if (__DEV__) {
+              console.log('🖼️ Sample service image:', response.services[0].image)
+            };
+                        if (__DEV__) {
+              console.log('🖼️ Sample service imageUri:', response.services[0].imageUri)
+            };
+                        if (__DEV__) {
+              console.log('🔍 All service keys:', Object.keys(response.services[0]))
+            };
           }
           servicesData = response?.services || [];
           
@@ -162,8 +192,12 @@ const Services = ({ navigation, route }: any) => {
             setHasMoreServices(servicesData.length >= 20);
           }
         } catch (error: any) {
-          console.log('⚠️ All services endpoint error:', error?.message);
-          console.log('❌ Error details:', error?.response?.status, error?.response?.data);
+                    if (__DEV__) {
+            console.log('⚠️ All services endpoint error:', error?.message)
+          };
+                    if (__DEV__) {
+            console.log('❌ Error details:', error?.response?.status, error?.response?.data)
+          };
           // If endpoint doesn't exist, show empty array
           servicesData = [];
         }
@@ -189,7 +223,9 @@ const Services = ({ navigation, route }: any) => {
         setServices(servicesWithImages);
       }
     } catch (err) {
-      console.error('❌ Error fetching services:', err);
+            if (__DEV__) {
+        console.error('❌ Error fetching services:', err)
+      };
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -226,7 +262,9 @@ const Services = ({ navigation, route }: any) => {
         return;
       }
 
-      console.log('🧭 Services tab pressed - clearing consultant context');
+            if (__DEV__) {
+        console.log('🧭 Services tab pressed - clearing consultant context')
+      };
       hasHandledRouteParamsRef.current = false;
       setCurrentConsultantId(undefined);
       setCurrentConsultantName(undefined);
@@ -243,11 +281,17 @@ const Services = ({ navigation, route }: any) => {
     useCallback(() => {
       const hasRouteConsultant = !!paramsConsultantId;
 
-      console.log('🔄 Services screen focused - Route params:', route?.params);
-      console.log('📋 Derived consultant ID from params:', paramsConsultantId);
+            if (__DEV__) {
+        console.log('🔄 Services screen focused - Route params:', route?.params)
+      };
+            if (__DEV__) {
+        console.log('📋 Derived consultant ID from params:', paramsConsultantId)
+      };
 
       if (hasRouteConsultant) {
-        console.log('📋 Handling consultant params from navigation');
+                if (__DEV__) {
+          console.log('📋 Handling consultant params from navigation')
+        };
         setCurrentConsultantId(paramsConsultantId);
         setCurrentConsultantName(paramsConsultantName);
         setCurrentConsultantCategory(paramsConsultantCategory);
@@ -266,18 +310,24 @@ const Services = ({ navigation, route }: any) => {
       }
 
       if (hasHandledRouteParamsRef.current) {
-        console.log('⏭️ Skipping reset after clearing handled params');
+                if (__DEV__) {
+          console.log('⏭️ Skipping reset after clearing handled params')
+        };
         hasHandledRouteParamsRef.current = false;
         return;
       }
 
       if (currentConsultantId) {
-        console.log('📋 No consultant params but existing consultant state detected - refreshing consultant services');
+                if (__DEV__) {
+          console.log('📋 No consultant params but existing consultant state detected - refreshing consultant services')
+        };
         fetchServices(currentConsultantId);
         return;
       }
 
-      console.log('📋 No consultant params present - showing all services');
+            if (__DEV__) {
+        console.log('📋 No consultant params present - showing all services')
+      };
       setCurrentConsultantId(undefined);
       setCurrentConsultantName(undefined);
       setCurrentConsultantCategory(undefined);
@@ -306,9 +356,13 @@ const Services = ({ navigation, route }: any) => {
     }
     
     try {
-      console.log('⭐ Fetching reviews for consultant:', consultantId);
+            if (__DEV__) {
+        console.log('⭐ Fetching reviews for consultant:', consultantId)
+      };
       const response = await ReviewService.getConsultantReviews(consultantId, pageNum, 20);
-      console.log('✅ Reviews Response:', response);
+            if (__DEV__) {
+        console.log('✅ Reviews Response:', response)
+      };
       
       const reviewsData = response?.reviews || [];
       
@@ -326,10 +380,14 @@ const Services = ({ navigation, route }: any) => {
         setHasMoreReviews(reviewsData.length >= 20);
       }
     } catch (error: any) {
-      console.error('❌ Error fetching reviews:', error);
+            if (__DEV__) {
+        console.error('❌ Error fetching reviews:', error)
+      };
       if (error?.response?.status !== 404) {
         // Only log non-404 errors
-        console.log('⚠️ Reviews API error:', error?.message);
+                if (__DEV__) {
+          console.log('⚠️ Reviews API error:', error?.message)
+        };
       }
       if (!append) {
         setReviews([]);
@@ -392,10 +450,18 @@ const Services = ({ navigation, route }: any) => {
           <View style={styles.servicesContainer}>
             <View style={styles.servicesGrid}>
               {filteredServices.map(item => {
-                console.log('🖼️ Rendering service:', item.title);
-                console.log('🖼️ Service imageUrl:', item.imageUrl);
-                console.log('🖼️ Service image:', item.image);
-                console.log('🖼️ Service imageUri:', item.imageUri);
+                                if (__DEV__) {
+                  console.log('🖼️ Rendering service:', item.title)
+                };
+                                if (__DEV__) {
+                  console.log('🖼️ Service imageUrl:', item.imageUrl)
+                };
+                                if (__DEV__) {
+                  console.log('🖼️ Service image:', item.image)
+                };
+                                if (__DEV__) {
+                  console.log('🖼️ Service imageUri:', item.imageUri)
+                };
 
                 const rawPrice = item.price ?? item.cost ?? item.fee;
                 const priceValue =
@@ -410,14 +476,20 @@ const Services = ({ navigation, route }: any) => {
                 if (item.imageUrl && item.imageUrl.trim() !== '') {
                   // Use the actual service image from database
                   imageUri = { uri: item.imageUrl };
-                  console.log('✅ Using real service image:', item.imageUrl);
+                                    if (__DEV__) {
+                    console.log('✅ Using real service image:', item.imageUrl)
+                  };
                 } else {
                   // Use default placeholder
                   imageUri = require('../../../assets/image/services.png');
-                  console.log('⚠️ No image URL, using default placeholder');
+                                    if (__DEV__) {
+                    console.log('⚠️ No image URL, using default placeholder')
+                  };
                 }
                 
-                console.log('🖼️ Final imageUri:', imageUri);
+                                if (__DEV__) {
+                  console.log('🖼️ Final imageUri:', imageUri)
+                };
                 
                 return (
                   <ServiceCard

@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { FormInput, TextArea, PriceInput } from './FormComponents';
-import { consultantFlowStyles, serviceApplicationStyles } from '../../constants/styles/consultantFlowStyles';
+import {
+  consultantFlowStyles,
+  serviceApplicationStyles,
+} from '../../constants/styles/consultantFlowStyles';
 import { createConsultantApplication } from '../../services/consultantFlow.service';
 import ImageUpload from '../ui/ImageUpload';
 
@@ -19,22 +29,21 @@ const styles = {
   },
 };
 
-
-
-
-
-
 interface ServiceApplicationFormProps {
   onSuccess?: () => void;
 }
 
-export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ onSuccess }) => {
+export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({
+  onSuccess,
+}) => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // State variables
-  const [applicationType, setApplicationType] = useState<'existing' | 'new'>('existing');
+  const [applicationType, setApplicationType] = useState<'existing' | 'new'>(
+    'existing',
+  );
   const [_selectedServiceId, _setSelectedServiceId] = useState<string>('');
   const [customTitle, setCustomTitle] = useState('');
   const [customDescription, setCustomDescription] = useState('');
@@ -44,7 +53,7 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
   // VIDEO UPLOAD CODE - COMMENTED OUT
   // const [customVideoUrl, setCustomVideoUrl] = useState<string>('');
   const [customImagePublicId, setCustomImagePublicId] = useState<string>('');
-  // const [customVideoPublicId, setCustomVideoPublicId] = useState<string>('');  
+  // const [customVideoPublicId, setCustomVideoPublicId] = useState<string>('');
 
   const handleSubmit = async () => {
     if (!user?.uid) {
@@ -82,7 +91,7 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
       const applicationData = {
         consultantId: user.uid,
         type: applicationType,
-        ...(applicationType === 'existing' 
+        ...(applicationType === 'existing'
           ? { serviceId: _selectedServiceId }
           : {
               customService: {
@@ -95,16 +104,15 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
                 // videoUrl: customVideoUrl || undefined,
                 imagePublicId: customImagePublicId || undefined,
                 // videoPublicId: customVideoPublicId || undefined,
-              }
-            }
-        ),
+              },
+            }),
       };
 
       await createConsultantApplication(applicationData);
-      
+
       Alert.alert(
         'Success',
-        'Service application submitted successfully! You will be notified once it\'s reviewed.',
+        "Service application submitted successfully! You will be notified once it's reviewed.",
         [
           {
             text: 'OK',
@@ -115,11 +123,16 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
               navigation.goBack();
             },
           },
-        ]
+        ],
       );
     } catch (error: any) {
-      console.error('Error submitting application:', error);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to submit application');
+      if (__DEV__) {
+        console.error('Error submitting application:', error);
+      }
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || 'Failed to submit application',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -128,16 +141,19 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
   const renderServiceTypeSelection = () => (
     <View style={consultantFlowStyles.section}>
       <Text style={consultantFlowStyles.sectionTitle}>Application Type</Text>
-      
+
       <View style={serviceApplicationStyles.serviceTypeContainer}>
         <TouchableOpacity
           style={[
             serviceApplicationStyles.serviceTypeCard,
-            applicationType === 'existing' && serviceApplicationStyles.serviceTypeCardSelected,
+            applicationType === 'existing' &&
+              serviceApplicationStyles.serviceTypeCardSelected,
           ]}
           onPress={() => setApplicationType('existing')}
         >
-          <Text style={serviceApplicationStyles.serviceTypeTitle}>Existing Service</Text>
+          <Text style={serviceApplicationStyles.serviceTypeTitle}>
+            Existing Service
+          </Text>
           <Text style={serviceApplicationStyles.serviceTypeDescription}>
             Apply for a predefined service category
           </Text>
@@ -146,11 +162,14 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
         <TouchableOpacity
           style={[
             serviceApplicationStyles.serviceTypeCard,
-            applicationType === 'new' && serviceApplicationStyles.serviceTypeCardSelected,
+            applicationType === 'new' &&
+              serviceApplicationStyles.serviceTypeCardSelected,
           ]}
           onPress={() => setApplicationType('new')}
         >
-          <Text style={serviceApplicationStyles.serviceTypeTitle}>Custom Service</Text>
+          <Text style={serviceApplicationStyles.serviceTypeTitle}>
+            Custom Service
+          </Text>
           <Text style={serviceApplicationStyles.serviceTypeDescription}>
             Create your own service offering
           </Text>
@@ -162,7 +181,7 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
   const renderExistingServiceSelection = () => (
     <View style={consultantFlowStyles.section}>
       <Text style={consultantFlowStyles.sectionTitle}>Select Service</Text>
-      
+
       <View style={serviceApplicationStyles.serviceList}>
         <Text style={styles.emptyServiceText}>
           No predefined services available. Please create a custom service.
@@ -173,8 +192,10 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
 
   const renderCustomServiceForm = () => (
     <View style={consultantFlowStyles.section}>
-      <Text style={consultantFlowStyles.sectionTitle}>Custom Service Details</Text>
-      
+      <Text style={consultantFlowStyles.sectionTitle}>
+        Custom Service Details
+      </Text>
+
       <FormInput
         label="Service Title"
         value={customTitle}
@@ -220,7 +241,7 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
         <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
           Upload an image to showcase your service
         </Text>
-        
+
         <ImageUpload
           currentImageUrl={customImageUrl}
           // VIDEO UPLOAD CODE - COMMENTED OUT: currentVideoUrl={customVideoUrl}
@@ -233,17 +254,10 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
             // // Clear video when image is uploaded (user can only have one media type)
             // setCustomVideoUrl('');
             // setCustomVideoPublicId('');
-          }}
-          {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
-          {/* onVideoUploaded={(videoUrl, publicId) => {
-            setCustomVideoUrl(videoUrl);
-            setCustomVideoPublicId(publicId);
-            // Clear image when video is uploaded (user can only have one media type)
             setCustomImageUrl('');
             setCustomImagePublicId('');
-          }} */}
+          }}
           uploadType="service"
-          {/* allowVideo={true} */}
           placeholder="Tap to upload image"
           style={{ marginBottom: 16 }}
         />
@@ -258,13 +272,18 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({ 
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <ChevronLeft size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={consultantFlowStyles.headerTitle}>Service Application</Text>
+        <Text style={consultantFlowStyles.headerTitle}>
+          Service Application
+        </Text>
         <View style={consultantFlowStyles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {renderServiceTypeSelection()}
-        
+
         {applicationType === 'existing' && renderExistingServiceSelection()}
         {applicationType === 'new' && renderCustomServiceForm()}
 

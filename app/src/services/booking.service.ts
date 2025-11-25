@@ -112,7 +112,9 @@ export const BookingService = {
         });
       }
     } catch (notifError) {
-      console.warn('⚠️ Failed to create booking cancellation notifications:', notifError);
+            if (__DEV__) {
+        console.warn('⚠️ Failed to create booking cancellation notifications:', notifError)
+      };
     }
     
     return result;

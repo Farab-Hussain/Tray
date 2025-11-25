@@ -24,7 +24,9 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
       const response = await JobService.getApplicationById(applicationId);
       setApplication(response.application);
     } catch (error: any) {
-      console.error('Error fetching application:', error);
+            if (__DEV__) {
+        console.error('Error fetching application:', error)
+      };
       showError(error.message || 'Failed to load application');
     } finally {
       setLoading(false);
@@ -146,7 +148,7 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
         <View style={styles.infoCard}>
           <Text style={styles.infoLabel}>Applied Date</Text>
           <Text style={styles.infoValue}>
-            {formatDate(application.appliedAt)}
+            {formatDate(application.appliedAt || application.createdAt || new Date())}
           </Text>
         </View>
 

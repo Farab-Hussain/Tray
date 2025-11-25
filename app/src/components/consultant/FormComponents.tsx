@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
+} from 'react-native';
 import { formComponentsStyles } from '../../constants/styles/formComponentsStyles';
 import { consultantFlowStyles } from '../../constants/styles/consultantFlowStyles';
 import { COLORS } from '../../constants/core/colors';
@@ -39,7 +46,7 @@ export const FormInput: React.FC<FormInputProps> = ({
         style={[
           consultantFlowStyles.input,
           multiline && consultantFlowStyles.textArea,
-          error && { borderColor: COLORS.red }
+          error && { borderColor: COLORS.red },
         ]}
         value={value}
         onChangeText={onChangeText}
@@ -50,16 +57,13 @@ export const FormInput: React.FC<FormInputProps> = ({
         multiline={multiline}
         numberOfLines={numberOfLines}
       />
-      {error && (
-        <Text style={formComponentsStyles.errorText}>
-          {error}
-        </Text>
-      )}
+      {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
     </View>
   );
 };
 
-interface TextAreaProps extends Omit<FormInputProps, 'multiline' | 'numberOfLines'> {
+interface TextAreaProps
+  extends Omit<FormInputProps, 'multiline' | 'numberOfLines'> {
   minLength?: number;
   maxLength?: number;
 }
@@ -75,7 +79,7 @@ export const TextArea: React.FC<TextAreaProps> = ({
   error,
 }) => {
   const showCharCount = minLength > 0 || maxLength;
-  
+
   return (
     <View style={consultantFlowStyles.inputContainer}>
       <Text style={consultantFlowStyles.label}>
@@ -86,7 +90,7 @@ export const TextArea: React.FC<TextAreaProps> = ({
         style={[
           consultantFlowStyles.input,
           consultantFlowStyles.textArea,
-          error && { borderColor: COLORS.red }
+          error && { borderColor: COLORS.red },
         ]}
         value={value}
         onChangeText={onChangeText}
@@ -102,11 +106,7 @@ export const TextArea: React.FC<TextAreaProps> = ({
           {maxLength && ` / ${maxLength}`}
         </Text>
       )}
-      {error && (
-        <Text style={formComponentsStyles.errorText}>
-          {error}
-        </Text>
-      )}
+      {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
     </View>
   );
 };
@@ -139,7 +139,7 @@ export const PriceInput: React.FC<PriceInputProps> = ({
           style={[
             consultantFlowStyles.input,
             consultantFlowStyles.priceInputField,
-            error && { borderColor: COLORS.red }
+            error && { borderColor: COLORS.red },
           ]}
           value={value}
           onChangeText={onChangeText}
@@ -148,11 +148,7 @@ export const PriceInput: React.FC<PriceInputProps> = ({
           placeholderTextColor="#9CA3AF"
         />
       </View>
-      {error && (
-        <Text style={formComponentsStyles.errorText}>
-          {error}
-        </Text>
-      )}
+      {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
     </View>
   );
 };
@@ -181,7 +177,10 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
   onCustomCategoryChange,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showScrollIndicators, setShowScrollIndicators] = useState({ left: false, right: true });
+  const [showScrollIndicators, setShowScrollIndicators] = useState({
+    left: false,
+    right: true,
+  });
 
   const handleCategorySelect = (category: string) => {
     onCategorySelect(category);
@@ -192,7 +191,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const scrollX = contentOffset.x;
     const maxScrollX = contentSize.width - layoutMeasurement.width;
-    
+
     setShowScrollIndicators({
       left: scrollX > 0,
       right: scrollX < maxScrollX - 10, // 10px threshold
@@ -205,16 +204,20 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
         <Text style={consultantFlowStyles.label}>
           {label} {required && '*'}
         </Text>
-        
+
         <TouchableOpacity
           style={consultantFlowStyles.dropdownButton}
           onPress={() => setIsDropdownOpen(true)}
         >
-          <Text style={[
-            consultantFlowStyles.dropdownButtonText,
-            !selectedCategory && consultantFlowStyles.dropdownPlaceholderText
-          ]}>
-            {selectedCategory === 'Other' && customCategory ? customCategory : selectedCategory || 'Select a category'}
+          <Text
+            style={[
+              consultantFlowStyles.dropdownButtonText,
+              !selectedCategory && consultantFlowStyles.dropdownPlaceholderText,
+            ]}
+          >
+            {selectedCategory === 'Other' && customCategory
+              ? customCategory
+              : selectedCategory || 'Select a category'}
           </Text>
           <LucideIcons.ChevronDown size={20} color="#6B7280" />
         </TouchableOpacity>
@@ -232,32 +235,41 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
           >
             <View style={consultantFlowStyles.dropdownModal}>
               <View style={consultantFlowStyles.dropdownHeader}>
-                <Text style={consultantFlowStyles.dropdownTitle}>Select Category</Text>
+                <Text style={consultantFlowStyles.dropdownTitle}>
+                  Select Category
+                </Text>
                 <TouchableOpacity onPress={() => setIsDropdownOpen(false)}>
                   <LucideIcons.X size={24} color="#6B7280" />
                 </TouchableOpacity>
               </View>
-              
+
               <ScrollView style={consultantFlowStyles.dropdownList}>
-                {categories.map((category) => (
+                {categories.map(category => (
                   <TouchableOpacity
                     key={category}
                     style={[
                       consultantFlowStyles.dropdownItem,
-                      selectedCategory === category && consultantFlowStyles.dropdownItemSelected,
+                      selectedCategory === category &&
+                        consultantFlowStyles.dropdownItemSelected,
                     ]}
                     onPress={() => handleCategorySelect(category)}
                   >
                     <Text
                       style={[
                         consultantFlowStyles.dropdownItemText,
-                        selectedCategory === category && consultantFlowStyles.dropdownItemTextSelected,
+                        selectedCategory === category &&
+                          consultantFlowStyles.dropdownItemTextSelected,
                       ]}
                     >
                       {category}
                     </Text>
                     {selectedCategory === category && (
-                      <LucideIcons.Check size={20} color={consultantFlowStyles.dropdownItemTextSelected.color} />
+                      <LucideIcons.Check
+                        size={20}
+                        color={
+                          consultantFlowStyles.dropdownItemTextSelected.color
+                        }
+                      />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -269,7 +281,9 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
         {/* Custom Category Input for "Other" */}
         {selectedCategory === 'Other' && onCustomCategoryChange && (
           <View style={consultantFlowStyles.customCategoryContainer}>
-            <Text style={consultantFlowStyles.customCategoryLabel}>Custom Category</Text>
+            <Text style={consultantFlowStyles.customCategoryLabel}>
+              Custom Category
+            </Text>
             <TextInput
               style={consultantFlowStyles.customCategoryInput}
               value={customCategory}
@@ -280,11 +294,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
           </View>
         )}
 
-        {error && (
-          <Text style={formComponentsStyles.errorText}>
-            {error}
-          </Text>
-        )}
+        {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
       </View>
     );
   }
@@ -294,7 +304,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
       <Text style={consultantFlowStyles.label}>
         {label} {required && '*'}
       </Text>
-      
+
       <View style={consultantFlowStyles.scrollContainer}>
         {/* Left scroll indicator */}
         {showScrollIndicators.left && (
@@ -302,35 +312,37 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
             <LucideIcons.ChevronLeft size={16} color="#6B7280" />
           </View>
         )}
-        
+
         {/* Right scroll indicator */}
         {showScrollIndicators.right && (
           <View style={consultantFlowStyles.scrollIndicatorRight}>
             <LucideIcons.ChevronRight size={16} color="#6B7280" />
           </View>
         )}
-        
-        <ScrollView 
-          horizontal 
+
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={consultantFlowStyles.categoryScrollContainer}
           contentContainerStyle={consultantFlowStyles.categoryContainer}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          {categories.map((category) => (
+          {categories.map(category => (
             <TouchableOpacity
               key={category}
               style={[
                 consultantFlowStyles.categoryChip,
-                selectedCategory === category && consultantFlowStyles.categoryChipSelected,
+                selectedCategory === category &&
+                  consultantFlowStyles.categoryChipSelected,
               ]}
               onPress={() => onCategorySelect(category)}
             >
               <Text
                 style={[
                   consultantFlowStyles.categoryChipText,
-                  selectedCategory === category && consultantFlowStyles.categoryChipTextSelected,
+                  selectedCategory === category &&
+                    consultantFlowStyles.categoryChipTextSelected,
                 ]}
               >
                 {category}
@@ -343,7 +355,9 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
       {/* Custom Category Input for "Other" */}
       {selectedCategory === 'Other' && onCustomCategoryChange && (
         <View style={consultantFlowStyles.customCategoryContainer}>
-          <Text style={consultantFlowStyles.customCategoryLabel}>Custom Category</Text>
+          <Text style={consultantFlowStyles.customCategoryLabel}>
+            Custom Category
+          </Text>
           <TextInput
             style={consultantFlowStyles.customCategoryInput}
             value={customCategory}
@@ -354,11 +368,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
         </View>
       )}
 
-      {error && (
-        <Text style={formComponentsStyles.errorText}>
-          {error}
-        </Text>
-      )}
+      {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
     </View>
   );
 };
@@ -388,25 +398,33 @@ export const SpecialtyManager: React.FC<SpecialtyManagerProps> = ({
   return (
     <View style={consultantFlowStyles.inputContainer}>
       <Text style={consultantFlowStyles.label}>{label}</Text>
-      
+
       <View style={consultantFlowStyles.specialtyInputContainer}>
         <TextInput
-          style={[consultantFlowStyles.input, consultantFlowStyles.specialtyInput]}
+          style={[
+            consultantFlowStyles.input,
+            consultantFlowStyles.specialtyInput,
+          ]}
           value={newSpecialty}
           onChangeText={setNewSpecialty}
           placeholder="e.g., Resume Writing"
           placeholderTextColor="#9CA3AF"
         />
-        <TouchableOpacity style={consultantFlowStyles.addButton} onPress={handleAddSpecialty}>
+        <TouchableOpacity
+          style={consultantFlowStyles.addButton}
+          onPress={handleAddSpecialty}
+        >
           <Text style={consultantFlowStyles.addButtonText}>Add</Text>
         </TouchableOpacity>
       </View>
-      
+
       {specialties.length > 0 && (
         <View style={consultantFlowStyles.specialtiesList}>
           {specialties.map((specialty, index) => (
             <View key={index} style={consultantFlowStyles.specialtyTag}>
-              <Text style={consultantFlowStyles.specialtyTagText}>{specialty}</Text>
+              <Text style={consultantFlowStyles.specialtyTagText}>
+                {specialty}
+              </Text>
               <TouchableOpacity onPress={() => onRemoveSpecialty(specialty)}>
                 <Text style={consultantFlowStyles.specialtyTagRemove}>×</Text>
               </TouchableOpacity>

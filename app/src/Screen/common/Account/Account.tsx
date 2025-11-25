@@ -59,47 +59,63 @@ const Account = ({ navigation }: any) => {
   // Memoize the fetch function to prevent unnecessary re-renders
   const fetchBackendProfile = useCallback(async () => {
     if (!user) {
-      console.log('⚠️ [Account] No user found, skipping profile fetch');
+            if (__DEV__) {
+        console.log('⚠️ [Account] No user found, skipping profile fetch')
+      };
       setLoadingProfile(false);
       setBackendProfile(null);
       return;
     }
 
     if (apiUnavailable) {
-      console.log('⚠️ [Account] API marked as unavailable, skipping fetch');
+            if (__DEV__) {
+        console.log('⚠️ [Account] API marked as unavailable, skipping fetch')
+      };
       setLoadingProfile(false);
       return;
     }
 
     try {
       setLoadingProfile(true);
-      console.log('👤 [Account] Fetching user profile from backend...');
+            if (__DEV__) {
+        console.log('👤 [Account] Fetching user profile from backend...')
+      };
       
       // Don't add manual timeout - let the retry logic in fetcher.ts handle retries
       // The retry logic will automatically retry once on failure
       const response = await UserService.getUserProfile();
       
-      console.log('✅ [Account] Backend profile response:', response);
+            if (__DEV__) {
+        console.log('✅ [Account] Backend profile response:', response)
+      };
       
       // If main profile has no image, check consultant profile as fallback (if user has consultant role)
       if (!response?.profileImage && response?.roles?.includes('consultant')) {
         try {
-          console.log('🔄 [Account] Main profile has no image, checking consultant profile as fallback...');
+                    if (__DEV__) {
+            console.log('🔄 [Account] Main profile has no image, checking consultant profile as fallback...')
+          };
           const consultantProfile = await getConsultantProfile(user.uid);
           
           const consultantImage = consultantProfile?.personalInfo?.profileImage;
           
           if (consultantImage && consultantImage.trim() !== '') {
-            console.log('✅ [Account] Found consultant profile image as fallback:', consultantImage);
+                        if (__DEV__) {
+              console.log('✅ [Account] Found consultant profile image as fallback:', consultantImage)
+            };
             // Merge consultant image into response
             response.profileImage = consultantImage.trim();
           } else {
-            console.log('ℹ️ [Account] No consultant profile image found either');
+                        if (__DEV__) {
+              console.log('ℹ️ [Account] No consultant profile image found either')
+            };
           }
         } catch (consultantError: any) {
           // If consultant profile fetch fails, continue with main profile
           // Retry logic will handle retries automatically
-          console.warn('⚠️ [Account] Failed to fetch consultant profile as fallback:', consultantError?.message || consultantError);
+                    if (__DEV__) {
+            console.warn('⚠️ [Account] Failed to fetch consultant profile as fallback:', consultantError?.message || consultantError)
+          };
         }
       }
       
@@ -108,18 +124,24 @@ const Account = ({ navigation }: any) => {
       setApiUnavailable(false); // Reset unavailable flag on success
       lastLoadTimeRef.current = Date.now();
     } catch (error: any) {
-      console.error('❌ [Account] Backend profile error:', error?.message || error);
+            if (__DEV__) {
+        console.error('❌ [Account] Backend profile error:', error?.message || error)
+      };
       
       // Only mark API as unavailable for 404 errors (actual resource not found)
       // Don't mark unavailable for timeouts - retry logic will handle those
       // Don't mark unavailable for network errors - retry logic will handle those
       if (error?.response?.status === 404) {
-        console.log('⚠️ [Account] Backend profile API not available (404) - will not retry');
+                if (__DEV__) {
+          console.log('⚠️ [Account] Backend profile API not available (404) - will not retry')
+        };
         setApiUnavailable(true);
       } else {
         // For other errors (timeouts, network errors, etc.), let retry logic handle it
         // Still try to show the screen with Firebase data as fallback
-        console.log('⚠️ [Account] Profile fetch failed, using Firebase data as fallback');
+                if (__DEV__) {
+          console.log('⚠️ [Account] Profile fetch failed, using Firebase data as fallback')
+        };
         // Don't set apiUnavailable - allow retry logic to retry on next attempt
       }
       
@@ -132,7 +154,9 @@ const Account = ({ navigation }: any) => {
     } finally {
       // Always set loading to false, even if there's an error
       setLoadingProfile(false);
-      console.log('✅ [Account] Profile loading completed');
+            if (__DEV__) {
+        console.log('✅ [Account] Profile loading completed')
+      };
     }
   }, [user, apiUnavailable]);
 
@@ -144,7 +168,9 @@ const Account = ({ navigation }: any) => {
     if (!loadingProfile) return;
     
     const safetyTimeout = setTimeout(() => {
-      console.warn('⚠️ [Account] Safety timeout: Forcing loading to false after 15 seconds');
+            if (__DEV__) {
+        console.warn('⚠️ [Account] Safety timeout: Forcing loading to false after 15 seconds')
+      };
       setLoadingProfile(false);
       // Set minimal Firebase profile as fallback
       if (user) {
@@ -169,7 +195,9 @@ const Account = ({ navigation }: any) => {
   // Reload when user.photoURL changes (from AuthContext refreshUser) - reload data and update cache key
   useEffect(() => {
     if (user?.photoURL) {
-      console.log('🔄 [Account] user.photoURL changed, reloading profile');
+            if (__DEV__) {
+        console.log('🔄 [Account] user.photoURL changed, reloading profile')
+      };
       const now = Date.now();
       // Only reload if it's been more than 500ms since last load (prevent rapid reloads)
       if (now - lastLoadTimeRef.current > 500) {
@@ -190,7 +218,9 @@ const Account = ({ navigation }: any) => {
       // Reload if it's been more than 1 second since last load (allows refresh after coming back from EditProfile)
       if (now - lastLoadTimeRef.current > 1000) {
         lastLoadTimeRef.current = now;
-        console.log('🔄 [Account] Screen focused, reloading profile');
+                if (__DEV__) {
+          console.log('🔄 [Account] Screen focused, reloading profile')
+        };
         fetchBackendProfile();
       }
     }, [user?.uid, fetchBackendProfile])

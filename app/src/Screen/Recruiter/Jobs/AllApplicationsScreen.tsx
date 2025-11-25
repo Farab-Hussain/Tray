@@ -58,13 +58,17 @@ const AllApplicationsScreen = ({ navigation }: any) => {
             });
           });
         } catch (error: any) {
-          console.error(`Error fetching applications for job ${job.id}:`, error);
+                    if (__DEV__) {
+            console.error(`Error fetching applications for job ${job.id}:`, error)
+          };
         }
       }
       
       setApplications(allApplications);
     } catch (error: any) {
-      console.error('Error fetching applications:', error);
+            if (__DEV__) {
+        console.error('Error fetching applications:', error)
+      };
       showError(error.message || 'Failed to load applications');
     } finally {
       setLoading(false);
@@ -316,97 +320,88 @@ const AllApplicationsScreen = ({ navigation }: any) => {
       {/* Filter and Sort Bar */}
       <View style={styles.filterBar}>
         {/* Combined Sort and Filter Row */}
-        <View style={styles.combinedRow}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.combinedFilterContainer}
-          >
-            {/* Status Filter (Always visible) */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupLabel}>Status:</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterGroupContent}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.combinedFilterContainer}
+          style={styles.combinedRow}
+        >
+          {/* Status Filter (Always visible) */}
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupLabel}>Status:</Text>
+            <View style={styles.filterGroupContent}>
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  statusFilter === null && styles.filterChipActive,
+                ]}
+                onPress={() => handleStatusFilter(null)}
+                activeOpacity={0.7}
               >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    statusFilter === null && styles.filterChipTextActive,
+                  ]}
+                >
+                  All
+                </Text>
+              </TouchableOpacity>
+              {['pending', 'reviewed', 'shortlisted', 'hired', 'rejected'].map(status => (
                 <TouchableOpacity
+                  key={status}
                   style={[
                     styles.filterChip,
-                    statusFilter === null && styles.filterChipActive,
+                    statusFilter === status && styles.filterChipActive,
                   ]}
-                  onPress={() => handleStatusFilter(null)}
+                  onPress={() => handleStatusFilter(status)}
                   activeOpacity={0.7}
                 >
                   <Text
                     style={[
                       styles.filterChipText,
-                      statusFilter === null && styles.filterChipTextActive,
+                      statusFilter === status && styles.filterChipTextActive,
                     ]}
                   >
-                    All
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
                   </Text>
                 </TouchableOpacity>
-                {['pending', 'reviewed', 'shortlisted', 'hired', 'rejected'].map(status => (
-                  <TouchableOpacity
-                    key={status}
-                    style={[
-                      styles.filterChip,
-                      statusFilter === status && styles.filterChipActive,
-                    ]}
-                    onPress={() => handleStatusFilter(status)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        statusFilter === status && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              ))}
             </View>
+          </View>
 
-            {/* Sort Options */}
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterGroupLabel}>Sort:</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterGroupContent}
-              >
-                {(['date', 'status', 'jobTitle', 'matchRating', 'matchScore'] as SortOption[]).map(option => (
-                  <TouchableOpacity
-                    key={option}
+          {/* Sort Options */}
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupLabel}>Sort:</Text>
+            <View style={styles.filterGroupContent}>
+              {(['date', 'status', 'jobTitle', 'matchRating', 'matchScore'] as SortOption[]).map(option => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.filterChip,
+                    sortOption === option && styles.filterChipActive,
+                  ]}
+                  onPress={() => handleSortChange(option)}
+                  activeOpacity={0.7}
+                >
+                  <Text
                     style={[
-                      styles.filterChip,
-                      sortOption === option && styles.filterChipActive,
+                      styles.filterChipText,
+                      sortOption === option && styles.filterChipTextActive,
                     ]}
-                    onPress={() => handleSortChange(option)}
-                    activeOpacity={0.7}
                   >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        sortOption === option && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {getSortLabel(option)}
+                    {getSortLabel(option)}
+                  </Text>
+                  {sortOption === option && (
+                    <Text style={styles.sortIndicator}>
+                      {sortOrder === 'asc' ? ' ↑' : ' ↓'}
                     </Text>
-                    {sortOption === option && (
-                      <Text style={styles.sortIndicator}>
-                        {sortOrder === 'asc' ? ' ↑' : ' ↓'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                  )}
+                </TouchableOpacity>
+              ))}
             </View>
-          </ScrollView>
-        </View>
+          </View>
+        </ScrollView>
 
         {/* Sub-filters (show when specific sort option is selected) */}
         {showSubFilters && (

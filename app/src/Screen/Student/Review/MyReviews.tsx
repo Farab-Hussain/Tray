@@ -16,17 +16,25 @@ const MyReviews = ({ navigation }: any) => {
 
   const fetchMyReviews = async () => {
     try {
-      console.log('📋 Fetching my reviews...');
+            if (__DEV__) {
+        console.log('📋 Fetching my reviews...')
+      };
       const response = await ReviewService.getMyReviews();
-      console.log('✅ My reviews response:', response);
+            if (__DEV__) {
+        console.log('✅ My reviews response:', response)
+      };
       
       const reviewsData = response?.reviews || [];
       
       setReviews(reviewsData);
     } catch (error: any) {
-      console.error('❌ Error fetching my reviews:', error);
+            if (__DEV__) {
+        console.error('❌ Error fetching my reviews:', error)
+      };
       if (error?.response?.status === 404) {
-        console.log('⚠️ My reviews API not available (404)');
+                if (__DEV__) {
+          console.log('⚠️ My reviews API not available (404)')
+        };
       }
       setReviews([]);
     } finally {
@@ -69,16 +77,22 @@ const MyReviews = ({ navigation }: any) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🗑️ Deleting review:', reviewId);
+                            if (__DEV__) {
+                console.log('🗑️ Deleting review:', reviewId)
+              };
               await ReviewService.deleteReview(reviewId);
-              console.log('✅ Review deleted successfully');
+                            if (__DEV__) {
+                console.log('✅ Review deleted successfully')
+              };
               
               // Remove from local state
               setReviews(reviews.filter(r => r.id !== reviewId));
               
               Alert.alert('Success', 'Review deleted successfully');
             } catch (error: any) {
-              console.error('❌ Error deleting review:', error);
+                            if (__DEV__) {
+                console.error('❌ Error deleting review:', error)
+              };
               Alert.alert(
                 'Error',
                 error?.response?.data?.message || 'Failed to delete review. Please try again.'

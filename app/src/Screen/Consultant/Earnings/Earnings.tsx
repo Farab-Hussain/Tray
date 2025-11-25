@@ -101,25 +101,35 @@ const Earnings = ({ navigation }: any) => {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔍 [Earnings] Fetching consultant bookings...');
-      console.log('👤 [Earnings] Current consultant ID:', user?.uid);
+            if (__DEV__) {
+        console.log('🔍 [Earnings] Fetching consultant bookings...')
+      };
+            if (__DEV__) {
+        console.log('👤 [Earnings] Current consultant ID:', user?.uid)
+      };
       
       // Fetch bookings from API
       const response = await BookingService.getConsultantBookings();
       const bookings: Booking[] = response.bookings || [];
 
-      console.log('📊 [Earnings] Found', bookings.length, 'total bookings');
+            if (__DEV__) {
+        console.log('📊 [Earnings] Found', bookings.length, 'total bookings')
+      };
 
       // Filter bookings to only include those for the current consultant
       const consultantBookings = bookings.filter(booking => {
         const isForCurrentConsultant = booking.consultantId === user?.uid;
         if (!isForCurrentConsultant) {
-          console.log(`⚠️ [Earnings] Filtering out booking ${booking.id} - not for current consultant`);
+                    if (__DEV__) {
+            console.log(`⚠️ [Earnings] Filtering out booking ${booking.id} - not for current consultant`)
+          };
         }
         return isForCurrentConsultant;
       });
 
-      console.log('📊 [Earnings] Found', consultantBookings.length, 'bookings for current consultant');
+            if (__DEV__) {
+        console.log('📊 [Earnings] Found', consultantBookings.length, 'bookings for current consultant')
+      };
 
       // Calculate earnings data based on period
       const now = new Date();
@@ -205,12 +215,20 @@ const Earnings = ({ navigation }: any) => {
         const totalEarningsFromClients = Array.from(clientEarningsMap.values()).reduce((sum, amount) => sum + amount, 0);
         averagePerClient = totalEarningsFromClients / clientEarningsMap.size;
         
-        console.log('📊 [Earnings] Client earnings breakdown (received only):');
+                if (__DEV__) {
+          console.log('📊 [Earnings] Client earnings breakdown (received only):')
+        };
         clientEarningsMap.forEach((amount, clientId) => {
-          console.log(`  Client ${clientId.slice(0, 8)}: $${amount}`);
+                    if (__DEV__) {
+            console.log(`  Client ${clientId.slice(0, 8)}: $${amount}`)
+          };
         });
-        console.log(`💰 [Earnings] Total from clients: $${totalEarningsFromClients}, Clients: ${clientEarningsMap.size}, Avg: $${averagePerClient}`);
-        console.log(`✅ [Earnings] Received amount: $${receivedAmount}, should match total from clients: $${totalEarningsFromClients === receivedAmount ? 'YES' : 'NO'}`);
+                if (__DEV__) {
+          console.log(`💰 [Earnings] Total from clients: $${totalEarningsFromClients}, Clients: ${clientEarningsMap.size}, Avg: $${averagePerClient}`)
+        };
+                if (__DEV__) {
+          console.log(`✅ [Earnings] Received amount: $${receivedAmount}, should match total from clients: $${totalEarningsFromClients === receivedAmount ? 'YES' : 'NO'}`)
+        };
       }
 
       const earningsData: EarningsData = {
@@ -239,7 +257,9 @@ const Earnings = ({ navigation }: any) => {
                 studentName = studentResponse.data.name;
               }
             } catch {
-              console.log(`ℹ️ Could not fetch student details for ${booking.studentId}`);
+                            if (__DEV__) {
+                console.log(`ℹ️ Could not fetch student details for ${booking.studentId}`)
+              };
             }
 
             // Fetch service details
@@ -252,7 +272,9 @@ const Earnings = ({ navigation }: any) => {
                 serviceTitle = serviceResponse.data.title;
               }
             } catch {
-              console.log(`ℹ️ Could not fetch service details for ${booking.serviceId}`);
+                            if (__DEV__) {
+                console.log(`ℹ️ Could not fetch service details for ${booking.serviceId}`)
+              };
             }
 
             return {
@@ -275,30 +297,52 @@ const Earnings = ({ navigation }: any) => {
       setEarningsData(earningsData);
       setTransactions(transactionsList);
 
-      console.log('🔍 [Earnings] Debugging booking statuses:');
+            if (__DEV__) {
+        console.log('🔍 [Earnings] Debugging booking statuses:')
+      };
       filteredBookings.forEach(booking => {
         const isReceived = booking.paymentStatus === 'paid' && 
                           (booking.status === 'completed' || booking.status === 'approved');
         const isPending = booking.paymentStatus === 'paid' && 
                          (booking.status === 'accepted' || booking.status === 'confirmed');
         
-        console.log(`  Booking ${booking.id.slice(0, 8)}: status="${booking.status}", paymentStatus="${booking.paymentStatus}", amount=${booking.amount}`);
-        console.log(`    → isReceived: ${isReceived}, isPending: ${isPending}`);
+                if (__DEV__) {
+          console.log(`  Booking ${booking.id.slice(0, 8)}: status="${booking.status}", paymentStatus="${booking.paymentStatus}", amount=${booking.amount}`)
+        };
+                if (__DEV__) {
+          console.log(`    → isReceived: ${isReceived}, isPending: ${isPending}`)
+        };
       });
       
-      console.log('📊 [Earnings] Received bookings:', receivedBookings.length);
-      console.log('📊 [Earnings] Pending bookings:', pendingBookings.length);
-      console.log('💰 [Earnings] Received amount:', receivedAmount);
-      console.log('💰 [Earnings] Pending amount:', pendingAmount);
+            if (__DEV__) {
+        console.log('📊 [Earnings] Received bookings:', receivedBookings.length)
+      };
+            if (__DEV__) {
+        console.log('📊 [Earnings] Pending bookings:', pendingBookings.length)
+      };
+            if (__DEV__) {
+        console.log('💰 [Earnings] Received amount:', receivedAmount)
+      };
+            if (__DEV__) {
+        console.log('💰 [Earnings] Pending amount:', pendingAmount)
+      };
       
       // Debug this month calculation
-      console.log('📅 [Earnings] This month calculation:');
+            if (__DEV__) {
+        console.log('📅 [Earnings] This month calculation:')
+      };
       thisMonthBookings.forEach(booking => {
-        console.log(`  This month booking ${booking.id.slice(0, 8)}: status="${booking.status}", amount=${booking.amount}`);
+                if (__DEV__) {
+          console.log(`  This month booking ${booking.id.slice(0, 8)}: status="${booking.status}", amount=${booking.amount}`)
+        };
       });
-      console.log('💰 [Earnings] This month earnings:', thisMonthEarnings);
+            if (__DEV__) {
+        console.log('💰 [Earnings] This month earnings:', thisMonthEarnings)
+      };
     } catch (err: any) {
-      console.error('❌ [Earnings] Error fetching earnings:', err);
+            if (__DEV__) {
+        console.error('❌ [Earnings] Error fetching earnings:', err)
+      };
       setError(err.message || 'Failed to load earnings data. Please try again.');
       setEarningsData(null);
       setTransactions([]);
@@ -320,7 +364,9 @@ const Earnings = ({ navigation }: any) => {
         setAnalytics(response.data.analytics);
       }
     } catch (error: any) {
-      console.error('Error fetching analytics:', error);
+            if (__DEV__) {
+        console.error('Error fetching analytics:', error)
+      };
       // Don't show error - analytics are optional
     }
   };
@@ -332,7 +378,9 @@ const Earnings = ({ navigation }: any) => {
         setPayouts(response.data.payouts);
       }
     } catch (error: any) {
-      console.error('Error fetching payout history:', error);
+            if (__DEV__) {
+        console.error('Error fetching payout history:', error)
+      };
       // Don't show error - payouts are optional
     }
   };

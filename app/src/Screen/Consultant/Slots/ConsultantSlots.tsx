@@ -29,22 +29,30 @@ const ConsultantSlots = ({ navigation }: any) => {
 
     try {
       setIsLoading(true);
-      console.log('📅 Fetching consultant availability slots...');
+            if (__DEV__) {
+        console.log('📅 Fetching consultant availability slots...')
+      };
       
       const response = await ConsultantService.getConsultantAvailability(user.uid);
-      console.log('✅ Received availability data:', response);
+            if (__DEV__) {
+        console.log('✅ Received availability data:', response)
+      };
       
       // Transform the availability data into slots format
       if (response && response.availabilitySlots && Array.isArray(response.availabilitySlots)) {
         const availabilitySlots = response.availabilitySlots;
         const slotsData: Slot[] = [];
         
-        console.log('🔍 Processing availability slots:', availabilitySlots.length);
+                if (__DEV__) {
+          console.log('🔍 Processing availability slots:', availabilitySlots.length)
+        };
         
         // Transform availability slots into our Slot format
         availabilitySlots.forEach((slotGroup: any) => {
           if (slotGroup.date && slotGroup.timeSlots && Array.isArray(slotGroup.timeSlots) && slotGroup.timeSlots.length > 0) {
-            console.log(`  Processing date: ${slotGroup.date} with ${slotGroup.timeSlots.length} time slots`);
+                        if (__DEV__) {
+              console.log(`  Processing date: ${slotGroup.date} with ${slotGroup.timeSlots.length} time slots`)
+            };
             slotsData.push({
               date: slotGroup.date,
               slots: slotGroup.timeSlots.map((timeSlot: string) => ({
@@ -58,14 +66,20 @@ const ConsultantSlots = ({ navigation }: any) => {
         // Sort by date
         slotsData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
-        console.log(`✅ Processed ${slotsData.length} slot groups`);
+                if (__DEV__) {
+          console.log(`✅ Processed ${slotsData.length} slot groups`)
+        };
         setSlots(slotsData);
       } else {
-        console.log('⚠️ No availability slots found in response');
+                if (__DEV__) {
+          console.log('⚠️ No availability slots found in response')
+        };
         setSlots([]);
       }
     } catch (error) {
-      console.error('❌ Error fetching consultant slots:', error);
+            if (__DEV__) {
+        console.error('❌ Error fetching consultant slots:', error)
+      };
       setSlots([]);
     } finally {
       setIsLoading(false);
@@ -85,10 +99,14 @@ const ConsultantSlots = ({ navigation }: any) => {
 
   const handleDeleteSlot = async (date: string, time: string) => {
     try {
-      console.log('🗑️ Deleting slot:', date, time);
+            if (__DEV__) {
+        console.log('🗑️ Deleting slot:', date, time)
+      };
       
       if (!user?.uid) {
-        console.error('❌ User ID not available');
+                if (__DEV__) {
+          console.error('❌ User ID not available')
+        };
         return;
       }
 
@@ -105,12 +123,16 @@ const ConsultantSlots = ({ navigation }: any) => {
               try {
                 setIsLoading(true);
                 await ConsultantService.deleteAvailabilitySlot(user.uid, date, time);
-                console.log('✅ Slot deleted successfully');
+                                if (__DEV__) {
+                  console.log('✅ Slot deleted successfully')
+                };
                 
                 // Refresh the slots list
                 await fetchSlots();
               } catch (error) {
-                console.error('❌ Error deleting slot:', error);
+                                if (__DEV__) {
+                  console.error('❌ Error deleting slot:', error)
+                };
                 Alert.alert('Error', 'Failed to delete slot. Please try again.');
               } finally {
                 setIsLoading(false);
@@ -120,7 +142,9 @@ const ConsultantSlots = ({ navigation }: any) => {
         ]
       );
     } catch (error) {
-      console.error('❌ Error in handleDeleteSlot:', error);
+            if (__DEV__) {
+        console.error('❌ Error in handleDeleteSlot:', error)
+      };
     }
   };
 

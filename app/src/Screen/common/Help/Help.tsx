@@ -93,7 +93,9 @@ const Help = ({ navigation }: any) => {
         'Thanks for contacting Tray support. Our team will reach out within 24 hours.',
       );
     } catch (error) {
-      console.error('Error sending support request', error);
+            if (__DEV__) {
+        console.error('Error sending support request', error)
+      };
       Alert.alert(
         'Something went wrong',
         `We could not send your request right now. Please try again later or email us at ${SUPPORT_EMAIL}.`,

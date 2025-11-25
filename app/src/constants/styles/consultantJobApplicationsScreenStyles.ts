@@ -82,7 +82,6 @@ export const consultantJobApplicationsScreenStyles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
-    borderLeftWidth: 4,
   },
   cardHeader: {
     flexDirection: 'row',

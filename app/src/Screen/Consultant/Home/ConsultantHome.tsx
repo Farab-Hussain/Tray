@@ -48,7 +48,9 @@ const ConsultantHome = ({ navigation }: any) => {
     // Prevent rapid successive calls (debounce)
     const now = Date.now();
     if (!forceRefresh && now - lastFetchTime < 2000) {
-      console.log('🚫 [ConsultantHome] Skipping fetch - too soon since last fetch');
+            if (__DEV__) {
+        console.log('🚫 [ConsultantHome] Skipping fetch - too soon since last fetch')
+      };
       return;
     }
 
@@ -56,7 +58,9 @@ const ConsultantHome = ({ navigation }: any) => {
     setLastFetchTime(now);
 
     try {
-      console.log('🔍 [ConsultantHome] Fetching booking requests for consultant:', user.uid);
+            if (__DEV__) {
+        console.log('🔍 [ConsultantHome] Fetching booking requests for consultant:', user.uid)
+      };
       
       // Fetch consultant availability to check slot availability (only if not refreshing)
       if (!refreshing) {
@@ -81,20 +85,28 @@ const ConsultantHome = ({ navigation }: any) => {
           setTotalSlots(totalSlotsCount);
           setAvailableSlots(availableSlotsCount);
           
-          console.log(`📊 [ConsultantHome] Slot availability: ${availableSlotsCount}/${totalSlotsCount} slots available`);
+                    if (__DEV__) {
+            console.log(`📊 [ConsultantHome] Slot availability: ${availableSlotsCount}/${totalSlotsCount} slots available`)
+          };
         } catch {
-          console.log('⚠️ [ConsultantHome] Could not fetch availability, using default values');
+                    if (__DEV__) {
+            console.log('⚠️ [ConsultantHome] Could not fetch availability, using default values')
+          };
           setTotalSlots(0);
           setAvailableSlots(0);
         }
       }
       
       // Fetch real booking requests from API
-      console.log('🔍 [ConsultantHome] Fetching consultant bookings...');
+            if (__DEV__) {
+        console.log('🔍 [ConsultantHome] Fetching consultant bookings...')
+      };
       const response = await BookingService.getConsultantBookings();
       const bookings: Booking[] = response.bookings || [];
       
-      console.log('📊 [ConsultantHome] Found', bookings.length, 'total bookings');
+            if (__DEV__) {
+        console.log('📊 [ConsultantHome] Found', bookings.length, 'total bookings')
+      };
 
       // Filter bookings - show paid bookings that are not completed/cancelled/accepted/approved
       // Also filter out recently accepted bookings to prevent them from reappearing
@@ -106,7 +118,9 @@ const ConsultantHome = ({ navigation }: any) => {
         return isPaid && isActionable && !isRecentlyAccepted;
       });
 
-      console.log('📊 [ConsultantHome] Found', actionableBookings.length, 'actionable bookings');
+            if (__DEV__) {
+        console.log('📊 [ConsultantHome] Found', actionableBookings.length, 'actionable bookings')
+      };
 
       // Batch fetch student and service details to reduce API calls
       const studentIds = [...new Set(actionableBookings.map(b => b.studentId))];
@@ -134,7 +148,8 @@ const ConsultantHome = ({ navigation }: any) => {
               getValidImageUrl(studentResponse.data.photoURL) ||
               null;
             
-            console.log(`📸 [ConsultantHome] Student ${studentId} profile data:`, {
+                        if (__DEV__) {
+              console.log(`📸 [ConsultantHome] Student ${studentId} profile data:`, {
               name: studentResponse.data.name,
               profileImage: profileImage,
               allFields: {
@@ -143,7 +158,8 @@ const ConsultantHome = ({ navigation }: any) => {
                 avatar: studentResponse.data.avatar,
                 photoURL: studentResponse.data.photoURL,
               }
-            });
+            })
+            };
             
             studentDetailsMap.set(studentId, {
               name: studentResponse.data.name || `Student ${studentId.slice(0, 8)}`,
@@ -152,7 +168,9 @@ const ConsultantHome = ({ navigation }: any) => {
             });
           }
         } catch (error: any) {
-          console.log(`⚠️ [ConsultantHome] Could not fetch student details for ${studentId}:`, error?.message || error);
+                    if (__DEV__) {
+            console.log(`⚠️ [ConsultantHome] Could not fetch student details for ${studentId}:`, error?.message || error)
+          };
           studentDetailsMap.set(studentId, {
             name: `Student ${studentId.slice(0, 8)}`,
             email: `student@example.com`,
@@ -178,7 +196,9 @@ const ConsultantHome = ({ navigation }: any) => {
             });
           }
         } catch {
-          console.log(`⚠️ [ConsultantHome] Could not fetch service details for ${serviceId}`);
+                    if (__DEV__) {
+            console.log(`⚠️ [ConsultantHome] Could not fetch service details for ${serviceId}`)
+          };
           serviceDetailsMap.set(serviceId, {
             title: 'Consultation Service',
             duration: 60
@@ -228,9 +248,13 @@ const ConsultantHome = ({ navigation }: any) => {
 
       setBookingRequests(bookingRequestsList);
       
-      console.log('✅ [ConsultantHome] Successfully loaded', bookingRequestsList.length, 'booking requests');
+            if (__DEV__) {
+        console.log('✅ [ConsultantHome] Successfully loaded', bookingRequestsList.length, 'booking requests')
+      };
     } catch (error) {
-      console.error('❌ [ConsultantHome] Error fetching booking requests:', error);
+            if (__DEV__) {
+        console.error('❌ [ConsultantHome] Error fetching booking requests:', error)
+      };
       handleApiError(error);
     } finally {
       setLoading(false);
@@ -262,7 +286,9 @@ const ConsultantHome = ({ navigation }: any) => {
 
   const handleAcceptLead = async (request: BookingRequest) => {
     try {
-      console.log('🔍 [ConsultantHome] Accepting booking request:', request.id);
+            if (__DEV__) {
+        console.log('🔍 [ConsultantHome] Accepting booking request:', request.id)
+      };
       
       // Mark as recently accepted to prevent it from reappearing
       recentlyAcceptedRef.current.add(request.id);
@@ -285,7 +311,9 @@ const ConsultantHome = ({ navigation }: any) => {
       if (user?.uid && request.studentId) {
         try {
           const chatId = await openChatWith(request.studentId);
-          console.log('✅ [ConsultantHome] Chat created with ID:', chatId);
+                    if (__DEV__) {
+            console.log('✅ [ConsultantHome] Chat created with ID:', chatId)
+          };
           
           showSuccess('Booking accepted! Opening chat...');
           
@@ -301,21 +329,27 @@ const ConsultantHome = ({ navigation }: any) => {
             }
           });
         } catch (chatError) {
-          console.error('❌ [ConsultantHome] Error creating chat:', chatError);
+                    if (__DEV__) {
+            console.error('❌ [ConsultantHome] Error creating chat:', chatError)
+          };
           showSuccess('Booking accepted!');
         }
       } else {
         showSuccess('Booking request accepted!');
       }
     } catch (error) {
-      console.error('❌ [ConsultantHome] Error accepting booking request:', error);
+            if (__DEV__) {
+        console.error('❌ [ConsultantHome] Error accepting booking request:', error)
+      };
       handleApiError(error);
     }
   };
 
   const handleDeclineLead = async (requestId: string) => {
     try {
-      console.log('🔍 [ConsultantHome] Declining booking request:', requestId);
+            if (__DEV__) {
+        console.log('🔍 [ConsultantHome] Declining booking request:', requestId)
+      };
       
       // Update booking status to cancelled
       await BookingService.updateBookingStatus(requestId, { status: 'cancelled' });
@@ -325,7 +359,9 @@ const ConsultantHome = ({ navigation }: any) => {
       
       showSuccess('Booking request declined');
     } catch (error) {
-      console.error('❌ [ConsultantHome] Error declining booking request:', error);
+            if (__DEV__) {
+        console.error('❌ [ConsultantHome] Error declining booking request:', error)
+      };
       handleApiError(error);
     }
   };
@@ -381,12 +417,14 @@ const ConsultantHome = ({ navigation }: any) => {
         ) : (
           <View style={consultantHome.leadCardsContainer}>
             {bookingRequests.map((request) => {
-              console.log(`🎯 [ConsultantHome] Rendering LeadCard for booking ${request.id}:`, {
+                            if (__DEV__) {
+                console.log(`🎯 [ConsultantHome] Rendering LeadCard for booking ${request.id}:`, {
                 studentName: request.studentName,
                 serviceTitle: request.serviceTitle,
                 serviceId: request.serviceId,
                 fullRequest: request
-              });
+              })
+              };
               
               // Validate profile image URL before using it
               const getAvatarSource = () => {
@@ -398,7 +436,9 @@ const ConsultantHome = ({ navigation }: any) => {
                     return { uri: profileImage.trim() };
                   } catch {
                     // Invalid URL, use placeholder
-                    console.log(`⚠️ [ConsultantHome] Invalid profile image URL for ${request.studentName}: ${profileImage}`);
+                                        if (__DEV__) {
+                      console.log(`⚠️ [ConsultantHome] Invalid profile image URL for ${request.studentName}: ${profileImage}`)
+                    };
                     return require('../../../assets/image/avatar.png');
                   }
                 }

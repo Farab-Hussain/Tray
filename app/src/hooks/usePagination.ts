@@ -41,7 +41,9 @@ export const usePagination = <T = any>(
       setHasMore(pagination?.hasNextPage ?? (newData.length >= pageSize));
       setPage(pageNum);
     } catch (err: any) {
-      console.error('Error loading page:', err);
+            if (__DEV__) {
+        console.error('Error loading page:', err)
+      };
       setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);

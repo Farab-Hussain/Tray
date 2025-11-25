@@ -62,6 +62,7 @@ export const jobDetailScreenStyles = StyleSheet.create({
   matchStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
     marginBottom: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
@@ -70,12 +71,17 @@ export const jobDetailScreenStyles = StyleSheet.create({
   matchStat: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+    paddingHorizontal: 8,
   },
   matchStatValue: {
     fontSize: 24,
     fontWeight: '700',
     color: COLORS.black,
     marginBottom: 4,
+    textAlign: 'center',
+    width: '100%',
   },
   matchStatLabel: {
     fontSize: 12,

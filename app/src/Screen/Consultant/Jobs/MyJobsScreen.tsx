@@ -8,6 +8,8 @@ import Loader from '../../../components/ui/Loader';
 import { JobService } from '../../../services/job.service';
 import { COLORS } from '../../../constants/core/colors';
 import { showError, showSuccess } from '../../../utils/toast';
+import { useRefresh } from '../../../hooks/useRefresh';
+import { showConfirmation } from '../../../utils/alertUtils';
 import { Plus, Trash2 } from 'lucide-react-native';
 import { consultantMyJobsScreenStyles } from '../../../constants/styles/consultantMyJobsScreenStyles';
 import { getStatusColor } from '../../../utils/statusUtils';
@@ -22,7 +24,9 @@ const MyJobsScreen = ({ navigation }: any) => {
       const response = await JobService.getMyJobs();
       setJobs(response.jobs || []);
     } catch (error: any) {
-      console.error('Error fetching jobs:', error);
+            if (__DEV__) {
+        console.error('Error fetching jobs:', error)
+      };
       showError(error.message || 'Failed to load jobs');
     } finally {
       setLoading(false);

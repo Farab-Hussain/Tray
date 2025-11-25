@@ -54,7 +54,9 @@ const JobDetailScreen = ({ navigation, route }: any) => {
       setHasApplied(hasAppliedForThisJob);
     } catch (error) {
       // If we can't fetch applications, assume not applied
-      console.log('Could not check application status:', error);
+            if (__DEV__) {
+        console.log('Could not check application status:', error)
+      };
       setHasApplied(false);
     }
   }, [jobId, user?.uid]);
@@ -69,14 +71,45 @@ const JobDetailScreen = ({ navigation, route }: any) => {
       if (user?.uid) {
         try {
           const matchResponse = await JobService.getMatchScore(jobId);
-          setMatchScore(matchResponse);
-        } catch {
+          
+          // Validate and normalize response data
+          const normalizedMatchScore = {
+            score: matchResponse.score ?? matchResponse.matchedSkills?.length ?? 0,
+            matchRating: matchResponse.matchRating || matchResponse.rating || 'basic',
+            totalRequired: matchResponse.totalRequired ?? 0,
+            matchPercentage: matchResponse.matchPercentage ?? 0,
+            matchedSkills: Array.isArray(matchResponse.matchedSkills) ? matchResponse.matchedSkills : [],
+            missingSkills: Array.isArray(matchResponse.missingSkills) ? matchResponse.missingSkills : [],
+          };
+          
+          // Ensure score matches matchedSkills length (defensive check)
+          if (normalizedMatchScore.matchedSkills.length > 0 && normalizedMatchScore.score === 0) {
+                        if (__DEV__) {
+              console.warn('Score mismatch detected, using matchedSkills length:', {
+              originalScore: normalizedMatchScore.score,
+              matchedSkillsCount: normalizedMatchScore.matchedSkills.length,
+              matchedSkills: normalizedMatchScore.matchedSkills,
+            })
+            };
+            normalizedMatchScore.score = normalizedMatchScore.matchedSkills.length;
+            // Recalculate percentage
+            if (normalizedMatchScore.totalRequired > 0) {
+              normalizedMatchScore.matchPercentage = (normalizedMatchScore.score / normalizedMatchScore.totalRequired) * 100;
+            }
+          }
+          
+          setMatchScore(normalizedMatchScore);
+        } catch (error) {
           // User might not have resume yet
-          console.log('No match score available');
+                    if (__DEV__) {
+            console.log('No match score available:', error)
+          };
         }
       }
     } catch (error: any) {
-      console.error('Error fetching job:', error);
+            if (__DEV__) {
+        console.error('Error fetching job:', error)
+      };
       showError(error.message || 'Failed to load job details');
     } finally {
       setLoading(false);
@@ -172,7 +205,9 @@ const JobDetailScreen = ({ navigation, route }: any) => {
       // Update application status after successful application
       setHasApplied(true);
     } catch (error: any) {
-      console.error('Error applying for job:', error);
+            if (__DEV__) {
+        console.error('Error applying for job:', error)
+      };
       
       // Check if user has already applied for this job
       const errorMessage = error.response?.data?.error || error.message || '';
@@ -248,20 +283,24 @@ const JobDetailScreen = ({ navigation, route }: any) => {
               </View>
               <View style={styles.matchStatsRow}>
                 <View style={styles.matchStat}>
-                  <Text style={styles.matchStatValue}>{matchScore.score}/{matchScore.totalRequired}</Text>
+                  <Text style={styles.matchStatValue} numberOfLines={1}>
+                    {matchScore.score ?? 0}/{matchScore.totalRequired ?? 0}
+                  </Text>
                   <Text style={styles.matchStatLabel}>Skills Matched</Text>
                 </View>
                 <View style={styles.matchStatDivider} />
                 <View style={styles.matchStat}>
-                  <Text style={styles.matchStatValue}>{matchScore.matchPercentage.toFixed(0)}%</Text>
+                  <Text style={styles.matchStatValue} numberOfLines={1}>
+                    {matchScore.matchPercentage ? matchScore.matchPercentage.toFixed(0) : 0}%
+                  </Text>
                   <Text style={styles.matchStatLabel}>Match Rate</Text>
                 </View>
               </View>
-              {matchScore.matchedSkills.length > 0 && (
+              {matchScore.matchedSkills && matchScore.matchedSkills.length > 0 && (
                 <View style={styles.matchSkillsSection}>
                   <Text style={styles.matchSkillsSectionTitle}>✓ Matched Skills</Text>
                   <View style={styles.matchSkillsTags}>
-                    {matchScore.matchedSkills.map((skill: string, index: number) => (
+                    {matchScore.matchedSkills.filter((skill: string) => skill).map((skill: string, index: number) => (
                       <View key={index} style={styles.matchSkillTag}>
                         <Text style={styles.matchSkillTagText}>{skill}</Text>
                       </View>
@@ -269,11 +308,11 @@ const JobDetailScreen = ({ navigation, route }: any) => {
                   </View>
                 </View>
               )}
-              {matchScore.missingSkills.length > 0 && (
+              {matchScore.missingSkills && matchScore.missingSkills.length > 0 && (
                 <View style={styles.matchSkillsSection}>
                   <Text style={styles.missingSkillsSectionTitle}>Missing Skills</Text>
                   <View style={styles.matchSkillsTags}>
-                    {matchScore.missingSkills.map((skill: string, index: number) => (
+                    {matchScore.missingSkills.filter((skill: string) => skill).map((skill: string, index: number) => (
                       <View key={index} style={styles.missingSkillTag}>
                         <Text style={styles.missingSkillTagText}>{skill}</Text>
                       </View>
@@ -305,17 +344,17 @@ const JobDetailScreen = ({ navigation, route }: any) => {
             <Text style={styles.infoIcon}>💼</Text>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Job Type</Text>
-              <Text style={styles.infoValue}>{job.jobType.replace('-', ' ')}</Text>
+              <Text style={styles.infoValue}>{job.jobType ? job.jobType.replace('-', ' ') : 'N/A'}</Text>
             </View>
           </View>
 
-          {job.salaryRange && (
+          {job.salaryRange && job.salaryRange.min !== undefined && job.salaryRange.max !== undefined && (
             <View style={styles.infoRow}>
               <Text style={styles.infoIcon}>💰</Text>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Salary</Text>
                 <Text style={styles.infoValue}>
-                  ${job.salaryRange.min.toLocaleString()} - ${job.salaryRange.max.toLocaleString()} {job.salaryRange.currency}
+                  ${(job.salaryRange.min || 0).toLocaleString()} - ${(job.salaryRange.max || 0).toLocaleString()} {job.salaryRange.currency || 'USD'}
                 </Text>
               </View>
             </View>
@@ -342,22 +381,29 @@ const JobDetailScreen = ({ navigation, route }: any) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Required Skills</Text>
           <View style={styles.skillsContainer}>
-            {job.requiredSkills.map((skill: string, index: number) => {
-              const isMatched = matchScore?.matchedSkills?.includes(skill);
-              return (
-                <View
-                  key={index}
-                  style={[
-                    styles.skillTag,
-                    isMatched && styles.skillTagMatched,
-                  ]}
-                >
-                  <Text style={[styles.skillText, isMatched && styles.skillTextMatched]}>
-                    {skill} {isMatched && '✓'}
-                  </Text>
-                </View>
-              );
-            })}
+            {job.requiredSkills && job.requiredSkills.length > 0 ? (
+              job.requiredSkills.map((skill: string, index: number) => {
+                if (!skill) return null; // Skip null/undefined skills
+                const isMatched = matchScore?.matchedSkills?.some((ms: string) => 
+                  ms && skill && ms.toLowerCase().trim() === skill.toLowerCase().trim()
+                );
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.skillTag,
+                      isMatched && styles.skillTagMatched,
+                    ]}
+                  >
+                    <Text style={[styles.skillText, isMatched && styles.skillTextMatched]}>
+                      {skill} {isMatched && '✓'}
+                    </Text>
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={styles.descriptionText}>No skills specified</Text>
+            )}
           </View>
         </View>
 

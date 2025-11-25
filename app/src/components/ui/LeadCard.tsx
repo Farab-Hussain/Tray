@@ -17,7 +17,9 @@ const LeadCard = ({
   onAccept, 
   onDecline 
 }: LeadCardProps) => {
-  console.log(`🖼️ [LeadCard] Rendering card for client: ${clientName}, service: ${serviceNeeded}, avatarUri:`, avatarUri);
+    if (__DEV__) {
+    console.log(`🖼️ [LeadCard] Rendering card for client: ${clientName}, service: ${serviceNeeded}, avatarUri:`, avatarUri)
+  };
   
   return (
     <View style={[consultantStyles.leadCard, consultantHome.leadCardWrapper]}>
@@ -26,7 +28,9 @@ const LeadCard = ({
           source={avatarUri}
           style={consultantStyles.leadProfileImage}
           onError={(error) => {
-            console.log(`❌ [LeadCard] Failed to load image for ${clientName}:`, error);
+                        if (__DEV__) {
+              console.log(`❌ [LeadCard] Failed to load image for ${clientName}:`, error)
+            };
           }}
           defaultSource={require('../../assets/image/avatar.png')}
         />

@@ -93,7 +93,9 @@ const ChangePassword = ({ navigation }: any) => {
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
-      console.error('❌ Change password error:', error);
+            if (__DEV__) {
+        console.error('❌ Change password error:', error)
+      };
 
       if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
         setCurrentPasswordError('The current password you entered is incorrect. Please enter the correct password.');

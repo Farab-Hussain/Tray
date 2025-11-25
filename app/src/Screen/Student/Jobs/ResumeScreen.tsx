@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { screenStyles } from '../../../constants/styles/screenStyles';
@@ -31,7 +31,7 @@ interface Education {
   degree: string;
   institution: string;
   graduationYear?: number;
-  gpa?: number;
+  gpa?: number | string;
 }
 
 interface Certification {
@@ -47,6 +47,22 @@ const ResumeScreen = ({ navigation }: any) => {
   const isRecruiter = activeRole === 'recruiter' || roles.includes('recruiter');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Track initial state to detect changes
+  const initialDataRef = useRef<{
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
+    skills: string[];
+    experience: Experience[];
+    education: Education[];
+    certifications: Certification[];
+    backgroundInformation: string;
+  } | null>(null);
+  
+  // Flag to prevent double alerts when navigating programmatically
+  const isNavigatingAwayRef = useRef(false);
 
   // Personal Info
   const [name, setName] = useState('');
@@ -113,21 +129,75 @@ const ResumeScreen = ({ navigation }: any) => {
       const response = await ResumeService.getMyResume();
       if (response.resume) {
         const resume = response.resume;
-        setName(resume.personalInfo?.name || '');
-        setEmail(resume.personalInfo?.email || '');
-        setPhone(resume.personalInfo?.phone || '');
-        setLocation(resume.personalInfo?.location || '');
-        setSkills(resume.skills || []);
-        setExperience(resume.experience || []);
-        setEducation(resume.education || []);
-        setCertifications(resume.certifications || []);
-        setBackgroundInformation(resume.backgroundInformation || '');
+        const loadedName = resume.personalInfo?.name || '';
+        const loadedEmail = resume.personalInfo?.email || '';
+        const loadedPhone = resume.personalInfo?.phone || '';
+        const loadedLocation = resume.personalInfo?.location || '';
+        const loadedSkills = resume.skills || [];
+        const loadedExperience = resume.experience || [];
+        const loadedEducation = resume.education || [];
+        const loadedCertifications = resume.certifications || [];
+        const loadedBackground = resume.backgroundInformation || '';
+        
+        setName(loadedName);
+        setEmail(loadedEmail);
+        setPhone(loadedPhone);
+        setLocation(loadedLocation);
+        setSkills(loadedSkills);
+        setExperience(loadedExperience);
+        setEducation(loadedEducation);
+        setCertifications(loadedCertifications);
+        setBackgroundInformation(loadedBackground);
+        
+        // Store initial state for change detection
+        initialDataRef.current = {
+          name: loadedName,
+          email: loadedEmail,
+          phone: loadedPhone,
+          location: loadedLocation,
+          skills: [...loadedSkills],
+          experience: JSON.parse(JSON.stringify(loadedExperience)), // Deep copy
+          education: JSON.parse(JSON.stringify(loadedEducation)), // Deep copy
+          certifications: JSON.parse(JSON.stringify(loadedCertifications)), // Deep copy
+          backgroundInformation: loadedBackground,
+        };
+      } else {
+        // New resume - initialize with current user data
+        const initialName = user?.name || user?.displayName || '';
+        const initialEmail = user?.email || '';
+        initialDataRef.current = {
+          name: initialName,
+          email: initialEmail,
+          phone: '',
+          location: '',
+          skills: [],
+          experience: [],
+          education: [],
+          certifications: [],
+          backgroundInformation: '',
+        };
       }
     } catch (error: any) {
       // Silently handle 404 - resume not found is expected for new users
       if (error.response?.status !== 404) {
-        console.error('Error loading resume:', error);
+                if (__DEV__) {
+          console.error('Error loading resume:', error)
+        };
       }
+      // Initialize with current user data if no resume found
+      const initialName = user?.name || user?.displayName || '';
+      const initialEmail = user?.email || '';
+      initialDataRef.current = {
+        name: initialName,
+        email: initialEmail,
+        phone: '',
+        location: '',
+        skills: [],
+        experience: [],
+        education: [],
+        certifications: [],
+        backgroundInformation: '',
+      };
     } finally {
       setLoading(false);
     }
@@ -181,7 +251,9 @@ const ResumeScreen = ({ navigation }: any) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
       if (event.type === 'set' && date) {
-        handleDateConfirm(date);
+        // Normalize date to first of month
+        const normalizedDate = new Date(date.getFullYear(), date.getMonth(), 1);
+        handleDateConfirm(normalizedDate);
       } else {
         // User cancelled
         setDatePickerType(null);
@@ -190,17 +262,22 @@ const ResumeScreen = ({ navigation }: any) => {
     } else {
       // iOS - update selected date as user scrolls
       if (date) {
-        setSelectedDate(date);
+        // Normalize date to first of month for consistency
+        const normalizedDate = new Date(date.getFullYear(), date.getMonth(), 1);
+        setSelectedDate(normalizedDate);
       }
     }
   };
 
   const handleDateConfirm = (date?: Date) => {
     const finalDate = date || selectedDate;
+    // Always set day to 1 since we only store month and year
+    const normalizedDate = new Date(finalDate.getFullYear(), finalDate.getMonth(), 1);
+    
     if (datePickerType !== null && datePickerIndex >= 0) {
       // Format as YYYY-MM
-      const year = finalDate.getFullYear();
-      const month = finalDate.getMonth() + 1;
+      const year = normalizedDate.getFullYear();
+      const month = normalizedDate.getMonth() + 1;
       const dateStr = `${year}-${String(month).padStart(2, '0')}`;
       
       if (datePickerType === 'start') {
@@ -352,6 +429,49 @@ const ResumeScreen = ({ navigation }: any) => {
   };
 
 
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useCallback(() => {
+    if (!initialDataRef.current) return false;
+    
+    const initial = initialDataRef.current;
+    
+    // Compare all fields
+    if (name.trim() !== initial.name.trim()) return true;
+    if (email.trim() !== initial.email.trim()) return true;
+    if (phone.trim() !== initial.phone.trim()) return true;
+    if (location.trim() !== initial.location.trim()) return true;
+    if (backgroundInformation.trim() !== initial.backgroundInformation.trim()) return true;
+    
+    // Compare skills arrays
+    if (skills.length !== initial.skills.length) return true;
+    const skillsMatch = skills.every((skill, index) => 
+      skill.trim().toLowerCase() === initial.skills[index]?.trim().toLowerCase()
+    ) && initial.skills.every((skill, index) => 
+      skill.trim().toLowerCase() === skills[index]?.trim().toLowerCase()
+    );
+    if (!skillsMatch) return true;
+    
+    // Compare experience arrays (deep comparison)
+    if (experience.length !== initial.experience.length) return true;
+    const experienceStr = JSON.stringify(experience);
+    const initialExperienceStr = JSON.stringify(initial.experience);
+    if (experienceStr !== initialExperienceStr) return true;
+    
+    // Compare education arrays (deep comparison)
+    if (education.length !== initial.education.length) return true;
+    const educationStr = JSON.stringify(education);
+    const initialEducationStr = JSON.stringify(initial.education);
+    if (educationStr !== initialEducationStr) return true;
+    
+    // Compare certifications arrays (deep comparison)
+    if (certifications.length !== initial.certifications.length) return true;
+    const certificationsStr = JSON.stringify(certifications);
+    const initialCertificationsStr = JSON.stringify(initial.certifications);
+    if (certificationsStr !== initialCertificationsStr) return true;
+    
+    return false;
+  }, [name, email, phone, location, skills, experience, education, certifications, backgroundInformation]);
+
   const handleSave = async () => {
     // Validate all required fields
     const newErrors: {
@@ -488,19 +608,154 @@ const ResumeScreen = ({ navigation }: any) => {
 
       await ResumeService.createOrUpdateResume(resumeData);
       showSuccess('Resume saved successfully');
+      
+      // Update initial state after successful save
+      initialDataRef.current = {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        location: location.trim(),
+        skills: [...skills],
+        experience: JSON.parse(JSON.stringify(experience)),
+        education: JSON.parse(JSON.stringify(education)),
+        certifications: JSON.parse(JSON.stringify(certifications)),
+        backgroundInformation: backgroundInformation.trim(),
+      };
+      
+      // Set flag to prevent beforeRemove listener from showing alert
+      isNavigatingAwayRef.current = true;
       navigation.goBack();
     } catch (error: any) {
-      console.error('Error saving resume:', error);
+            if (__DEV__) {
+        console.error('Error saving resume:', error)
+      };
       showError(error.message || 'Failed to save resume');
     } finally {
       setSaving(false);
     }
   };
 
+  // Handle back button with unsaved changes check
+  const handleBackPress = useCallback(() => {
+    if (hasUnsavedChanges()) {
+      Alert.alert(
+        'Unsaved Changes',
+        'You have unsaved changes. What would you like to do?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              // Set flag to prevent beforeRemove listener from showing alert
+              isNavigatingAwayRef.current = true;
+              // Reset to initial state
+              if (initialDataRef.current) {
+                setName(initialDataRef.current.name);
+                setEmail(initialDataRef.current.email);
+                setPhone(initialDataRef.current.phone);
+                setLocation(initialDataRef.current.location);
+                setSkills([...initialDataRef.current.skills]);
+                setExperience(JSON.parse(JSON.stringify(initialDataRef.current.experience)));
+                setEducation(JSON.parse(JSON.stringify(initialDataRef.current.education)));
+                setCertifications(JSON.parse(JSON.stringify(initialDataRef.current.certifications)));
+                setBackgroundInformation(initialDataRef.current.backgroundInformation);
+              }
+              navigation.goBack();
+            },
+          },
+          {
+            text: 'Save',
+            onPress: async () => {
+              // Set flag to prevent beforeRemove listener from showing alert
+              isNavigatingAwayRef.current = true;
+              await handleSave();
+            },
+          },
+        ]
+      );
+      return true; // Prevent default back action
+    }
+    isNavigatingAwayRef.current = true;
+    navigation.goBack();
+  }, [hasUnsavedChanges, navigation, handleSave]);
+
+  // Set up navigation listener to intercept back button
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      // If we're already handling navigation (from handleBackPress), allow it
+      if (isNavigatingAwayRef.current) {
+        isNavigatingAwayRef.current = false; // Reset flag
+        return;
+      }
+
+      if (!hasUnsavedChanges()) {
+        // No unsaved changes, allow default behavior
+        return;
+      }
+
+      // Prevent default behavior of leaving the screen
+      e.preventDefault();
+
+      // Show alert
+      Alert.alert(
+        'Unsaved Changes',
+        'You have unsaved changes. What would you like to do?',
+        [
+          {
+            text: "Don't Leave",
+            style: 'cancel',
+            onPress: () => {},
+          },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              // Reset to initial state and navigate back
+              if (initialDataRef.current) {
+                setName(initialDataRef.current.name);
+                setEmail(initialDataRef.current.email);
+                setPhone(initialDataRef.current.phone);
+                setLocation(initialDataRef.current.location);
+                setSkills([...initialDataRef.current.skills]);
+                setExperience(JSON.parse(JSON.stringify(initialDataRef.current.experience)));
+                setEducation(JSON.parse(JSON.stringify(initialDataRef.current.education)));
+                setCertifications(JSON.parse(JSON.stringify(initialDataRef.current.certifications)));
+                setBackgroundInformation(initialDataRef.current.backgroundInformation);
+              }
+              navigation.dispatch(e.data.action);
+            },
+          },
+          {
+            text: 'Save',
+            onPress: async () => {
+              // Save first, then navigate back
+              try {
+                await handleSave();
+                // After save, navigate back
+                navigation.dispatch(e.data.action);
+              } catch (error) {
+                // If save fails, don't navigate back
+                if (__DEV__) {
+                  console.error('Save failed, staying on screen:', error);
+                }
+              }
+            },
+          },
+        ]
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation, hasUnsavedChanges, handleSave]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ScreenHeader title="My Resume" onBackPress={() => navigation.goBack()} />
+        <ScreenHeader title="My Resume" onBackPress={handleBackPress} />
         <Loader />
       </SafeAreaView>
     );
@@ -508,7 +763,7 @@ const ResumeScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader title="My Resume" onBackPress={() => navigation.goBack()} />
+      <ScreenHeader title="My Resume" onBackPress={handleBackPress} />
       
       <KeyboardAwareScrollView
         style={styles.scrollView}
@@ -836,9 +1091,8 @@ const ResumeScreen = ({ navigation }: any) => {
                   style={[styles.input, styles.halfInput]}
                   placeholder="GPA (optional)"
                   placeholderTextColor={COLORS.lightGray}
-                  value={edu.gpa?.toString()}
-                  onChangeText={(value) => handleUpdateEducation(index, 'gpa', value ? parseFloat(value) : undefined)}
-                  keyboardType="decimal-pad"
+                  value={edu.gpa?.toString() || ''}
+                  onChangeText={(value) => handleUpdateEducation(index, 'gpa', value || undefined)}
                 />
               </View>
               {errors.education?.[index]?.graduationYear && <Text style={styles.errorText}>{errors.education[index].graduationYear}</Text>}
@@ -993,49 +1247,59 @@ const ResumeScreen = ({ navigation }: any) => {
               setDatePickerIndex(-1);
             }}
           >
-            <View 
+            <SafeAreaView 
               style={styles.modalContent}
-              onStartShouldSetResponder={() => true}
+              edges={['bottom']}
             >
-              <View style={styles.modalHeader}>
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowDatePicker(false);
-                    setDatePickerType(null);
-                    setDatePickerIndex(-1);
-                  }}
-                  style={styles.modalCancelButton}
-                >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>
-                  Select {datePickerType === 'start' ? 'Start' : datePickerType === 'end' ? 'End' : 'Certification'} Date
-                </Text>
-                <TouchableOpacity
-                  onPress={() => handleDateConfirm()}
-                  style={styles.modalDoneButton}
-                >
-                  <Text style={styles.modalDoneText}>Done</Text>
-                </TouchableOpacity>
+              <View 
+                style={{ flex: 1 }}
+                onStartShouldSetResponder={() => true}
+              >
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowDatePicker(false);
+                      setDatePickerType(null);
+                      setDatePickerIndex(-1);
+                    }}
+                    style={styles.modalCancelButton}
+                  >
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <View style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={styles.modalTitle}>
+                      Select {datePickerType === 'start' ? 'Start' : datePickerType === 'end' ? 'End' : 'Certification'} Date
+                    </Text>
+                    <Text style={{ fontSize: 12, fontWeight: 'normal', color: COLORS.gray, marginTop: 2 }}>
+                      (Month & Year)
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleDateConfirm()}
+                    style={styles.modalDoneButton}
+                  >
+                    <Text style={styles.modalDoneText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.datePickerContainer}>
+                  <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={handleDateChange}
+                    style={styles.datePicker}
+                    textColor={COLORS.black}
+                    minimumDate={datePickerType === 'end' && datePickerIndex >= 0 && experience[datePickerIndex]?.startDate
+                      ? (() => {
+                          const [year, month] = experience[datePickerIndex].startDate.split('-');
+                          return new Date(parseInt(year), parseInt(month) - 1, 1);
+                        })()
+                      : undefined}
+                    maximumDate={new Date()}
+                  />
+                </View>
               </View>
-              <View style={styles.datePickerContainer}>
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="date"
-                  display="spinner"
-                  onChange={handleDateChange}
-                  style={styles.datePicker}
-                  textColor={COLORS.black}
-                  minimumDate={datePickerType === 'end' && datePickerIndex >= 0 && experience[datePickerIndex]?.startDate
-                    ? (() => {
-                        const [year, month] = experience[datePickerIndex].startDate.split('-');
-                        return new Date(parseInt(year), parseInt(month) - 1, 1);
-                      })()
-                    : undefined}
-                  maximumDate={new Date()}
-                />
-              </View>
-            </View>
+            </SafeAreaView>
           </TouchableOpacity>
         </Modal>
       )}

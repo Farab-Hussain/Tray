@@ -7,26 +7,24 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserService } from '../../../services/user.service';
-import { Camera, User, Lock, Edit2, Mail, CheckCircle } from 'lucide-react-native';
-import { showError, showSuccess } from '../../../utils/toast';
+import { getConsultantProfile } from '../../../services/consultantFlow.service';
+import { User, Lock, Mail, Edit2, CheckCircle } from 'lucide-react-native';
+import { screenStyles } from '../../../constants/styles/screenStyles';
+import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import Loader from '../../../components/ui/Loader';
-import ImageUpload from '../../../components/ui/ImageUpload';
-import { updateProfile } from 'firebase/auth';
-import { auth } from '../../../lib/firebase';
-import { recruiterProfileStyles } from '../../../constants/styles/recruiterProfileStyles';
+import { useRefresh } from '../../../hooks/useRefresh';
 
-const RecruiterProfile = ({ navigation }: any) => {
-  const { user, refreshUser } = useAuth();
+const ConsultantProfile = ({ navigation }: any) => {
+  const { user } = useAuth();
   const [backendProfile, setBackendProfile] = useState<any>(null);
+  const [consultantProfile, setConsultantProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [updatingImage, setUpdatingImage] = useState(false);
   const [imageCacheKey, setImageCacheKey] = useState(0);
 
   const fetchProfileData = useCallback(async () => {
@@ -41,6 +39,20 @@ const RecruiterProfile = ({ navigation }: any) => {
       // Fetch user profile
       const profileResponse = await UserService.getUserProfile();
       setBackendProfile(profileResponse);
+
+      // Fetch consultant profile for fallback image
+      try {
+        const consultantResponse = await getConsultantProfile(user.uid);
+        setConsultantProfile(consultantResponse);
+      } catch (error: any) {
+        // Consultant profile not found is okay
+        if (error?.response?.status !== 404) {
+                    if (__DEV__) {
+            console.log('Error fetching consultant profile:', error)
+          };
+        }
+        setConsultantProfile(null);
+      }
     } catch (error: any) {
             if (__DEV__) {
         console.error('Error fetching profile data:', error)
@@ -64,57 +76,6 @@ const RecruiterProfile = ({ navigation }: any) => {
     }, [fetchProfileData])
   );
 
-  const handleImageUpdate = async (imageUrl: string | null) => {
-    if (!auth.currentUser) return;
-
-    setUpdatingImage(true);
-    try {
-      if (imageUrl) {
-        await updateProfile(auth.currentUser, {
-          photoURL: imageUrl,
-        });
-      }
-
-      // Update backend profile
-      try {
-        await UserService.updateProfile({
-          avatarUrl: imageUrl,
-        });
-      } catch (error) {
-                if (__DEV__) {
-          console.log('Backend update failed, but Firebase updated')
-        };
-      }
-
-      await refreshUser();
-      setImageCacheKey(prev => prev + 1);
-      showSuccess('Profile image updated successfully');
-      fetchProfileData();
-    } catch (error: any) {
-            if (__DEV__) {
-        console.error('Error updating profile image:', error)
-      };
-      showError(error.message || 'Failed to update profile image');
-    } finally {
-      setUpdatingImage(false);
-    }
-  };
-
-  const handleDeleteImage = async () => {
-    Alert.alert(
-      'Delete Profile Image',
-      'Are you sure you want to remove your profile image?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => handleImageUpdate(null),
-        },
-      ]
-    );
-  };
-
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -124,9 +85,10 @@ const RecruiterProfile = ({ navigation }: any) => {
     );
   }
 
-  const profileImage = backendProfile?.profileImage || user?.photoURL;
-  const displayName = backendProfile?.name || user?.displayName || 'No name set';
-  const email = backendProfile?.email || user?.email || 'No email';
+  // Priority: backendProfile > consultantProfile > user
+  const profileImage = backendProfile?.profileImage || user?.photoURL || consultantProfile?.personalInfo?.profileImage;
+  const displayName = backendProfile?.name || consultantProfile?.personalInfo?.fullName || user?.displayName || 'No name set';
+  const email = backendProfile?.email || consultantProfile?.personalInfo?.email || user?.email || 'No email';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -154,19 +116,6 @@ const RecruiterProfile = ({ navigation }: any) => {
                 <User size={60} color={COLORS.gray} />
               </View>
             )}
-            
-            {/* Camera Icon Overlay */}
-            <TouchableOpacity
-              style={styles.cameraButton}
-              onPress={() => navigation.navigate('EditProfile')}
-              disabled={updatingImage}
-            >
-              {updatingImage ? (
-                <Loader message="" />
-              ) : (
-                <Camera size={20} color={COLORS.white} />
-              )}
-            </TouchableOpacity>
           </View>
 
           <Text style={styles.displayName}>{displayName}</Text>
@@ -178,7 +127,7 @@ const RecruiterProfile = ({ navigation }: any) => {
           <Text style={styles.sectionTitle}>Profile Information</Text>
           
           <View style={styles.sectionContent}>
-            {/* Username */}
+            {/* Name */}
             <TouchableOpacity
               style={styles.infoItem}
               onPress={() => navigation.navigate('ChangeUsername')}
@@ -189,7 +138,7 @@ const RecruiterProfile = ({ navigation }: any) => {
                   <User size={20} color={COLORS.green} />
                 </View>
                 <View style={styles.infoItemText}>
-                  <Text style={styles.infoLabel}>Username</Text>
+                  <Text style={styles.infoLabel}>Name</Text>
                   <Text style={styles.infoValue}>{displayName}</Text>
                 </View>
               </View>
@@ -243,7 +192,7 @@ const RecruiterProfile = ({ navigation }: any) => {
   );
 };
 
-const styles = recruiterProfileStyles;
+const styles = studentProfileStyles;
 
-export default RecruiterProfile;
+export default ConsultantProfile;
 

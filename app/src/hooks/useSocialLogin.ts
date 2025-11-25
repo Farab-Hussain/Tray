@@ -1,6 +1,6 @@
 import { signInWithCredential, GoogleAuthProvider, FacebookAuthProvider, OAuthProvider } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
+import { LoginManager, AccessToken, Settings } from 'react-native-fbsdk-next';
 import appleAuth from '@invertase/react-native-apple-authentication';
 import { Platform } from 'react-native';
 import { auth } from '../lib/firebase';
@@ -9,6 +9,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showError } from '../utils/toast';
 import { GOOGLE_WEB_CLIENT_ID } from '@env';
 
+// Initialize Facebook SDK Settings
+// Note: Display name is configured in Info.plist (iOS) and strings.xml (Android)
+// Only AppID and ClientToken need to be set programmatically
+try {
+  Settings.setAppID('1062926749049');
+  Settings.setClientToken('b9857fc3912f5f51556932745d508d08');
+} catch (error) {
+  if (__DEV__) {
+    console.warn('⚠️ Facebook SDK Settings initialization warning:', error);
+  }
+}
+
 // Configure Google Sign-In
 if (GOOGLE_WEB_CLIENT_ID) {
   GoogleSignin.configure({
@@ -16,7 +28,9 @@ if (GOOGLE_WEB_CLIENT_ID) {
     offlineAccess: true,
   });
 } else {
-  console.warn('⚠️ GOOGLE_WEB_CLIENT_ID is not configured. Google Sign-In will not work.');
+    if (__DEV__) {
+    console.warn('⚠️ GOOGLE_WEB_CLIENT_ID is not configured. Google Sign-In will not work.')
+  };
 }
 
 interface SocialLoginOptions {
@@ -32,39 +46,55 @@ export const useSocialLogin = () => {
   const handleBackendSync = async (firebaseUser: any, role: string = 'student') => {
     try {
       const token = await firebaseUser.getIdToken();
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common.Authorization = `Bearer ${token}`;
 
       // Save role to AsyncStorage
       await AsyncStorage.setItem('role', role);
-      console.log('Social Login - Role saved to AsyncStorage:', role);
+            if (__DEV__) {
+        console.log('Social Login - Role saved to AsyncStorage:', role)
+      };
 
       // Check if user already exists in backend
       try {
         const res = await api.get('/auth/me');
-        console.log('Social Login - User already exists in backend');
+                if (__DEV__) {
+          console.log('Social Login - User already exists in backend')
+        };
         
         // Update role if needed
         if (res.data?.role !== role) {
           // Optionally update role in backend if different
-          console.log('Social Login - Role mismatch, keeping existing role:', res.data?.role);
+                    if (__DEV__) {
+            console.log('Social Login - Role mismatch, keeping existing role:', res.data?.role)
+          };
           await AsyncStorage.setItem('role', res.data?.role || role);
         }
         
         // Update profile image if missing and user has photoURL from social login
         if (firebaseUser.photoURL && !res.data.profileImage && !res.data.avatarUrl) {
-          console.log('Social Login - Updating missing profile image with photoURL:', firebaseUser.photoURL);
+                    if (__DEV__) {
+            console.log('Social Login - Updating missing profile image with photoURL:', firebaseUser.photoURL)
+          };
           try {
             await api.put('/auth/profile', { profileImage: firebaseUser.photoURL });
-            console.log('Social Login - Profile image updated successfully');
+                        if (__DEV__) {
+              console.log('Social Login - Profile image updated successfully')
+            };
           } catch (updateError) {
-            console.error('Social Login - Error updating profile image:', updateError);
+                        if (__DEV__) {
+              console.error('Social Login - Error updating profile image:', updateError)
+            };
           }
         }
       } catch (error: any) {
         // User doesn't exist in backend, register them
         if (error?.response?.status === 404) {
-          console.log('Social Login - User not found in backend, registering...');
-          console.log('Social Login - Firebase user photoURL:', firebaseUser.photoURL);
+                    if (__DEV__) {
+            console.log('Social Login - User not found in backend, registering...')
+          };
+                    if (__DEV__) {
+            console.log('Social Login - Firebase user photoURL:', firebaseUser.photoURL)
+          };
           await api.post('/auth/register', {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
@@ -72,7 +102,9 @@ export const useSocialLogin = () => {
             profileImage: firebaseUser.photoURL || null, // Include Google/Facebook/Apple profile image
             role: role,
           });
-          console.log('Social Login - User registered in backend with profile image:', firebaseUser.photoURL);
+                    if (__DEV__) {
+            console.log('Social Login - User registered in backend with profile image:', firebaseUser.photoURL)
+          };
         } else {
           throw error;
         }
@@ -98,14 +130,20 @@ export const useSocialLogin = () => {
           }
           
           await AsyncStorage.setItem('consultantVerificationStatus', verificationStatus);
-          console.log('Social Login - Consultant verification status saved:', verificationStatus);
+                    if (__DEV__) {
+            console.log('Social Login - Consultant verification status saved:', verificationStatus)
+          };
         } catch (error) {
-          console.error('Social Login - Error fetching consultant status:', error);
+                    if (__DEV__) {
+            console.error('Social Login - Error fetching consultant status:', error)
+          };
           await AsyncStorage.setItem('consultantVerificationStatus', 'incomplete');
         }
       }
     } catch (error: any) {
-      console.error('Social Login - Backend sync error:', error);
+            if (__DEV__) {
+        console.error('Social Login - Backend sync error:', error)
+      };
       throw error;
     }
   };
@@ -125,17 +163,50 @@ export const useSocialLogin = () => {
         try {
           await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
         } catch (playServicesError: any) {
-          console.error('Google Play Services error:', playServicesError);
+                    if (__DEV__) {
+            console.error('Google Play Services error:', playServicesError)
+          };
           throw new Error('Google Play Services is required for Google Sign-In. Please update Google Play Services.');
         }
       }
 
       // Sign in with Google
+      // Note: signIn() may throw SIGN_IN_CANCELLED if user cancels
       await GoogleSignin.signIn();
-      const { idToken } = await GoogleSignin.getTokens();
+      
+      // Verify user is signed in before getting tokens
+      const isSignedIn = await GoogleSignin.isSignedIn();
+      if (!isSignedIn) {
+        if (__DEV__) {
+          console.log('Google Sign-In cancelled - user not signed in');
+        }
+        return null;
+      }
+      
+      // Get tokens only if user is signed in
+      let idToken: string | null = null;
+      try {
+        const tokens = await GoogleSignin.getTokens();
+        idToken = tokens.idToken;
+      } catch (tokenError: any) {
+        // If getTokens fails, user likely cancelled or wasn't signed in
+        if (tokenError.message?.includes('requires a user to be signed in') || 
+            tokenError.message?.includes('SIGN_IN_REQUIRED') ||
+            tokenError.code === 'SIGN_IN_REQUIRED') {
+          if (__DEV__) {
+            console.log('Google Sign-In cancelled - no signed in user for tokens');
+          }
+          return null;
+        }
+        // Re-throw other token errors
+        throw tokenError;
+      }
       
       if (!idToken) {
-        throw new Error('Google Sign-In failed: No ID token received');
+        if (__DEV__) {
+          console.log('Google Sign-In failed - No ID token received');
+        }
+        return null;
       }
 
       // Create Firebase credential
@@ -144,7 +215,9 @@ export const useSocialLogin = () => {
       // Sign in to Firebase
       const userCredential = await signInWithCredential(auth, googleCredential);
       
-      console.log('Social Login - Google sign-in successful:', userCredential.user.email);
+            if (__DEV__) {
+        console.log('Social Login - Google sign-in successful:', userCredential.user.email)
+      };
 
       // Sync with backend
       await handleBackendSync(userCredential.user, options?.role || 'student');
@@ -155,11 +228,18 @@ export const useSocialLogin = () => {
 
       return userCredential.user;
     } catch (error: any) {
-      console.error('Google Sign-In error:', error);
+            if (__DEV__) {
+        console.error('Google Sign-In error:', error)
+      };
       
-      // Handle user cancellation
-      if (error.code === 'SIGN_IN_CANCELLED' || error.message?.includes('cancelled')) {
-        console.log('Google Sign-In cancelled by user');
+      // Handle user cancellation - don't show error, just return null
+      if (error.code === 'SIGN_IN_CANCELLED' || 
+          error.message?.includes('cancelled') ||
+          error.message?.includes('requires a user to be signed in') ||
+          error.message?.includes('SIGN_IN_REQUIRED')) {
+        if (__DEV__) {
+          console.log('Google Sign-In cancelled by user');
+        }
         return null;
       }
 
@@ -179,6 +259,8 @@ export const useSocialLogin = () => {
         throw error;
       }
 
+      // Only show error if it's not a cancellation
+      // Cancellation should return null silently
       const errorMessage = error.message || 'Google Sign-In failed. Please try again.';
       showError(errorMessage, 'Google Sign-In Error');
       
@@ -195,20 +277,82 @@ export const useSocialLogin = () => {
    */
   const facebookLogin = async (options?: SocialLoginOptions) => {
     try {
-      // Log in with Facebook
-      const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+      if (__DEV__) {
+        console.log('Facebook Sign-In - Starting login process');
+      }
+      
+      // Log out first to ensure fresh login
+      LoginManager.logOut();
+      
+      if (__DEV__) {
+        console.log('Facebook Sign-In - Logged out previous session, requesting login');
+      }
+      
+      // Add timeout wrapper around login to prevent hanging
+      // Facebook login can hang if redirect doesn't complete
+      const loginTimeout = 90000; // 90 seconds for the login dialog itself
+      const loginPromise = LoginManager.logInWithPermissions(['public_profile', 'email']);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Facebook login dialog timed out. The login window may not have closed properly. Please try again.'));
+        }, loginTimeout);
+      });
+      
+      if (__DEV__) {
+        console.log('Facebook Sign-In - Waiting for login dialog (90s timeout)...');
+      }
+      
+      // Race between login and timeout
+      const result = await Promise.race([loginPromise, timeoutPromise]) as any;
+      
+      if (__DEV__) {
+        console.log('Facebook Sign-In - Login result:', { 
+          isCancelled: result.isCancelled,
+          declinedPermissions: result.declinedPermissions,
+          grantedPermissions: result.grantedPermissions
+        });
+      }
       
       if (result.isCancelled) {
-        console.log('Facebook Sign-In cancelled by user');
+        if (__DEV__) {
+          console.log('Facebook Sign-In cancelled by user')
+        };
         return null;
       }
 
-      // Get access token
-      const data = await AccessToken.getCurrentAccessToken();
+      // Wait a bit for the token to be available
+      // Sometimes the token needs a moment to propagate
+      if (__DEV__) {
+        console.log('Facebook Sign-In - Waiting for access token...');
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Get access token with retry logic
+      let data = await AccessToken.getCurrentAccessToken();
+      let retries = 0;
+      const maxRetries = 5;
+      
+      while (!data?.accessToken && retries < maxRetries) {
+        if (__DEV__) {
+          console.log(`Facebook Sign-In - Token not available, retrying... (${retries + 1}/${maxRetries})`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        data = await AccessToken.getCurrentAccessToken();
+        retries++;
+      }
       
       if (!data?.accessToken) {
-        throw new Error('Facebook Sign-In failed: No access token received');
+        // If no token after retries, user likely cancelled
+        // Don't throw error, just return null silently
+        if (__DEV__) {
+          console.log('Facebook Sign-In cancelled - No access token received after retries');
+        }
+        return null;
       }
+
+      if (__DEV__) {
+        console.log('Facebook Sign-In - Access token received successfully');
+      };
 
       // Create Firebase credential
       const facebookCredential = FacebookAuthProvider.credential(data.accessToken);
@@ -216,7 +360,9 @@ export const useSocialLogin = () => {
       // Sign in to Firebase
       const userCredential = await signInWithCredential(auth, facebookCredential);
       
-      console.log('Social Login - Facebook sign-in successful:', userCredential.user.email);
+            if (__DEV__) {
+        console.log('Social Login - Facebook sign-in successful:', userCredential.user.email)
+      };
 
       // Sync with backend
       await handleBackendSync(userCredential.user, options?.role || 'student');
@@ -227,11 +373,35 @@ export const useSocialLogin = () => {
 
       return userCredential.user;
     } catch (error: any) {
-      console.error('Facebook Sign-In error:', error);
+            if (__DEV__) {
+        console.error('Facebook Sign-In error:', error)
+      };
       
       // Handle user cancellation
-      if (error.message?.includes('cancelled') || error.message?.includes('User cancelled')) {
-        console.log('Facebook Sign-In cancelled by user');
+      if (error.message?.includes('cancelled') || error.message?.includes('User cancelled') || error.code === 'EUNSPECIFIED') {
+                if (__DEV__) {
+          console.log('Facebook Sign-In cancelled by user')
+        };
+        return null;
+      }
+
+      // Handle timeout errors specifically
+      if (error.message?.includes('timed out') || error.message?.includes('timeout')) {
+        const timeoutError = 'Facebook login took too long. This might happen if:\n\n• The redirect back to the app didn\'t complete\n• Your internet connection is slow\n• Facebook servers are experiencing issues\n\nPlease try:\n• Ensuring the Facebook app is installed\n• Checking your internet connection\n• Restarting the app';
+        showError(timeoutError, 'Facebook Login Timeout');
+        if (options?.onError) {
+          options.onError(error);
+        }
+        throw error;
+      }
+
+      // Handle specific Facebook SDK errors
+      if (error.message?.includes('App ID not found') || error.message?.includes('FacebookAppID')) {
+        const configError = 'Facebook Sign-In is not properly configured. Please contact support.';
+        showError(configError, 'Facebook Configuration Error');
+        if (options?.onError) {
+          options.onError(new Error(configError));
+        }
         return null;
       }
 
@@ -251,7 +421,9 @@ export const useSocialLogin = () => {
    */
   const appleLogin = async (options?: SocialLoginOptions) => {
     if (Platform.OS !== 'ios') {
-      console.warn('Apple Sign-In is only available on iOS');
+            if (__DEV__) {
+        console.warn('Apple Sign-In is only available on iOS')
+      };
       return null;
     }
 
@@ -273,7 +445,7 @@ export const useSocialLogin = () => {
       }
 
       // Create a nonce for security
-      const { identityToken, nonce } = appleAuthRequestResponse;
+      const { identityToken, nonce, fullName, email } = appleAuthRequestResponse;
 
       // Create Firebase credential
       const appleCredential = new OAuthProvider('apple.com').credential({
@@ -284,7 +456,28 @@ export const useSocialLogin = () => {
       // Sign in to Firebase
       const userCredential = await signInWithCredential(auth, appleCredential);
       
-      console.log('Social Login - Apple sign-in successful:', userCredential.user.email);
+      // Apple only provides name on first sign-in, so update Firebase user if available
+      if (fullName) {
+        const displayName = `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim();
+        if (displayName && userCredential.user.displayName !== displayName) {
+          await userCredential.user.updateProfile({ displayName });
+          if (__DEV__) {
+            console.log('Social Login - Updated Firebase user displayName from Apple:', displayName);
+          }
+        }
+      }
+
+      // Apple may provide email in response (only on first sign-in)
+      // If email is provided and different from Firebase user email, log it
+      if (email && email !== userCredential.user.email) {
+        if (__DEV__) {
+          console.log('Social Login - Apple provided email:', email, 'Firebase user email:', userCredential.user.email);
+        }
+      }
+      
+            if (__DEV__) {
+        console.log('Social Login - Apple sign-in successful:', userCredential.user.email || email)
+      };
 
       // Sync with backend
       await handleBackendSync(userCredential.user, options?.role || 'student');
@@ -295,11 +488,15 @@ export const useSocialLogin = () => {
 
       return userCredential.user;
     } catch (error: any) {
-      console.error('Apple Sign-In error:', error);
+            if (__DEV__) {
+        console.error('Apple Sign-In error:', error)
+      };
       
       // Handle user cancellation
       if (error.code === appleAuth.Error.CANCELED || error.message?.includes('cancelled')) {
-        console.log('Apple Sign-In cancelled by user');
+                if (__DEV__) {
+          console.log('Apple Sign-In cancelled by user')
+        };
         return null;
       }
 

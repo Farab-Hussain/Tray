@@ -58,7 +58,9 @@ const ChatScreen = ({ navigation, route }: any) => {
           }));
         setQueuedMessages(chatQueuedMessages);
       } catch (error) {
-        console.error('Error loading queued messages:', error);
+                if (__DEV__) {
+          console.error('Error loading queued messages:', error)
+        };
       }
     };
     
@@ -156,12 +158,16 @@ const ChatScreen = ({ navigation, route }: any) => {
   useEffect(() => {
     if (chatId && userId && markedChatIdRef.current !== chatId) {
       markedChatIdRef.current = chatId;
-      console.log('👁️ [ChatScreen] Marking messages as seen for chat:', chatId);
+            if (__DEV__) {
+        console.log('👁️ [ChatScreen] Marking messages as seen for chat:', chatId)
+      };
       
       // Mark chat messages as seen
       markMessagesSeen(chatId, userId)
         .then(() => {
-          console.log('✅ [ChatScreen] Messages marked as seen');
+                    if (__DEV__) {
+            console.log('✅ [ChatScreen] Messages marked as seen')
+          };
           // Force refresh messages after a short delay to ensure UI updates
           setTimeout(() => {
             refreshChats();
@@ -170,11 +176,15 @@ const ChatScreen = ({ navigation, route }: any) => {
           }, 500);
         })
         .catch(error => {
-          console.error('❌ [ChatScreen] Error marking messages as seen:', error);
+                    if (__DEV__) {
+            console.error('❌ [ChatScreen] Error marking messages as seen:', error)
+          };
         });
 
       // Mark all notifications for this chat as read
-      console.log('🔔 [ChatScreen] Marking chat notifications as read:', chatId);
+            if (__DEV__) {
+        console.log('🔔 [ChatScreen] Marking chat notifications as read:', chatId)
+      };
       markChatAsRead(chatId);
     }
   }, [chatId, userId, refreshChats, markChatAsRead]);
@@ -196,7 +206,9 @@ const ChatScreen = ({ navigation, route }: any) => {
         
         if (isConnected && wasOffline) {
           // Connection restored - process queued messages
-          console.log('🌐 [ChatScreen] Connection restored, processing queued messages...');
+                    if (__DEV__) {
+            console.log('🌐 [ChatScreen] Connection restored, processing queued messages...')
+          };
           wasOffline = false;
           try {
             await OfflineQueue.processQueuedMessages();
@@ -215,7 +227,9 @@ const ChatScreen = ({ navigation, route }: any) => {
               refreshChats();
             }, 1000);
           } catch (error) {
-            console.error('❌ [ChatScreen] Error processing queued messages:', error);
+                        if (__DEV__) {
+              console.error('❌ [ChatScreen] Error processing queued messages:', error)
+            };
           }
         } else if (!isConnected) {
           wasOffline = true;
@@ -277,7 +291,9 @@ const ChatScreen = ({ navigation, route }: any) => {
           // Returns null if user is not a consultant (expected for students)
           let consultantData = await ConsultantService.getConsultantProfile(otherUserId);
           if (consultantData) {
-            console.log('📥 [ChatScreen] Fetched consultant profile:', consultantData);
+                        if (__DEV__) {
+              console.log('📥 [ChatScreen] Fetched consultant profile:', consultantData)
+            };
           }
 
           // If we found consultant data, use it
@@ -293,7 +309,9 @@ const ChatScreen = ({ navigation, route }: any) => {
             // Fall back to regular user data
             const userData = await UserService.getUserById(otherUserId);
             if (userData) {
-              console.log('📥 [ChatScreen] Fetched user data:', userData);
+                            if (__DEV__) {
+                console.log('📥 [ChatScreen] Fetched user data:', userData)
+              };
               setOtherUserName(userData.name || consultantFromParams?.name || 'User');
               setOtherUserAvatar(
                 userData.profileImage || userData.avatarUrl 
@@ -310,7 +328,9 @@ const ChatScreen = ({ navigation, route }: any) => {
         } catch (error: any) {
           // Only log unexpected errors (not 404s)
           if (error?.response?.status !== 404) {
-            console.error('❌ [ChatScreen] Error fetching user info:', error);
+                        if (__DEV__) {
+              console.error('❌ [ChatScreen] Error fetching user info:', error)
+            };
           }
           if (consultantFromParams) {
             setOtherUserName(consultantFromParams.name || 'User');
@@ -386,7 +406,9 @@ const ChatScreen = ({ navigation, route }: any) => {
         refreshChats();
       }, 300);
     } catch (error) {
-      console.error('Error sending message:', error);
+            if (__DEV__) {
+        console.error('Error sending message:', error)
+      };
       // Restore the message if send fails so user can retry
       setMessage(messageText);
     } finally {
@@ -512,7 +534,9 @@ const ChatScreen = ({ navigation, route }: any) => {
         refreshChats();
       }, 300);
     } catch (error: any) {
-      console.error('Error deleting messages:', error);
+            if (__DEV__) {
+        console.error('Error deleting messages:', error)
+      };
       Alert.alert(
         'Error',
         error?.message || 'Failed to delete messages. Please try again.',
@@ -652,7 +676,8 @@ const ChatScreen = ({ navigation, route }: any) => {
               const isSeen = seenBy.includes(otherUserId);
               
               if (__DEV__ && isUser) {
-                console.log('📊 [MessageStatus]', {
+                                if (__DEV__) {
+                  console.log('📊 [MessageStatus]', {
                   messageId,
                   senderId: item.senderId,
                   userId,
@@ -660,7 +685,8 @@ const ChatScreen = ({ navigation, route }: any) => {
                   seenBy,
                   isSeen,
                   status: isSeen ? 'seen' : 'sent'
-                });
+                })
+                };
               }
               
               // Message is seen if the other user is in seenBy array

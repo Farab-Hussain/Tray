@@ -138,7 +138,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       services = consultantServicesResponse?.services || [];
       return services;
     } catch (error) {
-      console.error('Error fetching platform services:', error);
+            if (__DEV__) {
+        console.error('Error fetching platform services:', error)
+      };
       return [];
     }
   }, []);
@@ -164,7 +166,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           const consultantServicesResponse = await ConsultantService.getConsultantServices(user.uid);
           consultantServices = consultantServicesResponse?.services || [];
         } catch (consultantServicesError) {
-          console.error('Error fetching consultant services for linkage:', consultantServicesError);
+                    if (__DEV__) {
+            console.error('Error fetching consultant services for linkage:', consultantServicesError)
+          };
         }
       }
 
@@ -193,7 +197,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
 
       setApplications(enrichedApps);
     } catch (error) {
-      console.error('Error loading applications:', error);
+            if (__DEV__) {
+        console.error('Error loading applications:', error)
+      };
       Alert.alert('Error', 'Failed to load applications');
     } finally {
       setIsLoading(false);
@@ -209,7 +215,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
   useEffect(() => {
     const params = route.params as any;
     if (params?.openCreateModal) {
-      console.log('ConsultantApplicationsScreen - Auto-opening create modal from route params');
+            if (__DEV__) {
+        console.log('ConsultantApplicationsScreen - Auto-opening create modal from route params')
+      };
       setIsEditing(false);
       setShowModal(true);
       navigation.setParams({ openCreateModal: undefined } as never);
@@ -420,7 +428,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
                     navigation.navigate('PendingApproval' as never);
                   }
                 } catch (error) {
-                  console.error('Error checking approved services:', error);
+                                    if (__DEV__) {
+                    console.error('Error checking approved services:', error)
+                  };
                   navigation.navigate('PendingApproval' as never);
                 }
               },
@@ -432,7 +442,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
         await loadApplications();
       }
     } catch (error: any) {
-      console.error('Error submitting application:', error);
+            if (__DEV__) {
+        console.error('Error submitting application:', error)
+      };
       Alert.alert('Error', error.response?.data?.error || 'Failed to process request');
     } finally {
       setIsSubmitting(false);
@@ -455,7 +467,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
         if (axios.isAxiosError(error) && error.response?.status === 404) {
           bookingsCount = 0;
         } else {
-          console.error('Error fetching bookings before deletion:', error);
+                    if (__DEV__) {
+            console.error('Error fetching bookings before deletion:', error)
+          };
         }
       }
 
@@ -479,7 +493,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
         Alert.alert('Service Deleted', 'The service and its bookings have been handled successfully.');
         await loadApplications();
       } catch (error: any) {
-        console.error('Error deleting approved service:', error);
+                if (__DEV__) {
+          console.error('Error deleting approved service:', error)
+        };
         Alert.alert(
           'Deletion Failed',
           error?.response?.data?.error || 'Unable to delete service. Please try again.',
@@ -509,7 +525,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       Alert.alert('Success', 'Application deleted');
       await loadApplications();
     } catch (error: any) {
-      console.error('Error deleting application:', error);
+            if (__DEV__) {
+        console.error('Error deleting application:', error)
+      };
       Alert.alert('Error', 'Failed to delete application');
     } finally {
       setIsSubmitting(false);
@@ -552,7 +570,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
             linkedService = serviceResponse?.service;
           } catch (serviceError) {
             if (!(axios.isAxiosError(serviceError) && serviceError.response?.status === 404)) {
-              console.error('Error fetching linked service by ID:', serviceError);
+                            if (__DEV__) {
+                console.error('Error fetching linked service by ID:', serviceError)
+              };
             }
           }
         }
@@ -578,7 +598,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
               app.linkedService = matching;
             }
           } catch (consultantFetchError) {
-            console.error('Error fetching consultant services while editing:', consultantFetchError);
+                        if (__DEV__) {
+              console.error('Error fetching consultant services while editing:', consultantFetchError)
+            };
           }
         }
 
@@ -616,7 +638,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
             setCurrentServiceBookingsCount(bookingsCount);
           } catch (bookingsError) {
             if (!(axios.isAxiosError(bookingsError) && bookingsError.response?.status === 404)) {
-              console.error('Error fetching service bookings for edit warning:', bookingsError);
+                            if (__DEV__) {
+                console.error('Error fetching service bookings for edit warning:', bookingsError)
+              };
             }
             setCurrentServiceBookingsCount(0);
           }

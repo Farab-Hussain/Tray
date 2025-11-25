@@ -66,7 +66,9 @@ const MyClients = ({ navigation }: any) => {
     // Prevent rapid successive calls (debounce)
     const now = Date.now();
     if (!forceRefresh && now - lastFetchTime < 3000) {
-      console.log('🚫 [MyClients] Skipping fetch - too soon since last fetch');
+            if (__DEV__) {
+        console.log('🚫 [MyClients] Skipping fetch - too soon since last fetch')
+      };
       return;
     }
 
@@ -77,20 +79,26 @@ const MyClients = ({ navigation }: any) => {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔍 [MyClients] Fetching consultant bookings...');
+            if (__DEV__) {
+        console.log('🔍 [MyClients] Fetching consultant bookings...')
+      };
 
       // Fetch bookings from API
       const response = await BookingService.getConsultantBookings();
       const bookings: Booking[] = response.bookings || [];
 
-      console.log('📊 [MyClients] Found', bookings.length, 'total bookings');
+            if (__DEV__) {
+        console.log('📊 [MyClients] Found', bookings.length, 'total bookings')
+      };
 
       // Filter for approved bookings only (these are the clients)
       const approvedBookings = bookings.filter(booking => 
         booking.status === 'approved' && booking.paymentStatus === 'paid'
       );
 
-      console.log('📊 [MyClients] Found', approvedBookings.length, 'approved bookings');
+            if (__DEV__) {
+        console.log('📊 [MyClients] Found', approvedBookings.length, 'approved bookings')
+      };
 
       // Transform approved bookings into client data
       const clientsMap = new Map<string, Client>();
@@ -111,7 +119,9 @@ const MyClients = ({ navigation }: any) => {
             });
           }
         } catch {
-          console.log(`⚠️ [MyClients] Could not fetch student details for ${studentId}`);
+                    if (__DEV__) {
+            console.log(`⚠️ [MyClients] Could not fetch student details for ${studentId}`)
+          };
           studentDetailsMap.set(studentId, {
             name: `Student ${studentId.slice(0, 8)}`,
             email: `student${studentId.slice(0, 8)}@example.com`,
@@ -168,9 +178,13 @@ const MyClients = ({ navigation }: any) => {
       setClients(clientsList);
       setFilteredClients(clientsList);
 
-      console.log('✅ [MyClients] Successfully loaded', clientsList.length, 'clients');
+            if (__DEV__) {
+        console.log('✅ [MyClients] Successfully loaded', clientsList.length, 'clients')
+      };
     } catch (err: any) {
-      console.error('❌ [MyClients] Error fetching clients:', err);
+            if (__DEV__) {
+        console.error('❌ [MyClients] Error fetching clients:', err)
+      };
       setError(err.message || 'Failed to load clients. Please try again.');
       setClients([]);
       setFilteredClients([]);
@@ -209,12 +223,16 @@ const MyClients = ({ navigation }: any) => {
   };
 
   const handleClientPress = (client: Client) => {
-    console.log('View client:', client.studentName, client.studentId);
+        if (__DEV__) {
+      console.log('View client:', client.studentName, client.studentId)
+    };
     // TODO: Navigate to client details or chat
   };
 
   const handleMessageClient = (client: Client) => {
-    console.log('Message client:', client.studentName, client.studentId);
+        if (__DEV__) {
+      console.log('Message client:', client.studentName, client.studentId)
+    };
     // Navigate to chat screen with client
     navigation.navigate('ChatScreen', {
       studentId: client.studentId,

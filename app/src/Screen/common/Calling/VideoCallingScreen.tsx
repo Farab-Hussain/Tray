@@ -88,28 +88,40 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
     
     // Create peer connection and answer the call
     try {
-      console.log('📞 Accepting video call...');
+            if (__DEV__) {
+        console.log('📞 Accepting video call...')
+      };
       
       // Get the call document to retrieve the offer
       const callDoc = await getCallOnce(callId);
       if (!callDoc.exists()) {
-        console.error('Call document not found');
+                if (__DEV__) {
+          console.error('Call document not found')
+        };
         return;
       }
       
       const callData = callDoc.data() as CallDocument;
       if (!callData.offer) {
-        console.error('No offer found in call document');
+                if (__DEV__) {
+          console.error('No offer found in call document')
+        };
         return;
       }
 
-      console.log('📞 Creating peer connection for receiver...');
+            if (__DEV__) {
+        console.log('📞 Creating peer connection for receiver...')
+      };
       const { pc, localDescription } = await createPeer({
         isCaller: false,
         audioOnly: false,
         onLocalStream: (stream) => {
-          console.log('✅ Local stream created for receiver');
-          console.log('📹 Local stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length);
+                    if (__DEV__) {
+            console.log('✅ Local stream created for receiver')
+          };
+                    if (__DEV__) {
+            console.log('📹 Local stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length)
+          };
           setLocal(stream);
           localStreamRef.current = stream;
           const hasVideoTrack = stream.getVideoTracks().length > 0;
@@ -119,66 +131,92 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           
           // 🎧 Step 1: Verify local audio track after stream creation
           const audioTracks = stream.getAudioTracks();
-          console.log('🎤 [Receiver] Local stream audio tracks count:', audioTracks.length);
+                    if (__DEV__) {
+            console.log('🎤 [Receiver] Local stream audio tracks count:', audioTracks.length)
+          };
           if (audioTracks.length > 0) {
             audioTracks.forEach((track: any, index: number) => {
-              console.log(`🎤 [Receiver] Local audio track ${index + 1}:`, {
+                            if (__DEV__) {
+                console.log(`🎤 [Receiver] Local audio track ${index + 1}:`, {
                 id: track.id,
                 enabled: track.enabled,
                 readyState: track.readyState,
-              });
+              })
+              };
               try {
                 const settings = track.getSettings();
-                console.log(`🎤 [Receiver] Local audio track ${index + 1} settings:`, {
+                                if (__DEV__) {
+                  console.log(`🎤 [Receiver] Local audio track ${index + 1} settings:`, {
                   sampleRate: settings.sampleRate,
                   channelCount: settings.channelCount,
-                });
+                })
+                };
               } catch (e) {
                 // Settings might not be available
               }
             });
           } else {
-            console.error('❌ [Receiver] WARNING: Local stream has no audio tracks!');
+                        if (__DEV__) {
+              console.error('❌ [Receiver] WARNING: Local stream has no audio tracks!')
+            };
           }
         },
         onRemoteStream: (stream) => {
-          console.log('✅ Remote stream received by receiver');
-          console.log('📹 Remote stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length);
+                    if (__DEV__) {
+            console.log('✅ Remote stream received by receiver')
+          };
+                    if (__DEV__) {
+            console.log('📹 Remote stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length)
+          };
           // Ensure video tracks are enabled
           const videoTracks = stream.getVideoTracks();
           videoTracks.forEach((track: any) => {
             track.enabled = true;
-            console.log('📹 Remote video track enabled:', track.id, track.enabled);
+                        if (__DEV__) {
+              console.log('📹 Remote video track enabled:', track.id, track.enabled)
+            };
           });
           // Update video enabled state if remote has video
           if (videoTracks.length > 0) {
             setIsVideoEnabled(true);
-            console.log('📹 Remote video detected, enabling video display');
+                        if (__DEV__) {
+              console.log('📹 Remote video detected, enabling video display')
+            };
           }
           // Verify this is different from local stream
           if (localStreamRef.current && stream.id === localStreamRef.current.id) {
-            console.error('⚠️ WARNING: Remote stream has same ID as local stream!');
+                        if (__DEV__) {
+              console.error('⚠️ WARNING: Remote stream has same ID as local stream!')
+            };
           }
           
           // 🔎 Step 3: Verify Remote Audio Tracks
           const audioTracks = stream.getAudioTracks();
-          console.log('🔎 [Receiver] Remote stream audio tracks count:', audioTracks.length);
+                    if (__DEV__) {
+            console.log('🔎 [Receiver] Remote stream audio tracks count:', audioTracks.length)
+          };
           if (audioTracks.length === 0) {
-            console.error('❌ [Receiver] WARNING: Remote stream has no audio tracks!');
+                        if (__DEV__) {
+              console.error('❌ [Receiver] WARNING: Remote stream has no audio tracks!')
+            };
           } else {
             audioTracks.forEach((track: any, index: number) => {
               track.enabled = true;
-              console.log(`🔎 [Receiver] Remote audio track ${index + 1}:`, {
+                            if (__DEV__) {
+                console.log(`🔎 [Receiver] Remote audio track ${index + 1}:`, {
                 id: track.id,
                 enabled: track.enabled,
                 readyState: track.readyState,
-              });
+              })
+              };
               try {
                 const settings = track.getSettings();
-                console.log(`🔎 [Receiver] Remote audio track ${index + 1} settings:`, {
+                                if (__DEV__) {
+                  console.log(`🔎 [Receiver] Remote audio track ${index + 1} settings:`, {
                   sampleRate: settings.sampleRate,
                   channelCount: settings.channelCount,
-                });
+                })
+                };
               } catch (e) {
                 // Settings might not be available
               }
@@ -188,10 +226,14 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           // Force update by setting remote stream - this triggers re-render
           setRemote(stream);
           // Log track count for debugging
-          console.log('📹 Remote stream set with', stream.getTracks().length, 'total tracks');
+                    if (__DEV__) {
+            console.log('📹 Remote stream set with', stream.getTracks().length, 'total tracks')
+          };
         },
         onIce: (c: any) => {
-          console.log('🧊 Sending ICE candidate from receiver');
+                    if (__DEV__) {
+            console.log('🧊 Sending ICE candidate from receiver')
+          };
           addIceCandidate(callId, receiverId, c);
         },
         offerSdp: callData.offer,
@@ -205,15 +247,21 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         const processedIds = new Set<string>();
         
         // Process queued candidates
-        console.log(`📦 [Receiver] Processing ${iceCandidateQueueRef.current.length} queued ICE candidates...`);
+                if (__DEV__) {
+          console.log(`📦 [Receiver] Processing ${iceCandidateQueueRef.current.length} queued ICE candidates...`)
+        };
         for (const c of iceCandidateQueueRef.current) {
           if (c.senderId !== myId && !processedIds.has(`${c.senderId}-${JSON.stringify(c.candidate)}`)) {
             try {
               await addRemoteIce(pc, c.candidate);
-              console.log(`✅ [Receiver] Processed queued ICE candidate from:`, c.senderId);
+                            if (__DEV__) {
+                console.log(`✅ [Receiver] Processed queued ICE candidate from:`, c.senderId)
+              };
               processedIds.add(`${c.senderId}-${JSON.stringify(c.candidate)}`);
             } catch (error: any) {
-              console.error(`❌ [Receiver] Error processing queued ICE candidate:`, error.message || error);
+                            if (__DEV__) {
+                console.error(`❌ [Receiver] Error processing queued ICE candidate:`, error.message || error)
+              };
             }
           }
         }
@@ -221,12 +269,18 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         
         // Fetch and process existing candidates from Firestore
         try {
-          console.log(`📥 [Receiver] Fetching existing ICE candidates from Firestore...`);
+                    if (__DEV__) {
+            console.log(`📥 [Receiver] Fetching existing ICE candidates from Firestore...`)
+          };
           const existingCandidates = await getExistingCandidates(callId);
-          console.log(`📥 [Receiver] Found ${existingCandidates.length} existing ICE candidates`);
+                    if (__DEV__) {
+            console.log(`📥 [Receiver] Found ${existingCandidates.length} existing ICE candidates`)
+          };
           
           if (existingCandidates.length === 0) {
-            console.log(`📊 [Receiver] No existing ICE candidates to process`);
+                        if (__DEV__) {
+              console.log(`📊 [Receiver] No existing ICE candidates to process`)
+            };
           } else {
             let processedCount = 0;
             let skippedCount = 0;
@@ -244,25 +298,35 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
               }
               try {
                 await addRemoteIce(pc, c.candidate);
-                console.log(`✅ [Receiver] Processed existing ICE candidate ${processedCount + 1} from:`, c.senderId);
+                                if (__DEV__) {
+                  console.log(`✅ [Receiver] Processed existing ICE candidate ${processedCount + 1} from:`, c.senderId)
+                };
                 processedIds.add(candidateKey);
                 processedCount++;
               } catch (error: any) {
-                console.error(`❌ [Receiver] Error processing existing ICE candidate from ${c.senderId}:`, error.message || error);
+                                if (__DEV__) {
+                  console.error(`❌ [Receiver] Error processing existing ICE candidate from ${c.senderId}:`, error.message || error)
+                };
                 errorCount++;
               }
             }
-            console.log(`📊 [Receiver] ICE candidate processing summary: ${processedCount} processed, ${skippedCount} skipped (self/duplicates), ${errorCount} errors`);
+                        if (__DEV__) {
+              console.log(`📊 [Receiver] ICE candidate processing summary: ${processedCount} processed, ${skippedCount} skipped (self/duplicates), ${errorCount} errors`)
+            };
           }
         } catch (error: any) {
-          console.error(`❌ [Receiver] Error fetching existing ICE candidates:`, error.message || error);
+                    if (__DEV__) {
+            console.error(`❌ [Receiver] Error fetching existing ICE candidates:`, error.message || error)
+          };
         }
         
         // Log connection state after processing all candidates
-        console.log(`🔌 [Receiver] Connection state after processing ICE candidates:`, {
+                if (__DEV__) {
+          console.log(`🔌 [Receiver] Connection state after processing ICE candidates:`, {
           connectionState: pc.connectionState,
           iceConnectionState: pc.iceConnectionState,
-        });
+        })
+        };
       };
       
       // Process candidates after a short delay to ensure peer connection is fully initialized
@@ -273,30 +337,48 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       // Monitor connection state to ensure audio is configured when connected
       pc.addEventListener('connectionstatechange', () => {
         const state = pc.connectionState;
-        console.log('🔌 [Receiver] Connection state:', state);
+                if (__DEV__) {
+          console.log('🔌 [Receiver] Connection state:', state)
+        };
         
         if (state === 'connected') {
-          console.log('✅ [Receiver] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅');
+                    if (__DEV__) {
+            console.log('✅ [Receiver] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅')
+          };
         } else if (state === 'failed' || state === 'disconnected') {
-          console.error('❌ [Receiver] Connection failed or disconnected:', state);
-          console.warn('⚠️ [Receiver] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.');
+                    if (__DEV__) {
+            console.error('❌ [Receiver] Connection failed or disconnected:', state)
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [Receiver] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.')
+          };
         }
       });
       
       // Also monitor ICE connection state (separate from connection state)
       pc.addEventListener('iceconnectionstatechange', () => {
         const iceState = pc.iceConnectionState;
-        console.log('🧊 [Receiver] ICE connection state:', iceState);
+                if (__DEV__) {
+          console.log('🧊 [Receiver] ICE connection state:', iceState)
+        };
         
         if (iceState === 'connected' || iceState === 'completed') {
-          console.log('✅ [Receiver] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅');
+                    if (__DEV__) {
+            console.log('✅ [Receiver] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅')
+          };
         } else if (iceState === 'failed') {
-          console.error('❌ [Receiver] ICE connection failed');
-          console.warn('⚠️ [Receiver] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.');
+                    if (__DEV__) {
+            console.error('❌ [Receiver] ICE connection failed')
+          };
+                    if (__DEV__) {
+            console.warn('⚠️ [Receiver] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.')
+          };
         }
       });
       
-      console.log('📞 Answering call...');
+            if (__DEV__) {
+        console.log('📞 Answering call...')
+      };
       // Serialize the answer for Firestore storage
       const answerToStore = localDescription.toJSON ? localDescription.toJSON() : {
         type: localDescription.type,
@@ -304,9 +386,13 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       };
       await answerCall(callId, answerToStore);
       setStatus('active');
-      console.log('✅ Call accepted successfully');
+            if (__DEV__) {
+        console.log('✅ Call accepted successfully')
+      };
     } catch (error) {
-      console.error('❌ Error accepting call:', error);
+            if (__DEV__) {
+        console.error('❌ Error accepting call:', error)
+      };
       await endCall(callId, 'missed').catch(() => {});
       // Use reset to prevent showing verification screen again
       if (role === 'consultant') {
@@ -336,7 +422,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           });
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
+                if (__DEV__) {
+          console.error('Error fetching user data:', error)
+        };
       }
     };
     if (callId && callerId && receiverId) {
@@ -353,22 +441,30 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
     // Update WebRTC audio tracks
     audioTracks.forEach((track: any) => {
       track.enabled = !newMutedState;
-      console.log(`🎤 [Mute] Audio track ${track.id}: enabled=${!newMutedState}`);
+            if (__DEV__) {
+        console.log(`🎤 [Mute] Audio track ${track.id}: enabled=${!newMutedState}`)
+      };
     });
     
     // Sync with InCallManager
     if (InCallManager) {
       try {
         InCallManager.setMicrophoneMute(newMutedState);
-        console.log(`🎤 [Mute] InCallManager microphone muted: ${newMutedState}`);
+                if (__DEV__) {
+          console.log(`🎤 [Mute] InCallManager microphone muted: ${newMutedState}`)
+        };
       } catch (error: any) {
-        console.warn('⚠️ [Mute] Error setting InCallManager mute state:', error.message);
+                if (__DEV__) {
+          console.warn('⚠️ [Mute] Error setting InCallManager mute state:', error.message)
+        };
       }
     }
     
     setIsMuted(newMutedState);
     isMutedRef.current = newMutedState;
-    console.log(`🎤 [Mute] Mute state changed to: ${newMutedState}`);
+        if (__DEV__) {
+      console.log(`🎤 [Mute] Mute state changed to: ${newMutedState}`)
+    };
   };
 
   const handleSwitchCamera = async () => {
@@ -532,7 +628,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
 
       // Start audio session when call becomes active
       try {
-        console.log('✅ [InCallManager] Starting audio session for video call...');
+                if (__DEV__) {
+          console.log('✅ [InCallManager] Starting audio session for video call...')
+        };
         InCallManager.start({ media: 'audio', auto: true });
         // For video calls, optionally use speakerphone by default
         // User can toggle via UI if needed
@@ -542,7 +640,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           console.log('✅ [InCallManager] Audio route should be: earpiece');
         }
       } catch (error: any) {
-        console.error('❌ [InCallManager] Error starting audio session:', error.message || error);
+                if (__DEV__) {
+          console.error('❌ [InCallManager] Error starting audio session:', error.message || error)
+        };
       }
     } else {
       // Stop audio session when call is not active
@@ -582,7 +682,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         // Check if addListener method exists
         if (typeof InCallManager.addListener === 'function') {
           const subscription = InCallManager.addListener('onAudioRouteChange', (data: any) => {
-            console.log('📱 [InCallManager] Audio route changed:', data);
+                        if (__DEV__) {
+              console.log('📱 [InCallManager] Audio route changed:', data)
+            };
           });
           
           return () => {
@@ -614,7 +716,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
 
       // Prevent re-creating peer connection if it already exists
       if (pcRef.current) {
-        console.log('⚠️ Peer connection already exists, skipping creation');
+                if (__DEV__) {
+          console.log('⚠️ Peer connection already exists, skipping creation')
+        };
         return;
       }
 
@@ -627,22 +731,32 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             const callData = callDoc.data() as CallDocument;
             // If call is already active, don't create a new call - just set up video
             if (callData.status === 'active') {
-              console.log('📞 Switching from audio to video - call already active, setting up video...');
+                            if (__DEV__) {
+                console.log('📞 Switching from audio to video - call already active, setting up video...')
+              };
               // We'll create a new peer connection for video, but won't overwrite the call document
               // The call document type will remain as 'audio' but we'll add video tracks
             } else {
-              console.log('📞 Switching from audio to video - call not active yet, creating video call...');
+                            if (__DEV__) {
+                console.log('📞 Switching from audio to video - call not active yet, creating video call...')
+              };
             }
           }
         }
         
-        console.log('📞 Caller: Creating video peer connection...');
+                if (__DEV__) {
+          console.log('📞 Caller: Creating video peer connection...')
+        };
         const { pc, localDescription } = await createPeer({
           isCaller: true,
           audioOnly: false,
           onLocalStream: (stream) => {
-            console.log('✅ Local stream created for caller');
-            console.log('📹 Local stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length);
+                        if (__DEV__) {
+              console.log('✅ Local stream created for caller')
+            };
+                        if (__DEV__) {
+              console.log('📹 Local stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length)
+            };
             setLocal(stream);
             localStreamRef.current = stream;
             const hasVideoTrack = stream.getVideoTracks().length > 0;
@@ -652,66 +766,92 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             
             // 🎧 Step 1: Verify local audio track after stream creation
             const audioTracks = stream.getAudioTracks();
-            console.log('🎤 [Caller] Local stream audio tracks count:', audioTracks.length);
+                        if (__DEV__) {
+              console.log('🎤 [Caller] Local stream audio tracks count:', audioTracks.length)
+            };
             if (audioTracks.length > 0) {
               audioTracks.forEach((track: any, index: number) => {
-                console.log(`🎤 [Caller] Local audio track ${index + 1}:`, {
+                                if (__DEV__) {
+                  console.log(`🎤 [Caller] Local audio track ${index + 1}:`, {
                   id: track.id,
                   enabled: track.enabled,
                   readyState: track.readyState,
-                });
+                })
+                };
                 try {
                   const settings = track.getSettings();
-                  console.log(`🎤 [Caller] Local audio track ${index + 1} settings:`, {
+                                    if (__DEV__) {
+                    console.log(`🎤 [Caller] Local audio track ${index + 1} settings:`, {
                     sampleRate: settings.sampleRate,
                     channelCount: settings.channelCount,
-                  });
+                  })
+                  };
                 } catch (e) {
                   // Settings might not be available
                 }
               });
             } else {
-              console.error('❌ [Caller] WARNING: Local stream has no audio tracks!');
+                            if (__DEV__) {
+                console.error('❌ [Caller] WARNING: Local stream has no audio tracks!')
+              };
             }
           },
           onRemoteStream: (stream) => {
-            console.log('✅ Remote stream received by caller');
-            console.log('📹 Remote stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length);
+                        if (__DEV__) {
+              console.log('✅ Remote stream received by caller')
+            };
+                        if (__DEV__) {
+              console.log('📹 Remote stream ID:', stream.id, 'Video tracks:', stream.getVideoTracks().length)
+            };
             // Ensure video tracks are enabled
             const videoTracks = stream.getVideoTracks();
             videoTracks.forEach((track: any) => {
               track.enabled = true;
-              console.log('📹 Remote video track enabled:', track.id, track.enabled);
+                            if (__DEV__) {
+                console.log('📹 Remote video track enabled:', track.id, track.enabled)
+              };
             });
             // Update video enabled state if remote has video
             if (videoTracks.length > 0) {
               setIsVideoEnabled(true);
-              console.log('📹 Remote video detected, enabling video display');
+                            if (__DEV__) {
+                console.log('📹 Remote video detected, enabling video display')
+              };
             }
             // Verify this is different from local stream
             if (localStreamRef.current && stream.id === localStreamRef.current.id) {
-              console.error('⚠️ WARNING: Remote stream has same ID as local stream!');
+                            if (__DEV__) {
+                console.error('⚠️ WARNING: Remote stream has same ID as local stream!')
+              };
             }
             
             // 🔎 Step 3: Verify Remote Audio Tracks
             const audioTracks = stream.getAudioTracks();
-            console.log('🔎 [Caller] Remote stream audio tracks count:', audioTracks.length);
+                        if (__DEV__) {
+              console.log('🔎 [Caller] Remote stream audio tracks count:', audioTracks.length)
+            };
             if (audioTracks.length === 0) {
-              console.error('❌ [Caller] WARNING: Remote stream has no audio tracks!');
+                            if (__DEV__) {
+                console.error('❌ [Caller] WARNING: Remote stream has no audio tracks!')
+              };
             } else {
               audioTracks.forEach((track: any, index: number) => {
                 track.enabled = true;
-                console.log(`🔎 [Caller] Remote audio track ${index + 1}:`, {
+                                if (__DEV__) {
+                  console.log(`🔎 [Caller] Remote audio track ${index + 1}:`, {
                   id: track.id,
                   enabled: track.enabled,
                   readyState: track.readyState,
-                });
+                })
+                };
                 try {
                   const settings = track.getSettings();
-                  console.log(`🔎 [Caller] Remote audio track ${index + 1} settings:`, {
+                                    if (__DEV__) {
+                    console.log(`🔎 [Caller] Remote audio track ${index + 1} settings:`, {
                     sampleRate: settings.sampleRate,
                     channelCount: settings.channelCount,
-                  });
+                  })
+                  };
                 } catch (e) {
                   // Settings might not be available
                 }
@@ -721,10 +861,14 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             // Force update by setting remote stream - this triggers re-render
             setRemote(stream);
             // Log track count for debugging
-            console.log('📹 Remote stream set with', stream.getTracks().length, 'total tracks');
+                        if (__DEV__) {
+              console.log('📹 Remote stream set with', stream.getTracks().length, 'total tracks')
+            };
           },
           onIce: (c: any) => {
-            console.log('🧊 Sending ICE candidate from caller');
+                        if (__DEV__) {
+              console.log('🧊 Sending ICE candidate from caller')
+            };
             addIceCandidate(callId, callerId, c);
           },
         });
@@ -733,26 +877,42 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         // Monitor connection state to ensure audio is configured when connected
         pc.addEventListener('connectionstatechange', () => {
           const state = pc.connectionState;
-          console.log('🔌 [Caller] Connection state:', state);
+                    if (__DEV__) {
+            console.log('🔌 [Caller] Connection state:', state)
+          };
           
           if (state === 'connected') {
-            console.log('✅ [Caller] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅');
+                        if (__DEV__) {
+              console.log('✅ [Caller] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅')
+            };
           } else if (state === 'failed' || state === 'disconnected') {
-            console.error('❌ [Caller] Connection failed or disconnected:', state);
-            console.warn('⚠️ [Caller] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.');
+                        if (__DEV__) {
+              console.error('❌ [Caller] Connection failed or disconnected:', state)
+            };
+                        if (__DEV__) {
+              console.warn('⚠️ [Caller] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.')
+            };
           }
         });
         
         // Also monitor ICE connection state (separate from connection state)
         pc.addEventListener('iceconnectionstatechange', () => {
           const iceState = pc.iceConnectionState;
-          console.log('🧊 [Caller] ICE connection state:', iceState);
+                    if (__DEV__) {
+            console.log('🧊 [Caller] ICE connection state:', iceState)
+          };
           
           if (iceState === 'connected' || iceState === 'completed') {
-            console.log('✅ [Caller] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅');
+                        if (__DEV__) {
+              console.log('✅ [Caller] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅')
+            };
           } else if (iceState === 'failed') {
-            console.error('❌ [Caller] ICE connection failed');
-            console.warn('⚠️ [Caller] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.');
+                        if (__DEV__) {
+              console.error('❌ [Caller] ICE connection failed')
+            };
+                        if (__DEV__) {
+              console.warn('⚠️ [Caller] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.')
+            };
           }
         });
         
@@ -763,7 +923,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             const callData = callDoc.data() as CallDocument;
             if (callData.status === 'active') {
               // Call is already active - just update the offer for video, don't reset status
-              console.log('📞 Updating existing active call to video...');
+                            if (__DEV__) {
+                console.log('📞 Updating existing active call to video...')
+              };
               const { updateDoc, doc } = require('firebase/firestore');
               const { firestore } = require('../../../lib/firebase');
               const ref = doc(firestore, 'calls', callId);
@@ -776,16 +938,22 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
               });
             } else {
               // Call is still ringing - create video call (will overwrite audio call)
-              console.log('📞 Creating video call document (replacing audio call)...');
+                            if (__DEV__) {
+                console.log('📞 Creating video call document (replacing audio call)...')
+              };
               await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
             }
           } else {
             // Call document doesn't exist - create new video call
-            console.log('📞 Creating new video call document...');
+                        if (__DEV__) {
+              console.log('📞 Creating new video call document...')
+            };
             await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
           }
         } else {
-          console.log('📞 Creating video call document...');
+                    if (__DEV__) {
+            console.log('📞 Creating video call document...')
+          };
           await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
         }
         
@@ -798,9 +966,13 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             receiverId,
             callType: 'video',
           });
-          console.log('✅ Call notification sent to receiver');
+                    if (__DEV__) {
+            console.log('✅ Call notification sent to receiver')
+          };
         } catch (error) {
-          console.warn('⚠️ Failed to send call notification:', error);
+                    if (__DEV__) {
+            console.warn('⚠️ Failed to send call notification:', error)
+          };
         }
 
         let lastAnswerSdp: string | null = null;
@@ -819,41 +991,59 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             // Check if answer was already applied (prevent duplicate application)
             const currentState = pcRef.current.signalingState;
             if (currentState === 'stable' || currentState === 'have-remote-answer') {
-              console.log('⚠️ Caller: Answer already applied, skipping');
+                            if (__DEV__) {
+                console.log('⚠️ Caller: Answer already applied, skipping')
+              };
               return;
             }
             
             // Check if this is the same answer we already tried to apply
             const currentAnswerSdp = typeof data.answer === 'string' ? data.answer : data.answer.sdp || '';
             if (lastAnswerSdp === currentAnswerSdp) {
-              console.log('⚠️ Caller: Same answer already processed, skipping');
+                            if (__DEV__) {
+                console.log('⚠️ Caller: Same answer already processed, skipping')
+              };
               return;
             }
             lastAnswerSdp = currentAnswerSdp;
             
             try {
-              console.log('📞 Caller: Received answer, applying...');
-              console.log('📞 Caller: Answer data:', typeof data.answer, data.answer?.type || 'no type', data.answer?.sdp ? 'has SDP' : 'no SDP');
+                            if (__DEV__) {
+                console.log('📞 Caller: Received answer, applying...')
+              };
+                            if (__DEV__) {
+                console.log('📞 Caller: Answer data:', typeof data.answer, data.answer?.type || 'no type', data.answer?.sdp ? 'has SDP' : 'no SDP')
+              };
               
               // Validate answer before applying
               if (!data.answer || (typeof data.answer === 'object' && !data.answer.sdp && !data.answer.localDescription)) {
-                console.warn('⚠️ Caller: Invalid answer format, skipping');
+                                if (__DEV__) {
+                  console.warn('⚠️ Caller: Invalid answer format, skipping')
+                };
                 return;
               }
               
               await applyAnswer(pcRef.current, data.answer);
-              console.log('✅ Caller: Answer applied successfully');
+                            if (__DEV__) {
+                console.log('✅ Caller: Answer applied successfully')
+              };
               
               // Fetch and process existing ICE candidates from receiver
               // Wait a bit for the answer to be fully applied
               setTimeout(async () => {
                 try {
-                  console.log('📥 [Caller] Fetching existing ICE candidates from Firestore...');
+                                    if (__DEV__) {
+                    console.log('📥 [Caller] Fetching existing ICE candidates from Firestore...')
+                  };
                   const existingCandidates = await getExistingCandidates(callId);
-                  console.log('📥 [Caller] Found', existingCandidates.length, 'existing ICE candidates');
+                                    if (__DEV__) {
+                    console.log('📥 [Caller] Found', existingCandidates.length, 'existing ICE candidates')
+                  };
                   
                   if (existingCandidates.length === 0) {
-                    console.log('📊 [Caller] No existing ICE candidates to process');
+                                        if (__DEV__) {
+                      console.log('📊 [Caller] No existing ICE candidates to process')
+                    };
                   } else {
                     const myId = callerId;
                     const processedIds = new Set<string>();
@@ -873,25 +1063,35 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                       }
                       try {
                         await addRemoteIce(pcRef.current, c.candidate);
-                        console.log(`✅ [Caller] Processed existing ICE candidate ${processedCount + 1} from:`, c.senderId);
+                                                if (__DEV__) {
+                          console.log(`✅ [Caller] Processed existing ICE candidate ${processedCount + 1} from:`, c.senderId)
+                        };
                         processedIds.add(candidateKey);
                         processedCount++;
                       } catch (error: any) {
-                        console.error(`❌ [Caller] Error processing existing ICE candidate from ${c.senderId}:`, error.message || error);
+                                                if (__DEV__) {
+                          console.error(`❌ [Caller] Error processing existing ICE candidate from ${c.senderId}:`, error.message || error)
+                        };
                         errorCount++;
                       }
                     }
                     
-                    console.log(`📊 [Caller] ICE candidate processing summary: ${processedCount} processed, ${skippedCount} skipped (self/duplicates), ${errorCount} errors`);
+                                        if (__DEV__) {
+                      console.log(`📊 [Caller] ICE candidate processing summary: ${processedCount} processed, ${skippedCount} skipped (self/duplicates), ${errorCount} errors`)
+                    };
                   }
                   
                   // Log connection state after processing candidates
-                  console.log('🔌 [Caller] Connection state after processing ICE candidates:', {
+                                    if (__DEV__) {
+                    console.log('🔌 [Caller] Connection state after processing ICE candidates:', {
                     connectionState: pcRef.current.connectionState,
                     iceConnectionState: pcRef.current.iceConnectionState,
-                  });
+                  })
+                  };
                 } catch (error: any) {
-                  console.error('❌ [Caller] Error fetching existing ICE candidates:', error.message || error);
+                                    if (__DEV__) {
+                    console.error('❌ [Caller] Error fetching existing ICE candidates:', error.message || error)
+                  };
                 }
               }, 500);
             } catch (error: any) {
@@ -928,9 +1128,13 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                   errorMessage.includes('closed') ||
                   errorMessage.includes('InvalidStateError') ||
                   errorMessage.includes('receiver')) {
-                console.warn('⚠️ Caller: Ignoring answer error - connection state issue:', errorMessage);
+                                if (__DEV__) {
+                  console.warn('⚠️ Caller: Ignoring answer error - connection state issue:', errorMessage)
+                };
               } else {
-                console.error('❌ Caller: Error applying answer:', errorMessage);
+                                if (__DEV__) {
+                  console.error('❌ Caller: Error applying answer:', errorMessage)
+                };
               }
             }
           }
@@ -967,7 +1171,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           if (data.offer && pcRef.current && data.status === 'active') {
             const currentOfferSdp = typeof data.offer === 'string' ? data.offer : data.offer.sdp || '';
             if (lastOfferSdp && lastOfferSdp !== currentOfferSdp) {
-              console.log('🔄 [Receiver] Offer changed during active call - recreating peer connection for video');
+                            if (__DEV__) {
+                console.log('🔄 [Receiver] Offer changed during active call - recreating peer connection for video')
+              };
               try {
                 // Close old peer connection
                 if (pcRef.current) {
@@ -981,12 +1187,16 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                 }
                 
                 // Recreate peer connection with new offer (video)
-                console.log('📞 [Receiver] Creating new peer connection with video offer...');
+                                if (__DEV__) {
+                  console.log('📞 [Receiver] Creating new peer connection with video offer...')
+                };
                 const { pc, localDescription } = await createPeer({
                   isCaller: false,
                   audioOnly: false,
                   onLocalStream: (stream) => {
-                    console.log('✅ [Receiver] New local stream created for video');
+                                        if (__DEV__) {
+                      console.log('✅ [Receiver] New local stream created for video')
+                    };
                     setLocal(stream);
                     localStreamRef.current = stream;
                     const hasVideoTrack = stream.getVideoTracks().length > 0;
@@ -995,7 +1205,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                     }
                   },
                   onRemoteStream: (stream) => {
-                    console.log('✅ [Receiver] New remote stream received for video');
+                                        if (__DEV__) {
+                      console.log('✅ [Receiver] New remote stream received for video')
+                    };
                     const videoTracks = stream.getVideoTracks();
                     videoTracks.forEach((track: any) => {
                       track.enabled = true;
@@ -1019,9 +1231,13 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                   sdp: localDescription.sdp,
                 };
                 await answerCall(callId, answerToStore);
-                console.log('✅ [Receiver] New answer created and sent for video call');
+                                if (__DEV__) {
+                  console.log('✅ [Receiver] New answer created and sent for video call')
+                };
               } catch (error: any) {
-                console.error('❌ [Receiver] Error recreating peer connection:', error.message || error);
+                                if (__DEV__) {
+                  console.error('❌ [Receiver] Error recreating peer connection:', error.message || error)
+                };
               }
             }
             lastOfferSdp = currentOfferSdp;
@@ -1055,25 +1271,37 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         const roleLabel = isCaller ? 'Caller' : 'Receiver';
         if (c.senderId !== myId) {
           if (pcRef.current) {
-            console.log(`🧊 [${roleLabel}] Received ICE candidate from:`, c.senderId);
+                        if (__DEV__) {
+              console.log(`🧊 [${roleLabel}] Received ICE candidate from:`, c.senderId)
+            };
             try {
               await addRemoteIce(pcRef.current, c.candidate);
-              console.log(`✅ [${roleLabel}] ICE candidate added successfully`);
+                            if (__DEV__) {
+                console.log(`✅ [${roleLabel}] ICE candidate added successfully`)
+              };
               // Log connection state after adding candidate
-              console.log(`🔌 [${roleLabel}] Connection state after ICE candidate:`, {
+                            if (__DEV__) {
+                console.log(`🔌 [${roleLabel}] Connection state after ICE candidate:`, {
                 connectionState: pcRef.current.connectionState,
                 iceConnectionState: pcRef.current.iceConnectionState,
-              });
+              })
+              };
             } catch (error: any) {
-              console.error(`❌ [${roleLabel}] Error adding ICE candidate:`, error.message || error);
+                            if (__DEV__) {
+                console.error(`❌ [${roleLabel}] Error adding ICE candidate:`, error.message || error)
+              };
             }
           } else {
             // Queue the candidate for later processing
-            console.log(`📦 [${roleLabel}] Queueing ICE candidate (peer connection not ready yet) from:`, c.senderId);
+                        if (__DEV__) {
+              console.log(`📦 [${roleLabel}] Queueing ICE candidate (peer connection not ready yet) from:`, c.senderId)
+            };
             iceCandidateQueueRef.current.push(c);
           }
         } else {
-          console.log(`🧊 [${roleLabel}] Ignoring ICE candidate from self:`, c.senderId);
+                    if (__DEV__) {
+            console.log(`🧊 [${roleLabel}] Ignoring ICE candidate from self:`, c.senderId)
+          };
         }
       });
 
@@ -1133,7 +1361,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       const mainStreamId = mainVideoStream?.id || 'none';
       const insetStreamId = insetVideoStream?.id || 'none';
       
-      console.log('📹 Video Streams Status:', {
+            if (__DEV__) {
+        console.log('📹 Video Streams Status:', {
         hasLocal: !!local,
         hasRemote: !!remote,
         localStreamId,
@@ -1151,14 +1380,19 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         shouldShowInsetVideo,
         mainStreamURL: mainVideoStream?.toURL(),
         insetStreamURL: insetVideoStream?.toURL(),
-      });
+      })
+      };
       
       // Verify streams are different
       if (local && remote && local.id === remote.id) {
-        console.error('⚠️ CRITICAL: Local and remote streams have the same ID!');
+                if (__DEV__) {
+          console.error('⚠️ CRITICAL: Local and remote streams have the same ID!')
+        };
       }
       if (mainVideoStream && insetVideoStream && mainVideoStream.id === insetVideoStream.id && !isSwapped) {
-        console.warn('⚠️ Main and inset streams are the same when not swapped');
+                if (__DEV__) {
+          console.warn('⚠️ Main and inset streams are the same when not swapped')
+        };
       }
     }
   }, [local, remote, isSwapped, status, mainVideoStream, insetVideoStream, mainHasVideo, insetHasVideo, shouldShowMainVideo, shouldShowInsetVideo]);

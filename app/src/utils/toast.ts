@@ -119,7 +119,9 @@ export const showError = (message: string, title?: string) => {
 
 // Function to handle API errors with proper toast messages
 export const handleApiError = (error: any) => {
-  console.error('API Error:', error);
+    if (__DEV__) {
+    console.error('API Error:', error)
+  };
   
   if (error.response) {
     const status = error.response.status;

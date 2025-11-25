@@ -75,7 +75,9 @@ const HomeScreenWrapper = () => {
   
   // Debug logging for role changes
   React.useEffect(() => {
-    console.log('🔄 [HomeScreenWrapper] Role changed:', { activeRole, roles, currentRole, isRecruiter });
+        if (__DEV__) {
+      console.log('🔄 [HomeScreenWrapper] Role changed:', { activeRole, roles, currentRole, isRecruiter })
+    };
   }, [activeRole, roles, currentRole, isRecruiter]);
   
   // Conditionally render based on role, passing navigation prop

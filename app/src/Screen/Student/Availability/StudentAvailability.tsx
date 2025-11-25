@@ -77,38 +77,56 @@ const StudentAvailability = ({ navigation, route }: any) => {
   const fetchConsultantAvailability = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('📅 Fetching consultant availability for student...');
+            if (__DEV__) {
+        console.log('📅 Fetching consultant availability for student...')
+      };
       
       if (!consultantId) {
-        console.log('⚠️ No consultant ID provided');
+                if (__DEV__) {
+          console.log('⚠️ No consultant ID provided')
+        };
         Alert.alert('Error', 'No consultant selected');
         setLoading(false);
         return;
       }
       
-      console.log('🔍 Fetching availability for consultant:', consultantId);
+            if (__DEV__) {
+        console.log('🔍 Fetching availability for consultant:', consultantId)
+      };
       try {
         const response = await ConsultantService.getConsultantAvailability(consultantId);
-        console.log('✅ Availability response:', response);
+                if (__DEV__) {
+          console.log('✅ Availability response:', response)
+        };
 
         if (response?.available) {
           if (response.availabilitySlots && response.availabilitySlots.length > 0) {
             setAvailabilitySlots(response.availabilitySlots);
-            console.log('✅ Availability slots loaded:', response.availabilitySlots);
+                        if (__DEV__) {
+              console.log('✅ Availability slots loaded:', response.availabilitySlots)
+            };
           } else if (response.availability) {
             setAvailability(response.availability);
-            console.log('✅ Legacy availability loaded:', response.availability);
+                        if (__DEV__) {
+              console.log('✅ Legacy availability loaded:', response.availability)
+            };
           } else {
-            console.log('ℹ️ No explicit slots in response; treating as no availability');
+                        if (__DEV__) {
+              console.log('ℹ️ No explicit slots in response; treating as no availability')
+            };
           }
         } else {
-          console.log('⚠️ Consultant not available:', response?.message);
+                    if (__DEV__) {
+            console.log('⚠️ Consultant not available:', response?.message)
+          };
           // Non-blocking info toast instead of alert
         }
       } catch (err: any) {
         // Gracefully handle 404 (no availability configured)
         if (err?.response?.status === 404) {
-          console.log('ℹ️ Availability API returned 404 - treating as no availability.');
+                    if (__DEV__) {
+            console.log('ℹ️ Availability API returned 404 - treating as no availability.')
+          };
           setAvailabilitySlots([]);
           setAvailability(null);
         } else {
@@ -116,7 +134,9 @@ const StudentAvailability = ({ navigation, route }: any) => {
         }
       }
     } catch (error: any) {
-      console.error('❌ Error fetching consultant availability:', error);
+            if (__DEV__) {
+        console.error('❌ Error fetching consultant availability:', error)
+      };
       Alert.alert('Error', 'Failed to load consultant availability');
     } finally {
       setLoading(false);

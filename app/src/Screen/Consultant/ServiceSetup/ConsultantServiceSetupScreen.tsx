@@ -41,66 +41,100 @@ export default function ConsultantServiceSetupScreen() {
     
     // Prevent multiple simultaneous loads
     if (isLoadingRef.current) {
-      console.log('ServiceSetup - Already loading, skipping reload');
+            if (__DEV__) {
+        console.log('ServiceSetup - Already loading, skipping reload')
+      };
       return;
     }
     
     isLoadingRef.current = true;
     
-    console.log('ServiceSetup - Loading applications for user UID:', user.uid);
+        if (__DEV__) {
+      console.log('ServiceSetup - Loading applications for user UID:', user.uid)
+    };
     setIsLoading(true);
     try {
       const apps = await getConsultantApplications();
-      console.log('ServiceSetup - Received applications:', apps);
-      console.log('ServiceSetup - Applications count:', apps.length);
-      console.log('ServiceSetup - Applications details:', apps.map(app => ({ id: app.id, consultantId: app.consultantId, status: app.status })));
+            if (__DEV__) {
+        console.log('ServiceSetup - Received applications:', apps)
+      };
+            if (__DEV__) {
+        console.log('ServiceSetup - Applications count:', apps.length)
+      };
+            if (__DEV__) {
+        console.log('ServiceSetup - Applications details:', apps.map(app => ({ id: app.id, consultantId: app.consultantId, status: app.status })))
+      };
       
       // Frontend safety check: Filter applications to only include current user's applications
       const currentUserId = user?.uid;
       const filteredApps = apps?.filter(app => app.consultantId === currentUserId) || [];
-      console.log('ServiceSetup - Filtered applications for current user:', filteredApps.length);
-      console.log('ServiceSetup - Current user ID:', currentUserId);
-      console.log('ServiceSetup - Filtered applications:', JSON.stringify(filteredApps, null, 2));
+            if (__DEV__) {
+        console.log('ServiceSetup - Filtered applications for current user:', filteredApps.length)
+      };
+            if (__DEV__) {
+        console.log('ServiceSetup - Current user ID:', currentUserId)
+      };
+            if (__DEV__) {
+        console.log('ServiceSetup - Filtered applications:', JSON.stringify(filteredApps, null, 2))
+      };
       
       // Warn if backend returned applications for different users
       const otherUsersApplications = apps?.filter(app => app.consultantId !== currentUserId) || [];
       if (otherUsersApplications.length > 0) {
-        console.warn('⚠️ BACKEND ISSUE: ServiceSetup received applications for other users:', otherUsersApplications.length);
-        console.warn('⚠️ Other user IDs:', [...new Set(otherUsersApplications.map(app => app.consultantId))]);
+                if (__DEV__) {
+          console.warn('⚠️ BACKEND ISSUE: ServiceSetup received applications for other users:', otherUsersApplications.length)
+        };
+                if (__DEV__) {
+          console.warn('⚠️ Other user IDs:', [...new Set(otherUsersApplications.map(app => app.consultantId))])
+        };
       }
       
       setApplications(filteredApps);
       
       // Check if user has approved services
       const approvedApps = filteredApps.filter(app => app.status === 'approved');
-      console.log('ServiceSetup - Approved applications:', approvedApps.length);
+            if (__DEV__) {
+        console.log('ServiceSetup - Approved applications:', approvedApps.length)
+      };
       
       if (approvedApps.length > 0) {
-        console.log('ServiceSetup - Approved services found, automatically switching to consultant role');
+                if (__DEV__) {
+          console.log('ServiceSetup - Approved services found, automatically switching to consultant role')
+        };
         
         // Automatically switch to consultant role if not already
         if (activeRole !== 'consultant') {
           try {
             await switchRole('consultant');
-            console.log('ServiceSetup - Successfully switched to consultant role');
+                        if (__DEV__) {
+              console.log('ServiceSetup - Successfully switched to consultant role')
+            };
           } catch (error: any) {
-            console.error('ServiceSetup - Error switching to consultant role:', error);
+                        if (__DEV__) {
+              console.error('ServiceSetup - Error switching to consultant role:', error)
+            };
             // Continue navigation even if role switch fails
           }
         }
         
         // Navigate to consultant tabs
-        console.log('ServiceSetup - Navigating to consultant dashboard');
+                if (__DEV__) {
+          console.log('ServiceSetup - Navigating to consultant dashboard')
+        };
         (navigation as any).reset({
           index: 0,
           routes: [{ name: 'ConsultantTabs' as never }],
         });
       } else {
-        console.log('ServiceSetup - No approved services found, consultant must apply for services');
+                if (__DEV__) {
+          console.log('ServiceSetup - No approved services found, consultant must apply for services')
+        };
         // Don't redirect - consultant must apply for services first
       }
     } catch (error) {
-      console.error('ServiceSetup - Error loading applications:', error);
+            if (__DEV__) {
+        console.error('ServiceSetup - Error loading applications:', error)
+      };
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
@@ -341,7 +375,9 @@ export default function ConsultantServiceSetupScreen() {
             <TouchableOpacity
               style={styles.manualNavButton}
               onPress={() => {
-                console.log('ServiceSetup - Manual navigation to consultant app screen');
+                                if (__DEV__) {
+                  console.log('ServiceSetup - Manual navigation to consultant app screen')
+                };
                 (navigation as any).navigate('MainTabs', { role: 'consultant' });
               }}
             >

@@ -38,14 +38,18 @@ const EditProfile = ({ navigation }: any) => {
         // Prefer backend profileImage over Firebase photoURL
         const backendImageUrl = backendProfile?.profileImage || backendProfile?.avatarUrl;
         if (backendImageUrl) {
-          console.log('✅ Using backend profile image:', backendImageUrl);
+                    if (__DEV__) {
+            console.log('✅ Using backend profile image:', backendImageUrl)
+          };
           setProfileImage(backendImageUrl);
         }
       })
       .catch(error => {
         // Silently fail - we already have Firebase photoURL as fallback
         if (__DEV__ && error?.response?.status !== 404) {
-          console.log('⚠️ Failed to load backend profile:', error?.message || error);
+                    if (__DEV__) {
+            console.log('⚠️ Failed to load backend profile:', error?.message || error)
+          };
         }
       });
   }, [user]);
@@ -61,7 +65,9 @@ const EditProfile = ({ navigation }: any) => {
   // Reload profile image when user.photoURL changes (from AuthContext refreshUser)
   useEffect(() => {
     if (user?.photoURL && apiChecked) {
-      console.log('🔄 [EditProfile] user.photoURL changed, reloading image');
+            if (__DEV__) {
+        console.log('🔄 [EditProfile] user.photoURL changed, reloading image')
+      };
       loadProfileImage();
     }
   }, [user?.photoURL, apiChecked, loadProfileImage]);
@@ -84,10 +90,18 @@ const EditProfile = ({ navigation }: any) => {
       // This fixes the race condition where state hasn't updated yet
       const imageUrlToUse = newImageUrl !== undefined ? newImageUrl : profileImage;
       const isDeleting = imageUrlToUse === null;
-      console.log('📸 Updating profile image:', imageUrlToUse, isDeleting ? '(DELETING)' : '');
-      console.log('📸 Using imageUrlToUse:', imageUrlToUse);
-      console.log('📸 State profileImage:', profileImage);
-      console.log('📸 Provided newImageUrl:', newImageUrl);
+            if (__DEV__) {
+        console.log('📸 Updating profile image:', imageUrlToUse, isDeleting ? '(DELETING)' : '')
+      };
+            if (__DEV__) {
+        console.log('📸 Using imageUrlToUse:', imageUrlToUse)
+      };
+            if (__DEV__) {
+        console.log('📸 State profileImage:', profileImage)
+      };
+            if (__DEV__) {
+        console.log('📸 Provided newImageUrl:', newImageUrl)
+      };
 
       // ImageUpload component already uploads the image and returns the Cloudinary URL
       // So imageUrlToUse is already the final URL, not a file:// URI
@@ -98,13 +112,17 @@ const EditProfile = ({ navigation }: any) => {
         await updateProfile(auth.currentUser, {
           photoURL: finalImageUrl,
         });
-        console.log('✅ Firebase Auth profile updated successfully');
+                if (__DEV__) {
+          console.log('✅ Firebase Auth profile updated successfully')
+        };
       } else {
         // If profileImage is null, clear the photoURL
         await updateProfile(auth.currentUser, {
           photoURL: null,
         });
-        console.log('✅ Firebase Auth profile image cleared');
+                if (__DEV__) {
+          console.log('✅ Firebase Auth profile image cleared')
+        };
       }
 
       // Always update backend with the image URL (or null if deleted)
@@ -115,21 +133,31 @@ const EditProfile = ({ navigation }: any) => {
           ? { avatarUrl: null as null }
           : { avatarUrl: finalImageUrl };
         
-        console.log('🔄 Sending to backend:', updateData);
+                if (__DEV__) {
+          console.log('🔄 Sending to backend:', updateData)
+        };
         
         // Update backend - no need to verify since we trust the response
         await UserService.updateProfile(updateData);
-        console.log('✅ Backend profile updated successfully');
+                if (__DEV__) {
+          console.log('✅ Backend profile updated successfully')
+        };
       } catch (backendError: any) {
-        console.error('⚠️ Backend profile update failed:', backendError);
+                if (__DEV__) {
+          console.error('⚠️ Backend profile update failed:', backendError)
+        };
         throw backendError; // Re-throw to prevent navigation on error
       }
 
       // Refresh user data in parallel (don't wait for it to block navigation)
       refreshUser().then(() => {
-        console.log('✅ User data refreshed');
+                if (__DEV__) {
+          console.log('✅ User data refreshed')
+        };
       }).catch(err => {
-        console.warn('⚠️ User refresh failed (non-blocking):', err);
+                if (__DEV__) {
+          console.warn('⚠️ User refresh failed (non-blocking):', err)
+        };
       });
       
       // Update local state immediately for instant UI feedback
@@ -142,7 +170,9 @@ const EditProfile = ({ navigation }: any) => {
       // Navigate back immediately - no need to wait for reload or delays
       navigation.goBack();
     } catch (error: any) {
-      console.error('❌ Update profile error:', error);
+            if (__DEV__) {
+        console.error('❌ Update profile error:', error)
+      };
       // Don't navigate on error - let user see what went wrong
     } finally {
       setLoading(false);
@@ -167,11 +197,17 @@ const EditProfile = ({ navigation }: any) => {
           currentImageUrl={profileImage || undefined}
           currentPublicId={profileImagePublicId || undefined}
           onImageUploaded={(imageUrl, publicId) => {
-            console.log('📸 onImageUploaded called with:', { imageUrl, publicId });
-            console.log('📸 Previous profileImage:', profileImage);
+                        if (__DEV__) {
+              console.log('📸 onImageUploaded called with:', { imageUrl, publicId })
+            };
+                        if (__DEV__) {
+              console.log('📸 Previous profileImage:', profileImage)
+            };
             setProfileImage(imageUrl);
             setProfileImagePublicId(publicId);
-            console.log('📸 New profileImage set to:', imageUrl);
+                        if (__DEV__) {
+              console.log('📸 New profileImage set to:', imageUrl)
+            };
             // Auto-save when image is uploaded - pass the new URL directly to avoid race condition
             handleUpdateProfile(imageUrl);
           }}

@@ -107,7 +107,9 @@ const PostJobScreen = ({ navigation }: any) => {
       showSuccess('Job posted successfully');
       navigation.goBack();
     } catch (error: any) {
-      console.error('Error posting job:', error);
+            if (__DEV__) {
+        console.error('Error posting job:', error)
+      };
       showError(error.message || 'Failed to post job');
     } finally {
       setPosting(false);
@@ -373,3 +375,4 @@ const PostJobScreen = ({ navigation }: any) => {
 };
 
 export default PostJobScreen;
+

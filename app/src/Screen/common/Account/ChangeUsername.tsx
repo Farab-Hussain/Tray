@@ -94,7 +94,9 @@ const ChangeUsername = ({ navigation }: any) => {
         ],
       );
     } catch (error: any) {
-      console.error('❌ Change username error:', error);
+            if (__DEV__) {
+        console.error('❌ Change username error:', error)
+      };
       const errorMessage =
         error?.response?.data?.error ||
         error?.message ||

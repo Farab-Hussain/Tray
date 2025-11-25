@@ -1,47 +1,23 @@
-import { BadgeInfo, Bell, LogOut, MessageCircle, User, Star, Briefcase, CreditCard, Calendar, Clock, Wallet, Lock, UserCircle, FileText, Plus } from "lucide-react-native";
+import { BadgeInfo, Bell, LogOut, MessageCircle, FileText, Plus, UserCircle2, LayoutDashboard } from "lucide-react-native";
 
 export const ConsultantProfileListData = [
+    {
+        id: 0.5,
+        icon: UserCircle2,
+        text: "Profile",
+        route: "ConsultantProfile",
+    },
+    {
+        id: 0.6,
+        icon: LayoutDashboard,
+        text: "Dashboard",
+        route: "ConsultantDashboard",
+    },
     {
         id: 1,
         icon: MessageCircle,
         text: "Messages",
         route: "ConsultantMessages",
-    },
-    {
-        id: 2,
-        icon: User,
-        text: "My Clients",
-        route: "MyClients",
-    },
-    {
-        id: 3,
-        icon: Star,
-        text: "My Reviews",
-        route: "MyReviews",
-    },
-    {
-        id: 4,
-        icon: Briefcase,
-        text: "My Services",
-        route: "ConsultantServices",
-    },
-    {
-        id: 5,
-        icon: Calendar,
-        text: "Availability",
-        route: "ConsultantAvailability",
-    },
-    {
-        id: 6,
-        icon: CreditCard,
-        text: "Earnings",
-        route: "Earnings",
-    },
-    {
-        id: 10,
-        icon: Wallet,
-        text: "Payment Setup",
-        route: "StripePaymentSetup",
     },
     {
         id: 10.5,
@@ -66,18 +42,6 @@ export const ConsultantProfileListData = [
         icon: BadgeInfo,
         text: "Help & Support",
         route: "Help",
-    },
-    {
-        id: 11,
-        icon: Lock,
-        text: "Change Password",
-        route: "ChangePassword",
-    },
-    {
-        id: 12,
-        icon: UserCircle,
-        text: "Change Username",
-        route: "ChangeUsername",
     },
     {
         id: 9,

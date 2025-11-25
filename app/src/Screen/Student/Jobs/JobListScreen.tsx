@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import SearchBar from '../../../components/shared/SearchBar';
 import Loader from '../../../components/ui/Loader';
+import AppButton from '../../../components/ui/AppButton';
 import { JobService } from '../../../services/job.service';
 import { COLORS } from '../../../constants/core/colors';
 import { showError } from '../../../utils/toast';
@@ -63,7 +64,9 @@ const JobListScreen = ({ navigation }: any) => {
 
       setHasMore(response.pagination?.hasNextPage || false);
     } catch (error: any) {
-      console.error('Error fetching jobs:', error);
+            if (__DEV__) {
+        console.error('Error fetching jobs:', error)
+      };
       showError(error.message || 'Failed to load jobs');
     } finally {
       setLoading(false);
@@ -159,70 +162,78 @@ const JobListScreen = ({ navigation }: any) => {
           ) : (
             <>
               {jobs.map((job) => (
-                <TouchableOpacity
-                  key={job.id}
-                  onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
-                  style={styles.jobCard}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.cardHeader}>
-                    <View style={styles.titleContainer}>
-                      <Text style={styles.jobTitle} numberOfLines={2}>
-                        {job.title}
-                      </Text>
-                      <Text style={styles.companyName} numberOfLines={1}>
-                        {job.company}
-                      </Text>
+                <View key={job.id} style={styles.jobCard}>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cardHeader}>
+                      <View style={styles.titleContainer}>
+                        <Text style={styles.jobTitle} numberOfLines={2}>
+                          {job.title}
+                        </Text>
+                        <Text style={styles.companyName} numberOfLines={1}>
+                          {job.company}
+                        </Text>
+                      </View>
+                      {job.matchRating && (
+                        <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(job.matchRating) }]}>
+                          <Text style={styles.ratingText}>
+                            {getRatingLabel(job.matchRating)}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                    {job.matchRating && (
-                      <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(job.matchRating) }]}>
-                        <Text style={styles.ratingText}>
-                          {getRatingLabel(job.matchRating)}
+
+                    <View style={styles.jobInfo}>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoIcon}>📍</Text>
+                        <Text style={styles.infoText} numberOfLines={1}>{job.location}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoIcon}>💼</Text>
+                        <Text style={styles.infoText}>{job.jobType.replace('-', ' ')}</Text>
+                      </View>
+                    </View>
+
+                    {job.salaryRange && (
+                      <View style={styles.salaryContainer}>
+                        <Text style={styles.salaryText}>
+                          💰 ${job.salaryRange.min.toLocaleString()} - ${job.salaryRange.max.toLocaleString()} {job.salaryRange.currency}
                         </Text>
                       </View>
                     )}
-                  </View>
 
-                  <View style={styles.jobInfo}>
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoIcon}>📍</Text>
-                      <Text style={styles.infoText} numberOfLines={1}>{job.location}</Text>
+                    <View style={styles.skillsContainer}>
+                      {job.requiredSkills.slice(0, 3).map((skill, index) => (
+                        <View key={index} style={styles.skillTag}>
+                          <Text style={styles.skillText}>{skill}</Text>
+                        </View>
+                      ))}
+                      {job.requiredSkills.length > 3 && (
+                        <Text style={styles.moreSkillsText}>
+                          +{job.requiredSkills.length - 3} more
+                        </Text>
+                      )}
                     </View>
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoIcon}>💼</Text>
-                      <Text style={styles.infoText}>{job.jobType.replace('-', ' ')}</Text>
-                    </View>
-                  </View>
 
-                  {job.salaryRange && (
-                    <View style={styles.salaryContainer}>
-                      <Text style={styles.salaryText}>
-                        💰 ${job.salaryRange.min.toLocaleString()} - ${job.salaryRange.max.toLocaleString()} {job.salaryRange.currency}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.skillsContainer}>
-                    {job.requiredSkills.slice(0, 3).map((skill, index) => (
-                      <View key={index} style={styles.skillTag}>
-                        <Text style={styles.skillText}>{skill}</Text>
+                    {job.matchScore !== undefined && (
+                      <View style={styles.matchContainer}>
+                        <Text style={styles.matchText}>
+                          Match: {job.matchScore}/{job.requiredSkills.length} skills
+                        </Text>
                       </View>
-                    ))}
-                    {job.requiredSkills.length > 3 && (
-                      <Text style={styles.moreSkillsText}>
-                        +{job.requiredSkills.length - 3} more
-                      </Text>
                     )}
-                  </View>
+                  </TouchableOpacity>
 
-                  {job.matchScore !== undefined && (
-                    <View style={styles.matchContainer}>
-                      <Text style={styles.matchText}>
-                        Match: {job.matchScore}/{job.requiredSkills.length} skills
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                  <View style={styles.applyButtonContainer}>
+                    <AppButton
+                      title="Apply"
+                      onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
+                      style={styles.applyButton}
+                    />
+                  </View>
+                </View>
               ))}
 
               <LoadMoreButton

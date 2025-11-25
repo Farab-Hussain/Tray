@@ -29,7 +29,9 @@ const BookedConsultants = ({ navigation }: any) => {
     // Prevent rapid successive calls (debounce)
     const now = Date.now();
     if (!forceRefresh && now - lastFetchTime < 3000) {
-      console.log('🚫 [BookedConsultants] Skipping fetch - too soon since last fetch');
+            if (__DEV__) {
+        console.log('🚫 [BookedConsultants] Skipping fetch - too soon since last fetch')
+      };
       return;
     }
 
@@ -40,21 +42,31 @@ const BookedConsultants = ({ navigation }: any) => {
 
     try {
       setLoading(true);
-      console.log('📅 [BookedConsultants] Fetching my booked consultants...');
+            if (__DEV__) {
+        console.log('📅 [BookedConsultants] Fetching my booked consultants...')
+      };
       const response = await BookingService.getMyConsultants();
-      console.log('✅ [BookedConsultants] Booked consultants response:', response);
+            if (__DEV__) {
+        console.log('✅ [BookedConsultants] Booked consultants response:', response)
+      };
       
       // Extract consultants array from response
       const consultantsData = response?.consultants || response?.bookings || [];
       setBookedConsultants(consultantsData);
-      console.log(`✅ [BookedConsultants] Successfully loaded ${consultantsData.length} consultants`);
+            if (__DEV__) {
+        console.log(`✅ [BookedConsultants] Successfully loaded ${consultantsData.length} consultants`)
+      };
     } catch (error: any) {
       // Mark API as unavailable on 404 to prevent repeated calls
       if (error?.response?.status === 404) {
-        console.log('⚠️ [BookedConsultants] Bookings API not available (404) - showing empty state');
+                if (__DEV__) {
+          console.log('⚠️ [BookedConsultants] Bookings API not available (404) - showing empty state')
+        };
         setApiUnavailable(true);
       } else {
-        console.error('❌ [BookedConsultants] Error fetching booked consultants:', error?.message || error);
+                if (__DEV__) {
+          console.error('❌ [BookedConsultants] Error fetching booked consultants:', error?.message || error)
+        };
       }
       // Keep empty array on error
       setBookedConsultants([]);

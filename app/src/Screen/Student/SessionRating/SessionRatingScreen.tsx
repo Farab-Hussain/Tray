@@ -47,7 +47,9 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
           setConsultantFeedback(completion.consultantFeedback || '');
         }
       } catch (error) {
-        console.error('Error fetching session completion:', error);
+                if (__DEV__) {
+          console.error('Error fetching session completion:', error)
+        };
         Alert.alert('Error', 'Failed to load session details');
       }
     };
@@ -67,7 +69,9 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
       setCurrentStep('service');
       Alert.alert('Success', 'Consultant rating submitted! Now please rate the service.');
     } catch (error) {
-      console.error('Error rating consultant:', error);
+            if (__DEV__) {
+        console.error('Error rating consultant:', error)
+      };
       Alert.alert('Error', 'Failed to submit consultant rating');
     } finally {
       setLoading(false);
@@ -96,7 +100,9 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
         ]
       );
     } catch (error) {
-      console.error('Error rating service:', error);
+            if (__DEV__) {
+        console.error('Error rating service:', error)
+      };
       Alert.alert('Error', 'Failed to submit service rating');
     } finally {
       setLoading(false);
@@ -124,7 +130,9 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
                 'Your refund request has been submitted. The admin will review it and notify you of the decision.'
               );
             } catch (error) {
-              console.error('Error requesting refund:', error);
+                            if (__DEV__) {
+                console.error('Error requesting refund:', error)
+              };
               Alert.alert('Error', 'Failed to submit refund request');
             }
           }

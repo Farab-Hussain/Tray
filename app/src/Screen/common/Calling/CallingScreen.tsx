@@ -102,7 +102,9 @@ const CallingScreen = ({ navigation, route }: any) => {
           });
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
+                if (__DEV__) {
+          console.error('Error fetching user data:', error)
+        };
       } finally {
         setIsLoadingUser(false);
       }
@@ -133,19 +135,25 @@ const CallingScreen = ({ navigation, route }: any) => {
               );
             }
           } catch (error: any) {
-            console.warn(
+                        if (__DEV__) {
+              console.warn(
               '⚠️ [Caller] Error starting audio session:',
               error.message,
-            );
+            )
+            };
           }
         }
 
-        console.log('📞 Caller: Creating peer connection...');
+                if (__DEV__) {
+          console.log('📞 Caller: Creating peer connection...')
+        };
         const { pc, localDescription } = await createPeer({
           isCaller: true,
           audioOnly: true,
           onError: (error: string) => {
-            console.error('❌ [Caller] Peer connection error:', error);
+                        if (__DEV__) {
+              console.error('❌ [Caller] Peer connection error:', error)
+            };
             setConnectionError(error);
             Alert.alert(
               'Connection Failed',
@@ -170,23 +178,29 @@ const CallingScreen = ({ navigation, route }: any) => {
             );
           },
           onLocalStream: stream => {
-            console.log('✅ Local stream created for caller');
+                        if (__DEV__) {
+              console.log('✅ Local stream created for caller')
+            };
             setLocal(stream);
             localStreamRef.current = stream;
 
             // 🎧 Step 1: Verify local audio track after stream creation
             const audioTracks = stream.getAudioTracks();
-            console.log(
+                        if (__DEV__) {
+              console.log(
               '🎤 [Caller] Local stream audio tracks count:',
               audioTracks.length,
-            );
+            )
+            };
             if (audioTracks.length > 0) {
               audioTracks.forEach((track: any, index: number) => {
-                console.log(`🎤 [Caller] Local audio track ${index + 1}:`, {
+                                if (__DEV__) {
+                  console.log(`🎤 [Caller] Local audio track ${index + 1}:`, {
                   id: track.id,
                   enabled: track.enabled,
                   readyState: track.readyState,
-                });
+                })
+                };
                 try {
                   const settings = track.getSettings();
                   const settingsInfo: any = {};
@@ -195,49 +209,63 @@ const CallingScreen = ({ navigation, route }: any) => {
                   if (settings.channelCount !== undefined)
                     settingsInfo.channelCount = settings.channelCount;
                   if (Object.keys(settingsInfo).length > 0) {
-                    console.log(
+                                        if (__DEV__) {
+                      console.log(
                       `🎤 [Caller] Local audio track ${index + 1} settings:`,
                       settingsInfo,
-                    );
+                    )
+                    };
                   } else {
-                    console.log(
+                                        if (__DEV__) {
+                      console.log(
                       `🎤 [Caller] Local audio track ${
                         index + 1
                       } settings: (not available - normal for React Native WebRTC)`,
-                    );
+                    )
+                    };
                   }
                 } catch {
                   // Settings might not be available
                 }
               });
             } else {
-              console.error(
+                            if (__DEV__) {
+                console.error(
                 '❌ [Caller] WARNING: Local stream has no audio tracks!',
-              );
+              )
+              };
             }
           },
           onRemoteStream: stream => {
-            console.log('✅ Remote stream received by caller');
+                        if (__DEV__) {
+              console.log('✅ Remote stream received by caller')
+            };
             setRemote(stream);
             remoteStreamRef.current = stream;
             // 🔎 Step 3: Verify Remote Audio Tracks
             const audioTracks = stream.getAudioTracks();
-            console.log(
+                        if (__DEV__) {
+              console.log(
               '🔎 [Caller] Remote stream audio tracks count:',
               audioTracks.length,
-            );
+            )
+            };
             if (audioTracks.length === 0) {
-              console.error(
+                            if (__DEV__) {
+                console.error(
                 '❌ [Caller] WARNING: Remote stream has no audio tracks!',
-              );
+              )
+              };
             } else {
               audioTracks.forEach((track: any, index: number) => {
                 track.enabled = true;
-                console.log(`🔎 [Caller] Remote audio track ${index + 1}:`, {
+                                if (__DEV__) {
+                  console.log(`🔎 [Caller] Remote audio track ${index + 1}:`, {
                   id: track.id,
                   enabled: track.enabled,
                   readyState: track.readyState,
-                });
+                })
+                };
                 try {
                   const settings = track.getSettings();
                   const settingsInfo: any = {};
@@ -246,16 +274,20 @@ const CallingScreen = ({ navigation, route }: any) => {
                   if (settings.channelCount !== undefined)
                     settingsInfo.channelCount = settings.channelCount;
                   if (Object.keys(settingsInfo).length > 0) {
-                    console.log(
+                                        if (__DEV__) {
+                      console.log(
                       `🔎 [Caller] Remote audio track ${index + 1} settings:`,
                       settingsInfo,
-                    );
+                    )
+                    };
                   } else {
-                    console.log(
+                                        if (__DEV__) {
+                      console.log(
                       `🔎 [Caller] Remote audio track ${
                         index + 1
                       } settings: (not available - normal for remote tracks)`,
-                    );
+                    )
+                    };
                   }
                 } catch {
                   // Settings might not be available
@@ -288,15 +320,19 @@ const CallingScreen = ({ navigation, route }: any) => {
                   }
                 });
               } catch (error: any) {
-                console.warn(
+                                if (__DEV__) {
+                  console.warn(
                   '⚠️ [Caller] Error refreshing audio session:',
                   error.message,
-                );
+                )
+                };
               }
             }
           },
           onIce: (c: any) => {
-            console.log('🧊 Sending ICE candidate from caller');
+                        if (__DEV__) {
+              console.log('🧊 Sending ICE candidate from caller')
+            };
             addIceCandidate(callId, callerId, c);
           },
         });
@@ -309,7 +345,9 @@ const CallingScreen = ({ navigation, route }: any) => {
         // Monitor connection state to ensure audio is configured when connected
         pc.addEventListener('connectionstatechange', () => {
           const state = pc.connectionState;
-          console.log('🔌 [Caller] Connection state:', state);
+                    if (__DEV__) {
+            console.log('🔌 [Caller] Connection state:', state)
+          };
 
           if (state === 'connected') {
             wasConnected = true;
@@ -319,43 +357,55 @@ const CallingScreen = ({ navigation, route }: any) => {
               disconnectTimeout = null;
             }
             
-            console.log('✅ [Caller] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅');
+                        if (__DEV__) {
+              console.log('✅ [Caller] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅')
+            };
 
             // Ensure audio session is active when connected
             if (InCallManager && statusRef.current === 'active') {
               try {
-                console.log(
+                                if (__DEV__) {
+                  console.log(
                   '✅ [Caller] Connection established - ensuring audio session is active',
-                );
+                )
+                };
                 InCallManager.start({ media: 'audio', auto: true });
                 InCallManager.setForceSpeakerphoneOn(false);
                 InCallManager.setMicrophoneMute(isMutedRef.current);
                 InCallManager.setSpeakerphoneOn(false);
-                console.log(
+                                if (__DEV__) {
+                  console.log(
                   '✅ [Caller] Audio session reconfigured on connection',
-                );
+                )
+                };
               } catch (error: any) {
-                console.warn(
+                                if (__DEV__) {
+                  console.warn(
                   '⚠️ [Caller] Error reconfiguring audio:',
                   error.message,
-                );
+                )
+                };
               }
             }
 
             // Verify local and remote audio tracks are still active
             if (localStreamRef.current) {
               const localAudioTracks = localStreamRef.current.getAudioTracks();
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '🎤 [Caller] Local audio tracks on connection:',
                 localAudioTracks.length,
-              );
+              )
+              };
               localAudioTracks.forEach((t: any) => {
                 t.enabled = true;
-                console.log('🎤 [Caller] Local track:', {
+                                if (__DEV__) {
+                  console.log('🎤 [Caller] Local track:', {
                   id: t.id,
                   enabled: t.enabled,
                   readyState: t.readyState,
-                });
+                })
+                };
               });
             }
 
@@ -363,53 +413,69 @@ const CallingScreen = ({ navigation, route }: any) => {
             const remoteStream = remoteStreamRef.current;
             if (remoteStream) {
               const remoteAudioTracks = remoteStream.getAudioTracks();
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '🔊 [Caller] Remote audio tracks on connection:',
                 remoteAudioTracks.length,
-              );
+              )
+              };
               remoteAudioTracks.forEach((t: any) => {
                 // Explicitly enable remote audio tracks
                 t.enabled = true;
                 // Note: muted is a read-only property, we can only control enabled
-                console.log('🔊 [Caller] Remote track:', {
+                                if (__DEV__) {
+                  console.log('🔊 [Caller] Remote track:', {
                   id: t.id,
                   enabled: t.enabled,
                   readyState: t.readyState,
                   muted: t.muted, // Read-only property
-                });
+                })
+                };
               });
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '🔊 [Caller] All remote audio tracks enabled for playback',
-              );
+              )
+              };
             }
           } else if (state === 'disconnected') {
             // Only log error if we were previously connected and it stays disconnected
             if (wasConnected) {
-              console.warn(
+                            if (__DEV__) {
+                console.warn(
                 '⚠️ [Caller] Connection disconnected - waiting for recovery...',
-              );
+              )
+              };
               // Give it 5 seconds to recover before treating as failure
               disconnectTimeout = setTimeout(() => {
                 const currentState = pc.connectionState;
                 if (currentState === 'disconnected' || currentState === 'failed') {
-                  console.error(
+                                    if (__DEV__) {
+                    console.error(
                     '❌ [Caller] Connection failed after disconnection:',
                     currentState,
-                  );
-                  console.warn(
+                  )
+                  };
+                                    if (__DEV__) {
+                    console.warn(
                     '⚠️ [Caller] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.',
-                  );
+                  )
+                  };
                 }
               }, 5000);
             }
           } else if (state === 'failed') {
-            console.error(
+                        if (__DEV__) {
+              console.error(
               '❌ [Caller] Connection failed:',
               state,
-            );
-            console.warn(
+            )
+            };
+                        if (__DEV__) {
+              console.warn(
               '⚠️ [Caller] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.',
-            );
+            )
+            };
           }
         });
 
@@ -430,12 +496,16 @@ const CallingScreen = ({ navigation, route }: any) => {
             
             // Only restart if in stable state
             if (signalingState !== 'stable') {
-              console.log('⚠️ [Caller] Cannot restart ICE - signaling state:', signalingState);
+                            if (__DEV__) {
+                console.log('⚠️ [Caller] Cannot restart ICE - signaling state:', signalingState)
+              };
               return;
             }
 
             iceRestartAttempted = true;
-            console.log('🔄 [Caller] Attempting ICE restart...');
+                        if (__DEV__) {
+              console.log('🔄 [Caller] Attempting ICE restart...')
+            };
             
             // Create new offer with ICE restart
             const newOffer = await peerConnection.createOffer({ iceRestart: true });
@@ -454,9 +524,13 @@ const CallingScreen = ({ navigation, route }: any) => {
                 };
             
             await updateDoc(ref, { offer: offerToStore });
-            console.log('✅ [Caller] ICE restart - new offer created and sent');
+                        if (__DEV__) {
+              console.log('✅ [Caller] ICE restart - new offer created and sent')
+            };
           } catch (error: any) {
-            console.error('❌ [Caller] ICE restart failed:', error.message);
+                        if (__DEV__) {
+              console.error('❌ [Caller] ICE restart failed:', error.message)
+            };
             iceRestartAttempted = false; // Allow retry
           }
         };
@@ -464,7 +538,9 @@ const CallingScreen = ({ navigation, route }: any) => {
         // Also monitor ICE connection state (separate from connection state)
         pc.addEventListener('iceconnectionstatechange', () => {
           const iceState = pc.iceConnectionState;
-          console.log('🧊 [Caller] ICE connection state:', iceState);
+                    if (__DEV__) {
+            console.log('🧊 [Caller] ICE connection state:', iceState)
+          };
 
           if (iceState === 'connected' || iceState === 'completed') {
             iceWasConnected = true;
@@ -474,13 +550,17 @@ const CallingScreen = ({ navigation, route }: any) => {
               clearTimeout(iceDisconnectTimeout);
               iceDisconnectTimeout = null;
             }
-            console.log('✅ [Caller] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅');
+                        if (__DEV__) {
+              console.log('✅ [Caller] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅')
+            };
           } else if (iceState === 'disconnected') {
             // Only attempt recovery if we were previously connected
             if (iceWasConnected) {
-              console.warn(
+                            if (__DEV__) {
+                console.warn(
                 '⚠️ [Caller] ICE connection disconnected - attempting recovery...',
-              );
+              )
+              };
               // Clear any existing timeout
               if (iceDisconnectTimeout) {
                 clearTimeout(iceDisconnectTimeout);
@@ -492,22 +572,32 @@ const CallingScreen = ({ navigation, route }: any) => {
                   // Attempt ICE restart
                   await attemptIceRestart();
                 } else if (currentIceState === 'failed') {
-                  console.error('❌ [Caller] ICE connection failed after disconnection');
-                  console.warn(
+                                    if (__DEV__) {
+                    console.error('❌ [Caller] ICE connection failed after disconnection')
+                  };
+                                    if (__DEV__) {
+                    console.warn(
                     '⚠️ [Caller] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.',
-                  );
+                  )
+                  };
                 }
               }, 2000);
             }
           } else if (iceState === 'failed') {
-            console.error('❌ [Caller] ICE connection failed');
-            console.warn(
+                        if (__DEV__) {
+              console.error('❌ [Caller] ICE connection failed')
+            };
+                        if (__DEV__) {
+              console.warn(
               '⚠️ [Caller] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.',
-            );
+            )
+            };
           }
         });
 
-        console.log('📞 Creating call document...');
+                if (__DEV__) {
+          console.log('📞 Creating call document...')
+        };
         await createCall(callId, {
           callerId,
           receiverId,
@@ -534,10 +624,12 @@ const CallingScreen = ({ navigation, route }: any) => {
                   '';
               }
             } catch (callerInfoError) {
-              console.warn(
+                            if (__DEV__) {
+                console.warn(
                 '⚠️ Failed to fetch caller info for notification:',
                 callerInfoError,
-              );
+              )
+              };
             }
           }
 
@@ -558,7 +650,9 @@ const CallingScreen = ({ navigation, route }: any) => {
             senderAvatar: callerAvatar || '',
           });
         } catch (notifError) {
-          console.warn('⚠️ Failed to create call notification:', notifError);
+                    if (__DEV__) {
+            console.warn('⚠️ Failed to create call notification:', notifError)
+          };
         }
 
         // Send push notification to receiver
@@ -570,9 +664,13 @@ const CallingScreen = ({ navigation, route }: any) => {
             receiverId,
             callType: type,
           });
-          console.log('✅ Call notification sent to receiver');
+                    if (__DEV__) {
+            console.log('✅ Call notification sent to receiver')
+          };
         } catch (error) {
-          console.warn('⚠️ Failed to send call notification:', error);
+                    if (__DEV__) {
+            console.warn('⚠️ Failed to send call notification:', error)
+          };
           // Don't block call creation if notification fails
         }
 
@@ -589,30 +687,40 @@ const CallingScreen = ({ navigation, route }: any) => {
             callStatus !== 'missed'
           ) {
             try {
-              console.log('📞 Caller: Received answer, applying...');
+                            if (__DEV__) {
+                console.log('📞 Caller: Received answer, applying...')
+              };
               await applyAnswer(pcRef.current, data.answer);
-              console.log('✅ Caller: Answer applied successfully');
+                            if (__DEV__) {
+                console.log('✅ Caller: Answer applied successfully')
+              };
 
               // Fetch and process existing ICE candidates from receiver
               // Wait a bit for the answer to be fully applied
               setTimeout(async () => {
                 try {
-                  console.log(
+                                    if (__DEV__) {
+                    console.log(
                     '📥 [Caller] Fetching existing ICE candidates from Firestore...',
-                  );
+                  )
+                  };
                   const existingCandidates = await getExistingCandidates(
                     callId,
                   );
-                  console.log(
+                                    if (__DEV__) {
+                    console.log(
                     '📥 [Caller] Found',
                     existingCandidates.length,
                     'existing ICE candidates',
-                  );
+                  )
+                  };
 
                   if (existingCandidates.length === 0) {
-                    console.log(
+                                        if (__DEV__) {
+                      console.log(
                       '📊 [Caller] No existing ICE candidates to process',
-                    );
+                    )
+                    };
                   } else {
                     const myId = callerId;
                     const processedIds = new Set<string>();
@@ -634,41 +742,51 @@ const CallingScreen = ({ navigation, route }: any) => {
                       }
                       try {
                         await addRemoteIce(pcRef.current, c.candidate);
-                        console.log(
+                                                if (__DEV__) {
+                          console.log(
                           `✅ [Caller] Processed existing ICE candidate ${
                             processedCount + 1
                           } from:`,
                           c.senderId,
-                        );
+                        )
+                        };
                         processedIds.add(candidateKey);
                         processedCount++;
                       } catch (error: any) {
-                        console.error(
+                                                if (__DEV__) {
+                          console.error(
                           `❌ [Caller] Error processing existing ICE candidate from ${c.senderId}:`,
                           error.message || error,
-                        );
+                        )
+                        };
                         errorCount++;
                       }
                     }
 
-                    console.log(
+                                        if (__DEV__) {
+                      console.log(
                       `📊 [Caller] ICE candidate processing summary: ${processedCount} processed, ${skippedCount} skipped (self/duplicates), ${errorCount} errors`,
-                    );
+                    )
+                    };
                   }
 
                   // Log connection state after processing candidates
-                  console.log(
+                                    if (__DEV__) {
+                    console.log(
                     '🔌 [Caller] Connection state after processing ICE candidates:',
                     {
                       connectionState: pcRef.current.connectionState,
                       iceConnectionState: pcRef.current.iceConnectionState,
                     },
-                  );
+                  )
+                  };
                 } catch (error: any) {
-                  console.error(
+                                    if (__DEV__) {
+                    console.error(
                     '❌ [Caller] Error fetching existing ICE candidates:',
                     error.message || error,
-                  );
+                  )
+                  };
                 }
               }, 500);
             } catch (error: any) {
@@ -710,15 +828,19 @@ const CallingScreen = ({ navigation, route }: any) => {
                 errorMessage.includes('InvalidStateError') ||
                 errorMessage.includes('receiver')
               ) {
-                console.warn(
+                                if (__DEV__) {
+                  console.warn(
                   '⚠️ Caller: Ignoring answer error - connection state issue:',
                   errorMessage,
-                );
+                )
+                };
               } else {
-                console.error(
+                                if (__DEV__) {
+                  console.error(
                   '❌ Caller: Error applying answer:',
                   errorMessage,
-                );
+                )
+                };
               }
             }
           }
@@ -751,7 +873,9 @@ const CallingScreen = ({ navigation, route }: any) => {
               const currentState = pcRef.current.signalingState;
               // Only apply if we're in a state that can accept a new offer
               if (currentState === 'stable' || currentState === 'have-local-answer') {
-                console.log('📞 Receiver: Received new offer (ICE restart), applying...');
+                                if (__DEV__) {
+                  console.log('📞 Receiver: Received new offer (ICE restart), applying...')
+                };
                 await pcRef.current.setRemoteDescription(data.offer);
                 const newAnswer = await pcRef.current.createAnswer({ iceRestart: true });
                 await pcRef.current.setLocalDescription(newAnswer);
@@ -764,10 +888,14 @@ const CallingScreen = ({ navigation, route }: any) => {
                       sdp: newAnswer.sdp,
                     };
                 await answerCall(callId, answerToStore);
-                console.log('✅ Receiver: New answer created and sent for ICE restart');
+                                if (__DEV__) {
+                  console.log('✅ Receiver: New answer created and sent for ICE restart')
+                };
               }
             } catch (error: any) {
-              console.error('❌ Receiver: Error handling new offer:', error.message);
+                            if (__DEV__) {
+                console.error('❌ Receiver: Error handling new offer:', error.message)
+              };
             }
           }
 
@@ -798,40 +926,52 @@ const CallingScreen = ({ navigation, route }: any) => {
         const roleLabel = isCaller ? 'Caller' : 'Receiver';
         if (c.senderId !== myId) {
           if (pcRef.current) {
-            console.log(
+                        if (__DEV__) {
+              console.log(
               `🧊 [${roleLabel}] Received ICE candidate from:`,
               c.senderId,
-            );
+            )
+            };
             try {
               await addRemoteIce(pcRef.current, c.candidate);
-              console.log(`✅ [${roleLabel}] ICE candidate added successfully`);
+                            if (__DEV__) {
+                console.log(`✅ [${roleLabel}] ICE candidate added successfully`)
+              };
               // Log connection state after adding candidate
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 `🔌 [${roleLabel}] Connection state after ICE candidate:`,
                 {
                   connectionState: pcRef.current.connectionState,
                   iceConnectionState: pcRef.current.iceConnectionState,
                 },
-              );
+              )
+              };
             } catch (error: any) {
-              console.error(
+                            if (__DEV__) {
+                console.error(
                 `❌ [${roleLabel}] Error adding ICE candidate:`,
                 error.message || error,
-              );
+              )
+              };
             }
           } else {
             // Queue the candidate for later processing
-            console.log(
+                        if (__DEV__) {
+              console.log(
               `📦 [${roleLabel}] Queueing ICE candidate (peer connection not ready yet) from:`,
               c.senderId,
-            );
+            )
+            };
             iceCandidateQueueRef.current.push(c);
           }
         } else {
-          console.log(
+                    if (__DEV__) {
+            console.log(
             `🧊 [${roleLabel}] Ignoring ICE candidate from self:`,
             c.senderId,
-          );
+          )
+          };
         }
       });
 
@@ -907,36 +1047,50 @@ const CallingScreen = ({ navigation, route }: any) => {
   };
 
   const handleAccept = async () => {
-    console.log('🔘 [handleAccept] Accept button pressed', { callId, callerId, receiverId, hasPc: !!pcRef.current, status });
+        if (__DEV__) {
+      console.log('🔘 [handleAccept] Accept button pressed', { callId, callerId, receiverId, hasPc: !!pcRef.current, status })
+    };
     
     if (!callId || !callerId || !receiverId) {
-      console.error('❌ [handleAccept] Missing required parameters');
+            if (__DEV__) {
+        console.error('❌ [handleAccept] Missing required parameters')
+      };
       return;
     }
     
     if (pcRef.current) {
-      console.warn('⚠️ [handleAccept] Peer connection already exists - call may already be accepted');
+            if (__DEV__) {
+        console.warn('⚠️ [handleAccept] Peer connection already exists - call may already be accepted')
+      };
       return;
     }
 
     // Create peer connection and answer the call
     try {
-      console.log('📞 Accepting call...');
+            if (__DEV__) {
+        console.log('📞 Accepting call...')
+      };
 
       // Get the call document to retrieve the offer
       const callDoc = await getCallOnce(callId);
       if (!callDoc.exists()) {
-        console.error('Call document not found');
+                if (__DEV__) {
+          console.error('Call document not found')
+        };
         return;
       }
 
       const callData = callDoc.data() as CallDocument;
       if (!callData.offer) {
-        console.error('No offer found in call document');
+                if (__DEV__) {
+          console.error('No offer found in call document')
+        };
         return;
       }
 
-      console.log('📞 Creating peer connection for receiver...');
+            if (__DEV__) {
+        console.log('📞 Creating peer connection for receiver...')
+      };
 
       // Start audio session BEFORE creating peer connection
       if (InCallManager) {
@@ -951,10 +1105,12 @@ const CallingScreen = ({ navigation, route }: any) => {
             );
           }
         } catch (error: any) {
-          console.warn(
+                    if (__DEV__) {
+            console.warn(
             '⚠️ [Receiver] Error starting audio session:',
             error.message,
-          );
+          )
+          };
         }
       }
 
@@ -962,7 +1118,9 @@ const CallingScreen = ({ navigation, route }: any) => {
         isCaller: false,
         audioOnly: true,
         onError: (error: string) => {
-          console.error('❌ [Receiver] Peer connection error:', error);
+                    if (__DEV__) {
+            console.error('❌ [Receiver] Peer connection error:', error)
+          };
           setConnectionError(error);
           Alert.alert(
             'Connection Failed',
@@ -987,23 +1145,29 @@ const CallingScreen = ({ navigation, route }: any) => {
           );
         },
         onLocalStream: stream => {
-          console.log('✅ Local stream created for receiver');
+                    if (__DEV__) {
+            console.log('✅ Local stream created for receiver')
+          };
           setLocal(stream);
           localStreamRef.current = stream;
 
           // 🎧 Step 1: Verify local audio track after stream creation
           const audioTracks = stream.getAudioTracks();
-          console.log(
+                    if (__DEV__) {
+            console.log(
             '🎤 [Receiver] Local stream audio tracks count:',
             audioTracks.length,
-          );
+          )
+          };
           if (audioTracks.length > 0) {
             audioTracks.forEach((track: any, index: number) => {
-              console.log(`🎤 [Receiver] Local audio track ${index + 1}:`, {
+                            if (__DEV__) {
+                console.log(`🎤 [Receiver] Local audio track ${index + 1}:`, {
                 id: track.id,
                 enabled: track.enabled,
                 readyState: track.readyState,
-              });
+              })
+              };
               try {
                 const settings = track.getSettings();
                 const settingsInfo: any = {};
@@ -1012,49 +1176,63 @@ const CallingScreen = ({ navigation, route }: any) => {
                 if (settings.channelCount !== undefined)
                   settingsInfo.channelCount = settings.channelCount;
                 if (Object.keys(settingsInfo).length > 0) {
-                  console.log(
+                                    if (__DEV__) {
+                    console.log(
                     `🎤 [Receiver] Local audio track ${index + 1} settings:`,
                     settingsInfo,
-                  );
+                  )
+                  };
                 } else {
-                  console.log(
+                                    if (__DEV__) {
+                    console.log(
                     `🎤 [Receiver] Local audio track ${
                       index + 1
                     } settings: (not available - normal for React Native WebRTC)`,
-                  );
+                  )
+                  };
                 }
               } catch {
                 // Settings might not be available
               }
             });
           } else {
-            console.error(
+                        if (__DEV__) {
+              console.error(
               '❌ [Receiver] WARNING: Local stream has no audio tracks!',
-            );
+            )
+            };
           }
         },
         onRemoteStream: stream => {
-          console.log('✅ Remote stream received by receiver');
+                    if (__DEV__) {
+            console.log('✅ Remote stream received by receiver')
+          };
           setRemote(stream);
             remoteStreamRef.current = stream;
           // 🔎 Step 3: Verify Remote Audio Tracks
           const audioTracks = stream.getAudioTracks();
-          console.log(
+                    if (__DEV__) {
+            console.log(
             '🔎 [Receiver] Remote stream audio tracks count:',
             audioTracks.length,
-          );
+          )
+          };
           if (audioTracks.length === 0) {
-            console.error(
+                        if (__DEV__) {
+              console.error(
               '❌ [Receiver] WARNING: Remote stream has no audio tracks!',
-            );
+            )
+            };
           } else {
             audioTracks.forEach((track: any, index: number) => {
               track.enabled = true;
-              console.log(`🔎 [Receiver] Remote audio track ${index + 1}:`, {
+                            if (__DEV__) {
+                console.log(`🔎 [Receiver] Remote audio track ${index + 1}:`, {
                 id: track.id,
                 enabled: track.enabled,
                 readyState: track.readyState,
-              });
+              })
+              };
               try {
                 const settings = track.getSettings();
                 const settingsInfo: any = {};
@@ -1063,16 +1241,20 @@ const CallingScreen = ({ navigation, route }: any) => {
                 if (settings.channelCount !== undefined)
                   settingsInfo.channelCount = settings.channelCount;
                 if (Object.keys(settingsInfo).length > 0) {
-                  console.log(
+                                    if (__DEV__) {
+                    console.log(
                     `🔎 [Receiver] Remote audio track ${index + 1} settings:`,
                     settingsInfo,
-                  );
+                  )
+                  };
                 } else {
-                  console.log(
+                                    if (__DEV__) {
+                    console.log(
                     `🔎 [Receiver] Remote audio track ${
                       index + 1
                     } settings: (not available - normal for remote tracks)`,
-                  );
+                  )
+                  };
                 }
               } catch {
                 // Settings might not be available
@@ -1105,15 +1287,19 @@ const CallingScreen = ({ navigation, route }: any) => {
                 }
               });
             } catch (error: any) {
-              console.warn(
+                            if (__DEV__) {
+                console.warn(
                 '⚠️ [Receiver] Error refreshing audio session:',
                 error.message,
-              );
+              )
+              };
             }
           }
         },
         onIce: (c: any) => {
-          console.log('🧊 Sending ICE candidate from receiver');
+                    if (__DEV__) {
+            console.log('🧊 Sending ICE candidate from receiver')
+          };
           addIceCandidate(callId, receiverId, c);
         },
         offerSdp: callData.offer,
@@ -1127,9 +1313,11 @@ const CallingScreen = ({ navigation, route }: any) => {
         const processedIds = new Set<string>();
 
         // Process queued candidates
-        console.log(
+                if (__DEV__) {
+          console.log(
           `📦 [Receiver] Processing ${iceCandidateQueueRef.current.length} queued ICE candidates...`,
-        );
+        )
+        };
         for (const c of iceCandidateQueueRef.current) {
           if (
             c.senderId !== myId &&
@@ -1137,16 +1325,20 @@ const CallingScreen = ({ navigation, route }: any) => {
           ) {
             try {
               await addRemoteIce(pc, c.candidate);
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 `✅ [Receiver] Processed queued ICE candidate from:`,
                 c.senderId,
-              );
+              )
+              };
               processedIds.add(`${c.senderId}-${JSON.stringify(c.candidate)}`);
             } catch (error: any) {
-              console.error(
+                            if (__DEV__) {
+                console.error(
                 `❌ [Receiver] Error processing queued ICE candidate:`,
                 error.message || error,
-              );
+              )
+              };
             }
           }
         }
@@ -1154,16 +1346,22 @@ const CallingScreen = ({ navigation, route }: any) => {
 
         // Fetch and process existing candidates from Firestore
         try {
-          console.log(
+                    if (__DEV__) {
+            console.log(
             `📥 [Receiver] Fetching existing ICE candidates from Firestore...`,
-          );
+          )
+          };
           const existingCandidates = await getExistingCandidates(callId);
-          console.log(
+                    if (__DEV__) {
+            console.log(
             `📥 [Receiver] Found ${existingCandidates.length} existing ICE candidates`,
-          );
+          )
+          };
 
           if (existingCandidates.length === 0) {
-            console.log(`📊 [Receiver] No existing ICE candidates to process`);
+                        if (__DEV__) {
+              console.log(`📊 [Receiver] No existing ICE candidates to process`)
+            };
           } else {
             let processedCount = 0;
             let skippedCount = 0;
@@ -1183,41 +1381,51 @@ const CallingScreen = ({ navigation, route }: any) => {
               }
               try {
                 await addRemoteIce(pc, c.candidate);
-                console.log(
+                                if (__DEV__) {
+                  console.log(
                   `✅ [Receiver] Processed existing ICE candidate ${
                     processedCount + 1
                   } from:`,
                   c.senderId,
-                );
+                )
+                };
                 processedIds.add(candidateKey);
                 processedCount++;
               } catch (error: any) {
-                console.error(
+                                if (__DEV__) {
+                  console.error(
                   `❌ [Receiver] Error processing existing ICE candidate from ${c.senderId}:`,
                   error.message || error,
-                );
+                )
+                };
                 errorCount++;
               }
             }
-            console.log(
+                        if (__DEV__) {
+              console.log(
               `📊 [Receiver] ICE candidate processing summary: ${processedCount} processed, ${skippedCount} skipped (self/duplicates), ${errorCount} errors`,
-            );
+            )
+            };
           }
         } catch (error: any) {
-          console.error(
+                    if (__DEV__) {
+            console.error(
             `❌ [Receiver] Error fetching existing ICE candidates:`,
             error.message || error,
-          );
+          )
+          };
         }
 
         // Log connection state after processing all candidates
-        console.log(
+                if (__DEV__) {
+          console.log(
           `🔌 [Receiver] Connection state after processing ICE candidates:`,
           {
             connectionState: pc.connectionState,
             iceConnectionState: pc.iceConnectionState,
           },
-        );
+        )
+        };
       };
 
       // Process candidates after a short delay to ensure peer connection is fully initialized
@@ -1232,7 +1440,9 @@ const CallingScreen = ({ navigation, route }: any) => {
       // Monitor connection state to ensure audio is configured when connected
       pc.addEventListener('connectionstatechange', () => {
         const state = pc.connectionState;
-        console.log('🔌 [Receiver] Connection state:', state);
+                if (__DEV__) {
+          console.log('🔌 [Receiver] Connection state:', state)
+        };
 
         if (state === 'connected') {
           wasConnected = true;
@@ -1242,43 +1452,55 @@ const CallingScreen = ({ navigation, route }: any) => {
             disconnectTimeout = null;
           }
           
-          console.log('✅ [Receiver] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅');
+                    if (__DEV__) {
+            console.log('✅ [Receiver] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅')
+          };
 
           // Ensure audio session is active when connected
           if (InCallManager && status === 'active') {
             try {
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '✅ [Receiver] Connection established - ensuring audio session is active',
-              );
+              )
+              };
               InCallManager.start({ media: 'audio', auto: true });
               InCallManager.setForceSpeakerphoneOn(false);
               InCallManager.setMicrophoneMute(isMutedRef.current);
               InCallManager.setSpeakerphoneOn(false);
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '✅ [Receiver] Audio session reconfigured on connection',
-              );
+              )
+              };
             } catch (error: any) {
-              console.warn(
+                            if (__DEV__) {
+                console.warn(
                 '⚠️ [Receiver] Error reconfiguring audio:',
                 error.message,
-              );
+              )
+              };
             }
           }
 
           // Verify local and remote audio tracks are still active
           if (localStreamRef.current) {
             const localAudioTracks = localStreamRef.current.getAudioTracks();
-            console.log(
+                        if (__DEV__) {
+              console.log(
               '🎤 [Receiver] Local audio tracks on connection:',
               localAudioTracks.length,
-            );
+            )
+            };
             localAudioTracks.forEach((t: any) => {
               t.enabled = true;
-              console.log('🎤 [Receiver] Local track:', {
+                            if (__DEV__) {
+                console.log('🎤 [Receiver] Local track:', {
                 id: t.id,
                 enabled: t.enabled,
                 readyState: t.readyState,
-              });
+              })
+              };
             });
           }
 
@@ -1288,53 +1510,69 @@ const CallingScreen = ({ navigation, route }: any) => {
             const remoteStream = remoteStreamRef.current;
             if (remoteStream) {
               const remoteAudioTracks = remoteStream.getAudioTracks();
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '🔊 [Receiver] Remote audio tracks on connection:',
                 remoteAudioTracks.length,
-              );
+              )
+              };
               remoteAudioTracks.forEach((t: any) => {
                 t.enabled = true;
                 // Note: muted is a read-only property, we can only control enabled
-                console.log('🔊 [Receiver] Remote track:', {
+                                if (__DEV__) {
+                  console.log('🔊 [Receiver] Remote track:', {
                   id: t.id,
                   enabled: t.enabled,
                   readyState: t.readyState,
                   muted: t.muted, // Read-only property
-                });
+                })
+                };
               });
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '🔊 [Receiver] All remote audio tracks enabled for playback',
-              );
+              )
+              };
             }
           }, 500);
         } else if (state === 'disconnected') {
           // Only log error if we were previously connected and it stays disconnected
           if (wasConnected) {
-            console.warn(
+                        if (__DEV__) {
+              console.warn(
               '⚠️ [Receiver] Connection disconnected - waiting for recovery...',
-            );
+            )
+            };
             // Give it 5 seconds to recover before treating as failure
             disconnectTimeout = setTimeout(() => {
               const currentState = pc.connectionState;
               if (currentState === 'disconnected' || currentState === 'failed') {
-                console.error(
+                                if (__DEV__) {
+                  console.error(
                   '❌ [Receiver] Connection failed after disconnection:',
                   currentState,
-                );
-                console.warn(
+                )
+                };
+                                if (__DEV__) {
+                  console.warn(
                   '⚠️ [Receiver] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.',
-                );
+                )
+                };
               }
             }, 5000);
           }
         } else if (state === 'failed') {
-          console.error(
+                    if (__DEV__) {
+            console.error(
             '❌ [Receiver] Connection failed:',
             state,
-          );
-          console.warn(
+          )
+          };
+                    if (__DEV__) {
+            console.warn(
             '⚠️ [Receiver] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.',
-          );
+          )
+          };
         }
       });
 
@@ -1355,12 +1593,16 @@ const CallingScreen = ({ navigation, route }: any) => {
           
           // Only restart if in stable state
           if (signalingState !== 'stable') {
-            console.log('⚠️ [Receiver] Cannot restart ICE - signaling state:', signalingState);
+                        if (__DEV__) {
+              console.log('⚠️ [Receiver] Cannot restart ICE - signaling state:', signalingState)
+            };
             return;
           }
 
           iceRestartAttempted = true;
-          console.log('🔄 [Receiver] Attempting ICE restart...');
+                    if (__DEV__) {
+            console.log('🔄 [Receiver] Attempting ICE restart...')
+          };
           
           // Create new answer with ICE restart
           const newAnswer = await peerConnection.createAnswer({ iceRestart: true });
@@ -1375,9 +1617,13 @@ const CallingScreen = ({ navigation, route }: any) => {
               };
           
           await answerCall(callId, answerToStore);
-          console.log('✅ [Receiver] ICE restart - new answer created and sent');
+                    if (__DEV__) {
+            console.log('✅ [Receiver] ICE restart - new answer created and sent')
+          };
         } catch (error: any) {
-          console.error('❌ [Receiver] ICE restart failed:', error.message);
+                    if (__DEV__) {
+            console.error('❌ [Receiver] ICE restart failed:', error.message)
+          };
           iceRestartAttempted = false; // Allow retry
         }
       };
@@ -1385,7 +1631,9 @@ const CallingScreen = ({ navigation, route }: any) => {
       // Also monitor ICE connection state (separate from connection state)
       pc.addEventListener('iceconnectionstatechange', () => {
         const iceState = pc.iceConnectionState;
-        console.log('🧊 [Receiver] ICE connection state:', iceState);
+                if (__DEV__) {
+          console.log('🧊 [Receiver] ICE connection state:', iceState)
+        };
 
         if (iceState === 'connected' || iceState === 'completed') {
           iceWasConnected = true;
@@ -1395,13 +1643,17 @@ const CallingScreen = ({ navigation, route }: any) => {
             clearTimeout(iceDisconnectTimeout);
             iceDisconnectTimeout = null;
           }
-          console.log('✅ [Receiver] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅');
+                    if (__DEV__) {
+            console.log('✅ [Receiver] ✅✅✅ ICE CONNECTION ESTABLISHED ✅✅✅')
+          };
         } else if (iceState === 'disconnected') {
           // Only attempt recovery if we were previously connected
           if (iceWasConnected) {
-            console.warn(
+                        if (__DEV__) {
+              console.warn(
               '⚠️ [Receiver] ICE connection disconnected - attempting recovery...',
-            );
+            )
+            };
             // Clear any existing timeout
             if (iceDisconnectTimeout) {
               clearTimeout(iceDisconnectTimeout);
@@ -1413,22 +1665,32 @@ const CallingScreen = ({ navigation, route }: any) => {
                 // Attempt ICE restart
                 await attemptIceRestart();
               } else if (currentIceState === 'failed') {
-                console.error('❌ [Receiver] ICE connection failed after disconnection');
-                console.warn(
+                                if (__DEV__) {
+                  console.error('❌ [Receiver] ICE connection failed after disconnection')
+                };
+                                if (__DEV__) {
+                  console.warn(
                   '⚠️ [Receiver] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.',
-                );
+                )
+                };
               }
             }, 2000);
           }
         } else if (iceState === 'failed') {
-          console.error('❌ [Receiver] ICE connection failed');
-          console.warn(
+                    if (__DEV__) {
+            console.error('❌ [Receiver] ICE connection failed')
+          };
+                    if (__DEV__) {
+            console.warn(
             '⚠️ [Receiver] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.',
-          );
+          )
+          };
         }
       });
 
-      console.log('📞 Answering call...');
+            if (__DEV__) {
+        console.log('📞 Answering call...')
+      };
       // Serialize the answer for Firestore storage
       const answerToStore = localDescription.toJSON
         ? localDescription.toJSON()
@@ -1439,9 +1701,13 @@ const CallingScreen = ({ navigation, route }: any) => {
       await answerCall(callId, answerToStore);
       setStatus('active');
       statusRef.current = 'active';
-      console.log('✅ Call accepted successfully');
+            if (__DEV__) {
+        console.log('✅ Call accepted successfully')
+      };
     } catch (error) {
-      console.error('❌ Error accepting call:', error);
+            if (__DEV__) {
+        console.error('❌ Error accepting call:', error)
+      };
       await endCall(callId, 'missed').catch(() => {});
       // Use reset to prevent showing verification screen again
       if (role === 'consultant') {
@@ -1467,29 +1733,37 @@ const CallingScreen = ({ navigation, route }: any) => {
     // Update WebRTC audio tracks
     audioTracks.forEach((track: any) => {
       track.enabled = !newMutedState;
-      console.log(
+            if (__DEV__) {
+        console.log(
         `🎤 [Mute] Audio track ${track.id}: enabled=${!newMutedState}`,
-      );
+      )
+      };
     });
 
     // Sync with InCallManager
     if (InCallManager) {
       try {
         InCallManager.setMicrophoneMute(newMutedState);
-        console.log(
+                if (__DEV__) {
+          console.log(
           `🎤 [Mute] InCallManager microphone muted: ${newMutedState}`,
-        );
+        )
+        };
       } catch (error: any) {
-        console.warn(
+                if (__DEV__) {
+          console.warn(
           '⚠️ [Mute] Error setting InCallManager mute state:',
           error.message,
-        );
+        )
+        };
       }
     }
 
     setIsMuted(newMutedState);
     isMutedRef.current = newMutedState;
-    console.log(`🎤 [Mute] Mute state changed to: ${newMutedState}`);
+        if (__DEV__) {
+      console.log(`🎤 [Mute] Mute state changed to: ${newMutedState}`)
+    };
   };
 
   // 📱 Step 2: Verify InCallManager Session Starts
@@ -1512,7 +1786,9 @@ const CallingScreen = ({ navigation, route }: any) => {
 
       // Start audio session when call becomes active
       try {
-        console.log('✅ [InCallManager] Starting audio session...');
+                if (__DEV__) {
+          console.log('✅ [InCallManager] Starting audio session...')
+        };
         InCallManager.start({ media: 'audio', auto: true });
         // Use earpiece (receiver) by default for audio calls, user can toggle if needed
         InCallManager.setForceSpeakerphoneOn(false);
@@ -1525,10 +1801,12 @@ const CallingScreen = ({ navigation, route }: any) => {
           console.log('✅ [InCallManager] Audio route should be: earpiece');
         }
       } catch (error: any) {
-        console.error(
+                if (__DEV__) {
+          console.error(
           '❌ [InCallManager] Error starting audio session:',
           error.message || error,
-        );
+        )
+        };
       }
     } else {
       // Stop audio session when call is not active
@@ -1590,10 +1868,12 @@ const CallingScreen = ({ navigation, route }: any) => {
               InCallManager.setMicrophoneMute(isMutedRef.current);
               InCallManager.setSpeakerphoneOn(false);
             } catch (error: any) {
-              console.warn(
+                            if (__DEV__) {
+                console.warn(
                 '⚠️ [Audio Playback] Error configuring audio session:',
                 error.message,
-              );
+              )
+              };
             }
           }
 
@@ -1611,9 +1891,11 @@ const CallingScreen = ({ navigation, route }: any) => {
               }
             });
             if (audioConfigured && __DEV__) {
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 `🔊 [Audio Playback] ${remoteAudioTracks.length} remote audio track(s) enabled for playback`,
-              );
+              )
+              };
             }
           }
         }
@@ -1638,20 +1920,23 @@ const CallingScreen = ({ navigation, route }: any) => {
       const iceConnectionState = pc.iceConnectionState;
       const roleLabel = isCaller ? 'Caller' : 'Receiver';
 
-      console.log(`🔍 [${roleLabel}] [Audio Check] Connection status:`, {
+            if (__DEV__) {
+        console.log(`🔍 [${roleLabel}] [Audio Check] Connection status:`, {
         connectionState,
         iceConnectionState,
         hasRemoteStream: !!remoteStream,
         remoteAudioTracks: remoteStream ? remoteStream.getAudioTracks().length : 0,
         hasLocalStream: !!localStreamRef.current,
         localAudioTracks: localStreamRef.current?.getAudioTracks().length || 0,
-      });
+      })
+      };
 
       // Verify remote audio tracks
       const remoteAudioTracks = remoteStream.getAudioTracks();
       if (remoteAudioTracks.length > 0) {
         remoteAudioTracks.forEach((track: any, index: number) => {
-          console.log(
+                    if (__DEV__) {
+            console.log(
             `🔊 [${roleLabel}] [Audio Check] Remote track ${index + 1}:`,
             {
               id: track.id,
@@ -1659,12 +1944,15 @@ const CallingScreen = ({ navigation, route }: any) => {
               readyState: track.readyState,
               muted: track.muted,
             },
-          );
+          )
+          };
         });
       } else {
-        console.warn(
+                if (__DEV__) {
+          console.warn(
           `⚠️ [${roleLabel}] [Audio Check] No remote audio tracks found!`,
-        );
+        )
+        };
       }
 
       // Verify local audio tracks
@@ -1672,7 +1960,8 @@ const CallingScreen = ({ navigation, route }: any) => {
         const localAudioTracks = localStreamRef.current.getAudioTracks();
         if (localAudioTracks.length > 0) {
           localAudioTracks.forEach((track: any, index: number) => {
-            console.log(
+                        if (__DEV__) {
+              console.log(
               `🎤 [${roleLabel}] [Audio Check] Local track ${index + 1}:`,
               {
                 id: track.id,
@@ -1680,12 +1969,15 @@ const CallingScreen = ({ navigation, route }: any) => {
                 readyState: track.readyState,
                 muted: track.muted,
               },
-            );
+            )
+            };
           });
         } else {
-          console.warn(
+                    if (__DEV__) {
+            console.warn(
             `⚠️ [${roleLabel}] [Audio Check] No local audio tracks found!`,
-          );
+          )
+          };
         }
       }
 
@@ -1695,10 +1987,12 @@ const CallingScreen = ({ navigation, route }: any) => {
         connectionState !== 'connecting' &&
         connectionState !== 'new'
       ) {
-        console.warn(
+                if (__DEV__) {
+          console.warn(
           `⚠️ [${roleLabel}] Connection state is not connected/connecting/new:`,
           connectionState,
-        );
+        )
+        };
       }
       if (
         iceConnectionState !== 'connected' &&
@@ -1706,10 +2000,12 @@ const CallingScreen = ({ navigation, route }: any) => {
         iceConnectionState !== 'checking' &&
         iceConnectionState !== 'new'
       ) {
-        console.warn(
+                if (__DEV__) {
+          console.warn(
           `⚠️ [${roleLabel}] ICE connection state is not connected/completed/checking/new:`,
           iceConnectionState,
-        );
+        )
+        };
       }
     }
   }, [status, isCaller, connectionError, navigation]);
@@ -1726,18 +2022,22 @@ const CallingScreen = ({ navigation, route }: any) => {
 
           // Only log if state changes or if stuck in connecting/checking for a while
           if (connectionState === 'connecting' || connectionState === 'new') {
-            console.log(
+                        if (__DEV__) {
+              console.log(
               `⏱️ [${roleLabel}] Connection still ${connectionState}, ICE: ${iceConnectionState}`,
-            );
+            )
+            };
           }
 
           if (
             iceConnectionState === 'checking' ||
             iceConnectionState === 'new'
           ) {
-            console.log(
+                        if (__DEV__) {
+              console.log(
               `⏱️ [${roleLabel}] ICE still ${iceConnectionState}, Connection: ${connectionState}`,
-            );
+            )
+            };
           }
 
           // Log if connection fails
@@ -1745,13 +2045,17 @@ const CallingScreen = ({ navigation, route }: any) => {
             connectionState === 'failed' ||
             connectionState === 'disconnected'
           ) {
-            console.error(
+                        if (__DEV__) {
+              console.error(
               `❌ [${roleLabel}] Connection failed:`,
               connectionState,
-            );
-            console.warn(
+            )
+            };
+                        if (__DEV__) {
+              console.warn(
               `⚠️ [${roleLabel}] Connection failure may be due to NAT traversal issues. TURN servers are required for devices behind firewalls/symmetric NATs.`,
-            );
+            )
+            };
             clearInterval(interval);
 
             // Show user-friendly error alert (only once)
@@ -1779,13 +2083,17 @@ const CallingScreen = ({ navigation, route }: any) => {
           }
 
           if (iceConnectionState === 'failed') {
-            console.error(
+                        if (__DEV__) {
+              console.error(
               `❌ [${roleLabel}] ICE connection failed:`,
               iceConnectionState,
-            );
-            console.warn(
+            )
+            };
+                        if (__DEV__) {
+              console.warn(
               `⚠️ [${roleLabel}] ICE failure likely due to NAT traversal. TURN servers are required for production use when devices are behind firewalls or symmetric NATs.`,
-            );
+            )
+            };
             clearInterval(interval);
 
             // Show user-friendly error alert (only once)
@@ -1818,7 +2126,9 @@ const CallingScreen = ({ navigation, route }: any) => {
             (iceConnectionState === 'connected' ||
               iceConnectionState === 'completed')
           ) {
-            console.log(`✅ [${roleLabel}] Connection fully established!`);
+                        if (__DEV__) {
+              console.log(`✅ [${roleLabel}] Connection fully established!`)
+            };
             clearInterval(interval);
           }
         }
@@ -1839,7 +2149,9 @@ const CallingScreen = ({ navigation, route }: any) => {
           const subscription = InCallManager.addListener(
             'onAudioRouteChange',
             (data: any) => {
-              console.log('📱 [InCallManager] Audio route changed:', data);
+                            if (__DEV__) {
+                console.log('📱 [InCallManager] Audio route changed:', data)
+              };
               // Expected: Audio route changed: { name: 'Speaker' } or { name: 'Earpiece' }
             },
           );
@@ -1848,10 +2160,12 @@ const CallingScreen = ({ navigation, route }: any) => {
           try {
             if (typeof InCallManager.getAudioRoute === 'function') {
               const currentRoute = InCallManager.getAudioRoute();
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '📱 [InCallManager] Current audio route:',
                 currentRoute,
-              );
+              )
+              };
             }
           } catch {
             // getAudioRoute might not be available in all versions

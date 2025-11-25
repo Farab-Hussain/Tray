@@ -24,9 +24,13 @@ const ConsultantReviews = ({ navigation }: any) => {
         setLoading(true);
       }
       
-      console.log('📋 Fetching reviews for consultant:', user.uid);
+            if (__DEV__) {
+        console.log('📋 Fetching reviews for consultant:', user.uid)
+      };
       const response = await ReviewService.getConsultantReviews(user.uid, pageNum, 20);
-      console.log('✅ Consultant reviews response:', response);
+            if (__DEV__) {
+        console.log('✅ Consultant reviews response:', response)
+      };
       
       const reviewsData = response?.reviews || [];
       
@@ -36,9 +40,13 @@ const ConsultantReviews = ({ navigation }: any) => {
         setReviews(reviewsData);
       }
     } catch (error: any) {
-      console.error('❌ Error fetching consultant reviews:', error);
+            if (__DEV__) {
+        console.error('❌ Error fetching consultant reviews:', error)
+      };
       if (error?.response?.status === 404) {
-        console.log('⚠️ Consultant reviews API not available (404)');
+                if (__DEV__) {
+          console.log('⚠️ Consultant reviews API not available (404)')
+        };
       }
       if (!append) {
         setReviews([]);

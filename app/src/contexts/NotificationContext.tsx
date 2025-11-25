@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useRef,
   useState,
+  useCallback,
 } from 'react';
 import { useAuth } from './AuthContext';
 import * as NotificationService from '../services/notification.service';
@@ -42,49 +43,65 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Log provider mount
   useEffect(() => {
-    console.log('🔔 [NotificationContext] Provider mounted');
+        if (__DEV__) {
+      console.log('🔔 [NotificationContext] Provider mounted')
+    };
     return () => {
-      console.log('🔔 [NotificationContext] Provider unmounting');
+            if (__DEV__) {
+        console.log('🔔 [NotificationContext] Provider unmounting')
+      };
     };
   }, []);
 
   useEffect(() => {
-    console.log(
+        if (__DEV__) {
+      console.log(
       '🔔 [NotificationContext] Effect triggered - user:',
       user?.uid || 'null',
-    );
+    )
+    };
 
     if (!user?.uid) {
-      console.log(
+            if (__DEV__) {
+        console.log(
         '⏳ [NotificationContext] Waiting for user authentication...',
-      );
+      )
+      };
       // Clear handled calls when user logs out
       handledCallsRef.current.clear();
       return;
     }
 
-    console.log(
+        if (__DEV__) {
+      console.log(
       '🔔 [NotificationContext] User authenticated, initializing notifications for:',
       user.uid,
-    );
+    )
+    };
     
     // Clear handled calls when user changes (in case user switches accounts)
     handledCallsRef.current.clear();
 
     // Setup global incoming call listener (Firestore-based) - ALWAYS set up, regardless of FCM token
     // This is critical for incoming calls to work
-    console.log('📞 [NotificationContext] Setting up incoming call listener for user:', user.uid);
-    console.log('📞 [NotificationContext] Receiver ID for incoming calls:', user.uid);
+        if (__DEV__) {
+      console.log('📞 [NotificationContext] Setting up incoming call listener for user:', user.uid)
+    };
+        if (__DEV__) {
+      console.log('📞 [NotificationContext] Receiver ID for incoming calls:', user.uid)
+    };
     
     try {
       const unsubscribeIncomingCalls = listenIncomingCalls(user.uid, async (callId, callData) => {
-        console.log('📞 [NotificationContext] ⚡ INCOMING CALL DETECTED VIA FIRESTORE!', {
+                if (__DEV__) {
+          console.log('📞 [NotificationContext] ⚡ INCOMING CALL DETECTED VIA FIRESTORE!', {
           callId,
           callerId: callData.callerId,
           receiverId: callData.receiverId,
           type: callData.type,
           status: callData.status,
-        });
+        })
+        };
 
         // Check current call status in Firestore to avoid race conditions
         try {
@@ -93,30 +110,40 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           if (callDoc.exists()) {
             const currentCallData = callDoc.data();
             const currentStatus = currentCallData?.status;
-            console.log('📞 [NotificationContext] Current call status in Firestore:', currentStatus);
+                        if (__DEV__) {
+              console.log('📞 [NotificationContext] Current call status in Firestore:', currentStatus)
+            };
             
             // If call is already active, ended, or missed, don't navigate
             if (currentStatus === 'active' || currentStatus === 'ended' || currentStatus === 'missed') {
-              console.log('📞 [NotificationContext] Call is already', currentStatus, '- skipping navigation');
+                            if (__DEV__) {
+                console.log('📞 [NotificationContext] Call is already', currentStatus, '- skipping navigation')
+              };
               handledCallsRef.current.add(callId);
               return;
             }
           }
         } catch (error: any) {
-          console.warn('⚠️ [NotificationContext] Error checking call status:', error);
+                    if (__DEV__) {
+            console.warn('⚠️ [NotificationContext] Error checking call status:', error)
+          };
           // Continue anyway - might be a network issue
         }
 
         // Only navigate if call is still ringing (not already answered/ended)
         if (callData.status !== 'ringing') {
-          console.log('📞 [NotificationContext] Call is not ringing anymore, skipping navigation');
+                    if (__DEV__) {
+            console.log('📞 [NotificationContext] Call is not ringing anymore, skipping navigation')
+          };
           // Keep in handled set if call is active or ended (prevent re-navigation)
           if (callData.status === 'active' || callData.status === 'ended' || callData.status === 'missed') {
             handledCallsRef.current.add(callId);
             // Remove after 60 seconds to allow new calls with same ID
             setTimeout(() => {
               handledCallsRef.current.delete(callId);
-              console.log('📞 [NotificationContext] Removed ended/active call from handled set:', callId);
+                            if (__DEV__) {
+                console.log('📞 [NotificationContext] Removed ended/active call from handled set:', callId)
+              };
             }, 60000);
           }
           return;
@@ -124,7 +151,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Check if we've already handled this call
         if (handledCallsRef.current.has(callId)) {
-          console.log('📞 [NotificationContext] Call already handled, skipping navigation:', callId);
+                    if (__DEV__) {
+            console.log('📞 [NotificationContext] Call already handled, skipping navigation:', callId)
+          };
           return;
         }
 
@@ -134,25 +163,33 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           
           // Check if we're already on this specific call screen
           const currentRoute = getCurrentRoute?.();
-          console.log('📞 [NotificationContext] Current route:', currentRoute?.name, currentRoute?.params);
+                    if (__DEV__) {
+            console.log('📞 [NotificationContext] Current route:', currentRoute?.name, currentRoute?.params)
+          };
           
           if (currentRoute?.name === 'CallingScreen' || currentRoute?.name === 'VideoCallingScreen') {
             // Check if it's the same call
             const currentCallId = currentRoute?.params?.callId;
             if (currentCallId === callId) {
-              console.log('📞 [NotificationContext] Already on this call screen, skipping navigation');
+                            if (__DEV__) {
+                console.log('📞 [NotificationContext] Already on this call screen, skipping navigation')
+              };
               // Mark as handled and keep it in the set until call ends
               handledCallsRef.current.add(callId);
               // Don't remove it automatically - let it stay until call ends
               return;
             }
             // If it's a different call, we might want to navigate anyway
-            console.log('📞 [NotificationContext] Different call detected, navigating to new call');
+                        if (__DEV__) {
+              console.log('📞 [NotificationContext] Different call detected, navigating to new call')
+            };
           }
 
           const screenName = callData.type === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
           
-          console.log('📞 [NotificationContext] ⚡ NAVIGATING TO CALLING SCREEN:', screenName);
+                    if (__DEV__) {
+            console.log('📞 [NotificationContext] ⚡ NAVIGATING TO CALLING SCREEN:', screenName)
+          };
           
           // Mark this call as handled immediately - don't remove it automatically
           // It will be removed when call status changes to active/ended/missed
@@ -169,13 +206,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
             },
           });
           
-          console.log('✅ [NotificationContext] ⚡ NAVIGATED TO CALLING SCREEN');
+                    if (__DEV__) {
+            console.log('✅ [NotificationContext] ⚡ NAVIGATED TO CALLING SCREEN')
+          };
           
           // Keep call in handled set - it will be removed when status changes to active/ended
           // Don't auto-remove it, as that allows the same call to trigger navigation again
         } catch (navError: any) {
-          console.error('❌ [NotificationContext] Error navigating:', navError);
-          console.error('❌ [NotificationContext] Navigation error details:', navError.message, navError.stack);
+                    if (__DEV__) {
+            console.error('❌ [NotificationContext] Error navigating:', navError)
+          };
+                    if (__DEV__) {
+            console.error('❌ [NotificationContext] Navigation error details:', navError.message, navError.stack)
+          };
           // Remove from handled set on error so we can retry
           handledCallsRef.current.delete(callId);
           // Retry navigation
@@ -188,19 +231,25 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
               if (currentRoute?.name === 'CallingScreen' || currentRoute?.name === 'VideoCallingScreen') {
                 const currentCallId = currentRoute?.params?.callId;
                 if (currentCallId === callId) {
-                  console.log('📞 [NotificationContext] Already on call screen during retry, skipping');
+                                    if (__DEV__) {
+                    console.log('📞 [NotificationContext] Already on call screen during retry, skipping')
+                  };
                   handledCallsRef.current.add(callId);
                   return;
                 }
               }
               
               if (handledCallsRef.current.has(callId)) {
-                console.log('📞 [NotificationContext] Call already handled during retry, skipping');
+                                if (__DEV__) {
+                  console.log('📞 [NotificationContext] Call already handled during retry, skipping')
+                };
                 return;
               }
               
               const screenName = callData.type === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
-              console.log('📞 [NotificationContext] Retrying navigation to:', screenName);
+                            if (__DEV__) {
+                console.log('📞 [NotificationContext] Retrying navigation to:', screenName)
+              };
               
               handledCallsRef.current.add(callId);
               navigate('Screen', {
@@ -212,44 +261,64 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
                   receiverId: user.uid,
                 },
               });
-              console.log('✅ [NotificationContext] Retry navigation successful');
+                            if (__DEV__) {
+                console.log('✅ [NotificationContext] Retry navigation successful')
+              };
             } catch (retryError: any) {
-              console.error('❌ [NotificationContext] Retry navigation failed:', retryError);
+                            if (__DEV__) {
+                console.error('❌ [NotificationContext] Retry navigation failed:', retryError)
+              };
               handledCallsRef.current.delete(callId);
             }
           }, 500);
         }
       });
       cleanupRef.current.push(unsubscribeIncomingCalls);
-      console.log('✅ [NotificationContext] Incoming call listener set up successfully');
+            if (__DEV__) {
+        console.log('✅ [NotificationContext] Incoming call listener set up successfully')
+      };
     } catch (listenerError: any) {
-      console.error('❌ [NotificationContext] Error setting up incoming call listener:', listenerError);
-      console.error('❌ [NotificationContext] Listener error details:', listenerError.message, listenerError.code);
+            if (__DEV__) {
+        console.error('❌ [NotificationContext] Error setting up incoming call listener:', listenerError)
+      };
+            if (__DEV__) {
+        console.error('❌ [NotificationContext] Listener error details:', listenerError.message, listenerError.code)
+      };
       // If Firestore listener fails (e.g., index not ready), we'll rely on push notifications
       if (listenerError.code === 'failed-precondition') {
-        console.warn('⚠️ [NotificationContext] Firestore index not ready. Incoming calls will work via push notifications.');
+                if (__DEV__) {
+          console.warn('⚠️ [NotificationContext] Firestore index not ready. Incoming calls will work via push notifications.')
+        };
       }
     }
 
     const initializeNotifications = async () => {
       try {
         // Request permission and get FCM token
-        console.log('📱 [NotificationContext] Requesting FCM token...');
+                if (__DEV__) {
+          console.log('📱 [NotificationContext] Requesting FCM token...')
+        };
         const fcmToken = await NotificationService.getFCMToken();
 
         if (fcmToken) {
-          console.log(
+                    if (__DEV__) {
+            console.log(
             '✅ [NotificationContext] FCM token obtained:',
             fcmToken.substring(0, 20) + '...',
-          );
-          console.log(
+          )
+          };
+                    if (__DEV__) {
+            console.log(
             '📤 [NotificationContext] Registering token with backend...',
-          );
+          )
+          };
           // Register token with backend
           await NotificationService.registerFCMToken(fcmToken);
-          console.log(
+                    if (__DEV__) {
+            console.log(
             '✅ [NotificationContext] FCM token registration completed',
-          );
+          )
+          };
 
           // Setup token refresh listener
           const unsubscribeTokenRefresh =
@@ -264,26 +333,32 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           // Setup notification opened handler
           const unsubscribeNotificationOpened =
             NotificationService.setupNotificationOpenedHandler(data => {
-              console.log(
+                            if (__DEV__) {
+                console.log(
                 '📨 [NotificationContext] Notification opened with data:',
                 data,
-              );
+              )
+              };
               // Navigate to chat screen or refresh chat list
               if (data?.chatId) {
                 // You can navigate to the chat here
-                console.log(
+                                if (__DEV__) {
+                  console.log(
                   '📨 [NotificationContext] Should navigate to chat:',
                   data.chatId,
-                );
+                )
+                };
               }
               // Refresh chats
               refreshChats();
             });
           cleanupRef.current.push(unsubscribeNotificationOpened);
 
-          console.log(
+                    if (__DEV__) {
+            console.log(
             '✅ [NotificationContext] Notification handlers set up successfully',
-          );
+          )
+          };
         } else {
           if (__DEV__) {
             console.log(
@@ -293,11 +368,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           // Don't throw error - app should continue working without push notifications
         }
       } catch (error: any) {
-        console.error(
+                if (__DEV__) {
+          console.error(
           '❌ [NotificationContext] Error initializing notifications:',
           error.message || error,
-        );
-        console.error('❌ [NotificationContext] Error stack:', error.stack);
+        )
+        };
+                if (__DEV__) {
+          console.error('❌ [NotificationContext] Error stack:', error.stack)
+        };
         // Don't throw - allow app to continue without notifications
       }
     };
@@ -307,9 +386,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Cleanup on unmount or user change
     return () => {
-      console.log(
+            if (__DEV__) {
+        console.log(
         '🧹 [NotificationContext] Cleaning up notification listeners',
-      );
+      )
+      };
       cleanupRef.current.forEach(cleanup => cleanup());
       cleanupRef.current = [];
     };
@@ -332,17 +413,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   // Load notifications from Firestore
   useEffect(() => {
     if (!user?.uid) {
-      console.log('📬 [NotificationContext] No user, clearing notifications');
+            if (__DEV__) {
+        console.log('📬 [NotificationContext] No user, clearing notifications')
+      };
       setNotifications([]);
       setUnreadCount(0);
       setIsLoading(false);
       return;
     }
 
-    console.log(
+        if (__DEV__) {
+      console.log(
       '📬 [NotificationContext] Setting up notification listener for user:',
       user.uid,
-    );
+    )
+    };
     setIsLoading(true);
 
     // Listen to notifications in real-time
@@ -353,30 +438,41 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         if (!callbackFired) {
           callbackFired = true;
         }
-        console.log(
+                if (__DEV__) {
+          console.log(
           '📬 [NotificationContext] Callback received:',
           fetchedNotifications.length,
           'notifications',
-        );
+        )
+        };
+        
+        // Update notifications - React will handle re-renders efficiently
         setNotifications(fetchedNotifications);
-        const unread = fetchedNotifications.filter(n => !n.read).length;
-        setUnreadCount(unread);
+        
+        // Calculate and update unread count
+        const newUnread = fetchedNotifications.filter(n => !n.read).length;
+        setUnreadCount(newUnread);
+        
         setIsLoading(false);
-        console.log(
+                if (__DEV__) {
+          console.log(
           '📬 [NotificationContext] Notifications updated:',
           fetchedNotifications.length,
           'unread:',
-          unread,
-        );
+          fetchedNotifications.filter(n => !n.read).length,
+        )
+        };
       },
     );
 
     // Set a timeout to stop loading if no response after 10 seconds (fallback only)
     const timeoutId = setTimeout(() => {
       if (!callbackFired) {
-        console.warn(
+                if (__DEV__) {
+          console.warn(
           '⚠️ [NotificationContext] Notification listener timeout, stopping loading',
-        );
+        )
+        };
         setIsLoading(false);
       }
     }, 10000);
@@ -402,10 +498,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error(
+            if (__DEV__) {
+        console.error(
         '❌ [NotificationContext] Error marking notification as read:',
         error,
-      );
+      )
+      };
     }
   };
 
@@ -424,10 +522,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         return updated;
       });
     } catch (error) {
-      console.error(
+            if (__DEV__) {
+        console.error(
         '❌ [NotificationContext] Error marking chat notifications as read:',
         error,
-      );
+      )
+      };
     }
   };
 
@@ -439,15 +539,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (error) {
-      console.error(
+            if (__DEV__) {
+        console.error(
         '❌ [NotificationContext] Error marking all notifications as read:',
         error,
-      );
+      )
+      };
     }
   };
 
   // Refresh notifications manually
-  const refreshNotifications = async () => {
+  const refreshNotifications = useCallback(async () => {
     if (!user?.uid) return;
     setIsLoading(true);
     try {
@@ -456,14 +558,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       const unread = fetched.filter(n => !n.read).length;
       setUnreadCount(unread);
     } catch (error) {
-      console.error(
+            if (__DEV__) {
+        console.error(
         '❌ [NotificationContext] Error refreshing notifications:',
         error,
-      );
+      )
+      };
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.uid]);
 
   const value: NotificationContextValue = {
     notifications,

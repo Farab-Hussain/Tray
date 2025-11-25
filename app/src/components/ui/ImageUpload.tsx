@@ -106,22 +106,32 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
   const handleImageResponse = async (response: ImagePickerResponse) => {
     if (response.didCancel || response.errorMessage) {
-      console.log('📸 Media selection cancelled or error:', response.errorMessage);
+            if (__DEV__) {
+        console.log('📸 Media selection cancelled or error:', response.errorMessage)
+      };
       return;
     }
 
     const asset = response.assets?.[0];
     if (!asset?.uri) {
-      console.log('📸 No asset URI found in response');
+            if (__DEV__) {
+        console.log('📸 No asset URI found in response')
+      };
       return;
     }
 
     // VIDEO UPLOAD CODE - COMMENTED OUT
     // const isVideo = asset.type?.startsWith('video/') || false;
     const isVideo = false; // Video uploads disabled
-    console.log(`📸 Selected image URI:`, asset.uri);
-    console.log(`📸 Current image URL:`, currentImageUrl);
-    console.log('📸 Upload type:', uploadType);
+        if (__DEV__) {
+      console.log(`📸 Selected image URI:`, asset.uri)
+    };
+        if (__DEV__) {
+      console.log(`📸 Current image URL:`, currentImageUrl)
+    };
+        if (__DEV__) {
+      console.log('📸 Upload type:', uploadType)
+    };
 
     setIsUploading(true);
 
@@ -199,7 +209,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         if (imageUrl) {
           onImageUploaded(imageUrl, result.publicId);
         } else {
-          console.warn('⚠️ [ImageUpload] Image uploaded but no imageUrl in response:', result);
+                    if (__DEV__) {
+            console.warn('⚠️ [ImageUpload] Image uploaded but no imageUrl in response:', result)
+          };
         }
       // }
       // Success alert removed - parent component handles navigation/feedback
@@ -207,7 +219,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       // Clear the safety timeout since we're handling the error
       clearTimeout(uploadTimeout);
       
-      console.error(`❌ [ImageUpload] Upload error:`, {
+            if (__DEV__) {
+        console.error(`❌ [ImageUpload] Upload error:`, {
         message: err?.message,
         code: err?.code,
         status: err?.response?.status,
@@ -215,7 +228,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         data: err?.response?.data,
         isBackendUnavailable: err?.isBackendUnavailable,
         isNgrokError: err?.isNgrokError,
-      });
+      })
+      };
       
       // Check if backend is unavailable
       const isBackendUnavailable = 
@@ -275,7 +289,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           }
         } catch (cloudinaryError: any) {
           // If Cloudinary deletion fails, still proceed to clear from backend
-          console.warn('Cloudinary deletion failed, clearing from backend only:', cloudinaryError);
+                    if (__DEV__) {
+            console.warn('Cloudinary deletion failed, clearing from backend only:', cloudinaryError)
+          };
         }
       }
       
@@ -291,7 +307,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       // }
       // Success alert removed - parent component handles navigation/feedback
     } catch (err: any) {
-      console.error('Delete error:', err);
+            if (__DEV__) {
+        console.error('Delete error:', err)
+      };
       showAlert(
         'error',
         'Delete Failed',

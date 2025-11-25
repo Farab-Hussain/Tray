@@ -117,7 +117,9 @@ const Home = ({ navigation }: any) => {
             },
           });
         } catch (error) {
-          console.error('Error opening chat:', error);
+                    if (__DEV__) {
+            console.error('Error opening chat:', error)
+          };
           showError('Failed to open chat');
         }
       } else if (iconType === 'phone') {
@@ -156,7 +158,9 @@ const Home = ({ navigation }: any) => {
         });
       }
     } catch (error) {
-      console.error('Error checking booking access:', error);
+            if (__DEV__) {
+        console.error('Error checking booking access:', error)
+      };
       showError('Unable to verify booking status');
     }
   };
@@ -186,24 +190,30 @@ const Home = ({ navigation }: any) => {
       );
 
       // Backend now handles sorting by rating and reviews
-      console.log(
+            if (__DEV__) {
+        console.log(
         '⭐ Selected Top Consultant:',
         topConsultantData?.name,
         'with rating:',
         topConsultantData?.rating,
-      );
-      console.log(
+      )
+      };
+            if (__DEV__) {
+        console.log(
         '📊 Other Consultants:',
         filteredConsultants.length,
         'consultants',
-      );
+      )
+      };
 
       setTopConsultant(topConsultantData);
       setConsultants(filteredConsultants);
       // Update cache key to force image reload
       setImageCacheKey(prev => prev + 1);
     } catch (err) {
-      console.error('Error fetching consultants:', err);
+            if (__DEV__) {
+        console.error('Error fetching consultants:', err)
+      };
       showWarning('Unable to load consultants. Please try again later.');
     } finally {
       setLoading(false);
@@ -350,10 +360,18 @@ const Home = ({ navigation }: any) => {
                   }
                   rating={item.rating ?? 0}
                   onBookPress={() => {
-                    console.log('📍 Book Now Clicked - Home Screen');
-                    console.log('🆔 Consultant UID:', item.uid);
-                    console.log('👤 Consultant Name:', item.name);
-                    console.log('📂 Consultant Category:', item.category);
+                                        if (__DEV__) {
+                      console.log('📍 Book Now Clicked - Home Screen')
+                    };
+                                        if (__DEV__) {
+                      console.log('🆔 Consultant UID:', item.uid)
+                    };
+                                        if (__DEV__) {
+                      console.log('👤 Consultant Name:', item.name)
+                    };
+                                        if (__DEV__) {
+                      console.log('📂 Consultant Category:', item.category)
+                    };
                     navigation.navigate('MainTabs', {
                       screen: 'Services',
                       params: {

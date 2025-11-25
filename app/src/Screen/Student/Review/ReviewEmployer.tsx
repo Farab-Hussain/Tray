@@ -39,10 +39,12 @@ const ReviewEmployer = ({ navigation, route }: any) => {
       }
 
       try {
-        console.log(
+                if (__DEV__) {
+          console.log(
           '🔍 Checking for existing review for consultant:',
           consultantId,
-        );
+        )
+        };
         const response = await ReviewService.getMyReviews();
         const myReviews = response?.reviews || [];
 
@@ -51,10 +53,12 @@ const ReviewEmployer = ({ navigation, route }: any) => {
         );
 
         if (existingReview) {
-          console.log(
+                    if (__DEV__) {
+            console.log(
             '⚠️ User has already reviewed this consultant:',
             existingReview.id,
-          );
+          )
+          };
           setHasExistingReview(true);
           setExistingReviewId(existingReview.id);
 
@@ -86,12 +90,18 @@ const ReviewEmployer = ({ navigation, route }: any) => {
             ],
           );
         } else {
-          console.log('✅ No existing review found');
+                    if (__DEV__) {
+            console.log('✅ No existing review found')
+          };
         }
       } catch (error: any) {
-        console.log('⚠️ Error checking for existing review:', error?.message);
+                if (__DEV__) {
+          console.log('⚠️ Error checking for existing review:', error?.message)
+        };
         if (error?.response?.status !== 404) {
-          console.error('❌ Unexpected error:', error);
+                    if (__DEV__) {
+            console.error('❌ Unexpected error:', error)
+          };
         }
       } finally {
         setChecking(false);
@@ -120,12 +130,14 @@ const ReviewEmployer = ({ navigation, route }: any) => {
 
     setSubmitting(true);
     try {
-      console.log('📝 Submitting review:', {
+            if (__DEV__) {
+        console.log('📝 Submitting review:', {
         consultantId,
         rating,
         reviewText,
         recommendation,
-      });
+      })
+      };
 
       const response = await ReviewService.submitReview({
         consultantId,
@@ -157,15 +169,21 @@ const ReviewEmployer = ({ navigation, route }: any) => {
           });
         }
       } catch (notifError) {
-        console.warn('⚠️ Failed to create review notification:', notifError);
+                if (__DEV__) {
+          console.warn('⚠️ Failed to create review notification:', notifError)
+        };
       }
 
-      console.log('✅ Review submitted successfully');
+            if (__DEV__) {
+        console.log('✅ Review submitted successfully')
+      };
       Alert.alert('Success', 'Thank you for your review!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
-      console.error('❌ Error submitting review:', error);
+            if (__DEV__) {
+        console.error('❌ Error submitting review:', error)
+      };
 
       const status = error?.response?.status;
       const responseData = error?.response?.data || {};

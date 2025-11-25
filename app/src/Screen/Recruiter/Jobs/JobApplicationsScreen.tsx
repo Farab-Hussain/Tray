@@ -31,7 +31,9 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       setApplications(response.applications || []);
       setSummary(response.summary || null);
     } catch (error: any) {
-      console.error('Error fetching applications:', error);
+            if (__DEV__) {
+        console.error('Error fetching applications:', error)
+      };
       showError(error.message || 'Failed to load applications');
     } finally {
       setLoading(false);

@@ -47,7 +47,9 @@ const ConsultantSessionCompletion: React.FC<
         );
         setSessionCompletion(completion);
       } catch (error) {
-        console.error('Error fetching session completion:', error);
+                if (__DEV__) {
+          console.error('Error fetching session completion:', error)
+        };
         Alert.alert('Error', 'Failed to load session details');
       }
     };
@@ -93,7 +95,9 @@ const ConsultantSessionCompletion: React.FC<
                 ],
               );
             } catch (error) {
-              console.error('Error ending session:', error);
+                            if (__DEV__) {
+                console.error('Error ending session:', error)
+              };
               Alert.alert('Error', 'Failed to end session');
             } finally {
               setLoading(false);
@@ -145,7 +149,9 @@ const ConsultantSessionCompletion: React.FC<
                 'Your response has been submitted to the admin for review.',
               );
             } catch (error) {
-              console.error('Error submitting response:', error);
+                            if (__DEV__) {
+                console.error('Error submitting response:', error)
+              };
               Alert.alert('Error', 'Failed to submit response');
             }
           },

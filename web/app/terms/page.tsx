@@ -22,10 +22,10 @@ export default function TermsOfServicePage() {
               1. Agreement to Terms
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              By accessing or using the Tray mobile application (&quot;App&quot;), you
-              agree to be bound by these Terms of Service (&quot;Terms&quot;). If you
-              disagree with any part of these terms, then you may not access the
-              App.
+              By accessing or using the Tray mobile application
+              (&quot;App&quot;), you agree to be bound by these Terms of Service
+              (&quot;Terms&quot;). If you disagree with any part of these terms,
+              then you may not access the App.
             </p>
           </section>
 
@@ -148,9 +148,9 @@ export default function TermsOfServicePage() {
             </h2>
             <p className="text-gray-700 leading-relaxed mb-3">
               You retain ownership of any content you submit, post, or display
-              on the App (&quot;User Content&quot;). By submitting User Content, you grant
-              us a worldwide, non-exclusive, royalty-free license to use,
-              reproduce, modify, and distribute your User Content for the
+              on the App (&quot;User Content&quot;). By submitting User Content,
+              you grant us a worldwide, non-exclusive, royalty-free license to
+              use, reproduce, modify, and distribute your User Content for the
               purpose of operating and promoting the App.
             </p>
             <p className="text-gray-700 leading-relaxed">
@@ -182,9 +182,9 @@ export default function TermsOfServicePage() {
               9. Disclaimers
             </h2>
             <p className="text-gray-700 leading-relaxed mb-3">
-              THE APP IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES
-              OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-              TO:
+              THE APP IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot;
+              WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+              INCLUDING BUT NOT LIMITED TO:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-gray-700">
               <li>

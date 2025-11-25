@@ -32,17 +32,25 @@ const ConsultantAccount = ({ navigation }: any) => {
     
     try {
       isLoadingRef.current = true;
-      console.log('👤 Fetching consultant profile from backend...');
+            if (__DEV__) {
+        console.log('👤 Fetching consultant profile from backend...')
+      };
       const response = await getConsultantProfile(currentUser.uid);
-      console.log('✅ Consultant profile response:', response);
+            if (__DEV__) {
+        console.log('✅ Consultant profile response:', response)
+      };
       setConsultantProfile(response);
     } catch (error: any) {
       // Only log once and mark API as unavailable to prevent repeated calls
       if (error?.response?.status === 404) {
-        console.log('⚠️ Consultant profile API not available (404) - will not retry');
+                if (__DEV__) {
+          console.log('⚠️ Consultant profile API not available (404) - will not retry')
+        };
         setApiUnavailable(true);
       } else {
-        console.log('⚠️ Consultant profile error:', error?.message || error);
+                if (__DEV__) {
+          console.log('⚠️ Consultant profile error:', error?.message || error)
+        };
       }
     } finally {
       isLoadingRef.current = false;
@@ -57,25 +65,33 @@ const ConsultantAccount = ({ navigation }: any) => {
     try {
       isLoadingRef.current = true;
       const response = await UserService.getUserProfile();
-      console.log('✅ User profile response:', response);
+            if (__DEV__) {
+        console.log('✅ User profile response:', response)
+      };
       // Always update backendProfile - this is the source of truth for profileImage
       // If response has profileImage, use it; otherwise keep existing if it exists
       setBackendProfile((prev: any) => {
         // If new response has profileImage, always use it (it's the most recent)
         if (response?.profileImage) {
-          console.log('✅ Updating backendProfile with new profileImage:', response.profileImage);
+                    if (__DEV__) {
+            console.log('✅ Updating backendProfile with new profileImage:', response.profileImage)
+          };
           return response;
         }
         // If new response doesn't have profileImage but prev does, keep prev (don't clear it)
         if (prev?.profileImage && !response?.profileImage) {
-          console.log('⚠️ New response has no profileImage, keeping existing:', prev.profileImage);
+                    if (__DEV__) {
+            console.log('⚠️ New response has no profileImage, keeping existing:', prev.profileImage)
+          };
           return { ...response, profileImage: prev.profileImage };
         }
         // Otherwise use the new response
         return response;
       });
     } catch (error: any) {
-      console.log('⚠️ User profile error:', error?.message || error);
+            if (__DEV__) {
+        console.log('⚠️ User profile error:', error?.message || error)
+      };
     } finally {
       isLoadingRef.current = false;
     }
@@ -94,7 +110,9 @@ const ConsultantAccount = ({ navigation }: any) => {
   // Reload when user.photoURL changes (from AuthContext refreshUser) - reload data and update cache key
   useEffect(() => {
     if (user?.photoURL && hasLoadedRef.current) {
-      console.log('🔄 [ConsultantAccount] user.photoURL changed, reloading profiles');
+            if (__DEV__) {
+        console.log('🔄 [ConsultantAccount] user.photoURL changed, reloading profiles')
+      };
       const now = Date.now();
       // Only reload if it's been more than 500ms since last load (prevent rapid reloads)
       if (now - lastLoadTimeRef.current > 500) {
@@ -119,7 +137,9 @@ const ConsultantAccount = ({ navigation }: any) => {
       if (!hasLoadedRef.current || (now - lastLoadTimeRef.current > 1000)) {
         hasLoadedRef.current = true;
         lastLoadTimeRef.current = now;
-        console.log('🔄 [ConsultantAccount] Screen focused, reloading profiles');
+                if (__DEV__) {
+          console.log('🔄 [ConsultantAccount] Screen focused, reloading profiles')
+        };
         fetchConsultantProfile();
         fetchUserProfile();
         setImageCacheKey(prev => prev + 1);
@@ -133,19 +153,17 @@ const ConsultantAccount = ({ navigation }: any) => {
     // Priority: backendProfile.profileImage > user.photoURL > consultantProfile.personalInfo.profileImage
     // backendProfile.profileImage is always the most up-to-date since it's updated first
     const imageUrl = backendProfile?.profileImage || user?.photoURL || consultantProfile?.personalInfo?.profileImage || '';
-    console.log('🖼️ [ConsultantAccount] Profile image URL computed:', {
+        if (__DEV__) {
+      console.log('🖼️ [ConsultantAccount] Profile image URL computed:', {
       backendProfile: backendProfile?.profileImage ? 'has' : 'none',
       userPhotoURL: user?.photoURL ? 'has' : 'none',
       consultantProfile: consultantProfile?.personalInfo?.profileImage ? 'has' : 'none',
       final: imageUrl ? 'has' : 'none'
-    });
+    })
+    };
     return imageUrl;
   }, [backendProfile?.profileImage, user?.photoURL, consultantProfile?.personalInfo?.profileImage]);
 
-  // Get user's name from consultant profile, Firebase, or use email as fallback
-  const displayName = consultantProfile?.personalInfo?.fullName || user?.displayName || user?.email?.split('@')[0] || 'Consultant';
-  const email = consultantProfile?.personalInfo?.email || user?.email || 'No email available';
-  
   const handlePress = async (route: string) => {
     if (route === "Logout") {
       Alert.alert("Logout", "Are you sure you want to log out?", [
@@ -215,7 +233,7 @@ const ConsultantAccount = ({ navigation }: any) => {
           
           {/* Clickable Profile Image */}
           <TouchableOpacity
-            onPress={() => navigation.navigate('EditProfile')}
+            onPress={() => navigation.navigate('ConsultantProfile')}
             style={authStyles.profileImageWrapper}
           >
             <Image
@@ -232,9 +250,6 @@ const ConsultantAccount = ({ navigation }: any) => {
               <Camera size={16} color="white" />
             </View>
           </TouchableOpacity>
-          
-          <Text style={Profile.name}>{displayName}</Text>
-          <Text style={Profile.email}>{email}</Text>
           
           {/* Consultant Status Badge */}
           {consultantProfile?.status && (
