@@ -196,14 +196,14 @@ The platform consists of three main components:
 Tray/
 ├── app/                           # React Native mobile app (iOS & Android)
 │   ├── src/
-│   │   ├── Screen/               # Screen components (80+ screens)
+│   │   ├── Screen/               # Screen components (72 screens)
 │   │   │   ├── Auth/            # Authentication screens
 │   │   │   ├── Student/         # Student role screens
 │   │   │   ├── Consultant/      # Consultant role screens
 │   │   │   ├── Recruiter/       # Recruiter role screens
 │   │   │   ├── Admin/           # Admin role screens
 │   │   │   └── common/          # Shared screens
-│   │   ├── components/          # Reusable components (28+ UI, 4 consultant, 3 shared)
+│   │   ├── components/          # Reusable components (29 UI, 4 consultant, 3 shared)
 │   │   ├── services/            # API service layer (18 services)
 │   │   ├── contexts/            # React Context providers (4 contexts)
 │   │   ├── navigator/           # Navigation configuration (8 navigators)
@@ -232,11 +232,13 @@ Tray/
 │
 ├── web/                          # Next.js admin dashboard
 │   ├── app/                     # Next.js App Router pages
-│   │   └── (root)/admin/        # Admin dashboard routes (7 pages)
+│   │   └── (root)/admin/        # Admin dashboard routes (7 admin pages + 6 consultant pages)
 │   ├── components/
 │   │   ├── admin/               # Admin-specific components (9 components)
+│   │   ├── consultant/          # Consultant-specific components (6 components)
 │   │   ├── shared/              # Shared layout components (4 components)
-│   │   └── ui/                  # Generic UI components (14 components)
+│   │   ├── ui/                  # Generic UI components (14 components)
+│   │   └── custom/              # Custom components (1 component)
 │   ├── contexts/                # Authentication context
 │   ├── utils/                   # API client and utilities
 │   └── README.md                # Web dashboard documentation
@@ -688,10 +690,14 @@ We welcome contributions! Please follow these guidelines:
 ## Project Statistics
 
 - **Total Files**: 300+ TypeScript/JavaScript files
-- **Mobile App Screens**: 80+ screens
-- **Backend API Endpoints**: 100+ endpoints
-- **Components**: 50+ reusable components
-- **Services**: 29+ service files (18 mobile, 11 backend)
+- **Mobile App Screens**: 72 screens across all roles
+- **Backend API Routes**: 15 route files with 100+ endpoints
+- **Backend Controllers**: 17 controller files
+- **Backend Services**: 11 service files
+- **Mobile App Components**: 36 reusable components (29 UI, 4 consultant, 3 shared)
+- **Mobile App Services**: 18 service files
+- **Web Dashboard Components**: 32 components (9 admin, 6 consultant, 4 shared, 14 UI)
+- **Web Dashboard Pages**: 21 pages (7 admin pages + 6 consultant pages + 8 public/auth pages)
 - **Roles**: 4 roles (Student, Consultant, Recruiter, Admin)
 
 ## Support & Resources

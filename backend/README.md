@@ -139,12 +139,13 @@ backend/
 │   │   ├── consultantMiddleware.ts # Consultant-specific middleware
 │   │   └── validation.ts           # Request validation (express-validator)
 │   │
-│   ├── utils/                      # Utility functions (5 files)
+│   ├── utils/                      # Utility functions (6 files)
 │   │   ├── logger.ts               # Structured logging utility
 │   │   ├── email.ts                # Email sending (Nodemailer)
 │   │   ├── cache.ts                # In-memory LRU cache
 │   │   ├── stripeClient.ts         # Stripe client configuration
-│   │   └── skillMatching.ts        # Job-resume skill matching
+│   │   ├── skillMatching.ts        # Job-resume skill matching
+│   │   └── serialization.ts        # Data serialization utilities
 │   │
 │   ├── functions/                  # Firebase Cloud Functions (optional)
 │   │   └── sendMessageNotification.function.ts
@@ -426,7 +427,11 @@ Authorization: Bearer <firebase-id-token>
 - `GET /admin/activities/recent` - Get recent activities (authenticated, admin)
 
 ### Support Routes (`/support`)
-- Support ticket management endpoints (see `src/routes/support.routes.ts`)
+- Support ticket management endpoints
+- `POST /support/contact` - Submit support contact form (authenticated)
+- `POST /support/submit` - Submit support ticket (authenticated, legacy endpoint, same as /contact)
+- Both endpoints accept support requests and send notifications
+- See `src/routes/support.routes.ts` for full implementation
 
 ## Scheduled Jobs
 
@@ -563,6 +568,10 @@ Both scheduled jobs have:
 ### Skill Matching (`utils/skillMatching.ts`)
 - Job-resume skill matching algorithm
 - Match score calculation
+
+### Serialization (`utils/serialization.ts`)
+- Data serialization utilities
+- Converts Firestore timestamps and complex objects to JSON-compatible formats
 
 ## Error Handling
 

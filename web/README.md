@@ -52,7 +52,7 @@ web/
 │   │   ├── layout.tsx              # Root layout with AuthProvider and sidebar
 │   │   ├── page.tsx                # Home page (redirects admin to /admin)
 │   │   │
-│   │   └── admin/                  # Admin dashboard routes
+│   │   └── admin/                  # Admin dashboard routes (7 pages)
 │   │       ├── layout.tsx          # Admin layout with AdminRouteGuard
 │   │       ├── page.tsx            # Admin dashboard (stats, activities)
 │   │       ├── users/
@@ -67,6 +67,12 @@ web/
 │   │       │   └── page.tsx        # Activity log
 │   │       └── settings/
 │   │           └── page.tsx        # Platform settings
+│   │   └── consultant/             # Consultant routes (6 pages, legacy)
+│   │       ├── page.tsx            # Consultant dashboard
+│   │       ├── profile/
+│   │       ├── services/
+│   │       ├── applications/
+│   │       └── status/
 │   │
 │   ├── login/
 │   │   └── page.tsx                # Firebase email/password login
@@ -76,7 +82,7 @@ web/
 │       └── verify-email/           # Email verification API route
 │
 ├── components/
-│   ├── admin/                      # Admin-specific components (9 files)
+│   ├── admin/                      # Admin-specific components (9 components)
 │   │   ├── AdminRouteGuard.tsx     # Admin route protection
 │   │   ├── AdminCard.tsx           # Admin dashboard cards
 │   │   ├── AdminActionCard.tsx     # Action cards for dashboard
@@ -87,13 +93,23 @@ web/
 │   │   ├── AdminWidget.tsx         # Dashboard widget component
 │   │   └── ApprovalModal.tsx       # Approval/rejection modal
 │   │
-│   ├── shared/                     # Shared layout components (4 files)
+│   ├── consultant/                 # Consultant-specific components (6 components)
+│   │   ├── ProfileCard.tsx
+│   │   ├── MultiStepProfileForm.tsx
+│   │   ├── ConsultantRouteGuard.tsx
+│   │   ├── ServicesStepIndicator.tsx
+│   │   ├── ApplicationCard.tsx
+│   │   └── ProfileStatusBadge.tsx
+│   │
+│   ├── shared/                     # Shared layout components (4 components)
 │   │   ├── Header.tsx              # Top header/navigation
 │   │   ├── LeftSide.tsx            # Left sidebar navigation
 │   │   ├── RightSide.tsx           # Right sidebar (notifications, etc.)
 │   │   └── MobileHeader.tsx        # Mobile header component
 │   │
-│   ├── ui/                         # Generic UI components (14 files)
+│   ├── ui/                         # Generic UI components (14 components)
+│   └── custom/                     # Custom components (1 component)
+│       └── Button.tsx              # Custom button component
 │   │   ├── StatCard.tsx            # Statistics card
 │   │   ├── StatusBadge.tsx         # Status badge
 │   │   ├── Dropdown.tsx            # Dropdown select component

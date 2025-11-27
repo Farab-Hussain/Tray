@@ -73,7 +73,7 @@ app/
 │   ├── App.tsx                    # Main app component with Stripe provider and context providers
 │   ├── index.js                   # App entry point with FCM background handler
 │   │
-│   ├── Screen/                    # Screen components organized by role
+│   ├── Screen/                    # Screen components organized by role (72 screens total)
 │   │   ├── Admin/
 │   │   │   └── RefundReview/      # Admin refund review screen
 │   │   ├── Auth/                  # Authentication screens
@@ -147,7 +147,24 @@ app/
 │   │   │   ├── ReviewCard.tsx
 │   │   │   ├── PaymentModal.tsx
 │   │   │   ├── StatCard.tsx
-│   │   │   └── ... (28 UI components total)
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   ├── OfflineOverlay.tsx
+│   │   │   ├── EmptyState.tsx
+│   │   │   ├── ErrorDisplay.tsx
+│   │   │   ├── LoadingState.tsx
+│   │   │   ├── StatusBadge.tsx
+│   │   │   ├── PasswordStrengthIndicator.tsx
+│   │   │   ├── RefreshableScrollView.tsx
+│   │   │   ├── LoadMoreButton.tsx
+│   │   │   ├── SummaryCard.tsx
+│   │   │   ├── Summary.tsx
+│   │   │   ├── ProfileList.tsx
+│   │   │   ├── TopConsultantCard.tsx
+│   │   │   ├── ConsultantServiceCard.tsx
+│   │   │   ├── LeadCard.tsx
+│   │   │   ├── PaymentResultModal.tsx
+│   │   │   └── CancelBookingModal.tsx
+│   │   │   └── ... (29 UI components total)
 │   │   ├── consultant/            # Consultant-specific components
 │   │   │   ├── ServiceApplicationForm.tsx
 │   │   │   ├── FormComponents.tsx
