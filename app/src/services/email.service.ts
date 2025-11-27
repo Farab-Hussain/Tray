@@ -39,9 +39,13 @@ export const EmailService = {
       };
 
       await api.post('/email/send', emailTemplate);
-      console.log('✅ Refund request email sent to consultant');
+            if (__DEV__) {
+        console.log('✅ Refund request email sent to consultant')
+      };
     } catch (error) {
-      console.error('❌ Error sending refund request email to consultant:', error);
+            if (__DEV__) {
+        console.error('❌ Error sending refund request email to consultant:', error)
+      };
       throw error;
     }
   },
@@ -66,9 +70,13 @@ export const EmailService = {
       };
 
       await api.post('/email/send', emailTemplate);
-      console.log('✅ Refund request email sent to admin');
+            if (__DEV__) {
+        console.log('✅ Refund request email sent to admin')
+      };
     } catch (error) {
-      console.error('❌ Error sending refund request email to admin:', error);
+            if (__DEV__) {
+        console.error('❌ Error sending refund request email to admin:', error)
+      };
       throw error;
     }
   },
@@ -94,9 +102,13 @@ export const EmailService = {
       };
 
       await api.post('/email/send', emailTemplate);
-      console.log('✅ Consultant response email sent to admin');
+            if (__DEV__) {
+        console.log('✅ Consultant response email sent to admin')
+      };
     } catch (error) {
-      console.error('❌ Error sending consultant response email to admin:', error);
+            if (__DEV__) {
+        console.error('❌ Error sending consultant response email to admin:', error)
+      };
       throw error;
     }
   },
@@ -123,9 +135,13 @@ export const EmailService = {
       };
 
       await api.post('/email/send', emailTemplate);
-      console.log(`✅ Refund ${decision} email sent to student`);
+            if (__DEV__) {
+        console.log(`✅ Refund ${decision} email sent to student`)
+      };
     } catch (error) {
-      console.error(`❌ Error sending refund ${decision} email to student:`, error);
+            if (__DEV__) {
+        console.error(`❌ Error sending refund ${decision} email to student:`, error)
+      };
       throw error;
     }
   },
@@ -154,9 +170,13 @@ export const EmailService = {
       };
 
       await api.post('/email/send', emailTemplate);
-      console.log(`✅ Refund ${decision} email sent to consultant`);
+            if (__DEV__) {
+        console.log(`✅ Refund ${decision} email sent to consultant`)
+      };
     } catch (error) {
-      console.error(`❌ Error sending refund ${decision} email to consultant:`, error);
+            if (__DEV__) {
+        console.error(`❌ Error sending refund ${decision} email to consultant:`, error)
+      };
       throw error;
     }
   },
@@ -185,9 +205,13 @@ export const EmailService = {
       };
 
       await api.post('/email/send', emailTemplate);
-      console.log('✅ Session completion email sent to student');
+            if (__DEV__) {
+        console.log('✅ Session completion email sent to student')
+      };
     } catch (error) {
-      console.error('❌ Error sending session completion email to student:', error);
+            if (__DEV__) {
+        console.error('❌ Error sending session completion email to student:', error)
+      };
       throw error;
     }
   }

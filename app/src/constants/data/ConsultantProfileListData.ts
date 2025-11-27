@@ -1,4 +1,4 @@
-import { BadgeInfo, Bell, LogOut, MessageCircle, FileText, Plus, UserCircle2, LayoutDashboard } from "lucide-react-native";
+import { BadgeInfo, Bell, LogOut, MessageCircle, FileText, Plus, UserCircle2, LayoutDashboard, ClipboardList } from "lucide-react-native";
 
 export const ConsultantProfileListData = [
     {
@@ -30,6 +30,12 @@ export const ConsultantProfileListData = [
         icon: Plus,
         text: "Post a Job",
         route: "PostJob",
+    },
+    {
+        id: 10.7,
+        icon: ClipboardList,
+        text: "All Applications",
+        route: "ConsultantAllApplications",
     },
     {
         id: 7,

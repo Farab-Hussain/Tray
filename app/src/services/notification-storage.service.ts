@@ -102,7 +102,9 @@ export const getUserNotifications = async (userId: string, limitCount: number = 
 
     return notifications;
   } catch (error: any) {
-    console.error('❌ [NotificationStorage] Error fetching notifications:', error);
+        if (__DEV__) {
+      console.error('❌ [NotificationStorage] Error fetching notifications:', error)
+    };
 
     // Handle Firebase index errors gracefully
     if (error.code === 'failed-precondition' || error.message?.includes('index')) {
@@ -133,9 +135,13 @@ export const createNotification = async (notification: Omit<AppNotification, 'id
       read: false,
       createdAt: Timestamp.now(),
     });
-    console.log('✅ [NotificationStorage] Notification created for user:', notification.userId);
+        if (__DEV__) {
+      console.log('✅ [NotificationStorage] Notification created for user:', notification.userId)
+    };
   } catch (error: any) {
-    console.error('❌ [NotificationStorage] Error creating notification:', error);
+        if (__DEV__) {
+      console.error('❌ [NotificationStorage] Error creating notification:', error)
+    };
     if (__DEV__) {
       console.log('ℹ️ [NotificationStorage] Notification creation failed');
     }
@@ -150,9 +156,13 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
   try {
     const notificationRef = doc(db, 'notifications', notificationId);
     await updateDoc(notificationRef, { read: true });
-    console.log('✅ [NotificationStorage] Notification marked as read:', notificationId);
+        if (__DEV__) {
+      console.log('✅ [NotificationStorage] Notification marked as read:', notificationId)
+    };
   } catch (error: any) {
-    console.error('❌ [NotificationStorage] Error marking notification as read:', error);
+        if (__DEV__) {
+      console.error('❌ [NotificationStorage] Error marking notification as read:', error)
+    };
     if (__DEV__) {
       console.log('ℹ️ [NotificationStorage] Mark as read failed');
     }
@@ -178,9 +188,13 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<void> 
     );
 
     await Promise.all(updatePromises);
-    console.log('✅ [NotificationStorage] All notifications marked as read for user:', userId);
+        if (__DEV__) {
+      console.log('✅ [NotificationStorage] All notifications marked as read for user:', userId)
+    };
   } catch (error: any) {
-    console.error('❌ [NotificationStorage] Error marking all notifications as read:', error);
+        if (__DEV__) {
+      console.error('❌ [NotificationStorage] Error marking all notifications as read:', error)
+    };
     if (__DEV__) {
       console.log('ℹ️ [NotificationStorage] Mark all as read failed');
     }
@@ -210,10 +224,14 @@ export const markChatNotificationsAsRead = async (userId: string, chatId: string
 
     if (updatePromises.length > 0) {
       await Promise.all(updatePromises);
-      console.log('✅ [NotificationStorage] Chat notifications marked as read:', chatId, `${updatePromises.length} notifications`);
+            if (__DEV__) {
+        console.log('✅ [NotificationStorage] Chat notifications marked as read:', chatId, `${updatePromises.length} notifications`)
+      };
     }
   } catch (error: any) {
-    console.error('❌ [NotificationStorage] Error marking chat notifications as read:', error);
+        if (__DEV__) {
+      console.error('❌ [NotificationStorage] Error marking chat notifications as read:', error)
+    };
     // Don't show toast - this is a background operation
   }
 };
@@ -233,7 +251,9 @@ export const getUnreadCount = async (userId: string): Promise<number> => {
     const snapshot = await getDocs(q);
     return snapshot.size;
   } catch (error: any) {
-    console.error('❌ [NotificationStorage] Error getting unread count:', error);
+        if (__DEV__) {
+      console.error('❌ [NotificationStorage] Error getting unread count:', error)
+    };
     // Silently return 0 for unread count errors - don't show toast for this
     return 0;
   }
@@ -248,7 +268,9 @@ export const listenToNotifications = (
   limitCount: number = 50
 ): (() => void) => {
   try {
-    console.log('📬 [NotificationStorage] Setting up listener for user:', userId);
+        if (__DEV__) {
+      console.log('📬 [NotificationStorage] Setting up listener for user:', userId)
+    };
     const notificationsRef = collection(db, 'notifications');
     const q = query(
       notificationsRef,
@@ -258,11 +280,15 @@ export const listenToNotifications = (
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      console.log('📬 [NotificationStorage] Snapshot received:', snapshot.size, 'notifications');
+            if (__DEV__) {
+        console.log('📬 [NotificationStorage] Snapshot received:', snapshot.size, 'notifications')
+      };
       const notifications: AppNotification[] = [];
 
       if (snapshot.empty) {
-        console.log('📬 [NotificationStorage] No notifications found for user');
+                if (__DEV__) {
+          console.log('📬 [NotificationStorage] No notifications found for user')
+        };
         callback([]);
         return;
       }
@@ -285,7 +311,9 @@ export const listenToNotifications = (
                 senderAvatar = userData.profileImage || userData.avatarUrl || userData.avatar;
               }
             } catch (error) {
-              console.warn('⚠️ [NotificationStorage] Could not fetch sender info:', error);
+                            if (__DEV__) {
+                console.warn('⚠️ [NotificationStorage] Could not fetch sender info:', error)
+              };
             }
           }
 
@@ -304,7 +332,9 @@ export const listenToNotifications = (
             senderAvatar: senderAvatar || '',
           } as AppNotification;
         } catch (error) {
-          console.error('❌ [NotificationStorage] Error processing notification:', error);
+                    if (__DEV__) {
+            console.error('❌ [NotificationStorage] Error processing notification:', error)
+          };
           return null;
         }
       });
@@ -312,7 +342,9 @@ export const listenToNotifications = (
       const fetchedNotifications = (await Promise.all(notificationPromises)).filter((n): n is AppNotification => n !== null);
       notifications.push(...fetchedNotifications);
 
-      console.log('📬 [NotificationStorage] Notifications processed:', notifications.length);
+            if (__DEV__) {
+        console.log('📬 [NotificationStorage] Notifications processed:', notifications.length)
+      };
       callback(notifications);
     }, (error: any) => {
       // If it's a missing index error, try without orderBy (expected behavior)
@@ -330,7 +362,9 @@ export const listenToNotifications = (
           );
 
           const altUnsubscribe = onSnapshot(altQ, async (snapshot) => {
-            console.log('📬 [NotificationStorage] Alt query snapshot:', snapshot.size, 'notifications');
+                        if (__DEV__) {
+              console.log('📬 [NotificationStorage] Alt query snapshot:', snapshot.size, 'notifications')
+            };
             const notifications: AppNotification[] = [];
 
             if (!snapshot.empty) {
@@ -366,7 +400,9 @@ export const listenToNotifications = (
 
             callback(notifications);
           }, (fallbackError: any) => {
-            console.error('❌ [NotificationStorage] Fallback query failed:', fallbackError.message || fallbackError);
+                        if (__DEV__) {
+              console.error('❌ [NotificationStorage] Fallback query failed:', fallbackError.message || fallbackError)
+            };
             if (__DEV__) {
               console.log('ℹ️ [NotificationStorage] Fallback query failed');
             }
@@ -375,7 +411,9 @@ export const listenToNotifications = (
 
           return altUnsubscribe;
         } catch (fallbackSetupError: any) {
-          console.error('❌ [NotificationStorage] Could not set up fallback query:', fallbackSetupError.message || fallbackSetupError);
+                    if (__DEV__) {
+            console.error('❌ [NotificationStorage] Could not set up fallback query:', fallbackSetupError.message || fallbackSetupError)
+          };
           callback([]);
         }
         return undefined;
@@ -383,7 +421,9 @@ export const listenToNotifications = (
 
       // Log unexpected errors
       if (error.code !== 'failed-precondition') {
-        console.error('❌ [NotificationStorage] Error listening to notifications:', error.message || error);
+                if (__DEV__) {
+          console.error('❌ [NotificationStorage] Error listening to notifications:', error.message || error)
+        };
         if (__DEV__) {
           console.log('ℹ️ [NotificationStorage] Notification listener error');
         }
@@ -395,8 +435,12 @@ export const listenToNotifications = (
 
     return unsubscribe;
   } catch (error: any) {
-    console.error('❌ [NotificationStorage] Error setting up notification listener:', error);
-    console.error('❌ [NotificationStorage] Error details:', error.message);
+        if (__DEV__) {
+      console.error('❌ [NotificationStorage] Error setting up notification listener:', error)
+    };
+        if (__DEV__) {
+      console.error('❌ [NotificationStorage] Error details:', error.message)
+    };
 
     if (__DEV__) {
       console.log('ℹ️ [NotificationStorage] Couldn\'t set up notifications');

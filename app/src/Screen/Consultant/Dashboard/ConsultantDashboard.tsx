@@ -57,10 +57,12 @@ const ConsultantDashboard = ({ navigation }: any) => {
         navigation.navigate('ConsultantReviews');
         break;
       case 'ConsultantServices':
-        navigation.navigate('ConsultantServices');
+        // Navigate to ConsultantServices tab using nested navigation
+        navigation.navigate('ConsultantTabs', { screen: 'ConsultantServices' });
         break;
       case 'ConsultantAvailability':
-        navigation.navigate('ConsultantAvailability');
+        // Navigate to ConsultantAvailability tab using nested navigation
+        navigation.navigate('ConsultantTabs', { screen: 'ConsultantAvailability' });
         break;
       case 'Earnings':
         navigation.navigate('Earnings');

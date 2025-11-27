@@ -36,6 +36,8 @@ local.properties
 .cxx/
 *.keystore
 !debug.keystore
+# Production keystore configuration (contains sensitive passwords)
+android/keystore.properties
 .kotlin/
 
 # node.js

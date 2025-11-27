@@ -55,7 +55,9 @@ export const getQueuedMessages = async (): Promise<QueuedMessage[]> => {
     const queueData = await AsyncStorage.getItem(QUEUE_KEY);
     return queueData ? JSON.parse(queueData) : [];
   } catch (error) {
-    console.error('❌ [OfflineQueue] Error getting queued messages:', error);
+        if (__DEV__) {
+      console.error('❌ [OfflineQueue] Error getting queued messages:', error)
+    };
     return [];
   }
 };

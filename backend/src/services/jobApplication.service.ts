@@ -45,7 +45,14 @@ export const jobApplicationServices = {
       .where("jobId", "==", jobId)
       .get();
 
-    const applications = snapshot.docs.map(doc => doc.data() as JobApplication);
+    const applications = snapshot.docs.map(doc => {
+      const data = doc.data() as JobApplication;
+      // Ensure status is always present
+      if (!data.status) {
+        data.status = 'pending';
+      }
+      return data;
+    });
 
     // Sort by match rating: Gold first, then Silver, then Bronze, then Basic
     applications.sort((a, b) => {
@@ -140,6 +147,10 @@ export const jobApplicationServices = {
           if (!data.id) {
             data.id = doc.id;
           }
+          // Ensure status is always present
+          if (!data.status) {
+            data.status = 'pending';
+          }
           return data;
         });
       } catch (orderByError: any) {
@@ -155,6 +166,10 @@ export const jobApplicationServices = {
             const data = doc.data() as JobApplication;
             if (!data.id) {
               data.id = doc.id;
+            }
+            // Ensure status is always present
+            if (!data.status) {
+              data.status = 'pending';
             }
             return data;
           })
@@ -198,7 +213,15 @@ export const jobApplicationServices = {
     if (!doc.exists) {
       throw new Error("Application not found");
     }
-    return doc.data() as JobApplication;
+    const data = doc.data() as JobApplication;
+    // Ensure id and status are always present
+    if (!data.id) {
+      data.id = doc.id;
+    }
+    if (!data.status) {
+      data.status = 'pending';
+    }
+    return data;
   },
 
   /**
@@ -229,7 +252,19 @@ export const jobApplicationServices = {
     await applicationRef.update(updateData);
 
     const updated = await applicationRef.get();
-    return updated.data() as JobApplication;
+    const updatedData = updated.data() as JobApplication;
+    // Ensure id and status are always present
+    if (!updatedData.id) {
+      updatedData.id = updated.id;
+    }
+    if (!updatedData.status) {
+      updatedData.status = status; // Use the status we just set
+    }
+    // Debug: Log the update
+    if (__DEV__) {
+      console.log(`[updateStatus] Updated application ${id} status to:`, updatedData.status);
+    }
+    return updatedData;
   },
 
   /**

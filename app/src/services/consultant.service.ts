@@ -68,19 +68,31 @@ export const ConsultantService = {
   // Set consultant availability slots
   async setAvailabilitySlots(consultantId: string, availabilitySlots: any[]) {
     try {
-      console.log('🔧 [ConsultantService] Setting availability slots...');
-      console.log('📋 [ConsultantService] Consultant ID:', consultantId);
-      console.log('📊 [ConsultantService] Availability slots count:', availabilitySlots.length);
-      console.log('📅 [ConsultantService] Sample slots:', availabilitySlots.slice(0, 3));
+            if (__DEV__) {
+        console.log('🔧 [ConsultantService] Setting availability slots...')
+      };
+            if (__DEV__) {
+        console.log('📋 [ConsultantService] Consultant ID:', consultantId)
+      };
+            if (__DEV__) {
+        console.log('📊 [ConsultantService] Availability slots count:', availabilitySlots.length)
+      };
+            if (__DEV__) {
+        console.log('📅 [ConsultantService] Sample slots:', availabilitySlots.slice(0, 3))
+      };
       
       const response = await api.put(`/consultant-flow/profiles/${consultantId}/availability-slots`, {
         availabilitySlots
       });
       
-      console.log('✅ [ConsultantService] Success response:', response.data);
+            if (__DEV__) {
+        console.log('✅ [ConsultantService] Success response:', response.data)
+      };
       return response.data;
     } catch (error) {
-      console.error('❌ [ConsultantService] Error setting availability slots:', error);
+            if (__DEV__) {
+        console.error('❌ [ConsultantService] Error setting availability slots:', error)
+      };
       throw error;
     }
   },
@@ -88,10 +100,18 @@ export const ConsultantService = {
   // Delete a specific availability slot
   async deleteAvailabilitySlot(consultantId: string, date: string, timeSlot: string) {
     try {
-      console.log('🗑️ [ConsultantService] Deleting availability slot...');
-      console.log('📋 [ConsultantService] Consultant ID:', consultantId);
-      console.log('📅 [ConsultantService] Date:', date);
-      console.log('⏰ [ConsultantService] Time slot:', timeSlot);
+            if (__DEV__) {
+        console.log('🗑️ [ConsultantService] Deleting availability slot...')
+      };
+            if (__DEV__) {
+        console.log('📋 [ConsultantService] Consultant ID:', consultantId)
+      };
+            if (__DEV__) {
+        console.log('📅 [ConsultantService] Date:', date)
+      };
+            if (__DEV__) {
+        console.log('⏰ [ConsultantService] Time slot:', timeSlot)
+      };
       
       // Use axios params option for query parameters in React Native
       const response = await api.delete(`/consultant-flow/profiles/${consultantId}/availability-slots`, {
@@ -101,10 +121,14 @@ export const ConsultantService = {
         }
       });
       
-      console.log('✅ [ConsultantService] Success response:', response.data);
+            if (__DEV__) {
+        console.log('✅ [ConsultantService] Success response:', response.data)
+      };
       return response.data;
     } catch (error: any) {
-      console.error('❌ [ConsultantService] Error deleting availability slot:', error);
+            if (__DEV__) {
+        console.error('❌ [ConsultantService] Error deleting availability slot:', error)
+      };
       // Re-throw the error to let the caller handle it
       throw error;
     }
@@ -122,7 +146,9 @@ export const ConsultantService = {
         return null;
       }
       // Only log unexpected errors
-      console.error('❌ [ConsultantService] Error fetching consultant profile:', error);
+            if (__DEV__) {
+        console.error('❌ [ConsultantService] Error fetching consultant profile:', error)
+      };
       throw error;
     }
   },

@@ -195,7 +195,7 @@ const ConsultantAccount = ({ navigation }: any) => {
         navigation.navigate("ConsultantReviews");
         break;
       case "ConsultantServices":
-        // Navigate to Services tab
+        // Navigate to Services tab - ConsultantAccount is in ConsultantTabs, so direct navigation works
         navigation.navigate("ConsultantServices");
         break;
       case "ConsultantNotifications":
@@ -213,6 +213,10 @@ const ConsultantAccount = ({ navigation }: any) => {
       case "StripePaymentSetup":
         // Navigate to Stripe Payment Setup screen
         navigation.navigate("StripePaymentSetup");
+        break;
+      case "ConsultantAllApplications":
+        // Navigate to All Applications screen
+        navigation.navigate("ConsultantAllApplications");
         break;
       default:
         // Default navigation for other routes

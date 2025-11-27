@@ -549,7 +549,14 @@ const Register = ({ navigation, route }: any) => {
               Already have an account?{' '}
               <Text
                 style={authStyles.loginLink}
-                onPress={() => navigation.navigate('Login')}
+                onPress={() => {
+                  // Clear intended role when navigating to login
+                  // Login will fetch actual role from backend, not use intended role
+                  if (__DEV__) {
+                    console.log('Register - Navigating to Login, clearing intended role');
+                  }
+                  navigation.navigate('Login');
+                }}
               >
                 Log in
               </Text>

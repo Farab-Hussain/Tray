@@ -12,6 +12,7 @@ import { myApplicationsScreenStyles } from '../../../constants/styles/myApplicat
 import { formatDate } from '../../../utils/dateUtils';
 import { useRefresh } from '../../../hooks/useRefresh';
 import RefreshableScrollView from '../../../components/ui/RefreshableScrollView';
+import { getStatusMessage, getStatusColor, getStatusIcon } from '../../../utils/applicationStatusUtils';
 
 const MyApplicationsScreen = ({ navigation }: any) => {
   const [applications, setApplications] = useState<any[]>([]);
@@ -21,7 +22,16 @@ const MyApplicationsScreen = ({ navigation }: any) => {
     try {
       setLoading(true);
       const response = await JobService.getMyApplications();
-      setApplications(response.applications || []);
+      const apps = response.applications || [];
+      // Debug: Log status for each application
+      if (__DEV__) {
+        console.log('[MyApplicationsScreen] Fetched applications:', apps.map((app: any) => ({
+          id: app.id,
+          jobTitle: app.job?.title,
+          status: app.status,
+        })));
+      }
+      setApplications(apps);
     } catch (error: any) {
             if (__DEV__) {
         console.error('Error fetching applications:', error)
@@ -127,6 +137,14 @@ const MyApplicationsScreen = ({ navigation }: any) => {
                   <Text style={styles.statValue}>
                     {application.matchScore}/{application.job?.requiredSkills?.length || 0} skills
                   </Text>
+                </View>
+              </View>
+
+              {/* Application Status - Always show, default to pending if not set */}
+              <View style={styles.statusContainer}>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(application.status || 'pending') }]}>
+                  <Text style={styles.statusIcon}>{getStatusIcon(application.status || 'pending')}</Text>
+                  <Text style={styles.statusText}>{getStatusMessage(application.status || 'pending')}</Text>
                 </View>
               </View>
 

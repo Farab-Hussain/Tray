@@ -58,6 +58,7 @@ export const myApplicationsScreenStyles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden', // Ensure content doesn't overflow card
   },
   cardHeader: {
     flexDirection: 'row',
@@ -115,6 +116,27 @@ export const myApplicationsScreenStyles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.black,
     fontWeight: '600',
+  },
+  statusContainer: {
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  statusIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.white,
   },
   dateContainer: {
     paddingTop: 8,

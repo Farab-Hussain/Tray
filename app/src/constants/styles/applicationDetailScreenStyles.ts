@@ -32,31 +32,39 @@ export const applicationDetailScreenStyles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden', // Ensure content doesn't overflow card
   },
   jobTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: COLORS.black,
     marginBottom: 8,
+    flexWrap: 'wrap',
   },
   companyName: {
     fontSize: 17,
     color: COLORS.gray,
     fontWeight: '500',
     marginBottom: 12,
+    flexWrap: 'wrap',
   },
   jobInfoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
   },
   jobInfoIcon: {
     fontSize: 16,
     marginRight: 8,
+    marginTop: 2, // Align icon with first line of text
   },
   jobInfoText: {
     fontSize: 14,
     color: COLORS.gray,
     fontWeight: '500',
+    flex: 1,
+    flexWrap: 'wrap',
+    lineHeight: 20,
   },
   matchBanner: {
     padding: 20,
@@ -154,6 +162,36 @@ export const applicationDetailScreenStyles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
+  },
+  statusCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusIcon: {
+    fontSize: 24,
+    marginRight: 10,
+  },
+  statusMessage: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  statusDescription: {
+    fontSize: 14,
+    color: COLORS.gray,
+    lineHeight: 20,
+    marginTop: 4,
   },
 });
 

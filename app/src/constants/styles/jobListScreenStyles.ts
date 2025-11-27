@@ -54,6 +54,7 @@ export const jobListScreenStyles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden', // Ensure content doesn't overflow card
   },
   cardHeader: {
     flexDirection: 'row',
@@ -100,15 +101,20 @@ export const jobListScreenStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 16,
+    flexShrink: 1,
+    minWidth: 0, // Allow flex item to shrink
   },
   infoIcon: {
     fontSize: 14,
     marginRight: 6,
+    flexShrink: 0, // Don't shrink icon
   },
   infoText: {
     fontSize: 13,
     color: COLORS.gray,
     fontWeight: '500',
+    flexShrink: 1, // Allow text to shrink
+    flexWrap: 'wrap',
   },
   salaryContainer: {
     marginBottom: 12,

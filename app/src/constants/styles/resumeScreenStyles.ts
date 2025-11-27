@@ -28,6 +28,12 @@ export const resumeScreenStyles = StyleSheet.create({
     color: COLORS.black,
     marginBottom: 16,
   },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
   input: {
     borderWidth: 1,
     borderColor: COLORS.lightGray,
@@ -217,12 +223,25 @@ export const resumeScreenStyles = StyleSheet.create({
     borderBottomColor: COLORS.lightGray,
     flexShrink: 0,
   },
+  modalContentInner: {
+    flex: 1,
+  },
+  modalTitleContainer: {
+    alignItems: 'center',
+    flex: 1,
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.black,
     flex: 1,
     textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    fontWeight: 'normal',
+    color: COLORS.gray,
+    marginTop: 2,
   },
   modalCancelButton: {
     paddingVertical: 8,
@@ -286,8 +305,136 @@ export const resumeScreenStyles = StyleSheet.create({
   certificateImageUpload: {
     marginTop: 0,
   },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.blue,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  exportButtonDisabled: {
+    backgroundColor: COLORS.lightGray,
+    opacity: 0.6,
+  },
+  exportButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   saveButton: {
     marginTop: 8,
+  },
+  // Resume file upload styles
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.blue,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  uploadButtonIcon: {
+    marginRight: 8,
+  },
+  uploadButtonDisabled: {
+    opacity: 0.6,
+  },
+  uploadButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  uploadedFileContainer: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  uploadedFileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  uploadedFileDetails: {
+    flex: 1,
+  },
+  uploadedFileName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: 4,
+  },
+  uploadedFileStatus: {
+    fontSize: 14,
+    color: COLORS.gray,
+  },
+  uploadedFileActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  viewFileButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: COLORS.lightBackground,
+    borderRadius: 8,
+  },
+  viewFileButtonText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  deleteFileButton: {
+    padding: 8,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.lightGray,
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: COLORS.gray,
+    fontWeight: '500',
+  },
+  switchToInAppButton: {
+    padding: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: COLORS.lightBackground,
+  },
+  switchToInAppButtonText: {
+    color: COLORS.blue,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  warningContainer: {
+    backgroundColor: COLORS.orange + '20',
+    borderWidth: 1,
+    borderColor: COLORS.orange,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  warningText: {
+    color: COLORS.orange,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
 

@@ -1,22 +1,32 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Platform, Modal } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import AppButton from '../../../components/ui/AppButton';
 import Loader from '../../../components/ui/Loader';
 import { ResumeService, ResumeData } from '../../../services/resume.service';
-import { UploadService } from '../../../services/upload.service';
 import { COLORS } from '../../../constants/core/colors';
 import { showError, showSuccess } from '../../../utils/toast';
 import { showConfirmation } from '../../../utils/alertUtils';
 import { useAuth } from '../../../contexts/AuthContext';
-import { X, Plus, Calendar as CalendarIcon, Image as ImageIcon } from 'lucide-react-native';
+import { X, Plus, Calendar as CalendarIcon, Download, Upload, FileText, Trash2 } from 'lucide-react-native';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import { resumeScreenStyles } from '../../../constants/styles/resumeScreenStyles';
+import { generateAndShareResumePDF } from '../../../utils/resumeExport';
+// Import DocumentPicker with error handling
+let DocumentPicker: any = null;
+try {
+  DocumentPicker = require('react-native-document-picker');
+} catch (e) {
+  if (__DEV__) {
+    console.warn('react-native-document-picker not available:', e);
+  }
+}
+import UploadService from '../../../services/upload.service';
+import { Linking } from 'react-native';
 
 interface Experience {
   title: string;
@@ -31,7 +41,7 @@ interface Education {
   degree: string;
   institution: string;
   graduationYear?: number;
-  gpa?: number | string;
+  gpa?: number;
 }
 
 interface Certification {
@@ -47,6 +57,13 @@ const ResumeScreen = ({ navigation }: any) => {
   const isRecruiter = activeRole === 'recruiter' || roles.includes('recruiter');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  
+  // Uploaded resume file state
+  const [resumeFileUrl, setResumeFileUrl] = useState<string | undefined>(undefined);
+  const [resumeFilePublicId, setResumeFilePublicId] = useState<string | undefined>(undefined);
+  const [resumeFileName, setResumeFileName] = useState<string | undefined>(undefined);
   
   // Track initial state to detect changes
   const initialDataRef = useRef<{
@@ -81,7 +98,7 @@ const ResumeScreen = ({ navigation }: any) => {
     phone?: string;
     location?: string;
     skills?: string;
-    experience?: { [key: number]: { title?: string; company?: string; startDate?: string } };
+    experience?: { [key: number]: { title?: string; company?: string; startDate?: string; endDate?: string } };
     education?: { [key: number]: { degree?: string; institution?: string; graduationYear?: string } };
     certification?: { [key: number]: { name?: string; issuer?: string; date?: string } };
   }>({});
@@ -107,17 +124,12 @@ const ResumeScreen = ({ navigation }: any) => {
   useEffect(() => {
     if (user) {
       setEmail(user.email || '');
-      setName(user.name || user.displayName || '');
+      // Firebase User type has displayName, not name
+      setName(user.displayName || '');
     }
   }, [user]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadResume();
-    }, [isRecruiter])
-  );
-
-  const loadResume = async () => {
+  const loadResume = useCallback(async () => {
     try {
       setLoading(true);
       // Recruiters don't have resumes - skip loading
@@ -129,6 +141,32 @@ const ResumeScreen = ({ navigation }: any) => {
       const response = await ResumeService.getMyResume();
       if (response.resume) {
         const resume = response.resume;
+        
+        // Handle uploaded resume file
+        if (resume.resumeFileUrl) {
+          setResumeFileUrl(resume.resumeFileUrl);
+          setResumeFilePublicId(resume.resumeFilePublicId);
+          // Extract filename from URL and create user-friendly name
+          const urlParts = resume.resumeFileUrl.split('/');
+          const urlFileName = urlParts[urlParts.length - 1] || '';
+          
+          // Try to extract original filename or create a user-friendly one
+          let displayName = 'resume.pdf';
+          if (urlFileName) {
+            // Check if URL contains a readable filename (has extension)
+            const fileNameMatch = urlFileName.match(/([^/]+\.(pdf|doc|docx))$/i);
+            if (fileNameMatch) {
+              displayName = fileNameMatch[1];
+            } else {
+              // Use user's name if available, otherwise generic name
+              const userName = resume.personalInfo?.name || user?.displayName || 'Resume';
+              const fileExtension = urlFileName.includes('.doc') ? '.doc' : urlFileName.includes('.docx') ? '.docx' : '.pdf';
+              displayName = `${userName.replace(/\s+/g, '_')}_Resume${fileExtension}`;
+            }
+          }
+          setResumeFileName(displayName);
+        }
+        
         const loadedName = resume.personalInfo?.name || '';
         const loadedEmail = resume.personalInfo?.email || '';
         const loadedPhone = resume.personalInfo?.phone || '';
@@ -163,7 +201,8 @@ const ResumeScreen = ({ navigation }: any) => {
         };
       } else {
         // New resume - initialize with current user data
-        const initialName = user?.name || user?.displayName || '';
+        // Firebase User type has displayName, not name
+        const initialName = user?.displayName || '';
         const initialEmail = user?.email || '';
         initialDataRef.current = {
           name: initialName,
@@ -185,7 +224,8 @@ const ResumeScreen = ({ navigation }: any) => {
         };
       }
       // Initialize with current user data if no resume found
-      const initialName = user?.name || user?.displayName || '';
+      // Firebase User type has displayName, not name
+      const initialName = user?.displayName || '';
       const initialEmail = user?.email || '';
       initialDataRef.current = {
         name: initialName,
@@ -201,7 +241,13 @@ const ResumeScreen = ({ navigation }: any) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isRecruiter, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadResume();
+    }, [loadResume])
+  );
 
   const handleAddSkill = () => {
     if (newSkill.trim()) {
@@ -234,8 +280,8 @@ const ResumeScreen = ({ navigation }: any) => {
     if (currentDate) {
       const [year, month] = currentDate.split('-');
       const date = new Date();
-      date.setFullYear(parseInt(year) || new Date().getFullYear());
-      date.setMonth((parseInt(month) || new Date().getMonth() + 1) - 1);
+      date.setFullYear(parseInt(year, 10) || new Date().getFullYear());
+      date.setMonth((parseInt(month, 10) || new Date().getMonth() + 1) - 1);
       date.setDate(1);
       setSelectedDate(date);
     } else {
@@ -333,7 +379,7 @@ const ResumeScreen = ({ navigation }: any) => {
     if (dateStr.match(/^\d{4}-\d{2}$/)) {
       const [year, month] = dateStr.split('-');
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${monthNames[parseInt(month) - 1]} ${year}`;
+      return `${monthNames[parseInt(month, 10) - 1]} ${year}`;
     }
     return dateStr;
   };
@@ -472,7 +518,22 @@ const ResumeScreen = ({ navigation }: any) => {
     return false;
   }, [name, email, phone, location, skills, experience, education, certifications, backgroundInformation]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    // Validate: Either uploaded resume file OR in-app resume is required (not both)
+    const hasUploadedResume = !!resumeFileUrl;
+    const hasInAppResume = name.trim() && email.trim() && phone.trim() && location.trim() && skills.length > 0;
+    
+    // Prevent saving if both resume types exist
+    if (hasUploadedResume && hasInAppResume) {
+      showError('Please choose only one resume option: either upload a file OR create an in-app resume. Delete one to continue.');
+      return;
+    }
+    
+    if (!hasUploadedResume && !hasInAppResume) {
+      showError('Please either upload a resume file or create an in-app resume');
+      return;
+    }
+
     // Validate all required fields
     const newErrors: {
       name?: string;
@@ -485,33 +546,41 @@ const ResumeScreen = ({ navigation }: any) => {
       certification?: { [key: number]: { name?: string; issuer?: string; date?: string } };
     } = {};
 
-    // Personal Information validation
-    if (!name.trim()) {
-      newErrors.name = 'Full name is required';
+    // If user has uploaded resume file, only validate skills
+    if (hasUploadedResume) {
+      // Skills are required even when resume file is uploaded
+      if (skills.length === 0) {
+        newErrors.skills = 'Please add at least one skill';
+      }
+    } else {
+      // Personal Information validation (only if no uploaded resume)
+      if (!name.trim()) {
+        newErrors.name = 'Full name is required';
+      }
+
+      if (!email.trim()) {
+        newErrors.email = 'Email is required';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        newErrors.email = 'Please enter a valid email address';
+      }
+
+      if (!phone.trim()) {
+        newErrors.phone = 'Phone number is required';
+      } else if (phone.trim().length < 10) {
+        newErrors.phone = 'Phone number must be at least 10 digits';
+      }
+
+      if (!location.trim()) {
+        newErrors.location = 'Location is required';
+      }
+
+      if (skills.length === 0) {
+        newErrors.skills = 'Please add at least one skill';
+      }
     }
 
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    if (!phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (phone.trim().length < 10) {
-      newErrors.phone = 'Phone number must be at least 10 digits';
-    }
-
-    if (!location.trim()) {
-      newErrors.location = 'Location is required';
-    }
-
-    if (skills.length === 0) {
-      newErrors.skills = 'Please add at least one skill';
-    }
-
-    // Experience validation - if any experience exists, all fields are required
-    if (experience.length > 0) {
+    // Experience validation - if any experience exists, all fields are required (only if no uploaded resume)
+    if (!hasUploadedResume && experience.length > 0) {
       const experienceErrors: { [key: number]: { title?: string; company?: string; startDate?: string } } = {};
       experience.forEach((exp, index) => {
         const expErrors: { title?: string; company?: string; startDate?: string } = {};
@@ -533,8 +602,8 @@ const ResumeScreen = ({ navigation }: any) => {
       }
     }
 
-    // Education validation - if any education exists, all fields are required
-    if (education.length > 0) {
+    // Education validation - if any education exists, all fields are required (only if no uploaded resume)
+    if (!hasUploadedResume && education.length > 0) {
       const educationErrors: { [key: number]: { degree?: string; institution?: string; graduationYear?: string } } = {};
       education.forEach((edu, index) => {
         const eduErrors: { degree?: string; institution?: string; graduationYear?: string } = {};
@@ -556,8 +625,8 @@ const ResumeScreen = ({ navigation }: any) => {
       }
     }
 
-    // Certification validation - if any certification exists, all fields are required
-    if (certifications.length > 0) {
+    // Certification validation - if any certification exists, all fields are required (only if no uploaded resume)
+    if (!hasUploadedResume && certifications.length > 0) {
       const certificationErrors: { [key: number]: { name?: string; issuer?: string; date?: string } } = {};
       certifications.forEach((cert, index) => {
         const certErrors: { name?: string; issuer?: string; date?: string } = {};
@@ -593,17 +662,19 @@ const ResumeScreen = ({ navigation }: any) => {
       setSaving(true);
       const resumeData: ResumeData = {
         personalInfo: {
-          name: name.trim(),
-          email: email.trim(),
+          name: name.trim() || user?.displayName || '',
+          email: email.trim() || user?.email || '',
           phone: phone.trim() || undefined,
           location: location.trim() || undefined,
           profileImage: user?.photoURL || undefined,
         },
-        skills,
-        experience,
-        education,
-        certifications: certifications.length > 0 ? certifications : undefined,
-        backgroundInformation: backgroundInformation.trim() || undefined,
+        skills: skills, // Always include skills, whether uploaded resume or in-app resume
+        experience: hasUploadedResume ? [] : experience,
+        education: hasUploadedResume ? [] : education,
+        certifications: hasUploadedResume ? undefined : (certifications.length > 0 ? certifications : undefined),
+        backgroundInformation: hasUploadedResume ? undefined : (backgroundInformation.trim() || undefined),
+        resumeFileUrl: resumeFileUrl || undefined,
+        resumeFilePublicId: resumeFilePublicId || undefined,
       };
 
       await ResumeService.createOrUpdateResume(resumeData);
@@ -622,9 +693,18 @@ const ResumeScreen = ({ navigation }: any) => {
         backgroundInformation: backgroundInformation.trim(),
       };
       
+      // Reload resume to get updated data
+      loadResume();
+      
       // Set flag to prevent beforeRemove listener from showing alert
       isNavigatingAwayRef.current = true;
-      navigation.goBack();
+      // Check if we can go back before calling goBack
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        // If no screen to go back to, navigate to a default screen
+        navigation.navigate('MainTabs' as never);
+      }
     } catch (error: any) {
             if (__DEV__) {
         console.error('Error saving resume:', error)
@@ -632,6 +712,175 @@ const ResumeScreen = ({ navigation }: any) => {
       showError(error.message || 'Failed to save resume');
     } finally {
       setSaving(false);
+    }
+  }, [name, email, phone, location, skills, experience, education, certifications, backgroundInformation, user, navigation, resumeFileUrl, resumeFilePublicId, loadResume]);
+
+  // Handle resume file upload
+  const handleUploadResumeFile = useCallback(async () => {
+    try {
+      setUploadingFile(true);
+      
+      // Check if DocumentPicker is available
+      if (!DocumentPicker || !DocumentPicker.pick) {
+        showError('Document picker is not available. Please rebuild the app to enable file upload.');
+        return;
+      }
+      
+      // Pick document
+      const result = await DocumentPicker.pick({
+        type: [DocumentPicker.types.pdf, DocumentPicker.types.doc, DocumentPicker.types.docx],
+        copyTo: 'cachesDirectory',
+      });
+
+      if (result && result.length > 0) {
+        const file = result[0];
+        
+        if (__DEV__) {
+          console.log('Selected file:', file);
+        }
+
+        // Upload file
+        const uploadResult = await UploadService.uploadFile({
+          uri: file.uri,
+          type: file.type || 'application/pdf',
+          name: file.name || 'resume.pdf',
+          fileName: file.name || 'resume.pdf',
+        }, 'resume');
+
+        // Check if user has in-app resume data
+        const hasInAppResumeData = name.trim() || email.trim() || phone.trim() || location.trim() || skills.length > 0 || experience.length > 0 || education.length > 0 || certifications.length > 0 || backgroundInformation.trim();
+        
+        if (hasInAppResumeData) {
+          // Show confirmation before clearing in-app resume
+          showConfirmation(
+            'Switch to Uploaded Resume?',
+            'You have an in-app resume. Uploading a file will replace it. Do you want to continue?',
+            () => {
+              // Set uploaded file state
+              setResumeFileUrl(uploadResult.imageUrl);
+              setResumeFilePublicId(uploadResult.publicId);
+              // Use original filename or create user-friendly name
+              const displayFileName = file.name || (name.trim() ? `${name.trim().replace(/\s+/g, '_')}_Resume.pdf` : 'resume.pdf');
+              setResumeFileName(displayFileName);
+              
+              // Clear in-app resume data when uploading file (but keep skills empty for user to add)
+              setName('');
+              setEmail('');
+              setPhone('');
+              setLocation('');
+              setSkills([]); // Reset skills - user will add them after upload
+              setExperience([]);
+              setEducation([]);
+              setCertifications([]);
+              setBackgroundInformation('');
+              
+              showSuccess('Resume file uploaded successfully. Your in-app resume has been replaced.');
+            },
+            () => {
+              // User cancelled - don't upload
+              showError('Upload cancelled');
+            },
+            'Replace',
+            'Cancel'
+          );
+        } else {
+          // No in-app resume data, proceed with upload
+          setResumeFileUrl(uploadResult.imageUrl);
+          setResumeFilePublicId(uploadResult.publicId);
+          // Use original filename or create user-friendly name
+          const displayFileName = file.name || (name.trim() ? `${name.trim().replace(/\s+/g, '_')}_Resume.pdf` : 'resume.pdf');
+          setResumeFileName(displayFileName);
+          
+          showSuccess('Resume file uploaded successfully');
+        }
+      }
+    } catch (error: any) {
+      if (DocumentPicker.isCancel(error)) {
+        // User cancelled, do nothing
+        return;
+      }
+      if (__DEV__) {
+        console.error('Error uploading resume file:', error);
+      }
+      showError(error.message || 'Failed to upload resume file');
+    } finally {
+      setUploadingFile(false);
+    }
+  }, [name, email, phone, location, skills, experience, education, certifications, backgroundInformation]);
+
+  // Handle resume file deletion
+  const handleDeleteResumeFile = useCallback(() => {
+    showConfirmation(
+      'Delete Resume File',
+      'Are you sure you want to delete the uploaded resume file? You can create an in-app resume instead.',
+      () => {
+        setResumeFileUrl(undefined);
+        setResumeFilePublicId(undefined);
+        setResumeFileName(undefined);
+        showSuccess('Resume file deleted. You can now create an in-app resume.');
+      },
+      undefined,
+      'Delete',
+      'Cancel'
+    );
+  }, []);
+
+  // Handle viewing uploaded resume
+  const handleViewResumeFile = useCallback(async () => {
+    if (resumeFileUrl) {
+      try {
+        const canOpen = await Linking.canOpenURL(resumeFileUrl);
+        if (canOpen) {
+          await Linking.openURL(resumeFileUrl);
+        } else {
+          showError('Cannot open resume file');
+        }
+      } catch (error: any) {
+        if (__DEV__) {
+          console.error('Error opening resume file:', error);
+        }
+        showError('Failed to open resume file');
+      }
+    }
+  }, [resumeFileUrl]);
+
+  // Export resume as PDF
+  const handleExportATS = async () => {
+    try {
+      setExporting(true);
+
+      // Validate that required fields are filled
+      if (!name.trim() || !email.trim()) {
+        showError('Please fill in at least your name and email before exporting');
+        return;
+      }
+
+      // Prepare resume data for export
+      const resumeData = {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        location: location.trim(),
+        skills: skills.filter(skill => skill.trim()),
+        experience: experience.filter(exp => exp.title && exp.company && exp.startDate),
+        education: education.filter(edu => edu.degree && edu.institution),
+        certifications: certifications.filter(cert => cert.name && cert.issuer && cert.date),
+        backgroundInformation: backgroundInformation.trim() || undefined,
+      };
+
+      // Generate and share PDF resume
+      await generateAndShareResumePDF(resumeData);
+      showSuccess('Resume exported successfully');
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Error exporting resume:', error);
+      }
+      // Don't show error if user cancelled
+      if (!error.message?.includes('cancel') && !error.message?.includes('dismiss')) {
+        showError(error.message || 'Failed to export resume');
+      }
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -664,7 +913,13 @@ const ResumeScreen = ({ navigation }: any) => {
                 setCertifications(JSON.parse(JSON.stringify(initialDataRef.current.certifications)));
                 setBackgroundInformation(initialDataRef.current.backgroundInformation);
               }
-              navigation.goBack();
+              // Check if we can go back before calling goBack
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                // If no screen to go back to, navigate to a default screen
+                navigation.navigate('MainTabs' as never);
+              }
             },
           },
           {
@@ -680,7 +935,13 @@ const ResumeScreen = ({ navigation }: any) => {
       return true; // Prevent default back action
     }
     isNavigatingAwayRef.current = true;
-    navigation.goBack();
+    // Check if we can go back before calling goBack
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      // If no screen to go back to, navigate to a default screen
+      navigation.navigate('MainTabs' as never);
+    }
   }, [hasUnsavedChanges, navigation, handleSave]);
 
   // Set up navigation listener to intercept back button
@@ -771,6 +1032,163 @@ const ResumeScreen = ({ navigation }: any) => {
         enableOnAndroid
         extraScrollHeight={100}
       >
+        {/* Resume Upload Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Resume</Text>
+          <Text style={styles.sectionSubtitle}>
+            Choose one option: Upload a pre-built resume file OR create an in-app resume
+          </Text>
+          
+          {resumeFileUrl ? (
+            <View style={styles.uploadedFileContainer}>
+              <View style={styles.uploadedFileInfo}>
+                  <FileText size={24} color={COLORS.blue} />
+                <View style={styles.uploadedFileDetails}>
+                  <Text style={styles.uploadedFileName} numberOfLines={1}>
+                    {(() => {
+                      const fileName = resumeFileName || 'resume.pdf';
+                      // Truncate very long filenames for better display
+                      if (fileName.length > 40) {
+                        const extension = fileName.substring(fileName.lastIndexOf('.'));
+                        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+                        return `${nameWithoutExt.substring(0, 35)}...${extension}`;
+                      }
+                      return fileName;
+                    })()}
+                  </Text>
+                  <Text style={styles.uploadedFileStatus}>Resume file uploaded</Text>
+                </View>
+              </View>
+              <View style={styles.uploadedFileActions}>
+                <TouchableOpacity
+                  onPress={handleViewResumeFile}
+                  style={styles.viewFileButton}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewFileButtonText}>View</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDeleteResumeFile}
+                  style={styles.deleteFileButton}
+                  activeOpacity={0.7}
+                >
+                  <Trash2 size={18} color={COLORS.red} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <>
+              {!DocumentPicker && (
+                <View style={styles.warningContainer}>
+                  <Text style={styles.warningText}>
+                    File upload requires rebuilding the app. Please rebuild the iOS app to enable this feature.
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity
+                onPress={handleUploadResumeFile}
+                disabled={uploadingFile || !DocumentPicker}
+                style={[styles.uploadButton, (uploadingFile || !DocumentPicker) && styles.uploadButtonDisabled]}
+                activeOpacity={0.7}
+              >
+                <Upload size={20} color={COLORS.white} />
+                <Text style={styles.uploadButtonText}>
+                  {uploadingFile ? 'Uploading...' : 'Upload Resume File (PDF/DOCX)'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Skills Section - Show when resume file is uploaded (required) - Before OR divider */}
+          {resumeFileUrl && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Skills *</Text>
+              <Text style={styles.sectionSubtitle}>
+                Add your skills to help recruiters find you (Required)
+              </Text>
+              
+              <View style={styles.addSkillContainer}>
+                <TextInput
+                  style={styles.addSkillInput}
+                  placeholder="Add a skill"
+                  placeholderTextColor={COLORS.lightGray}
+                  value={newSkill}
+                  onChangeText={setNewSkill}
+                  onSubmitEditing={handleAddSkill}
+                />
+                <TouchableOpacity
+                  onPress={handleAddSkill}
+                  style={styles.addButton}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={20} color={COLORS.white} />
+                </TouchableOpacity>
+              </View>
+              
+              {errors.skills && <Text style={styles.errorText}>{errors.skills}</Text>}
+              
+              {skills.length > 0 && (
+                <View style={styles.skillsContainer}>
+                  {skills.map((skill, index) => (
+                    <View key={index} style={styles.skillTag}>
+                      <Text style={styles.skillText}>{skill}</Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          handleRemoveSkill(index);
+                          // Clear error when user removes a skill (if they add one)
+                          if (errors.skills && skills.length > 1) {
+                            setErrors({ ...errors, skills: undefined });
+                          }
+                        }}
+                        style={styles.removeSkillButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <X size={16} color={COLORS.white} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+          
+          {resumeFileUrl && (
+            <>
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.divider} />
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  showConfirmation(
+                    'Switch to In-App Resume?',
+                    'Deleting the uploaded file will allow you to create an in-app resume. Do you want to continue?',
+                    () => {
+                      setResumeFileUrl(undefined);
+                      setResumeFilePublicId(undefined);
+                      setResumeFileName(undefined);
+                      showSuccess('You can now create an in-app resume');
+                    },
+                    undefined,
+                    'Switch',
+                    'Cancel'
+                  );
+                }}
+                style={styles.switchToInAppButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.switchToInAppButtonText}>
+                  Create In-App Resume Instead
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        {/* In-App Resume Builder - Always show */}
+        {!resumeFileUrl && (
+          <>
         {/* Personal Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -1071,7 +1489,7 @@ const ResumeScreen = ({ navigation }: any) => {
                   placeholderTextColor={COLORS.lightGray}
                   value={edu.graduationYear?.toString()}
                   onChangeText={(value) => {
-                    handleUpdateEducation(index, 'graduationYear', value ? parseInt(value) : undefined);
+                    handleUpdateEducation(index, 'graduationYear', value ? parseInt(value, 10) : undefined);
                     // Clear error when user starts typing
                     if (errors.education?.[index]?.graduationYear) {
                       const newEduErrors = { ...errors.education };
@@ -1092,7 +1510,12 @@ const ResumeScreen = ({ navigation }: any) => {
                   placeholder="GPA (optional)"
                   placeholderTextColor={COLORS.lightGray}
                   value={edu.gpa?.toString() || ''}
-                  onChangeText={(value) => handleUpdateEducation(index, 'gpa', value || undefined)}
+                  onChangeText={(value) => {
+                    // Convert GPA to number, ensuring it's always a number or undefined
+                    const numValue = value.trim() ? parseFloat(value) : undefined;
+                    handleUpdateEducation(index, 'gpa', isNaN(numValue as number) ? undefined : numValue);
+                  }}
+                  keyboardType="decimal-pad"
                 />
               </View>
               {errors.education?.[index]?.graduationYear && <Text style={styles.errorText}>{errors.education[index].graduationYear}</Text>}
@@ -1216,6 +1639,22 @@ const ResumeScreen = ({ navigation }: any) => {
           />
         </View>
 
+        {/* Export ATS Format Button */}
+        <TouchableOpacity
+          onPress={handleExportATS}
+          disabled={exporting || !name.trim() || !email.trim()}
+          style={[
+            styles.exportButton,
+            (!name.trim() || !email.trim()) && styles.exportButtonDisabled
+          ]}
+          activeOpacity={0.7}
+        >
+          <Download size={18} color={COLORS.white} />
+          <Text style={styles.exportButtonText}>
+            {exporting ? 'Exporting...' : 'Export resume'}
+          </Text>
+        </TouchableOpacity>
+
         {/* Save Button */}
         <AppButton
           title={saving ? 'Saving...' : 'Save Resume'}
@@ -1224,6 +1663,19 @@ const ResumeScreen = ({ navigation }: any) => {
           loading={saving}
           style={styles.saveButton}
         />
+          </>
+        )}
+
+        {/* Save Button for uploaded resume with skills */}
+        {resumeFileUrl && (
+          <AppButton
+            title={saving ? 'Saving...' : 'Save Resume'}
+            onPress={handleSave}
+            disabled={saving}
+            loading={saving}
+            style={styles.saveButton}
+          />
+        )}
       </KeyboardAwareScrollView>
 
       {/* Date Picker */}
@@ -1252,7 +1704,7 @@ const ResumeScreen = ({ navigation }: any) => {
               edges={['bottom']}
             >
               <View 
-                style={{ flex: 1 }}
+                style={styles.modalContentInner}
                 onStartShouldSetResponder={() => true}
               >
                 <View style={styles.modalHeader}>
@@ -1266,11 +1718,11 @@ const ResumeScreen = ({ navigation }: any) => {
                   >
                     <Text style={styles.modalCancelText}>Cancel</Text>
                   </TouchableOpacity>
-                  <View style={{ alignItems: 'center', flex: 1 }}>
+                  <View style={styles.modalTitleContainer}>
                     <Text style={styles.modalTitle}>
                       Select {datePickerType === 'start' ? 'Start' : datePickerType === 'end' ? 'End' : 'Certification'} Date
                     </Text>
-                    <Text style={{ fontSize: 12, fontWeight: 'normal', color: COLORS.gray, marginTop: 2 }}>
+                    <Text style={styles.modalSubtitle}>
                       (Month & Year)
                     </Text>
                   </View>
@@ -1292,7 +1744,7 @@ const ResumeScreen = ({ navigation }: any) => {
                     minimumDate={datePickerType === 'end' && datePickerIndex >= 0 && experience[datePickerIndex]?.startDate
                       ? (() => {
                           const [year, month] = experience[datePickerIndex].startDate.split('-');
-                          return new Date(parseInt(year), parseInt(month) - 1, 1);
+                          return new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
                         })()
                       : undefined}
                     maximumDate={new Date()}
@@ -1312,7 +1764,7 @@ const ResumeScreen = ({ navigation }: any) => {
           minimumDate={datePickerType === 'end' && datePickerIndex >= 0 && experience[datePickerIndex]?.startDate
             ? (() => {
                 const [year, month] = experience[datePickerIndex].startDate.split('-');
-                return new Date(parseInt(year), parseInt(month) - 1, 1);
+                return new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
               })()
             : undefined}
           maximumDate={new Date()}

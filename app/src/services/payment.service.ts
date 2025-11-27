@@ -33,7 +33,9 @@ class PaymentService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error creating payment intent:', error);
+            if (__DEV__) {
+        console.error('Error creating payment intent:', error)
+      };
       throw new Error(error.response?.data?.error || 'Failed to create payment intent');
     }
   }
@@ -43,35 +45,47 @@ class PaymentService {
    */
   async confirmPaymentIntent(paymentIntentId: string, paymentMethodId: string) {
     try {
-      console.log('Confirming payment intent:', paymentIntentId, 'with method:', paymentMethodId);
+            if (__DEV__) {
+        console.log('Confirming payment intent:', paymentIntentId, 'with method:', paymentMethodId)
+      };
       
       
       return { success: true, paymentIntentId };
     } catch (error: any) {
-      console.error('Error confirming payment intent:', error);
+            if (__DEV__) {
+        console.error('Error confirming payment intent:', error)
+      };
       throw new Error('Failed to confirm payment');
     }
   }
 
   async handlePaymentSuccess(paymentIntentId: string, bookingId: string) {
     try {
-      console.log('Payment successful for booking:', bookingId);
+            if (__DEV__) {
+        console.log('Payment successful for booking:', bookingId)
+      };
       
       return { success: true, bookingId };
     } catch (error: any) {
-      console.error('Error handling payment success:', error);
+            if (__DEV__) {
+        console.error('Error handling payment success:', error)
+      };
       throw new Error('Failed to process payment success');
     }
   }
 
   async handlePaymentFailure(paymentIntentId: string, bookingId: string, error: string) {
     try {
-      console.log('Payment failed for booking:', bookingId, 'Error:', error);
+            if (__DEV__) {
+        console.log('Payment failed for booking:', bookingId, 'Error:', error)
+      };
       
       
       return { success: true, bookingId, error };
     } catch (err: any) {
-      console.error('Error handling payment failure:', err);
+            if (__DEV__) {
+        console.error('Error handling payment failure:', err)
+      };
       throw new Error('Failed to process payment failure');
     }
   }
@@ -87,7 +101,9 @@ class PaymentService {
         onboardingUrl: response.data.onboardingUrl,
       };
     } catch (error: any) {
-      console.error('Error creating Stripe Connect account:', error);
+            if (__DEV__) {
+        console.error('Error creating Stripe Connect account:', error)
+      };
       throw new Error(error.response?.data?.error || 'Failed to create Stripe account');
     }
   }
@@ -120,7 +136,9 @@ class PaymentService {
       }>('/payment/connect/account-status');
       return response.data;
     } catch (error: any) {
-      console.error('Error getting Stripe account status:', error);
+            if (__DEV__) {
+        console.error('Error getting Stripe account status:', error)
+      };
       throw new Error(error.response?.data?.error || 'Failed to get account status');
     }
   }
@@ -135,7 +153,9 @@ class PaymentService {
       const response = await api.get('/payment/platform-fee');
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching platform fee config:', error);
+            if (__DEV__) {
+        console.error('Error fetching platform fee config:', error)
+      };
       throw new Error(error.response?.data?.error || 'Failed to load platform fee configuration');
     }
   }
@@ -145,7 +165,9 @@ class PaymentService {
       const response = await api.put('/payment/platform-fee', { platformFeeAmount });
       return response.data;
     } catch (error: any) {
-      console.error('Error updating platform fee config:', error);
+            if (__DEV__) {
+        console.error('Error updating platform fee config:', error)
+      };
       throw new Error(error.response?.data?.error || 'Failed to update platform fee configuration');
     }
   }

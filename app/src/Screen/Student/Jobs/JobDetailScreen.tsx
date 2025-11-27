@@ -336,7 +336,9 @@ const JobDetailScreen = ({ navigation, route }: any) => {
             <Text style={styles.infoIcon}>📍</Text>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Location</Text>
-              <Text style={styles.infoValue}>{job.location}</Text>
+              <Text style={styles.infoValue} numberOfLines={4} ellipsizeMode="tail">
+                {job.location}
+              </Text>
             </View>
           </View>
           

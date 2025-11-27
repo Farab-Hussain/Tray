@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "chats": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$chatId": {
+        ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+        ".write": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+        "messages": {
+          ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+          ".write": "auth != null",
+          "$messageId": {
+            ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+            ".write": "auth != null && (!data.exists() || data.child('senderId').val() == auth.uid)"
+          }
+        },
+        "typing": {
+          ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "userChats": {
+      ".read": "auth != null",
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    }
+  }
+}
+

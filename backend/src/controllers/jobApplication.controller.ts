@@ -4,6 +4,7 @@ import { jobApplicationServices } from "../services/jobApplication.service";
 import { jobServices } from "../services/job.service";
 import { resumeServices } from "../services/resume.service";
 import { calculateMatchScore } from "../utils/skillMatching";
+import { serializeApplication, serializeApplications } from "../utils/serialization";
 import { JobApplicationInput } from "../models/jobApplication.model";
 
 /**
@@ -63,13 +64,13 @@ export const applyForJob = async (req: Request, res: Response) => {
 
     res.status(201).json({
       message: "Application submitted successfully",
-      application: {
+      application: serializeApplication({
         ...application,
         matchScore: matchResult.score,
         matchRating: matchResult.rating,
         matchedSkills: matchResult.matchedSkills,
         missingSkills: matchResult.missingSkills,
-      },
+      }),
     });
   } catch (error: any) {
     console.error("Error applying for job:", error);
@@ -106,7 +107,7 @@ export const getJobApplications = async (req: Request, res: Response) => {
     const basicCount = applications.filter(app => app.matchRating === "basic").length;
 
     res.status(200).json({
-      applications,
+      applications: serializeApplications(applications),
       summary: {
         total: applications.length,
         gold: goldCount,
@@ -138,7 +139,7 @@ export const getMyApplications = async (req: Request, res: Response) => {
       applications.map(async (app) => {
         try {
           const job = await jobServices.getById(app.jobId);
-          return {
+          const serialized = serializeApplication({
             ...app,
             job: {
               id: job.id,
@@ -146,10 +147,21 @@ export const getMyApplications = async (req: Request, res: Response) => {
               company: job.company,
               location: job.location,
               status: job.status,
+              requiredSkills: job.requiredSkills || [],
             },
-          };
+          });
+          // Debug: Log status to ensure it's included
+          if (__DEV__) {
+            console.log(`[getMyApplications] Application ${app.id} status:`, serialized.status);
+          }
+          return serialized;
         } catch (error) {
-          return app;
+          const serialized = serializeApplication(app);
+          // Debug: Log status to ensure it's included
+          if (__DEV__) {
+            console.log(`[getMyApplications] Application ${app.id} status (no job):`, serialized.status);
+          }
+          return serialized;
         }
       })
     );
@@ -191,7 +203,7 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
 
     res.status(200).json({
       message: "Application status updated successfully",
-      application: updatedApplication,
+      application: serializeApplication(updatedApplication),
     });
   } catch (error: any) {
     console.error("Error updating application status:", error);
@@ -225,18 +237,25 @@ export const getApplicationById = async (req: Request, res: Response) => {
     const resume = await resumeServices.getById(application.resumeId).catch(() => null);
     const job = await jobServices.getById(application.jobId).catch(() => null);
 
+    const serialized = serializeApplication({
+      ...application,
+      resume: resume || undefined,
+      job: job ? {
+        id: job.id,
+        title: job.title,
+        company: job.company || '',
+        location: job.location || '',
+        requiredSkills: job.requiredSkills,
+      } : undefined,
+    });
+
+    // Debug: Log status to ensure it's included
+    if (__DEV__) {
+      console.log(`[getApplicationById] Application ${application.id} status:`, serialized.status);
+    }
+
     res.status(200).json({
-      application: {
-        ...application,
-        resume: resume || undefined,
-        job: job ? {
-          id: job.id,
-          title: job.title,
-          company: job.company || '',
-          location: job.location || '',
-          requiredSkills: job.requiredSkills,
-        } : undefined,
-      },
+      application: serialized,
     });
   } catch (error: any) {
     console.error("Error fetching application:", error);

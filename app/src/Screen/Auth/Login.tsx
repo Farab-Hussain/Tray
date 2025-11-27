@@ -42,8 +42,18 @@ const Login = ({ navigation }: LoginProps) => {
 
   const { googleLogin, facebookLogin, appleLogin } = useSocialLogin();
 
-  // Note: We fetch role directly from backend on login instead of using AuthContext's role state
-  // This ensures we get the most up-to-date role information
+  /**
+   * IMPORTANT: This Login screen does NOT restrict access based on which button was clicked.
+   * It always fetches the user's actual role from the backend database and navigates accordingly.
+   * 
+   * This means:
+   * - A consultant can login from any login screen (student/consultant/recruiter button)
+   * - A student can login from any login screen
+   * - A recruiter can login from any login screen
+   * - After login, users are redirected to the screen matching their ACTUAL role in the database
+   * 
+   * This is the correct behavior - users should be able to login regardless of which entry point they use.
+   */
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -568,12 +578,17 @@ const Login = ({ navigation }: LoginProps) => {
 
   /**
    * Navigate after successful authentication (shared for email/password and social login)
+   * Always uses the actual role from the backend, not any role parameter from navigation
    */
   const navigateAfterLogin = async (userRole: string) => {
     // Wait a moment for AuthContext to sync
     await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
 
-    // Navigate based on role and status
+    if (__DEV__) {
+      console.log('✅ [Login] Navigating based on actual user role from database:', userRole);
+    }
+
+    // Navigate based on actual role from database (not from button clicked)
     if (userRole === 'consultant') {
       if (__DEV__) {
         console.log(
@@ -717,13 +732,24 @@ const Login = ({ navigation }: LoginProps) => {
           });
         }
       }
-    } else {
+    } else if (userRole === 'recruiter') {
       if (__DEV__) {
-        console.log('Login - User is student, navigating to student tabs');
+        console.log('Login - User is recruiter, navigating to recruiter tabs (uses student tabs structure)');
+      }
+      // Recruiters use the same navigation structure as students (MainTabs)
+      // The RoleBasedTabs component will show RecruiterHome based on role
+      navigation.replace('Screen', {
+        screen: 'MainTabs',
+        params: { role: 'recruiter' },
+      });
+    } else {
+      // Default: student role or any other role
+      if (__DEV__) {
+        console.log('Login - User is student (or default), navigating to student tabs');
       }
       navigation.replace('Screen', {
         screen: 'MainTabs',
-        params: { role: 'student' },
+        params: { role: userRole || 'student' },
       });
     }
   };

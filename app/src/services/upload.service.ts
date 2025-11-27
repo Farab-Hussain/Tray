@@ -149,7 +149,9 @@ const UploadService = {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error deleting profile image:', error);
+            if (__DEV__) {
+        console.error('Error deleting profile image:', error)
+      };
       throw new Error(error.response?.data?.error || 'Failed to delete image');
     }
   },
@@ -162,7 +164,9 @@ const UploadService = {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error deleting consultant image:', error);
+            if (__DEV__) {
+        console.error('Error deleting consultant image:', error)
+      };
       throw new Error(error.response?.data?.error || 'Failed to delete image');
     }
   },
@@ -246,7 +250,9 @@ const UploadService = {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error getting upload signature:', error);
+            if (__DEV__) {
+        console.error('Error getting upload signature:', error)
+      };
       throw new Error(error.response?.data?.error || 'Failed to get upload signature');
     }
   },

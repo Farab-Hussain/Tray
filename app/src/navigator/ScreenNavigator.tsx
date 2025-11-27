@@ -29,6 +29,7 @@ import RecruiterProfile from '../Screen/Recruiter/Profile/RecruiterProfile';
 import ConsultantProfile from '../Screen/Consultant/Profile/ConsultantProfile';
 import RecruiterJobs from '../Screen/Recruiter/Jobs/RecruiterJobs';
 import AllApplicationsScreen from '../Screen/Recruiter/Jobs/AllApplicationsScreen';
+import ConsultantAllApplicationsScreen from '../Screen/Consultant/Jobs/AllApplicationsScreen';
 import MyReviews from '../Screen/Student/Review/MyReviews';
 import ConsultantReviews from '../Screen/Consultant/Reviews/ConsultantReviews';
 import EditReview from '../Screen/Student/Review/EditReview';
@@ -1041,6 +1042,16 @@ const ScreenNavigator = () => {
       <Stack.Screen
         name="RecruiterAllApplications"
         component={AllApplicationsScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Consultant All Applications Screen */}
+      <Stack.Screen
+        name="ConsultantAllApplications"
+        component={ConsultantAllApplicationsScreen}
         options={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,

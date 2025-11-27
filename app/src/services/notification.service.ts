@@ -52,9 +52,13 @@ try {
     const errorMsg = error?.message || '';
     if (!errorMsg.includes('not installed natively') && 
         !errorMsg.includes('not installed on your project')) {
-      console.log('ℹ️ [FCM] React Native Firebase Messaging not available:', errorMsg || 'Unknown error');
+            if (__DEV__) {
+        console.log('ℹ️ [FCM] React Native Firebase Messaging not available:', errorMsg || 'Unknown error')
+      };
     }
-    console.log('ℹ️ [FCM] Push notifications will be disabled until native module is properly linked');
+        if (__DEV__) {
+      console.log('ℹ️ [FCM] Push notifications will be disabled until native module is properly linked')
+    };
   }
   messaging = null;
 }
@@ -111,7 +115,9 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
         if (__DEV__) {
           // Use console.log instead of console.error since this is expected behavior until rebuild
           console.log('ℹ️ [FCM] Native module not installed. The app was built but the native module needs to be linked.');
-          console.log('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device');
+                    if (__DEV__) {
+            console.log('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device')
+          };
         }
         restoreConsoleWarn(originalWarn);
         return false;
@@ -180,7 +186,9 @@ export const getFCMToken = async (): Promise<string | null> => {
         if (__DEV__) {
           // Use console.log instead of console.error since this is expected behavior until rebuild
           console.log('ℹ️ [FCM] Native module not installed. The app was built but the native module needs to be linked.');
-          console.log('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device');
+                    if (__DEV__) {
+            console.log('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device')
+          };
         }
         restoreConsoleWarn(originalWarn);
         return null;
@@ -308,7 +316,9 @@ export const getFCMToken = async (): Promise<string | null> => {
     console.error('❌ [FCM] Error stack:', error.stack);
     } else {
       // In production, only log minimal error info
-      console.error('❌ [FCM] Failed to get token:', error.code || 'unknown');
+            if (__DEV__) {
+        console.error('❌ [FCM] Failed to get token:', error.code || 'unknown')
+      };
     }
     return null;
   }
@@ -367,7 +377,9 @@ export const refreshFCMToken = async (): Promise<string | null> => {
     }
     return newToken;
   } catch (error) {
-    console.error('Error refreshing FCM token:', error);
+        if (__DEV__) {
+      console.error('Error refreshing FCM token:', error)
+    };
     return null;
   }
 };
@@ -377,7 +389,9 @@ export const refreshFCMToken = async (): Promise<string | null> => {
  */
 export const setupTokenRefreshListener = () => {
   if (!isMessagingAvailable()) {
-    console.warn('⚠️ [FCM] Messaging not available, skipping token refresh listener');
+        if (__DEV__) {
+      console.warn('⚠️ [FCM] Messaging not available, skipping token refresh listener')
+    };
     return () => { }; // Return empty cleanup function
   }
 
@@ -395,7 +409,9 @@ export const setupTokenRefreshListener = () => {
 
 export const setupForegroundMessageHandler = () => {
   if (!isMessagingAvailable()) {
-    console.warn('⚠️ [FCM] Messaging not available, skipping foreground handler');
+        if (__DEV__) {
+      console.warn('⚠️ [FCM] Messaging not available, skipping foreground handler')
+    };
     return () => { }; // Return empty cleanup function
   }
 
@@ -416,31 +432,41 @@ export const setupForegroundMessageHandler = () => {
       const callerId = messageData.callerId;
       const receiverId = messageData.receiverId || messageData.userId;
       
-      console.log('📞 [Foreground] Incoming call notification received:', { 
+            if (__DEV__) {
+        console.log('📞 [Foreground] Incoming call notification received:', { 
         callId, 
         callType, 
         callerId, 
         receiverId,
         fullData: messageData 
-      });
+      })
+      };
       
       // Verify call exists in Firestore before navigating
       try {
         const { getCallOnce } = require('./call.service');
         const callDoc = await getCallOnce(callId);
         if (!callDoc.exists()) {
-          console.warn('⚠️ [Foreground] Call document not found:', callId);
+                    if (__DEV__) {
+            console.warn('⚠️ [Foreground] Call document not found:', callId)
+          };
           // Still try to navigate - call might be created after notification
         } else {
           const callData = callDoc.data();
-          console.log('📞 [Foreground] Call document found:', callData);
+                    if (__DEV__) {
+            console.log('📞 [Foreground] Call document found:', callData)
+          };
           if (callData?.status !== 'ringing') {
-            console.warn('⚠️ [Foreground] Call is not ringing anymore:', callData?.status);
+                        if (__DEV__) {
+              console.warn('⚠️ [Foreground] Call is not ringing anymore:', callData?.status)
+            };
             return;
           }
         }
       } catch (error: any) {
-        console.warn('⚠️ [Foreground] Error checking call document:', error);
+                if (__DEV__) {
+          console.warn('⚠️ [Foreground] Error checking call document:', error)
+        };
         // Continue anyway - navigate to call screen
       }
       
@@ -451,7 +477,9 @@ export const setupForegroundMessageHandler = () => {
         // Navigate to the appropriate calling screen
         const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
         
-        console.log('📞 [Foreground] Navigating to calling screen:', screenName, 'with callId:', callId);
+                if (__DEV__) {
+          console.log('📞 [Foreground] Navigating to calling screen:', screenName, 'with callId:', callId)
+        };
         
         // Small delay to ensure navigation is ready
         setTimeout(() => {
@@ -466,9 +494,13 @@ export const setupForegroundMessageHandler = () => {
               },
             });
             
-            console.log('✅ [Foreground] Navigated to calling screen:', screenName);
+                        if (__DEV__) {
+              console.log('✅ [Foreground] Navigated to calling screen:', screenName)
+            };
           } catch (navError: any) {
-            console.error('❌ [Foreground] Error navigating:', navError);
+                        if (__DEV__) {
+              console.error('❌ [Foreground] Error navigating:', navError)
+            };
             // Retry navigation
             setTimeout(() => {
               try {
@@ -482,15 +514,21 @@ export const setupForegroundMessageHandler = () => {
                     receiverId,
                   },
                 });
-                console.log('✅ [Foreground] Retry navigation successful');
+                                if (__DEV__) {
+                  console.log('✅ [Foreground] Retry navigation successful')
+                };
               } catch (retryError: any) {
-                console.error('❌ [Foreground] Retry navigation failed:', retryError);
+                                if (__DEV__) {
+                  console.error('❌ [Foreground] Retry navigation failed:', retryError)
+                };
               }
             }, 1000);
           }
         }, 200);
       } catch (error: any) {
-        console.error('❌ [Foreground] Error setting up navigation:', error.message || error);
+                if (__DEV__) {
+          console.error('❌ [Foreground] Error setting up navigation:', error.message || error)
+        };
       }
       
       return; // Don't process further for call notifications
@@ -502,9 +540,15 @@ export const setupForegroundMessageHandler = () => {
     // Both platforms will show pop-up notifications even when app is in foreground
     
     if (messageData.chatId) {
-      console.log('💬 [Foreground] Chat message received for chat:', messageData.chatId);
-      console.log('💬 [Foreground] Message from:', messageData.senderId);
-      console.log('💬 [Foreground] Message text:', messageData.messageText || notification.body);
+            if (__DEV__) {
+        console.log('💬 [Foreground] Chat message received for chat:', messageData.chatId)
+      };
+            if (__DEV__) {
+        console.log('💬 [Foreground] Message from:', messageData.senderId)
+      };
+            if (__DEV__) {
+        console.log('💬 [Foreground] Message text:', messageData.messageText || notification.body)
+      };
       
       // The chat context will handle refreshing chats when messages arrive
       // No need to manually refresh here as the real-time listeners will pick it up
@@ -529,7 +573,9 @@ export const setupBackgroundMessageHandler = () => {
 // Handle notification opened (app opened from notification)
 export const setupNotificationOpenedHandler = (callback: (data: any) => void) => {
   if (!isMessagingAvailable()) {
-    console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler');
+        if (__DEV__) {
+      console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler')
+    };
     return () => { }; // Return empty cleanup function
   }
 
@@ -565,12 +611,18 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
     const messageData = remoteMessage.data || {};
     const notification = remoteMessage.notification || {};
     
-    console.log('📨 [Notification Opened] Message data:', messageData);
-    console.log('📨 [Notification Opened] Notification:', notification);
+        if (__DEV__) {
+      console.log('📨 [Notification Opened] Message data:', messageData)
+    };
+        if (__DEV__) {
+      console.log('📨 [Notification Opened] Notification:', notification)
+    };
     
     // Handle incoming call notifications
     if (messageData.type === 'call' || messageData.callId) {
-      console.log('📞 [Notification Opened] Handling incoming call notification...');
+            if (__DEV__) {
+        console.log('📞 [Notification Opened] Handling incoming call notification...')
+      };
       handleIncomingCallNotification(messageData);
       return;
     }
@@ -589,7 +641,9 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
  */
 export const setupNotificationOpenedHandlerWithNavigation = (navigation: any) => {
   if (!isMessagingAvailable()) {
-    console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler');
+        if (__DEV__) {
+      console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler')
+    };
     return () => { };
   }
 
@@ -600,14 +654,18 @@ export const setupNotificationOpenedHandlerWithNavigation = (navigation: any) =>
     .getInitialNotification()
     .then((remoteMessage: any) => {
       if (remoteMessage) {
-        console.log('📱 [Notification Opened] App opened from notification:', remoteMessage);
+                if (__DEV__) {
+          console.log('📱 [Notification Opened] App opened from notification:', remoteMessage)
+        };
         handleNotificationAction(remoteMessage, navigation);
       }
     });
 
   // Handle notification that opened app from background
   const unsubscribe = messaging().onNotificationOpenedApp((remoteMessage: any) => {
-    console.log('📱 [Notification Opened] App opened from background notification:', remoteMessage);
+        if (__DEV__) {
+      console.log('📱 [Notification Opened] App opened from background notification:', remoteMessage)
+    };
     handleNotificationAction(remoteMessage, navigation);
   });
   
@@ -622,7 +680,9 @@ const handleNotificationAction = (remoteMessage: any, navigation: any) => {
   const messageData = remoteMessage.data || {};
   const action = messageData.action || remoteMessage.action; // Action from notification button
   
-  console.log('🔔 [Notification Action] Action:', action, 'Data:', messageData);
+    if (__DEV__) {
+    console.log('🔔 [Notification Action] Action:', action, 'Data:', messageData)
+  };
   
   // Handle call notification actions
   if (messageData.type === 'call' || messageData.callId) {
@@ -767,7 +827,9 @@ const handleIncomingCallNotification = (data: any) => {
     // Try to navigate immediately
     navigateToCall();
   } catch (error: any) {
-    console.error('❌ [Call Notification] Error setting up navigation:', error.message || error);
+        if (__DEV__) {
+      console.error('❌ [Call Notification] Error setting up navigation:', error.message || error)
+    };
   }
 };
 
@@ -790,7 +852,9 @@ export const setBadgeCount = async (count: number): Promise<void> => {
   try {
     await messaging().setBadge(count);
   } catch (error) {
-    console.error('Error setting badge count:', error);
+        if (__DEV__) {
+      console.error('Error setting badge count:', error)
+    };
   }
 };
 

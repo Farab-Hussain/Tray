@@ -29,7 +29,9 @@ export const BookingRequestService = {
       const response = await fetcher(`/booking-requests/consultant/${consultantId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching consultant booking requests:', error);
+            if (__DEV__) {
+        console.error('Error fetching consultant booking requests:', error)
+      };
       throw error;
     }
   },
@@ -40,7 +42,9 @@ export const BookingRequestService = {
       const response = await fetcher(`/booking-requests/student/${studentId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching student booking requests:', error);
+            if (__DEV__) {
+        console.error('Error fetching student booking requests:', error)
+      };
       throw error;
     }
   },
@@ -81,12 +85,16 @@ export const BookingRequestService = {
           senderAvatar: studentAvatar,
         });
       } catch (notifError) {
-        console.warn('⚠️ Failed to create booking notification:', notifError);
+                if (__DEV__) {
+          console.warn('⚠️ Failed to create booking notification:', notifError)
+        };
       }
       
       return bookingRequest;
     } catch (error) {
-      console.error('Error creating booking request:', error);
+            if (__DEV__) {
+        console.error('Error creating booking request:', error)
+      };
       throw error;
     }
   },
@@ -119,12 +127,16 @@ export const BookingRequestService = {
           senderAvatar: consultantAvatar,
         });
       } catch (notifError) {
-        console.warn('⚠️ Failed to create booking confirmation notification:', notifError);
+                if (__DEV__) {
+          console.warn('⚠️ Failed to create booking confirmation notification:', notifError)
+        };
       }
       
       return bookingRequest;
     } catch (error) {
-      console.error('Error accepting booking request:', error);
+            if (__DEV__) {
+        console.error('Error accepting booking request:', error)
+      };
       throw error;
     }
   },
@@ -162,12 +174,16 @@ export const BookingRequestService = {
           senderAvatar: consultantAvatar,
         });
       } catch (notifError) {
-        console.warn('⚠️ Failed to create booking decline notification:', notifError);
+                if (__DEV__) {
+          console.warn('⚠️ Failed to create booking decline notification:', notifError)
+        };
       }
       
       return declinedRequest;
     } catch (error) {
-      console.error('Error declining booking request:', error);
+            if (__DEV__) {
+        console.error('Error declining booking request:', error)
+      };
       throw error;
     }
   },
@@ -227,12 +243,16 @@ export const BookingRequestService = {
           senderAvatar: consultantAvatar,
         });
       } catch (notifError) {
-        console.warn('⚠️ Failed to create booking cancellation notifications:', notifError);
+                if (__DEV__) {
+          console.warn('⚠️ Failed to create booking cancellation notifications:', notifError)
+        };
       }
       
       return cancelledRequest;
     } catch (error) {
-      console.error('Error cancelling booking request:', error);
+            if (__DEV__) {
+        console.error('Error cancelling booking request:', error)
+      };
       throw error;
     }
   },
@@ -243,7 +263,9 @@ export const BookingRequestService = {
       const response = await fetcher(`/booking-requests/${requestId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching booking request:', error);
+            if (__DEV__) {
+        console.error('Error fetching booking request:', error)
+      };
       throw error;
     }
   }

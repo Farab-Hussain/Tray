@@ -9,7 +9,11 @@
     "start": "react-native start",
     "test": "jest",
     "postinstall": "patch-package",
-    "generate-icons": "node scripts/generate-app-icons.js"
+    "generate-icons": "node scripts/generate-app-icons.js",
+    "wrap-console": "node scripts/wrap-console-statements.js",
+    "wrap-console:dry-run": "node scripts/wrap-console-statements.js --dry-run",
+    "verify-production": "node scripts/verify-production-build.js",
+    "setup-keystore": "node android/setup-keystore-properties.js"
   },
   "dependencies": {
     "@invertase/react-native-apple-authentication": "^2.4.1",
@@ -31,8 +35,11 @@
     "react": "19.1.1",
     "react-native": "0.82.1",
     "react-native-calendars": "^1.1313.0",
+    "react-native-document-picker": "^9.3.1",
     "react-native-fbsdk-next": "^13.4.1",
+    "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.29.1",
+    "react-native-html-to-pdf": "^1.3.0",
     "react-native-image-picker": "^8.2.1",
     "react-native-incall-manager": "^3.3.0",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",

@@ -12,6 +12,7 @@ import { applicationDetailScreenStyles } from '../../../constants/styles/applica
 import { formatDate } from '../../../utils/dateUtils';
 import { useRefresh } from '../../../hooks/useRefresh';
 import RefreshableScrollView from '../../../components/ui/RefreshableScrollView';
+import { getStatusMessage, getStatusColor, getStatusIcon, getStatusDescription } from '../../../utils/applicationStatusUtils';
 
 const ApplicationDetailScreen = ({ navigation, route }: any) => {
   const { applicationId } = route.params;
@@ -22,7 +23,16 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
     try {
       setLoading(true);
       const response = await JobService.getApplicationById(applicationId);
-      setApplication(response.application);
+      const app = response.application;
+      // Debug: Log status
+      if (__DEV__) {
+        console.log('[ApplicationDetailScreen] Fetched application:', {
+          id: app.id,
+          jobTitle: app.job?.title,
+          status: app.status,
+        });
+      }
+      setApplication(app);
     } catch (error: any) {
             if (__DEV__) {
         console.error('Error fetching application:', error)
@@ -93,14 +103,20 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
       >
         {/* Job Info Card */}
         <View style={styles.jobCard}>
-          <Text style={styles.jobTitle}>{application.job?.title || 'Job'}</Text>
+          <Text style={styles.jobTitle} numberOfLines={3} ellipsizeMode="tail">
+            {application.job?.title || 'Job'}
+          </Text>
           {application.job?.company && (
-            <Text style={styles.companyName}>{application.job.company}</Text>
+            <Text style={styles.companyName} numberOfLines={2} ellipsizeMode="tail">
+              {application.job.company}
+            </Text>
           )}
           {application.job?.location && (
             <View style={styles.jobInfoRow}>
               <Text style={styles.jobInfoIcon}>📍</Text>
-              <Text style={styles.jobInfoText}>{application.job.location}</Text>
+              <Text style={styles.jobInfoText} numberOfLines={4} ellipsizeMode="tail">
+                {application.job.location}
+              </Text>
             </View>
           )}
         </View>
@@ -116,6 +132,22 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
             </Text>
           </View>
         )}
+
+        {/* Application Status - Always show, default to pending if not set */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Application Status</Text>
+          <View style={[styles.statusCard, { borderLeftColor: getStatusColor(application.status || 'pending') }]}>
+            <View style={styles.statusHeader}>
+              <Text style={styles.statusIcon}>{getStatusIcon(application.status || 'pending')}</Text>
+              <Text style={[styles.statusMessage, { color: getStatusColor(application.status || 'pending') }]}>
+                {getStatusMessage(application.status || 'pending')}
+              </Text>
+            </View>
+            <Text style={styles.statusDescription}>
+              {getStatusDescription(application.status || 'pending')}
+            </Text>
+          </View>
+        </View>
 
         {/* Match Breakdown */}
         {application.matchedSkills && application.matchedSkills.length > 0 && (

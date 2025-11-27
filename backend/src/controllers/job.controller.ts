@@ -268,16 +268,38 @@ export const getMatchScore = async (req: Request, res: Response) => {
     const job = await jobServices.getById(id);
     const userResume = await resumeServices.getByUserId(user.uid);
 
-    const matchResult = calculateMatchScore(job.requiredSkills, userResume.skills);
+    // Ensure arrays are properly formatted
+    const jobSkills = Array.isArray(job.requiredSkills) ? job.requiredSkills : [];
+    const userSkills = Array.isArray(userResume.skills) ? userResume.skills : [];
 
-    res.status(200).json({
-      matchScore: matchResult.score,
+    const matchResult = calculateMatchScore(jobSkills, userSkills);
+
+    // Validate that score matches matchedSkills length (safety check)
+    const validatedScore = matchResult.matchedSkills.length;
+    if (validatedScore !== matchResult.score) {
+      console.warn(`Score mismatch detected: calculated=${matchResult.score}, actual=${validatedScore}. Using actual count.`);
+    }
+
+    const response = {
+      score: validatedScore, // Use actual matchedSkills length for accuracy
       matchRating: matchResult.rating,
       totalRequired: matchResult.totalRequired,
       matchPercentage: matchResult.matchPercentage,
       matchedSkills: matchResult.matchedSkills,
       missingSkills: matchResult.missingSkills,
-    });
+    };
+
+    // Debug logging in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Match Score Response:', {
+        jobSkills,
+        userSkills,
+        matchResult,
+        response,
+      });
+    }
+
+    res.status(200).json(response);
   } catch (error: any) {
     console.error("Error calculating match score:", error);
     if (error.message === "Resume not found") {

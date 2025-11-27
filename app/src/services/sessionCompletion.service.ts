@@ -55,7 +55,9 @@ export const SessionCompletionService = {
       });
       return response.data;
     } catch (error) {
-      console.error('Error completing session:', error);
+            if (__DEV__) {
+        console.error('Error completing session:', error)
+      };
       throw error;
     }
   },
@@ -69,7 +71,9 @@ export const SessionCompletionService = {
       });
       return response.data;
     } catch (error) {
-      console.error('Error rating consultant:', error);
+            if (__DEV__) {
+        console.error('Error rating consultant:', error)
+      };
       throw error;
     }
   },
@@ -83,7 +87,9 @@ export const SessionCompletionService = {
       });
       return response.data;
     } catch (error) {
-      console.error('Error rating service:', error);
+            if (__DEV__) {
+        console.error('Error rating service:', error)
+      };
       throw error;
     }
   },
@@ -94,7 +100,9 @@ export const SessionCompletionService = {
       const response = await fetcher(`/session-completion/${sessionCompletionId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching session completion:', error);
+            if (__DEV__) {
+        console.error('Error fetching session completion:', error)
+      };
       throw error;
     }
   },
@@ -105,7 +113,9 @@ export const SessionCompletionService = {
       const response = await fetcher(`/session-completion/student/${studentId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching student session completions:', error);
+            if (__DEV__) {
+        console.error('Error fetching student session completions:', error)
+      };
       throw error;
     }
   },
@@ -116,7 +126,9 @@ export const SessionCompletionService = {
       const response = await fetcher(`/session-completion/consultant/${consultantId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching consultant session completions:', error);
+            if (__DEV__) {
+        console.error('Error fetching consultant session completions:', error)
+      };
       throw error;
     }
   },
@@ -130,7 +142,9 @@ export const SessionCompletionService = {
       });
       return response.data;
     } catch (error) {
-      console.error('Error requesting refund:', error);
+            if (__DEV__) {
+        console.error('Error requesting refund:', error)
+      };
       throw error;
     }
   },
@@ -143,7 +157,9 @@ export const SessionCompletionService = {
       });
       return apiResponse.data;
     } catch (error) {
-      console.error('Error responding to refund request:', error);
+            if (__DEV__) {
+        console.error('Error responding to refund request:', error)
+      };
       throw error;
     }
   },
@@ -157,7 +173,9 @@ export const SessionCompletionService = {
       });
       return response.data;
     } catch (error) {
-      console.error('Error reviewing refund request:', error);
+            if (__DEV__) {
+        console.error('Error reviewing refund request:', error)
+      };
       throw error;
     }
   },
@@ -168,7 +186,9 @@ export const SessionCompletionService = {
       const response = await fetcher('/refund-requests');
       return response.data;
     } catch (error) {
-      console.error('Error fetching refund requests:', error);
+            if (__DEV__) {
+        console.error('Error fetching refund requests:', error)
+      };
       throw error;
     }
   },
@@ -179,7 +199,9 @@ export const SessionCompletionService = {
       const response = await fetcher(`/refund-requests/consultant/${consultantId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching consultant refund requests:', error);
+            if (__DEV__) {
+        console.error('Error fetching consultant refund requests:', error)
+      };
       throw error;
     }
   },
@@ -190,7 +212,9 @@ export const SessionCompletionService = {
       const response = await fetcher(`/refund-requests/student/${studentId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching student refund requests:', error);
+            if (__DEV__) {
+        console.error('Error fetching student refund requests:', error)
+      };
       throw error;
     }
   }

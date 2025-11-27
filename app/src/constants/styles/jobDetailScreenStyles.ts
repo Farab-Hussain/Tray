@@ -166,6 +166,7 @@ export const jobDetailScreenStyles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    overflow: 'hidden', // Ensure content doesn't overflow card
   },
   infoRow: {
     flexDirection: 'row',
@@ -182,6 +183,7 @@ export const jobDetailScreenStyles = StyleSheet.create({
   },
   infoContent: {
     flex: 1,
+    minWidth: 0, // Allow flex item to shrink below content size
   },
   infoLabel: {
     fontSize: 12,
@@ -193,6 +195,8 @@ export const jobDetailScreenStyles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.black,
     fontWeight: '600',
+    flexWrap: 'wrap',
+    lineHeight: 22,
   },
   section: {
     marginBottom: 24,

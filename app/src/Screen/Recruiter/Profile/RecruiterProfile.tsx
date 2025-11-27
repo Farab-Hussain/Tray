@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useRefresh } from '../../../hooks/useRefresh';
 import { UserService } from '../../../services/user.service';
 import { Camera, User, Lock, Edit2, Mail, CheckCircle } from 'lucide-react-native';
 import { showError, showSuccess } from '../../../utils/toast';

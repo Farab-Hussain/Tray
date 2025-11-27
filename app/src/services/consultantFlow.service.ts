@@ -79,7 +79,9 @@ export interface ConsultantApplicationInput {
 
 
 export const setDemoToken = async () => {
-  console.log('Using Firebase authentication tokens');
+    if (__DEV__) {
+    console.log('Using Firebase authentication tokens')
+  };
 };
 
 // Profile APIs
