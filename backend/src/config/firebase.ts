@@ -1,26 +1,23 @@
 import admin from "firebase-admin";
-import path from "path";
-import fs from "fs";
+import { firebaseConfig, validateFirebaseConfig } from "./config";
 
-// ROOT CAUSE FIX: Read credentials directly from JSON file
-// This allows you to update the file when you get a new key without changing code
-const serviceAccountPath = path.join(__dirname, "tray-ed2f7-firebase-adminsdk-fbsvc-72f6bb8684.json");
+// Validate Firebase configuration from environment variables
+validateFirebaseConfig();
 
-let serviceAccount: admin.ServiceAccount;
-
-if (fs.existsSync(serviceAccountPath)) {
-  try {
-    const fileContent = fs.readFileSync(serviceAccountPath, 'utf8');
-    serviceAccount = JSON.parse(fileContent) as admin.ServiceAccount;
-    console.log(`✅ Loaded Firebase credentials from: ${serviceAccountPath}`);
-    console.log(`✅ Project: ${serviceAccount.projectId || (serviceAccount as any).project_id}`);
-  } catch (error: any) {
-    console.error(`❌ Failed to read/parse service account file: ${error?.message}`);
-    throw new Error(`Invalid service account file: ${error?.message}`);
-  }
-} else {
-  throw new Error(`Service account file not found at: ${serviceAccountPath}`);
-}
+// Create service account object from config
+const serviceAccount = {
+  type: firebaseConfig.type,
+  project_id: firebaseConfig.project_id,
+  private_key_id: firebaseConfig.private_key_id,
+  private_key: firebaseConfig.private_key,
+  client_email: firebaseConfig.client_email,
+  client_id: firebaseConfig.client_id,
+  auth_uri: firebaseConfig.auth_uri,
+  token_uri: firebaseConfig.token_uri,
+  auth_provider_x509_cert_url: firebaseConfig.auth_provider_x509_cert_url,
+  client_x509_cert_url: firebaseConfig.client_x509_cert_url,
+  universe_domain: firebaseConfig.universe_domain,
+} as admin.ServiceAccount;
 
 // Initialize Firebase Admin SDK with hardcoded credentials
 if (!admin.apps.length) {
@@ -30,6 +27,7 @@ if (!admin.apps.length) {
     });
     console.log("✅ Firebase Admin SDK initialized with hardcoded credentials");
     console.log(`✅ Project: ${serviceAccount.projectId || (serviceAccount as any).project_id}`);
+    console.log(`✅ Service Account: ${(serviceAccount as any).client_email}`);
     
     // ROOT CAUSE FIX: Immediately test credentials to catch invalid keys early
     // This prevents silent failures

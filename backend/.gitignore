@@ -208,6 +208,9 @@ Thumbs.db
 .firebase/
 firebase-debug.log
 firestore-debug.log
+**/firebase-adminsdk-*.json
+**/tray-ed2f7-firebase-adminsdk-*.json
+src/config/*firebase*.json
 
 # Testing
 coverage/
