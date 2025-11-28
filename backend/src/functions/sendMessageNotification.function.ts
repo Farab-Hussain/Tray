@@ -1,38 +1,43 @@
 /**
  * Firebase Cloud Function to send push notifications when a new message is sent
  * 
- * DEPLOYMENT:
+ * NOTE: This file is for reference/backup. The actual implementation is in:
+ * backend/src/controllers/notification.controller.ts
+ * 
+ * If you want to use this as a Cloud Function:
  * 1. Install Firebase Functions CLI: npm install -g firebase-tools
- * 2. Login: firebase login
- * 3. Initialize functions: firebase init functions
- * 4. Copy this file to your functions/src directory
- * 5. Deploy: firebase deploy --only functions:sendMessageNotification
+ * 2. Install firebase-functions: npm install firebase-functions
+ * 3. Login: firebase login
+ * 4. Initialize functions: firebase init functions
+ * 5. Copy this file to your functions/src directory
+ * 6. Deploy: firebase deploy --only functions:sendMessageNotification
  * 
  * REQUIRED INSTALL:
  * npm install firebase-functions firebase-admin
  */
 
-import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
-
-// Initialize Firebase Admin if not already initialized
-if (admin.apps.length === 0) {
-  admin.initializeApp();
-}
-
-const db = admin.firestore();
+// ROOT CAUSE FIX: Use shared Firebase instance from config to prevent collisions
+// This ensures we use the same Firebase initialization with proper credentials
+import { admin, db } from '../config/firebase';
 
 /**
  * Cloud Function that triggers when a new message is created in Firestore
  * Sends FCM push notification to the recipient
+ * 
+ * NOTE: This requires firebase-functions package. If you're not using Cloud Functions,
+ * use the controller implementation instead: notification.controller.ts
  */
-export const sendMessageNotification = functions.firestore
-  .document('chats/{chatId}/messages/{messageId}')
-  .onCreate(async (snap, context) => {
+export const sendMessageNotification = async (snap: admin.firestore.DocumentSnapshot, context: { params: { chatId: string; messageId: string } }) => {
     try {
       const newMessage = snap.data();
       const chatId = context.params.chatId;
       const messageId = context.params.messageId;
+
+      // Skip if message data is missing
+      if (!newMessage) {
+        console.log('⚠️ Skipping - message data is missing');
+        return null;
+      }
 
       console.log('📨 New message created:', messageId);
       console.log('💬 Message text:', newMessage.text);
@@ -115,8 +120,9 @@ export const sendMessageNotification = functions.firestore
 
       console.log('📱 Sending notification to tokens:', tokens);
 
-      // Send notifications to all devices
-      const responses = await admin.messaging().sendToDevice(tokens, {
+      // Send notifications to all devices using modern API
+      const message: admin.messaging.MulticastMessage = {
+        tokens,
         notification: notification,
         data: data,
         apns: {
@@ -132,38 +138,38 @@ export const sendMessageNotification = functions.firestore
           notification: {
             sound: 'default',
             channelId: 'chat_messages',
+            priority: 'high' as const,
           },
-          priority: 'high',
+          priority: 'high' as const,
         },
-      });
+      };
+
+      const responses = await admin.messaging().sendEachForMulticast(message);
 
       console.log('✅ Notification sent successfully');
       console.log('📊 Response:', responses);
 
       // Handle failed tokens (clean up invalid tokens)
-      const failedTokens: FirebaseFirestore.DocumentReference[] = [];
-      if (responses.results) {
-        responses.results.forEach((result, index) => {
+      const failedTokenDocs: admin.firestore.QueryDocumentSnapshot[] = [];
+      if (responses.responses) {
+        responses.responses.forEach((result, index) => {
           if (result.error) {
             console.error('❌ Failed to send to token:', tokens[index], result.error);
             if (
               result.error.code === 'messaging/invalid-registration-token' ||
               result.error.code === 'messaging/registration-token-not-registered'
             ) {
-              failedTokens.push(tokensSnapshot.docs[index].ref);
+              failedTokenDocs.push(tokensSnapshot.docs[index]);
             }
           }
         });
       }
 
       // Clean up failed tokens
-      if (failedTokens.length > 0) {
-        console.log('🧹 Removing invalid tokens:', failedTokens.length);
-        const batch = db.batch();
-        failedTokens.forEach((tokenRef) => {
-          batch.delete(tokenRef);
-        });
-        await batch.commit();
+      if (failedTokenDocs.length > 0) {
+        console.log('🧹 Removing invalid tokens:', failedTokenDocs.length);
+        const deletePromises = failedTokenDocs.map((doc) => doc.ref.delete());
+        await Promise.all(deletePromises);
       }
 
       return null;
@@ -171,5 +177,13 @@ export const sendMessageNotification = functions.firestore
       console.error('❌ Error sending notification:', error);
       return null;
     }
-  });
+  };
+
+// If you want to use this as a Firebase Cloud Function, uncomment below and install firebase-functions:
+/*
+import * as functions from 'firebase-functions';
+export const sendMessageNotificationCloudFunction = functions.firestore
+  .document('chats/{chatId}/messages/{messageId}')
+  .onCreate(sendMessageNotification);
+*/
 
