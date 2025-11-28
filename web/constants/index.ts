@@ -16,7 +16,6 @@ export const APP_CONFIG = {
 // Routes
 export const ROUTES = {
   HOME: '/',
-  SERVICES: '/consultant/services',
   EARNING: '/earning',
   BROKER_COMMISSION: '/brokerComission',
   ADMIN_MAIN: '/admin/main',

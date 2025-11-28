@@ -25,9 +25,9 @@ const HomePage = () => {
     if (user.role === 'admin') {
       router.replace('/admin');
     } else {
-      // Normal users (consultants, students, etc.) should go to consultant profile
-      // They don't have a dashboard, only admin users do
-      router.replace('/consultant/profile');
+      // Non-admin users should use the mobile app
+      // Web dashboard is admin-only
+      router.replace('/login');
     }
   }, [user, loading, router]);
 

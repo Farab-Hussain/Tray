@@ -261,7 +261,7 @@ export const jobApplicationServices = {
       updatedData.status = status; // Use the status we just set
     }
     // Debug: Log the update
-    if (__DEV__) {
+    if (process.env.NODE_ENV !== 'production') {
       console.log(`[updateStatus] Updated application ${id} status to:`, updatedData.status);
     }
     return updatedData;

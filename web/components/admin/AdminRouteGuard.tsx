@@ -19,8 +19,9 @@ const AdminRouteGuard: React.FC<AdminRouteGuardProps> = ({ children }) => {
         // No user logged in, redirect to login
         router.push('/login');
       } else if (user.role !== 'admin') {
-        // User is logged in but not admin, redirect to consultant dashboard
-        router.push('/consultant/profile');
+        // User is logged in but not admin
+        // Web dashboard is admin-only, redirect to login
+        router.push('/login');
       }
     }
   }, [user, loading, router]);
@@ -53,15 +54,12 @@ const AdminRouteGuard: React.FC<AdminRouteGuardProps> = ({ children }) => {
             Admin privileges are required.
           </p>
           <div className="space-y-3">
-            <button
-              onClick={() => router.push('/consultant/profile')}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              Go to Consultant Dashboard
-            </button>
+            <p className="text-sm text-red-600 text-center mb-4">
+              Web dashboard is for admin users only. Please use the mobile app for consultant features.
+            </p>
             <button
               onClick={() => router.push('/login')}
-              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               Switch Account
             </button>

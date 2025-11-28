@@ -28,7 +28,8 @@ const LoginPageContent = () => {
       if (user.role === "admin") {
         router.push("/admin");
       } else {
-        router.push("/consultant/profile");
+        // Non-admin users should use the mobile app
+        // Stay on login page with message
       }
     }
   }, [user, authLoading, router]);
@@ -71,7 +72,11 @@ const LoginPageContent = () => {
       if (userData.role === "admin") {
         router.push("/admin");
       } else {
-        router.push("/consultant/profile");
+        // Non-admin users should use the mobile app
+        // Web dashboard is admin-only
+        setError("Web dashboard is for admin users only. Please use the mobile app.");
+        setIsLoading(false);
+        return;
       }
     } catch (err: unknown) {
       console.error("Login error:", err);

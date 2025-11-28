@@ -151,14 +151,14 @@ export const getMyApplications = async (req: Request, res: Response) => {
             },
           });
           // Debug: Log status to ensure it's included
-          if (__DEV__) {
+          if (process.env.NODE_ENV !== 'production') {
             console.log(`[getMyApplications] Application ${app.id} status:`, serialized.status);
           }
           return serialized;
         } catch (error) {
           const serialized = serializeApplication(app);
           // Debug: Log status to ensure it's included
-          if (__DEV__) {
+          if (process.env.NODE_ENV !== 'production') {
             console.log(`[getMyApplications] Application ${app.id} status (no job):`, serialized.status);
           }
           return serialized;
@@ -250,7 +250,7 @@ export const getApplicationById = async (req: Request, res: Response) => {
     });
 
     // Debug: Log status to ensure it's included
-    if (__DEV__) {
+    if (process.env.NODE_ENV !== 'production') {
       console.log(`[getApplicationById] Application ${application.id} status:`, serialized.status);
     }
 

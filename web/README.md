@@ -67,12 +67,6 @@ web/
 │   │       │   └── page.tsx        # Activity log
 │   │       └── settings/
 │   │           └── page.tsx        # Platform settings
-│   │   └── consultant/             # Consultant routes (6 pages, legacy)
-│   │       ├── page.tsx            # Consultant dashboard
-│   │       ├── profile/
-│   │       ├── services/
-│   │       ├── applications/
-│   │       └── status/
 │   │
 │   ├── login/
 │   │   └── page.tsx                # Firebase email/password login
@@ -93,13 +87,8 @@ web/
 │   │   ├── AdminWidget.tsx         # Dashboard widget component
 │   │   └── ApprovalModal.tsx       # Approval/rejection modal
 │   │
-│   ├── consultant/                 # Consultant-specific components (6 components)
-│   │   ├── ProfileCard.tsx
-│   │   ├── MultiStepProfileForm.tsx
-│   │   ├── ConsultantRouteGuard.tsx
-│   │   ├── ServicesStepIndicator.tsx
-│   │   ├── ApplicationCard.tsx
-│   │   └── ProfileStatusBadge.tsx
+│   ├── consultant/                 # Consultant-specific components (1 component)
+│   │   └── ProfileStatusBadge.tsx  # Used in admin pages for status display
 │   │
 │   ├── shared/                     # Shared layout components (4 components)
 │   │   ├── Header.tsx              # Top header/navigation
@@ -170,9 +159,9 @@ Create a `.env.local` file in the `web/` directory (same level as `package.json`
 
 ```env
 # Backend REST API Base URL
-NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_API_URL=https://tray-peach.vercel.app/
 # OR use ngrok URL for mobile development
-# NEXT_PUBLIC_API_URL=https://your-ngrok-url.ngrok.io
+# NEXT_PUBLIC_API_URL=https://tray-peach.vercel.app/
 
 # Firebase Web SDK Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
@@ -208,7 +197,7 @@ npm install
 
 - Ensure the Tray backend API is running
 - Verify `NEXT_PUBLIC_API_URL` points to the correct backend URL
-- Test connection: `curl http://localhost:4000/health`
+- Test connection: `curl https://tray-peach.vercel.app/health`
 
 ## Development
 
@@ -318,6 +307,10 @@ All routes require admin authentication:
 - **AdminTable**: Data table with sorting and filtering
 - **AdminWidget**: Dashboard widget component
 - **ApprovalModal**: Modal for approving/rejecting consultant profiles and service applications
+
+### Consultant Components (`components/consultant/`)
+
+- **ProfileStatusBadge**: Status badge component used in admin pages to display consultant profile status (pending, approved, rejected)
 
 ### Shared Components (`components/shared/`)
 

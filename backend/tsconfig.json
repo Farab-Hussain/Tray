@@ -17,7 +17,7 @@
     "allowSyntheticDefaultImports": true,
     "removeComments": true
   },
-  "include": ["src/**/*", "api/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/functions/**/*", "scripts/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/functions/**/*", "scripts/**/*", "api/**/*"]
 }
   

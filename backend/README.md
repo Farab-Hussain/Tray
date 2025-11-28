@@ -181,7 +181,7 @@ Create a `.env` file in the `backend/` directory with the following variables:
 # Server Configuration
 PORT=4000                           # Server port (default: 4000)
 NODE_ENV=development                # Environment: development, production
-BASE_URL=http://localhost:4000     # Base URL for emails/links (use ngrok URL for mobile dev)
+BASE_URL=https://tray-peach.vercel.app/     # Base URL for emails/links (use ngrok URL for mobile dev)
 
 # Firebase Configuration
 SERVICE_ACCOUNT_PATH=./src/config/tray-ed2f7-firebase-adminsdk-*.json  # Path to service account JSON

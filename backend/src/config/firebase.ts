@@ -5,30 +5,50 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Initialize Firebase Admin SDK using service account key file
-// Priority: 1. SERVICE_ACCOUNT_PATH env var, 2. Default path, 3. Fallback to default Firebase initialization
-const serviceAccountPath = process.env.SERVICE_ACCOUNT_PATH 
-  ? process.env.SERVICE_ACCOUNT_PATH 
-  : path.join(__dirname, "tray-ed2f7-firebase-adminsdk-fbsvc-72f6bb8684.json");
-
-console.log("🔑 Loading Firebase service account from:", serviceAccountPath);
+// Initialize Firebase Admin SDK
+// Priority: 
+// 1. SERVICE_ACCOUNT_JSON (environment variable with JSON string) - for Vercel/production
+// 2. SERVICE_ACCOUNT_PATH (file path) - for local development
+// 3. Default path - fallback for local
+// 4. Default credentials - for Google Cloud environments
 
 if (!admin.apps.length) {
   try {
-    // Try to load service account file if path is provided, otherwise use default credentials
-    if (process.env.SERVICE_ACCOUNT_PATH || fs.existsSync(serviceAccountPath)) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccountPath),
-      });
-      console.log("✅ Firebase Admin SDK initialized successfully with service account");
-    } else {
-      // Use default credentials (for Google Cloud environments or environment variables)
-      admin.initializeApp();
-      console.log("✅ Firebase Admin SDK initialized successfully with default credentials");
+    // Option 1: Use SERVICE_ACCOUNT_JSON environment variable (for Vercel/production)
+    if (process.env.SERVICE_ACCOUNT_JSON) {
+      try {
+        const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_JSON);
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+        console.log("✅ Firebase Admin SDK initialized with SERVICE_ACCOUNT_JSON");
+      } catch (parseError) {
+        console.error("❌ Failed to parse SERVICE_ACCOUNT_JSON:", parseError);
+        throw parseError;
+      }
     }
-  } catch (error) {
-    console.error("❌ Failed to initialize Firebase Admin SDK:", error);
-    // Fallback to default initialization
+    // Option 2: Use SERVICE_ACCOUNT_PATH or default file path (for local development)
+    else {
+      const serviceAccountPath = process.env.SERVICE_ACCOUNT_PATH 
+        ? process.env.SERVICE_ACCOUNT_PATH 
+        : path.join(__dirname, "tray-ed2f7-firebase-adminsdk-fbsvc-72f6bb8684.json");
+
+      console.log("🔑 Checking for Firebase service account file at:", serviceAccountPath);
+
+      if (fs.existsSync(serviceAccountPath)) {
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccountPath),
+        });
+        console.log("✅ Firebase Admin SDK initialized with service account file");
+      } else {
+        // Option 3: Use default credentials (for Google Cloud environments)
+        admin.initializeApp();
+        console.log("✅ Firebase Admin SDK initialized with default credentials");
+      }
+    }
+  } catch (error: any) {
+    console.error("❌ Failed to initialize Firebase Admin SDK:", error?.message || error);
+    // Final fallback to default initialization
     try {
       admin.initializeApp();
       console.log("✅ Firebase Admin SDK initialized with default credentials (fallback)");

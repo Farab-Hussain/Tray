@@ -327,7 +327,7 @@ Create `backend/.env`:
 ```env
 PORT=4000
 NODE_ENV=development
-BASE_URL=http://localhost:4000
+BASE_URL=https://tray-peach.vercel.app/
 SERVICE_ACCOUNT_PATH=./src/config/service-account.json
 STRIPE_SECRET_KEY=sk_test_...
 PLATFORM_FEE_AMOUNT=5.00
@@ -369,7 +369,7 @@ CLOUDINARY_UPLOAD_PRESET=...
 Create `web/.env.local`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_API_URL=https://tray-peach.vercel.app/
 NEXT_PUBLIC_FIREBASE_API_KEY=...
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
