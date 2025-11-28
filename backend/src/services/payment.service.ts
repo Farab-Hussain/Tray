@@ -1,6 +1,6 @@
 // src/services/payment.service.ts
 import { db } from "../config/firebase";
-import { stripeClient } from "../utils/stripeClient";
+import { getStripeClient } from "../utils/stripeClient";
 import { Logger } from "../utils/logger";
 import { getPlatformFeeAmount } from "./platformSettings.service";
 
@@ -158,7 +158,7 @@ export const transferPaymentToConsultant = async (
     }
 
     // Verify account is active and ready to receive transfers
-    const account = await stripeClient.accounts.retrieve(stripeAccountId);
+    const account = await getStripeClient().accounts.retrieve(stripeAccountId);
     if (!account.details_submitted || !account.charges_enabled || !account.payouts_enabled) {
       return {
         success: false,
@@ -186,7 +186,7 @@ export const transferPaymentToConsultant = async (
     }
 
     // Create transfer to consultant
-    const transfer = await stripeClient.transfers.create({
+    const transfer = await getStripeClient().transfers.create({
       amount: transferAmount,
       currency: "usd",
       destination: stripeAccountId,

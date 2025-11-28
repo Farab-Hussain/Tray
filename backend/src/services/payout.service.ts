@@ -1,10 +1,9 @@
 // src/services/payout.service.ts
 import { db } from "../config/firebase";
 import { Logger } from "../utils/logger";
-import Stripe from "stripe";
+import { getStripeClient } from "../utils/stripeClient";
 import { getPlatformFeeAmount } from "./platformSettings.service";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 const MINIMUM_PAYOUT_AMOUNT = parseFloat(process.env.MINIMUM_PAYOUT_AMOUNT || '10'); // Minimum $10 to payout
 
 /**
@@ -94,7 +93,7 @@ export const processAutomatedPayouts = async () => {
         }
 
         // Verify Stripe account is ready
-        const account = await stripe.accounts.retrieve(stripeAccountId);
+        const account = await getStripeClient().accounts.retrieve(stripeAccountId);
         
         if (!account.details_submitted || !account.charges_enabled || !account.payouts_enabled) {
           Logger.warn("Payout", consultantId, "Stripe account not ready for payouts");
@@ -111,7 +110,7 @@ export const processAutomatedPayouts = async () => {
         }
 
         // Create Stripe transfer
-        const transfer = await stripe.transfers.create({
+        const transfer = await getStripeClient().transfers.create({
           amount: transferAmount,
           currency: "usd",
           destination: stripeAccountId,

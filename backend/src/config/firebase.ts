@@ -1,21 +1,26 @@
 import admin from "firebase-admin";
+import path from "path";
+import fs from "fs";
 
-// Hardcoded Firebase Service Account Credentials
-// NOTE: This is a direct solution - credentials are embedded in code
-// Using 'as any' to match the JSON structure from Firebase
-const serviceAccount = {
-  type: "service_account",
-  project_id: "tray-ed2f7",
-  private_key_id: "72f6bb86847c83b0deba9621f26807bb08c81edc",
-  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC9zA5Ya/uMQNyU\nrCYXA9+ujI2NoGyQdwI5Q+SUwcve7skI0sbxxaq7OSiqzfMtWXe9jAUeS6jnC4R/\nT8PGbkLDLAOsc9puh9sw+YtWStP2tVO3k5PrlxY40U/hCwasdIoIvDc02+2FM6MS\nInEOPNMjqCAZ1qFC3CytOQ1TA57Yn+vDFglFpkNQtJ6hMizSbCpu6dKeaAoG2BYz\nWQTSrboa15fgfBUiXLjgumVJ0WA187TbsxiZk495Hlff2Ac6rEy7Kq0NdCHI2wDO\n9FNCoKfLdSolhQ6awJIYKh5Le94YlqfdOdmfg71msZ5otfGEZ0n4jFBXvmOpgkLL\ndY2mxBTBAgMBAAECgf8FFBca+ci0hNSVWQXfF8g+CdGMnv5IrBm8u1RVpqandtXQ\npp/48cRGJJr+w9DKv3O0xRcqxShMn/V4cp0kC7WkA0l8RwO3pJ4sCue8WpEElbvn\numTHqQNIzrdhQV15Jj6+fReWrBiiHjLLowawNHBx3Wdk4zLtcKn0kjiipmlZr0hP\n2GiJc+N3fxBsQFgJIpaewjhA8FNtjVWZmCVpqJX0DLC7aaRNEJbIyb8k4J+oBN+y\nAuPhy1SLmY7RyZuH2T5NGXLiaEZowSiWM+IqMKsPxHeMuRxtntQ5jJKTfbvfmg5u\nQ9AXEDg2QJI9ngJDgBRD5YXtdBYmdveDROVlfbECgYEA9O5NbjaDYCgEt7Jkwp40\nsMdXGk5addsf4hK20BYu2Dm7pZfFWCdwn6zqcAwdTKERKP1EWU6B0WHdLBpfM3XB\n621vmpBC3tTYnP+8SBzbR1KgXV3KTsIU7sFEYUhA6bwPYdwx6MFmMm073bAGQdmB\nlGpDpkXJYHptAwsliyktPkkCgYEAxl/j4NxFcHIguzy0fz5YNjAXxO6RJUxPGePD\n/GoaCK1WHBRHmPbwNUOeN099OY+NVSQgzn4aoJUyGjtdqByCtWZK9TI4YholOwbb\nuiTj6NExKZHpECX52bUlXqNrKgGAjapHtsEbUBpHqpAB7C1bsxtWLdcJCoT+L8Zx\nUGPpgrkCgYEA1LU7s3JOJ6y5ZBreHJIuajPD9kmDkASrrLbZ4t7Q8eE5kDa9ILCn\nw1P1CTfMHidm8rT4raJbZU5bOJjygotKzL1uhcmw+TnZoIcLqYi9+jPMpyjzr/An\nI63eR6nrDdHPfgovodaLfVGWAxGCbZ+KRC0A8R58I3hOwazlfvRUoVkCgYEAramy\nl96d16PB7chmB2Lv3HhbxqZHYMyeDv8rSuUj52a/lJNYXpwHi8mnT6qB6Qs34kpf\nggY5j00tcHN6OTrEXsOvaVpOq+tRnowRfbLf5qiEDm1TCDUGtsVzcpdDsKFiBiME\n5wPEwmpPRQ0O8dB/j5ul5Tl0C8aDtBVYi9T7ztkCgYEAn4B933WaNI7mwiGFo2KT\nzqf8x1/xi3x1tYN5BHfbpjVellNHdST6JJkZ3mztHa1m8gxaeidNuJX4Disuuwk3\nV4f8kBoGgbc4jtYnq8wVkxEhoAsGQRFVQKg/2FYn4e3Rrkdtbyp2iydAc1f3jH6T\nyZnqFQJr90Zr+4nvEKDfl7I=\n-----END PRIVATE KEY-----\n",
-  client_email: "firebase-adminsdk-fbsvc@tray-ed2f7.iam.gserviceaccount.com",
-  client_id: "115013495212439306518",
-  auth_uri: "https://accounts.google.com/o/oauth2/auth",
-  token_uri: "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40tray-ed2f7.iam.gserviceaccount.com",
-  universe_domain: "googleapis.com"
-} as admin.ServiceAccount;
+// ROOT CAUSE FIX: Read credentials directly from JSON file
+// This allows you to update the file when you get a new key without changing code
+const serviceAccountPath = path.join(__dirname, "tray-ed2f7-firebase-adminsdk-fbsvc-72f6bb8684.json");
+
+let serviceAccount: admin.ServiceAccount;
+
+if (fs.existsSync(serviceAccountPath)) {
+  try {
+    const fileContent = fs.readFileSync(serviceAccountPath, 'utf8');
+    serviceAccount = JSON.parse(fileContent) as admin.ServiceAccount;
+    console.log(`✅ Loaded Firebase credentials from: ${serviceAccountPath}`);
+    console.log(`✅ Project: ${serviceAccount.projectId || (serviceAccount as any).project_id}`);
+  } catch (error: any) {
+    console.error(`❌ Failed to read/parse service account file: ${error?.message}`);
+    throw new Error(`Invalid service account file: ${error?.message}`);
+  }
+} else {
+  throw new Error(`Service account file not found at: ${serviceAccountPath}`);
+}
 
 // Initialize Firebase Admin SDK with hardcoded credentials
 if (!admin.apps.length) {
@@ -25,6 +30,26 @@ if (!admin.apps.length) {
     });
     console.log("✅ Firebase Admin SDK initialized with hardcoded credentials");
     console.log(`✅ Project: ${serviceAccount.projectId || (serviceAccount as any).project_id}`);
+    
+    // ROOT CAUSE FIX: Immediately test credentials to catch invalid keys early
+    // This prevents silent failures
+    const testDb = admin.firestore();
+    testDb.collection('_credential_test').limit(1).get()
+      .then(() => {
+        console.log("✅ [ROOT CAUSE] Firebase credentials are VALID and working");
+      })
+      .catch((error: any) => {
+        if (error?.code === 16 || error?.message?.includes('UNAUTHENTICATED')) {
+          console.error("❌ [ROOT CAUSE] Firebase credentials are INVALID!");
+          console.error("❌ [ROOT CAUSE] The service account key is expired, disabled, or invalid.");
+          console.error("❌ [ROOT CAUSE] SOLUTION: Generate a NEW service account key:");
+          console.error("   1. Go to: https://console.firebase.google.com/project/tray-ed2f7/settings/serviceaccounts/adminsdk");
+          console.error("   2. Click 'Generate New Private Key'");
+          console.error("   3. Download the JSON file");
+          console.error("   4. Replace the credentials in this file (firebase.ts)");
+          console.error(`   Error details: ${error?.message}`);
+        }
+      });
   } catch (error: any) {
     console.error("❌ Failed to initialize Firebase Admin SDK:", error?.message || error);
     throw error;
@@ -36,12 +61,21 @@ const db = admin.firestore();
 
 // OPTIMIZATION: Configure Firestore settings for better performance
 // These settings help with connection pooling and reduce latency
-db.settings({
-  // Use persistent connection (default, but explicit for clarity)
-  ignoreUndefinedProperties: true, // Ignore undefined properties to avoid errors
-  // Enable offline persistence for better performance (caching)
-  // Note: Admin SDK doesn't support offline persistence, but we handle caching in our code
-});
+// ROOT CAUSE FIX: Only call settings() once (handles hot reload in development)
+try {
+  db.settings({
+    // Use persistent connection (default, but explicit for clarity)
+    ignoreUndefinedProperties: true, // Ignore undefined properties to avoid errors
+    // Enable offline persistence for better performance (caching)
+    // Note: Admin SDK doesn't support offline persistence, but we handle caching in our code
+  });
+} catch (error: any) {
+  // Settings already applied (common during hot reload in development)
+  // This is safe to ignore
+  if (!error?.message?.includes('already been initialized')) {
+    console.warn('⚠️ Firestore settings warning:', error?.message);
+  }
+}
 
 // Validate Firebase credentials work (async check)
 if (process.env.NODE_ENV !== 'test') {

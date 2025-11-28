@@ -2,7 +2,7 @@
 import { Request, Response } from "express";
 import { db } from "../config/firebase";
 import { emailBookingConfirmation, emailConsultantNewBooking } from "../utils/email";
-import { stripeClient } from "../utils/stripeClient";
+import { getStripeClient } from "../utils/stripeClient";
 import { getPlatformFeeAmount } from "../services/platformSettings.service";
 
 export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "accepted", "approved"];
@@ -83,7 +83,7 @@ export const cancelBookingInternally = async (
           ? parseFloat(booking.amount)
           : undefined;
 
-      const refund = await stripeClient.refunds.create({
+      const refund = await getStripeClient().refunds.create({
         payment_intent: booking.paymentIntentId,
         reason: "requested_by_customer",
         amount:

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import dotenv from "dotenv";
 import { db } from "../config/firebase";
-import { stripeClient } from "../utils/stripeClient";
+import { getStripeClient } from "../utils/stripeClient";
 import {
   getPlatformFeeAmount,
   getPlatformSettings,
@@ -39,7 +39,7 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
     // and provide better error messages if it fails
 
     // Create payment intent
-    const paymentIntent = await stripeClient.paymentIntents.create({
+    const paymentIntent = await getStripeClient().paymentIntents.create({
       amount: amountInCents,
       currency: currency || "usd",
       metadata: { bookingId, studentId, consultantId },
@@ -131,7 +131,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
   }
 
   try {
-    const event = stripeClient.webhooks.constructEvent(
+    const event = getStripeClient().webhooks.constructEvent(
       req.body,
       sig as string,
       endpointSecret
@@ -306,7 +306,7 @@ export const createConnectAccount = async (req: Request, res: Response) => {
     }
     
     // Create Stripe Connect account
-    const account = await stripeClient.accounts.create({
+    const account = await getStripeClient().accounts.create({
       type: 'express', // Express accounts for easier onboarding
       country: 'US', // Default to US, can be made dynamic
       email: consultantData?.email,
@@ -327,7 +327,7 @@ export const createConnectAccount = async (req: Request, res: Response) => {
     const returnUrl = process.env.MOBILE_RETURN_URL ? mobileReturnUrl : webReturnUrl;
     const refreshUrl = process.env.MOBILE_REFRESH_URL ? mobileRefreshUrl : webRefreshUrl;
     
-    const accountLink = await stripeClient.accountLinks.create({
+    const accountLink = await getStripeClient().accountLinks.create({
       account: account.id,
       refresh_url: refreshUrl,
       return_url: returnUrl,
@@ -459,7 +459,7 @@ export const getConnectAccountStatus = async (req: Request, res: Response) => {
     }
     
     // Get account details from Stripe
-    const account = await stripeClient.accounts.retrieve(stripeAccountId);
+    const account = await getStripeClient().accounts.retrieve(stripeAccountId);
     
     // Check if details are submitted
     const detailsSubmitted = account.details_submitted || false;
@@ -479,7 +479,7 @@ export const getConnectAccountStatus = async (req: Request, res: Response) => {
       const returnUrl = process.env.MOBILE_RETURN_URL ? mobileReturnUrl : webReturnUrl;
       const refreshUrl = process.env.MOBILE_REFRESH_URL ? mobileRefreshUrl : webRefreshUrl;
       
-      const accountLink = await stripeClient.accountLinks.create({
+      const accountLink = await getStripeClient().accountLinks.create({
         account: stripeAccountId,
         refresh_url: refreshUrl,
         return_url: returnUrl,
