@@ -1,99 +1,33 @@
 import admin from "firebase-admin";
-import path from "path";
-import fs from "fs";
-import dotenv from "dotenv";
 
-dotenv.config();
+// Hardcoded Firebase Service Account Credentials
+// NOTE: This is a direct solution - credentials are embedded in code
+// Using 'as any' to match the JSON structure from Firebase
+const serviceAccount = {
+  type: "service_account",
+  project_id: "tray-ed2f7",
+  private_key_id: "72f6bb86847c83b0deba9621f26807bb08c81edc",
+  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC9zA5Ya/uMQNyU\nrCYXA9+ujI2NoGyQdwI5Q+SUwcve7skI0sbxxaq7OSiqzfMtWXe9jAUeS6jnC4R/\nT8PGbkLDLAOsc9puh9sw+YtWStP2tVO3k5PrlxY40U/hCwasdIoIvDc02+2FM6MS\nInEOPNMjqCAZ1qFC3CytOQ1TA57Yn+vDFglFpkNQtJ6hMizSbCpu6dKeaAoG2BYz\nWQTSrboa15fgfBUiXLjgumVJ0WA187TbsxiZk495Hlff2Ac6rEy7Kq0NdCHI2wDO\n9FNCoKfLdSolhQ6awJIYKh5Le94YlqfdOdmfg71msZ5otfGEZ0n4jFBXvmOpgkLL\ndY2mxBTBAgMBAAECgf8FFBca+ci0hNSVWQXfF8g+CdGMnv5IrBm8u1RVpqandtXQ\npp/48cRGJJr+w9DKv3O0xRcqxShMn/V4cp0kC7WkA0l8RwO3pJ4sCue8WpEElbvn\numTHqQNIzrdhQV15Jj6+fReWrBiiHjLLowawNHBx3Wdk4zLtcKn0kjiipmlZr0hP\n2GiJc+N3fxBsQFgJIpaewjhA8FNtjVWZmCVpqJX0DLC7aaRNEJbIyb8k4J+oBN+y\nAuPhy1SLmY7RyZuH2T5NGXLiaEZowSiWM+IqMKsPxHeMuRxtntQ5jJKTfbvfmg5u\nQ9AXEDg2QJI9ngJDgBRD5YXtdBYmdveDROVlfbECgYEA9O5NbjaDYCgEt7Jkwp40\nsMdXGk5addsf4hK20BYu2Dm7pZfFWCdwn6zqcAwdTKERKP1EWU6B0WHdLBpfM3XB\n621vmpBC3tTYnP+8SBzbR1KgXV3KTsIU7sFEYUhA6bwPYdwx6MFmMm073bAGQdmB\nlGpDpkXJYHptAwsliyktPkkCgYEAxl/j4NxFcHIguzy0fz5YNjAXxO6RJUxPGePD\n/GoaCK1WHBRHmPbwNUOeN099OY+NVSQgzn4aoJUyGjtdqByCtWZK9TI4YholOwbb\nuiTj6NExKZHpECX52bUlXqNrKgGAjapHtsEbUBpHqpAB7C1bsxtWLdcJCoT+L8Zx\nUGPpgrkCgYEA1LU7s3JOJ6y5ZBreHJIuajPD9kmDkASrrLbZ4t7Q8eE5kDa9ILCn\nw1P1CTfMHidm8rT4raJbZU5bOJjygotKzL1uhcmw+TnZoIcLqYi9+jPMpyjzr/An\nI63eR6nrDdHPfgovodaLfVGWAxGCbZ+KRC0A8R58I3hOwazlfvRUoVkCgYEAramy\nl96d16PB7chmB2Lv3HhbxqZHYMyeDv8rSuUj52a/lJNYXpwHi8mnT6qB6Qs34kpf\nggY5j00tcHN6OTrEXsOvaVpOq+tRnowRfbLf5qiEDm1TCDUGtsVzcpdDsKFiBiME\n5wPEwmpPRQ0O8dB/j5ul5Tl0C8aDtBVYi9T7ztkCgYEAn4B933WaNI7mwiGFo2KT\nzqf8x1/xi3x1tYN5BHfbpjVellNHdST6JJkZ3mztHa1m8gxaeidNuJX4Disuuwk3\nV4f8kBoGgbc4jtYnq8wVkxEhoAsGQRFVQKg/2FYn4e3Rrkdtbyp2iydAc1f3jH6T\nyZnqFQJr90Zr+4nvEKDfl7I=\n-----END PRIVATE KEY-----\n",
+  client_email: "firebase-adminsdk-fbsvc@tray-ed2f7.iam.gserviceaccount.com",
+  client_id: "115013495212439306518",
+  auth_uri: "https://accounts.google.com/o/oauth2/auth",
+  token_uri: "https://oauth2.googleapis.com/token",
+  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40tray-ed2f7.iam.gserviceaccount.com",
+  universe_domain: "googleapis.com"
+} as admin.ServiceAccount;
 
-// Initialize Firebase Admin SDK
-// Priority: 
-// 1. SERVICE_ACCOUNT_JSON (environment variable with JSON string) - for Vercel/production
-// 2. SERVICE_ACCOUNT_PATH (file path) - for local development
-// 3. Default path - fallback for local
-// 4. Default credentials - for Google Cloud environments
-
-const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
-
-// Diagnostic logging to identify root cause
-console.log("🔍 Firebase Initialization Diagnostics:");
-console.log(`  - NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
-console.log(`  - VERCEL: ${process.env.VERCEL || 'not set'}`);
-console.log(`  - isProduction: ${isProduction}`);
-console.log(`  - SERVICE_ACCOUNT_JSON: ${process.env.SERVICE_ACCOUNT_JSON ? 'SET (length: ' + process.env.SERVICE_ACCOUNT_JSON.length + ')' : 'NOT SET'}`);
-console.log(`  - SERVICE_ACCOUNT_PATH: ${process.env.SERVICE_ACCOUNT_PATH || 'not set'}`);
-
+// Initialize Firebase Admin SDK with hardcoded credentials
 if (!admin.apps.length) {
   try {
-    // Option 1: Use SERVICE_ACCOUNT_JSON environment variable (for Vercel/production)
-    if (process.env.SERVICE_ACCOUNT_JSON) {
-      try {
-        const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_JSON);
-        
-        // Validate required fields
-        if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
-          throw new Error('SERVICE_ACCOUNT_JSON is missing required fields: project_id, private_key, or client_email');
-        }
-        
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-        console.log("✅ Firebase Admin SDK initialized with SERVICE_ACCOUNT_JSON");
-      } catch (parseError: any) {
-        console.error("❌ Failed to parse SERVICE_ACCOUNT_JSON:", parseError?.message || parseError);
-        if (isProduction) {
-          throw new Error(`Firebase initialization failed in production: ${parseError?.message || 'Invalid SERVICE_ACCOUNT_JSON'}`);
-        }
-        throw parseError;
-      }
-    }
-    // Option 2: Use SERVICE_ACCOUNT_PATH or default file path (for local development)
-    else {
-      // In production, require SERVICE_ACCOUNT_JSON - this is the root cause fix
-      if (isProduction) {
-        const errorMsg = 'ROOT CAUSE: SERVICE_ACCOUNT_JSON environment variable is required in production but was not set. ' +
-          'This is why Firebase authentication is failing. ' +
-          'Please configure SERVICE_ACCOUNT_JSON in your Vercel project settings (Settings → Environment Variables). ' +
-          'The value should be the entire JSON content from your Firebase service account file as a single string.';
-        console.error("❌", errorMsg);
-        throw new Error(errorMsg);
-      }
-      
-      const serviceAccountPath = process.env.SERVICE_ACCOUNT_PATH 
-        ? process.env.SERVICE_ACCOUNT_PATH 
-        : path.join(__dirname, "tray-ed2f7-firebase-adminsdk-fbsvc-72f6bb8684.json");
-
-      console.log("🔑 Checking for Firebase service account file at:", serviceAccountPath);
-
-      if (fs.existsSync(serviceAccountPath)) {
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccountPath),
-        });
-        console.log("✅ Firebase Admin SDK initialized with service account file");
-      } else {
-        // Option 3: Use default credentials (for Google Cloud environments)
-        console.warn("⚠️ No service account file found, attempting default credentials (only works in Google Cloud environments)");
-        admin.initializeApp();
-        console.log("✅ Firebase Admin SDK initialized with default credentials");
-      }
-    }
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log("✅ Firebase Admin SDK initialized with hardcoded credentials");
+    console.log(`✅ Project: ${serviceAccount.projectId || (serviceAccount as any).project_id}`);
   } catch (error: any) {
     console.error("❌ Failed to initialize Firebase Admin SDK:", error?.message || error);
-    
-    // In production, don't fall back to default credentials - fail fast
-    if (isProduction) {
-      console.error("❌ Production environment requires SERVICE_ACCOUNT_JSON. Please set it in Vercel project settings.");
-      throw error;
-    }
-    
-    // Final fallback to default initialization (only for non-production)
-    try {
-      console.warn("⚠️ Attempting fallback to default credentials...");
-      admin.initializeApp();
-      console.log("✅ Firebase Admin SDK initialized with default credentials (fallback)");
-    } catch (fallbackError) {
-      console.error("❌ Failed to initialize Firebase Admin SDK (fallback):", fallbackError);
-      throw fallbackError;
-    }
+    throw error;
   }
 }
 
@@ -109,9 +43,8 @@ db.settings({
   // Note: Admin SDK doesn't support offline persistence, but we handle caching in our code
 });
 
-// ROOT CAUSE FIX: Validate Firebase credentials actually work in production
-// This prevents silent failures where initialization succeeds but credentials are invalid
-if (isProduction && process.env.NODE_ENV !== 'test') {
+// Validate Firebase credentials work (async check)
+if (process.env.NODE_ENV !== 'test') {
   setImmediate(async () => {
     try {
       // Test that credentials actually work by making a lightweight API call
@@ -120,10 +53,7 @@ if (isProduction && process.env.NODE_ENV !== 'test') {
     } catch (error: any) {
       // If this is an authentication error, it means credentials are invalid
       if (error?.code === 16 || error?.message?.includes('UNAUTHENTICATED') || error?.message?.includes('authentication')) {
-        const errorMsg = 'ROOT CAUSE IDENTIFIED: Firebase credentials are invalid or missing. ' +
-          'SERVICE_ACCOUNT_JSON environment variable must be set correctly in Vercel. ' +
-          'Current error: ' + (error?.message || 'Unknown authentication error');
-        console.error('❌ [Firebase]', errorMsg);
+        console.error('❌ [Firebase] Authentication error:', error?.message || 'Unknown authentication error');
         // Don't throw here as it's async - the health check will catch it
       } else {
         // Other errors (like collection doesn't exist) are OK
