@@ -13,13 +13,6 @@ pnpm-debug.log*
 .env.staging
 .env.test
 
-# Firebase service account keys
-*-firebase-adminsdk-*.json
-firebase-adminsdk-*.json
-service-account-*.json
-tray-ed2f7-firebase-adminsdk-*.json
-**/config/*-firebase-adminsdk-*.json
-
 # Build outputs
 dist/
 build/
