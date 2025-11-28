@@ -4,6 +4,12 @@ import { firebaseConfig, validateFirebaseConfig } from "./config";
 // Validate Firebase configuration from environment variables
 validateFirebaseConfig();
 
+// Debug: Log what's being loaded (without exposing secrets)
+console.log("🔍 [Firebase Config] Loading credentials from .env:");
+console.log(`  - Project ID: ${process.env.FIREBASE_MAIN_PROJECT_ID ? '✅ Set' : '❌ Missing'}`);
+console.log(`  - Client Email: ${process.env.FIREBASE_MAIN_CLIENT_EMAIL ? '✅ Set' : '❌ Missing'}`);
+console.log(`  - Private Key: ${process.env.FIREBASE_MAIN_PRIVATE_KEY ? '✅ Set (' + process.env.FIREBASE_MAIN_PRIVATE_KEY.length + ' chars)' : '❌ Missing'}`);
+
 // Create service account object from config
 const serviceAccount = {
   type: firebaseConfig.type,
@@ -19,13 +25,19 @@ const serviceAccount = {
   universe_domain: firebaseConfig.universe_domain,
 } as admin.ServiceAccount;
 
-// Initialize Firebase Admin SDK with hardcoded credentials
+// Initialize Firebase Admin SDK with credentials from .env
+// ROOT CAUSE FIX: Check if already initialized to prevent collisions
 if (!admin.apps.length) {
   try {
+    // Validate credentials are loaded from .env
+    if (!firebaseConfig.project_id || !firebaseConfig.private_key || !firebaseConfig.client_email) {
+      throw new Error('Firebase credentials from .env are missing or incomplete. Please check your .env file has FIREBASE_MAIN_* variables set.');
+    }
+    
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-    console.log("✅ Firebase Admin SDK initialized with hardcoded credentials");
+    console.log("✅ Firebase Admin SDK initialized with credentials from .env");
     console.log(`✅ Project: ${serviceAccount.projectId || (serviceAccount as any).project_id}`);
     console.log(`✅ Service Account: ${(serviceAccount as any).client_email}`);
     
@@ -38,13 +50,14 @@ if (!admin.apps.length) {
       })
       .catch((error: any) => {
         if (error?.code === 16 || error?.message?.includes('UNAUTHENTICATED')) {
-          console.error("❌ [ROOT CAUSE] Firebase credentials are INVALID!");
-          console.error("❌ [ROOT CAUSE] The service account key is expired, disabled, or invalid.");
-          console.error("❌ [ROOT CAUSE] SOLUTION: Generate a NEW service account key:");
+          console.error("❌ [ROOT CAUSE] Firebase credentials from .env are INVALID!");
+          console.error("❌ [ROOT CAUSE] The service account key in your .env file is expired, disabled, or invalid.");
+          console.error("❌ [ROOT CAUSE] SOLUTION:");
           console.error("   1. Go to: https://console.firebase.google.com/project/tray-ed2f7/settings/serviceaccounts/adminsdk");
           console.error("   2. Click 'Generate New Private Key'");
           console.error("   3. Download the JSON file");
-          console.error("   4. Replace the credentials in this file (firebase.ts)");
+          console.error("   4. Update your .env file with the new FIREBASE_MAIN_* values");
+          console.error("   5. Restart your server");
           console.error(`   Error details: ${error?.message}`);
         }
       });
