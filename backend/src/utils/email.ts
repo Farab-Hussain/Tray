@@ -13,6 +13,17 @@ const SMTP_FROM = process.env.SMTP_FROM || `Tray <${SMTP_USER}>`;
 // Check if email credentials are configured
 const isEmailConfigured = SMTP_USER && SMTP_PASSWORD && SMTP_USER !== "no-reply@tray.com";
 
+// Diagnostic logging (without exposing passwords)
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_EMAIL_DEBUG === 'true') {
+  console.log("📧 [Email Config] SMTP Configuration Check:");
+  console.log(`  - SMTP_HOST: ${SMTP_HOST}`);
+  console.log(`  - SMTP_PORT: ${SMTP_PORT}`);
+  console.log(`  - SMTP_USER: ${SMTP_USER ? SMTP_USER.substring(0, 3) + '***' : '❌ NOT SET'}`);
+  console.log(`  - SMTP_PASSWORD: ${SMTP_PASSWORD ? '✅ SET (' + SMTP_PASSWORD.length + ' chars)' : '❌ NOT SET'}`);
+  console.log(`  - SMTP_FROM: ${SMTP_FROM}`);
+  console.log(`  - isEmailConfigured: ${isEmailConfigured ? '✅ YES' : '❌ NO'}`);
+}
+
 const transporter = isEmailConfigured ? nodemailer.createTransport({
   host: SMTP_HOST,
   port: SMTP_PORT,
@@ -32,13 +43,28 @@ if (isEmailConfigured && transporter) {
   transporter.verify()
     .then(() => {
       Logger.info("Email", "", "Email server ready to send messages");
+      console.log("✅ [Email] SMTP connection verified successfully");
     })
     .catch((error) => {
       // Only log as warning, don't throw - allows server to start
       Logger.warn("Email", "", `Email verification failed: ${error.message}. Email may not work properly.`);
+      console.error("❌ [Email] SMTP verification failed:", error.message);
+      console.error("   This usually means:");
+      console.error("   1. SMTP credentials are incorrect");
+      console.error("   2. Gmail requires an App Password (not regular password)");
+      console.error("   3. 2-Step Verification must be enabled for Gmail");
+      console.error("   4. SMTP server is blocking the connection");
     });
 } else {
   Logger.warn("Email", "", "Email credentials not configured - email functionality disabled");
+  console.warn("⚠️ [Email] SMTP credentials not configured:");
+  if (!SMTP_USER || SMTP_USER === "no-reply@tray.com") {
+    console.warn("   - SMTP_USER or SMTP_EMAIL is missing or using default value");
+  }
+  if (!SMTP_PASSWORD) {
+    console.warn("   - SMTP_PASSWORD or SMTP_PASS is missing");
+  }
+  console.warn("   Please set SMTP_USER/SMTP_EMAIL and SMTP_PASSWORD environment variables");
 }
 
 interface EmailOptions {
@@ -54,6 +80,9 @@ export const sendEmail = async (options: EmailOptions): Promise<{ sent: boolean;
   if (!isEmailConfigured || !transporter) {
     const errorMsg = `Email not sent (credentials not configured) - To: ${options.to}, Subject: ${options.subject}`;
     Logger.warn("Email", "", errorMsg);
+    console.warn(`❌ [Email] Cannot send email - SMTP not configured`);
+    console.warn(`   To: ${options.to}`);
+    console.warn(`   Subject: ${options.subject}`);
     return { sent: false, error: "Email credentials not configured" };
   }
 
@@ -66,12 +95,22 @@ export const sendEmail = async (options: EmailOptions): Promise<{ sent: boolean;
       text: options.text || options.html.replace(/<[^>]*>/g, ""),
     };
 
+    console.log(`📧 [Email] Attempting to send email to: ${options.to}`);
     await transporter.sendMail(mailOptions);
     Logger.info("Email", "", `Email sent to ${options.to}: ${options.subject}`);
+    console.log(`✅ [Email] Successfully sent email to: ${options.to}`);
     return { sent: true };
   } catch (error: any) {
     const errorMsg = `Failed to send email to ${options.to}: ${error.message || error}`;
     Logger.error("Email", "", errorMsg, error);
+    console.error(`❌ [Email] Failed to send email to ${options.to}:`);
+    console.error(`   Error: ${error.message || error}`);
+    if (error.code) {
+      console.error(`   Error Code: ${error.code}`);
+    }
+    if (error.response) {
+      console.error(`   Response: ${JSON.stringify(error.response)}`);
+    }
     return { sent: false, error: errorMsg };
   }
 };
