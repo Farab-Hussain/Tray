@@ -97,12 +97,32 @@ if (__DEV__) {
 // Create axios instance with automatic token attachment
 export const api = axios.create({
   baseURL: baseURL,
-  timeout: 15000, // 15 second timeout for all requests (longer than middleware timeout)
+  timeout: 15000, // 15 second timeout for regular requests (upload requests override this)
   headers: {
     'ngrok-skip-browser-warning': 'true', // Skip ngrok browser warning on free tier
     'Cache-Control': 'no-cache, no-store, must-revalidate', // Prevent caching
     Pragma: 'no-cache', // HTTP 1.0 compatibility
   },
+  // For Android FormData uploads, ensure proper serialization
+  transformRequest: [
+    (data, headers) => {
+      // If data is FormData, let axios handle it (don't transform)
+      // Axios will automatically set Content-Type with boundary
+      if (data instanceof FormData) {
+        // Remove Content-Type to let axios set it with boundary
+        if (headers && 'Content-Type' in headers) {
+          delete headers['Content-Type'];
+        }
+        return data;
+      }
+      // For other data types, use default JSON stringification
+      if (typeof data === 'object' && data !== null && !(data instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+        return JSON.stringify(data);
+      }
+      return data;
+    },
+  ],
 });
 
 // Add request interceptor to attach Firebase ID token
@@ -118,7 +138,20 @@ api.interceptors.request.use(async config => {
           dataType: config.data?.constructor?.name || typeof config.data,
           isFormData: config.data instanceof FormData,
           baseURL: config.baseURL,
+          timeout: config.timeout,
         });
+      }
+      
+      // Ensure FormData requests don't have Content-Type set manually
+      // Axios will set it automatically with the correct boundary
+      if (config.data instanceof FormData) {
+        // Remove any manually set Content-Type header to let axios set it correctly
+        if (config.headers && 'Content-Type' in config.headers) {
+          delete config.headers['Content-Type'];
+        }
+        if (__DEV__) {
+          console.log('📤 [Request Interceptor] FormData detected - Content-Type will be set automatically by axios');
+        }
       }
     }
 

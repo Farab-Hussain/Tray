@@ -22,15 +22,30 @@ try {
 }
 
 // Configure Google Sign-In
-if (GOOGLE_WEB_CLIENT_ID) {
-  GoogleSignin.configure({
-    webClientId: GOOGLE_WEB_CLIENT_ID, 
-    offlineAccess: true,
-  });
-} else {
+// Only configure if GoogleSignin is available and GOOGLE_WEB_CLIENT_ID is set
+if (GOOGLE_WEB_CLIENT_ID && GoogleSignin && typeof GoogleSignin.configure === 'function') {
+  try {
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID, 
+      offlineAccess: true,
+    });
     if (__DEV__) {
-    console.warn('⚠️ GOOGLE_WEB_CLIENT_ID is not configured. Google Sign-In will not work.')
-  };
+      console.log('✅ Google Sign-In configured successfully');
+    }
+  } catch (configError: any) {
+    if (__DEV__) {
+      console.error('❌ Google Sign-In configuration error:', configError);
+    }
+  }
+} else {
+  if (__DEV__) {
+    if (!GOOGLE_WEB_CLIENT_ID) {
+      console.warn('⚠️ GOOGLE_WEB_CLIENT_ID is not configured. Google Sign-In will not work.');
+    }
+    if (!GoogleSignin || typeof GoogleSignin.configure !== 'function') {
+      console.error('❌ GoogleSignin native module is not available. Make sure the library is properly linked.');
+    }
+  }
 }
 
 interface SocialLoginOptions {
@@ -153,13 +168,18 @@ export const useSocialLogin = () => {
    */
   const googleLogin = async (options?: SocialLoginOptions) => {
     try {
+      // Verify GoogleSignin is available
+      if (!GoogleSignin || typeof GoogleSignin.signIn !== 'function') {
+        throw new Error('Google Sign-In native module is not available. Please ensure the library is properly installed and linked.');
+      }
+
       // Check if Google Sign-In is configured
       if (!GOOGLE_WEB_CLIENT_ID) {
         throw new Error('Google Sign-In is not configured. Please set GOOGLE_WEB_CLIENT_ID in your environment variables.');
       }
 
       // Check if Google Play Services are available (Android only)
-      if (Platform.OS === 'android') {
+      if (Platform.OS === 'android' && GoogleSignin.hasPlayServices && typeof GoogleSignin.hasPlayServices === 'function') {
         try {
           await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
         } catch (playServicesError: any) {
@@ -174,27 +194,25 @@ export const useSocialLogin = () => {
       // Note: signIn() may throw SIGN_IN_CANCELLED if user cancels
       await GoogleSignin.signIn();
       
-      // Verify user is signed in before getting tokens
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      if (!isSignedIn) {
-        if (__DEV__) {
-          console.log('Google Sign-In cancelled - user not signed in');
-        }
-        return null;
-      }
-      
-      // Get tokens only if user is signed in
+      // Get tokens - this will throw if user isn't signed in or cancelled
+      // Note: isSignedIn() method may not be available in all versions, so we rely on getTokens()
       let idToken: string | null = null;
       try {
+        // Verify getTokens method exists
+        if (!GoogleSignin.getTokens || typeof GoogleSignin.getTokens !== 'function') {
+          throw new Error('GoogleSignin.getTokens is not available. The native module may not be properly linked.');
+        }
+        
         const tokens = await GoogleSignin.getTokens();
         idToken = tokens.idToken;
       } catch (tokenError: any) {
         // If getTokens fails, user likely cancelled or wasn't signed in
         if (tokenError.message?.includes('requires a user to be signed in') || 
             tokenError.message?.includes('SIGN_IN_REQUIRED') ||
-            tokenError.code === 'SIGN_IN_REQUIRED') {
+            tokenError.code === 'SIGN_IN_REQUIRED' ||
+            tokenError.message?.includes('not available')) {
           if (__DEV__) {
-            console.log('Google Sign-In cancelled - no signed in user for tokens');
+            console.log('Google Sign-In cancelled or not available - no signed in user for tokens');
           }
           return null;
         }

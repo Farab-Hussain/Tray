@@ -1,7 +1,7 @@
 import { auth, db } from "../src/config/firebase";
 
-const CONSULTANT_EMAIL = "tray@gmail.com";
-const CONSULTANT_PASSWORD = "Tray@123";
+const CONSULTANT_EMAIL = "tray@consultant.com";
+const CONSULTANT_PASSWORD = "Test@123";
 const CONSULTANT_NAME = "Tray Consultant";
 
 async function createConsultantUser() {

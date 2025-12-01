@@ -138,7 +138,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
       return;
     }
 
-    if (!hasResume || !resumeId) {
+    if (!hasResume) {
       Alert.alert(
         'Resume Required',
         'Please create a resume before applying for jobs.',
@@ -147,6 +147,32 @@ const JobDetailScreen = ({ navigation, route }: any) => {
           {
             text: 'Create Resume',
             onPress: () => navigation.navigate('Resume'),
+          },
+        ]
+      );
+      return;
+    }
+
+    // Enhanced validation for Android - ensure resumeId is actually set and valid
+    if (!resumeId || typeof resumeId !== 'string' || resumeId.trim() === '') {
+            if (__DEV__) {
+        console.error('[JobDetailScreen] Resume ID validation failed:', {
+          hasResume,
+          resumeId,
+          resumeIdType: typeof resumeId,
+        });
+      };
+      Alert.alert(
+        'Resume Error',
+        'Resume ID is missing. Please try refreshing the page or create a new resume.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Refresh',
+            onPress: () => {
+              checkResume();
+              checkApplicationStatus();
+            },
           },
         ]
       );
@@ -167,12 +193,34 @@ const JobDetailScreen = ({ navigation, route }: any) => {
   };
 
   const applyForJob = async () => {
-    if (!resumeId) return;
+    if (!resumeId) {
+            if (__DEV__) {
+        console.error('[JobDetailScreen] Cannot apply: resumeId is missing');
+      };
+      showError('Resume ID is missing. Please try again.');
+      return;
+    }
+
+    // Validate resumeId is a valid string (Android-specific fix)
+    const validResumeId = String(resumeId).trim();
+    if (!validResumeId) {
+            if (__DEV__) {
+        console.error('[JobDetailScreen] Cannot apply: resumeId is empty after trimming');
+      };
+      showError('Invalid resume ID. Please try again.');
+      return;
+    }
 
     try {
       setApplying(true);
+            if (__DEV__) {
+        console.log('[JobDetailScreen] Applying for job:', {
+          jobId,
+          resumeId: validResumeId,
+        });
+      };
       const response = await JobService.applyForJob(jobId, {
-        resumeId,
+        resumeId: validResumeId,
       });
 
       showSuccess('Application submitted successfully!');

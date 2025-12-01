@@ -1,6 +1,13 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TouchableOpacity, Alert, RefreshControl } from 'react-native';
+import {
+  ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -12,73 +19,89 @@ import { ConsultantService } from '../../../services/consultant.service';
 import { BookingService } from '../../../services/booking.service';
 
 // Helper function to calculate end time
-const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+const calculateEndTime = (
+  startTime: string,
+  durationMinutes: number,
+): string => {
   // Parse start time - handle both formats: "09:00 AM" and "09.00 AM"
   const timeMatch = startTime.match(/(\d+)[:.](\d+)\s*(AM|PM)/i);
   if (!timeMatch) {
-        if (__DEV__) {
-      console.warn('Could not parse time:', startTime)
-    };
+    if (__DEV__) {
+      console.warn('Could not parse time:', startTime);
+    }
     return startTime;
   }
-  
+
   let hours = parseInt(timeMatch[1], 10);
   let minutes = parseInt(timeMatch[2], 10);
   const period = timeMatch[3];
-  
-    if (__DEV__) {
-    console.log('Parsed time:', { hours, minutes, period, durationMinutes })
-  };
-  
+
+  if (__DEV__) {
+    console.log('Parsed time:', { hours, minutes, period, durationMinutes });
+  }
+
   // Convert to 24-hour format
   if (period === 'PM' && hours !== 12) hours += 12;
   if (period === 'AM' && hours === 12) hours = 0;
-  
+
   // Add duration
   minutes += durationMinutes;
   hours += Math.floor(minutes / 60);
   minutes = minutes % 60;
-  
+
   // Convert back to 12-hour format
   const endPeriod = hours >= 12 ? 'PM' : 'AM';
   let endHours = hours % 12;
   if (endHours === 0) endHours = 12;
-  
-  const result = `${String(endHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${endPeriod}`;
-    if (__DEV__) {
-    console.log('Calculated end time:', result)
-  };
-  
+
+  const result = `${String(endHours).padStart(2, '0')}:${String(
+    minutes,
+  ).padStart(2, '0')} ${endPeriod}`;
+  if (__DEV__) {
+    console.log('Calculated end time:', result);
+  }
+
   return result;
 };
 
 const BookingSlots = ({ navigation, route }: any) => {
   const { user } = useAuth();
   // Determine user role from navigation state or route params
-  const isConsultant = navigation.getState()?.routes?.some((r: any) => 
-    r.name === 'ConsultantTabs' || r.name === 'ConsultantAvailability'
-  ) || route?.params?.isConsultant;
-  
+  const isConsultant =
+    navigation
+      .getState()
+      ?.routes?.some(
+        (r: any) =>
+          r.name === 'ConsultantTabs' || r.name === 'ConsultantAvailability',
+      ) || route?.params?.isConsultant;
+
   // Get consultant and service data from navigation
-  const { 
-    consultantId, 
+  const {
+    consultantId,
     consultantName,
     serviceId,
     serviceTitle,
     serviceImageUrl,
-    serviceDuration
+    serviceDuration,
   } = route?.params || {};
 
   // Multi-selection state
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedSlots, setSelectedSlots] = useState<
-    Array<{date: string; startTime: string; endTime: string; displayStartTime: string; displayEndTime: string}>
+    Array<{
+      date: string;
+      startTime: string;
+      endTime: string;
+      displayStartTime: string;
+      displayEndTime: string;
+    }>
   >([]);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]); // For current date
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
   const [loadingSlots, _setLoadingSlots] = useState(false);
-  const [consultantAvailability, setConsultantAvailability] = useState<any>(null);
+  const [consultantAvailability, setConsultantAvailability] =
+    useState<any>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -86,12 +109,21 @@ const BookingSlots = ({ navigation, route }: any) => {
   const defaultTimeSlots = useMemo(() => [], []);
 
   // Track if availability API is unavailable to prevent repeated failed calls
-  const [_availabilityApiUnavailable, _setAvailabilityApiUnavailable] = React.useState(false);
+  const [_availabilityApiUnavailable, _setAvailabilityApiUnavailable] =
+    React.useState(false);
 
   // Helper function to get day name from date
   const getDayName = useCallback((dateString: string): string => {
     const date = new Date(dateString);
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
     return days[date.getDay()];
   }, []);
 
@@ -102,80 +134,106 @@ const BookingSlots = ({ navigation, route }: any) => {
       const specificSlots = getTimeSlotsForSpecificDate(dateString);
       if (specificSlots.length > 0) return true;
     }
-    
+
     // Fall back to legacy format (day-based availability)
     if (consultantAvailability?.availability) {
       const dayName = getDayName(dateString);
-      return consultantAvailability.availability.hasOwnProperty(dayName.toLowerCase());
+      return consultantAvailability.availability.hasOwnProperty(
+        dayName.toLowerCase(),
+      );
     }
-    
+
     return false;
   };
 
   // Helper function to generate time slots for a specific day
-  const generateTimeSlotsForDay = useCallback((dayName: string): string[] => {
-    if (!consultantAvailability?.availability) return [];
-    
-    const daySlots = consultantAvailability.availability[dayName.toLowerCase()];
-    if (!daySlots || !Array.isArray(daySlots)) return [];
-    
-    return daySlots;
-  }, [consultantAvailability]);
+  const generateTimeSlotsForDay = useCallback(
+    (dayName: string): string[] => {
+      if (!consultantAvailability?.availability) return [];
+
+      const daySlots =
+        consultantAvailability.availability[dayName.toLowerCase()];
+      if (!daySlots || !Array.isArray(daySlots)) return [];
+
+      return daySlots;
+    },
+    [consultantAvailability],
+  );
 
   // Helper function to get time slots for specific date (new format)
-  const getTimeSlotsForSpecificDate = useCallback((dateString: string): string[] => {
-    if (!consultantAvailability?.availabilitySlots) return [];
-    
-    const slot = consultantAvailability.availabilitySlots.find((s: any) => s.date === dateString);
-    return slot ? slot.timeSlots : [];
-  }, [consultantAvailability]);
+  const getTimeSlotsForSpecificDate = useCallback(
+    (dateString: string): string[] => {
+      if (!consultantAvailability?.availabilitySlots) return [];
+
+      const slot = consultantAvailability.availabilitySlots.find(
+        (s: any) => s.date === dateString,
+      );
+      return slot ? slot.timeSlots : [];
+    },
+    [consultantAvailability],
+  );
 
   // Helper function to fetch booked slots for consultant
   const fetchBookedSlots = useCallback(async () => {
     if (!consultantId) return;
-    
+
     try {
-            if (__DEV__) {
-        console.log('🔍 Fetching booked slots for consultant:', consultantId)
-      };
-      const response = await BookingService.getConsultantBookedSlots(consultantId);
-            if (__DEV__) {
-        console.log('📅 Booked slots response:', response)
-      };
-      
+      if (__DEV__) {
+        console.log('🔍 Fetching booked slots for consultant:', consultantId);
+      }
+      const response = await BookingService.getConsultantBookedSlots(
+        consultantId,
+      );
+      if (__DEV__) {
+        console.log('📅 Booked slots response:', response);
+      }
+
       if (response?.bookedSlots) {
         const bookedSlotsSet = new Set<string>();
         response.bookedSlots.forEach((slot: any) => {
           const slotKey = `${slot.date}_${slot.time}`;
           bookedSlotsSet.add(slotKey);
         });
-        
+
         setBookedSlots(bookedSlotsSet);
-                if (__DEV__) {
-          console.log('✅ Loaded booked slots for consultant:', Array.from(bookedSlotsSet))
-        };
+        if (__DEV__) {
+          console.log(
+            '✅ Loaded booked slots for consultant:',
+            Array.from(bookedSlotsSet),
+          );
+        }
       }
     } catch (error) {
-            if (__DEV__) {
-        console.error('❌ Error fetching booked slots:', error)
-      };
+      if (__DEV__) {
+        console.error('❌ Error fetching booked slots:', error);
+      }
       // Don't fail the entire component if booked slots can't be fetched
     }
   }, [consultantId]);
 
   // Helper function to check if a slot is booked
-  const isSlotBooked = useCallback((date: string, time: string): boolean => {
-    const slotKey = `${date}_${time}`;
-    return bookedSlots.has(slotKey);
-  }, [bookedSlots]);
+  const isSlotBooked = useCallback(
+    (date: string, time: string): boolean => {
+      const slotKey = `${date}_${time}`;
+      return bookedSlots.has(slotKey);
+    },
+    [bookedSlots],
+  );
 
   const highlightedDates = useMemo(() => {
     const marks: Record<string, any> = {};
     const datesWithSlots = new Set<string>();
 
-    if (!isConsultant && Array.isArray(consultantAvailability?.availabilitySlots)) {
+    if (
+      !isConsultant &&
+      Array.isArray(consultantAvailability?.availabilitySlots)
+    ) {
       consultantAvailability.availabilitySlots.forEach((slot: any) => {
-        if (slot?.date && Array.isArray(slot?.timeSlots) && slot.timeSlots.length > 0) {
+        if (
+          slot?.date &&
+          Array.isArray(slot?.timeSlots) &&
+          slot.timeSlots.length > 0
+        ) {
           datesWithSlots.add(slot.date);
         }
       });
@@ -261,8 +319,17 @@ const BookingSlots = ({ navigation, route }: any) => {
 
     if (Array.isArray(consultantAvailability?.availabilitySlots)) {
       consultantAvailability.availabilitySlots
-        .filter((slot: any) => slot?.date && Array.isArray(slot?.timeSlots) && slot.timeSlots.length > 0)
-        .sort((a: any, b: any) => new Date(`${a.date}T00:00:00`).getTime() - new Date(`${b.date}T00:00:00`).getTime())
+        .filter(
+          (slot: any) =>
+            slot?.date &&
+            Array.isArray(slot?.timeSlots) &&
+            slot.timeSlots.length > 0,
+        )
+        .sort(
+          (a: any, b: any) =>
+            new Date(`${a.date}T00:00:00`).getTime() -
+            new Date(`${b.date}T00:00:00`).getTime(),
+        )
         .forEach((slot: any) => addDate(slot.date));
     }
 
@@ -280,7 +347,11 @@ const BookingSlots = ({ navigation, route }: any) => {
       }
     }
 
-    dates.sort((a, b) => new Date(`${a.date}T00:00:00`).getTime() - new Date(`${b.date}T00:00:00`).getTime());
+    dates.sort(
+      (a, b) =>
+        new Date(`${a.date}T00:00:00`).getTime() -
+        new Date(`${b.date}T00:00:00`).getTime(),
+    );
     return dates.slice(0, 20);
   }, [consultantAvailability, getDayName]);
 
@@ -291,7 +362,10 @@ const BookingSlots = ({ navigation, route }: any) => {
       }
 
       const normalized = slot.replace(/–/g, '-');
-      const parts = normalized.split('-').map(part => part.trim()).filter(Boolean);
+      const parts = normalized
+        .split('-')
+        .map(part => part.trim())
+        .filter(Boolean);
 
       const startDisplay = parts[0] || slot.trim();
       let endDisplay = parts[1] || '';
@@ -299,7 +373,9 @@ const BookingSlots = ({ navigation, route }: any) => {
       if (!endDisplay) {
         endDisplay = calculateEndTime(
           startDisplay,
-          typeof serviceDuration === 'number' && serviceDuration > 0 ? serviceDuration : 60,
+          typeof serviceDuration === 'number' && serviceDuration > 0
+            ? serviceDuration
+            : 60,
         );
       }
 
@@ -310,9 +386,9 @@ const BookingSlots = ({ navigation, route }: any) => {
 
   const fetchAvailabilityData = useCallback(
     async (skipLoading = false) => {
-    if (!consultantId) return;
+      if (!consultantId) return;
 
-    try {
+      try {
         if (!skipLoading) {
           setLoadingAvailability(true);
         }
@@ -322,9 +398,9 @@ const BookingSlots = ({ navigation, route }: any) => {
           fetchBookedSlots(),
         ]);
 
-                if (__DEV__) {
-          console.log('✅ Availability response:', availabilityResponse)
-        };
+        if (__DEV__) {
+          console.log('✅ Availability response:', availabilityResponse);
+        }
 
         if (availabilityResponse?.available) {
           const hasAvailability =
@@ -336,31 +412,31 @@ const BookingSlots = ({ navigation, route }: any) => {
 
           if (hasAvailability || hasAvailabilitySlots) {
             setConsultantAvailability(availabilityResponse);
-                        if (__DEV__) {
+            if (__DEV__) {
               console.log(
-              '✅ Consultant availability loaded:',
-              availabilityResponse.availability,
-            )
-            };
+                '✅ Consultant availability loaded:',
+                availabilityResponse.availability,
+              );
+            }
           } else {
-                        if (__DEV__) {
-              console.log('⚠️ Consultant has no availability set')
-            };
+            if (__DEV__) {
+              console.log('⚠️ Consultant has no availability set');
+            }
             setConsultantAvailability(null);
           }
         } else {
-                    if (__DEV__) {
+          if (__DEV__) {
             console.log(
-            '⚠️ Consultant not available:',
-            availabilityResponse?.message,
-          )
-          };
+              '⚠️ Consultant not available:',
+              availabilityResponse?.message,
+            );
+          }
           setConsultantAvailability(null);
         }
       } catch (error: any) {
-                if (__DEV__) {
-          console.error('❌ Error fetching consultant data:', error)
-        };
+        if (__DEV__) {
+          console.error('❌ Error fetching consultant data:', error);
+        }
         setConsultantAvailability(null);
       } finally {
         setLoadingAvailability(false);
@@ -384,7 +460,7 @@ const BookingSlots = ({ navigation, route }: any) => {
   // Update time slots when date is selected
   useEffect(() => {
     if (!selectedDate || !consultantAvailability) return;
-    
+
     // Check new format first (specific date slots)
     const specificSlots = getTimeSlotsForSpecificDate(selectedDate);
     if (specificSlots.length > 0) {
@@ -393,7 +469,7 @@ const BookingSlots = ({ navigation, route }: any) => {
       setSelectedTimeSlots([]);
       return;
     }
-    
+
     // Fall back to legacy format (day-based availability)
     const dayName = getDayName(selectedDate);
     const slots = generateTimeSlotsForDay(dayName);
@@ -409,7 +485,8 @@ const BookingSlots = ({ navigation, route }: any) => {
   ]);
 
   // Use fetched slots or default slots
-  const timeSlots = availableSlots.length > 0 ? availableSlots : defaultTimeSlots;
+  const timeSlots =
+    availableSlots.length > 0 ? availableSlots : defaultTimeSlots;
 
   // Handle time slot selection/deselection
   const handleTimeSlotToggle = (timeSlot: string) => {
@@ -428,7 +505,10 @@ const BookingSlots = ({ navigation, route }: any) => {
   // Handle adding current date's selected time slots to main selection
   const handleAddSlotsForDate = () => {
     if (!selectedDate || selectedTimeSlots.length === 0) {
-      Alert.alert('Selection Required', 'Please select at least one time slot for the selected date');
+      Alert.alert(
+        'Selection Required',
+        'Please select at least one time slot for the selected date',
+      );
       return;
     }
 
@@ -445,31 +525,52 @@ const BookingSlots = ({ navigation, route }: any) => {
     });
 
     setSelectedSlots(prev => {
-      const existingKeys = new Set(prev.map(slot => `${slot.date}_${slot.startTime}`));
-      const deduped = newSlots.filter(slot => !existingKeys.has(`${slot.date}_${slot.startTime}`));
+      const existingKeys = new Set(
+        prev.map(slot => `${slot.date}_${slot.startTime}`),
+      );
+      const deduped = newSlots.filter(
+        slot => !existingKeys.has(`${slot.date}_${slot.startTime}`),
+      );
       if (deduped.length === 0) {
         return prev;
       }
       return [...prev, ...deduped];
     });
     setSelectedTimeSlots([]); // Reset current selections
-    
-        if (__DEV__) {
-      console.log('✅ Added slots for date:', selectedDate, 'Slots:', newSlots.length)
-    };
+
+    if (__DEV__) {
+      console.log(
+        '✅ Added slots for date:',
+        selectedDate,
+        'Slots:',
+        newSlots.length,
+      );
+    }
   };
 
   // Handle removing a slot from main selection
-  const handleRemoveSlot = (slotToRemove: {date: string; startTime: string}) => {
-    setSelectedSlots(prev => 
-      prev.filter(slot => !(slot.date === slotToRemove.date && slot.startTime === slotToRemove.startTime))
+  const handleRemoveSlot = (slotToRemove: {
+    date: string;
+    startTime: string;
+  }) => {
+    setSelectedSlots(prev =>
+      prev.filter(
+        slot =>
+          !(
+            slot.date === slotToRemove.date &&
+            slot.startTime === slotToRemove.startTime
+          ),
+      ),
     );
   };
 
   // Handle booking - add ALL selected slots to cart
   const handleAddToCart = async () => {
     if (selectedSlots.length === 0) {
-      Alert.alert('No Slots Selected', 'Please select at least one date and time slot before adding to cart');
+      Alert.alert(
+        'No Slots Selected',
+        'Please select at least one date and time slot before adding to cart',
+      );
       return;
     }
 
@@ -500,28 +601,27 @@ const BookingSlots = ({ navigation, route }: any) => {
       duration: serviceDuration,
     };
 
-        if (__DEV__) {
+    if (__DEV__) {
       console.log('📦 Adding to cart:', {
-      consultant: cartItem.consultantName,
-      service: cartItem.serviceTitle,
-      totalSlots: selectedSlots.length,
-      slots: selectedSlots
-    })
-    };
+        consultant: cartItem.consultantName,
+        service: cartItem.serviceTitle,
+        totalSlots: selectedSlots.length,
+        slots: selectedSlots,
+      });
+    }
 
     // Navigate to cart with the new item
     navigation.navigate('Cart', cartItem);
   };
 
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScreenHeader 
-        title={isConsultant ? "Manage Availability" : "Select Slots"} 
-        onBackPress={() => navigation.goBack()} 
+      <ScreenHeader
+        title={isConsultant ? 'Manage Availability' : 'Select Slots'}
+        onBackPress={() => navigation.goBack()}
       />
 
-      <ScrollView 
+      <ScrollView
         style={styles.bookingContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -536,27 +636,34 @@ const BookingSlots = ({ navigation, route }: any) => {
         <View style={styles.calendarContainer}>
           {loadingAvailability ? (
             <View style={mergedStyles.loadingContainer}>
-              <Text style={mergedStyles.loadingText}>Loading consultant availability...</Text>
+              <Text style={mergedStyles.loadingText}>
+                Loading consultant availability...
+              </Text>
             </View>
           ) : !consultantAvailability ? (
             <View style={mergedStyles.errorContainer}>
               <Text style={mergedStyles.errorText}>
                 This consultant hasn't set their availability yet.{'\n'}
-                Please check back later or contact them directly.
+                Please check back later.
               </Text>
             </View>
           ) : (
             <Calendar
               current={selectedDate || undefined}
               minDate={new Date().toISOString().split('T')[0]} // Disable past dates
-              onDayPress={(day) => {
+              onDayPress={day => {
                 const { dateString } = day;
                 if (!isDateAvailable(dateString)) {
-                  Alert.alert('Date Not Available', 'This consultant is not available on this day');
+                  Alert.alert(
+                    'Date Not Available',
+                    'This consultant is not available on this day',
+                  );
                   return;
                 }
 
-                setSelectedDate(prev => (prev === dateString ? '' : dateString));
+                setSelectedDate(prev =>
+                  prev === dateString ? '' : dateString,
+                );
               }}
               markedDates={highlightedDates}
               markingType="custom"
@@ -584,7 +691,9 @@ const BookingSlots = ({ navigation, route }: any) => {
         {/* Available Time Slots */}
         <View style={styles.timeSlotsContainer}>
           <Text style={styles.timeSlotsTitle}>
-            {isConsultant ? "Set Your Available Time Slots" : "Available Time Slots"}
+            {isConsultant
+              ? 'Set Your Available Time Slots'
+              : 'Available Time Slots'}
           </Text>
 
           {!isConsultant && (
@@ -613,14 +722,17 @@ const BookingSlots = ({ navigation, route }: any) => {
                         ]}
                         onPress={() => {
                           if (isDateAvailable(date)) {
-                            setSelectedDate(prev => (prev === date ? '' : date));
+                            setSelectedDate(prev =>
+                              prev === date ? '' : date,
+                            );
                           }
                         }}
                       >
                         <Text
                           style={[
                             mergedStyles.availableDateChipLabel,
-                            isActive && mergedStyles.availableDateChipLabelActive,
+                            isActive &&
+                              mergedStyles.availableDateChipLabelActive,
                           ]}
                         >
                           {label}
@@ -628,7 +740,8 @@ const BookingSlots = ({ navigation, route }: any) => {
                         <Text
                           style={[
                             mergedStyles.availableDateChipWeekday,
-                            isActive && mergedStyles.availableDateChipWeekdayActive,
+                            isActive &&
+                              mergedStyles.availableDateChipWeekdayActive,
                           ]}
                         >
                           {weekday}
@@ -640,44 +753,52 @@ const BookingSlots = ({ navigation, route }: any) => {
               )}
             </View>
           )}
-          
+
           {loadingSlots ? (
             <View style={styles.timeSlotsGrid}>
               <Text style={styles.loadingText}>Loading available slots...</Text>
             </View>
           ) : !selectedDate ? (
             <View style={styles.timeSlotsGrid}>
-              <Text style={mergedStyles.noSlotsText}>Please select a date to see available time slots</Text>
+              <Text style={mergedStyles.noSlotsText}>
+                Please select a date to see available time slots
+              </Text>
             </View>
           ) : !isDateAvailable(selectedDate) ? (
             <View style={styles.timeSlotsGrid}>
-              <Text style={mergedStyles.noSlotsText}>No availability on this day</Text>
+              <Text style={mergedStyles.noSlotsText}>
+                No availability on this day
+              </Text>
             </View>
           ) : timeSlots.length === 0 ? (
             <View style={styles.timeSlotsGrid}>
-              <Text style={mergedStyles.noSlotsText}>No time slots available for this day</Text>
+              <Text style={mergedStyles.noSlotsText}>
+                No time slots available for this day
+              </Text>
             </View>
           ) : (
             <>
               {/* Show info about booked slots */}
-              {selectedDate && timeSlots.some(slot => isSlotBooked(selectedDate, slot)) && (
-                <View style={mergedStyles.bookedSlotsInfo}>
-                  <Text style={mergedStyles.bookedSlotsInfoText}>
-                    {timeSlots.every(slot => isSlotBooked(selectedDate, slot)) 
-                      ? '🔒 All slots for this date are already booked by students'
-                      : '🔒 Some slots are already booked by students'
-                    }
-                  </Text>
-                </View>
-              )}
-              
+              {selectedDate &&
+                timeSlots.some(slot => isSlotBooked(selectedDate, slot)) && (
+                  <View style={mergedStyles.bookedSlotsInfo}>
+                    <Text style={mergedStyles.bookedSlotsInfoText}>
+                      {timeSlots.every(slot => isSlotBooked(selectedDate, slot))
+                        ? '🔒 All slots for this date are already booked by students'
+                        : '🔒 Some slots are already booked by students'}
+                    </Text>
+                  </View>
+                )}
+
               <View style={styles.timeSlotsGrid}>
                 {timeSlots.map((slot, index) => {
-                  const isAlreadyBooked = selectedSlots.some(s => s.date === selectedDate && s.startTime === slot);
+                  const isAlreadyBooked = selectedSlots.some(
+                    s => s.date === selectedDate && s.startTime === slot,
+                  );
                   const isCurrentlySelected = selectedTimeSlots.includes(slot);
                   const isSlotBookedByOthers = isSlotBooked(selectedDate, slot);
                   const isUnavailable = isAlreadyBooked || isSlotBookedByOthers;
-                  
+
                   return (
                     <TouchableOpacity
                       key={index}
@@ -687,17 +808,22 @@ const BookingSlots = ({ navigation, route }: any) => {
                         isSlotBookedByOthers && mergedStyles.bookedByOthersSlot,
                         isAlreadyBooked && styles.bookedTimeSlot,
                       ]}
-                      onPress={() => !isUnavailable && handleTimeSlotToggle(slot)}
+                      onPress={() =>
+                        !isUnavailable && handleTimeSlotToggle(slot)
+                      }
                       disabled={isUnavailable}
                     >
                       <Text
                         style={[
                           styles.timeSlotText,
-                          (isCurrentlySelected || isAlreadyBooked) && styles.selectedTimeSlotText,
-                          isSlotBookedByOthers && mergedStyles.bookedByOthersText,
+                          (isCurrentlySelected || isAlreadyBooked) &&
+                            styles.selectedTimeSlotText,
+                          isSlotBookedByOthers &&
+                            mergedStyles.bookedByOthersText,
                         ]}
                       >
-                        {slot} {isAlreadyBooked && '✓'} {isSlotBookedByOthers && '🔒'}
+                        {slot} {isAlreadyBooked && '✓'}{' '}
+                        {isSlotBookedByOthers && '🔒'}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -706,7 +832,9 @@ const BookingSlots = ({ navigation, route }: any) => {
               {selectedTimeSlots.length > 0 && (
                 <View style={mergedStyles.addSlotsButtonContainer}>
                   <AppButton
-                    title={`Add ${selectedTimeSlots.length} slot${selectedTimeSlots.length > 1 ? 's' : ''} for ${selectedDate}`}
+                    title={`Add ${selectedTimeSlots.length} slot${
+                      selectedTimeSlots.length > 1 ? 's' : ''
+                    } for ${selectedDate}`}
                     onPress={handleAddSlotsForDate}
                     style={mergedStyles.addSlotsButton}
                   />
@@ -719,8 +847,13 @@ const BookingSlots = ({ navigation, route }: any) => {
         {/* Display All Selected Slots Summary */}
         {!isConsultant && selectedSlots.length > 0 && (
           <View style={styles.selectedTimeInfo}>
-            <Text style={styles.selectedTimeLabel}>📅 Selected Sessions ({selectedSlots.length})</Text>
-            <ScrollView style={mergedStyles.selectedSlotsList} nestedScrollEnabled>
+            <Text style={styles.selectedTimeLabel}>
+              📅 Selected Sessions ({selectedSlots.length})
+            </Text>
+            <ScrollView
+              style={mergedStyles.selectedSlotsList}
+              nestedScrollEnabled
+            >
               {selectedSlots.map((slot, idx) => (
                 <View key={idx} style={mergedStyles.selectedSlotItem}>
                   <View style={mergedStyles.slotInfo}>
@@ -740,7 +873,8 @@ const BookingSlots = ({ navigation, route }: any) => {
               ))}
             </ScrollView>
             <Text style={mergedStyles.totalPriceText}>
-              Total: ${(route?.params?.servicePrice || 100) * selectedSlots.length}
+              Total: $
+              {(route?.params?.servicePrice || 100) * selectedSlots.length}
             </Text>
           </View>
         )}
@@ -748,7 +882,13 @@ const BookingSlots = ({ navigation, route }: any) => {
         {/* Action Button */}
         <View style={styles.bookButtonContainer}>
           <AppButton
-            title={isConsultant ? "Save Availability" : `Add ${selectedSlots.length || 0} Session${selectedSlots.length !== 1 ? 's' : ''} to Cart`}
+            title={
+              isConsultant
+                ? 'Save Availability'
+                : `Add ${selectedSlots.length || 0} Session${
+                    selectedSlots.length !== 1 ? 's' : ''
+                  } to Cart`
+            }
             onPress={() => {
               if (isConsultant) {
                 // Consultant: Navigate to ConsultantAvailability
@@ -786,7 +926,6 @@ const additionalStyles = {
     fontSize: 16,
     color: COLORS.orange,
     textAlign: 'center' as const,
-
   },
   noSlotsText: {
     fontSize: 16,
@@ -931,4 +1070,3 @@ const mergedStyles = {
 };
 
 export default BookingSlots;
-

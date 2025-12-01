@@ -159,9 +159,9 @@ Create a `.env.local` file in the `web/` directory (same level as `package.json`
 
 ```env
 # Backend REST API Base URL
-NEXT_PUBLIC_API_URL=https://tray-peach.vercel.app/
+NEXT_PUBLIC_API_URL=https://tray-ecru.vercel.app
 # OR use ngrok URL for mobile development
-# NEXT_PUBLIC_API_URL=https://tray-peach.vercel.app/
+# NEXT_PUBLIC_API_URL=https://tray-ecru.vercel.app
 
 # Firebase Web SDK Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
@@ -197,7 +197,7 @@ npm install
 
 - Ensure the Tray backend API is running
 - Verify `NEXT_PUBLIC_API_URL` points to the correct backend URL
-- Test connection: `curl https://tray-peach.vercel.app/health`
+- Test connection: `curl https://tray-ecru.vercel.apphealth`
 
 ## Development
 

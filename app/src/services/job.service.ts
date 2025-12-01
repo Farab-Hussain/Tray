@@ -116,8 +116,86 @@ export const JobService = {
     resumeId: string;
     coverLetter?: string;
   }) {
-    const response = await api.post(`/jobs/${jobId}/apply`, applicationData);
-    return response.data;
+    // Ensure resumeId is a valid string (Android-specific fix)
+    if (!applicationData || !applicationData.resumeId) {
+      const error = new Error('Resume ID is required');
+      if (__DEV__) {
+        console.error('[JobService] Missing resumeId:', {
+          applicationData,
+          resumeId: applicationData?.resumeId,
+        });
+      }
+      throw error;
+    }
+    
+    if (typeof applicationData.resumeId !== 'string') {
+      const error = new Error('Resume ID must be a string');
+      if (__DEV__) {
+        console.error('[JobService] Invalid resumeId type:', {
+          type: typeof applicationData.resumeId,
+          value: applicationData.resumeId,
+        });
+      }
+      throw error;
+    }
+    
+    // Clean the application data to ensure proper serialization
+    const cleanData: any = {
+      resumeId: String(applicationData.resumeId).trim(),
+    };
+    
+    // Validate cleaned resumeId is not empty
+    if (!cleanData.resumeId) {
+      const error = new Error('Resume ID cannot be empty');
+      if (__DEV__) {
+        console.error('[JobService] Empty resumeId after cleaning');
+      }
+      throw error;
+    }
+    
+    // Only include coverLetter if it exists and is not empty
+    if (applicationData.coverLetter && typeof applicationData.coverLetter === 'string' && applicationData.coverLetter.trim()) {
+      cleanData.coverLetter = applicationData.coverLetter.trim();
+    }
+    
+    if (__DEV__) {
+      console.log('[JobService] Applying for job:', {
+        jobId,
+        resumeId: cleanData.resumeId,
+        resumeIdLength: cleanData.resumeId.length,
+        hasCoverLetter: !!cleanData.coverLetter,
+        requestBody: JSON.stringify(cleanData),
+      });
+    }
+    
+    try {
+      // For Android, ensure the request body is properly formatted
+      const response = await api.post(`/jobs/${jobId}/apply`, cleanData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (__DEV__) {
+        console.log('[JobService] Application successful:', {
+          status: response.status,
+          hasApplication: !!response.data?.application,
+        });
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('[JobService] Application failed:', {
+          error: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          requestBody: JSON.stringify(cleanData),
+        });
+      }
+      throw error;
+    }
   },
 
   /**

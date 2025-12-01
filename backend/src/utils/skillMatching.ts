@@ -149,15 +149,21 @@ function skillsMatch(skill1: string, skill2: string): boolean {
  * - Basic: <50% match (1 or fewer skills)
  */
 export function calculateMatchScore(
-  jobSkills: string[],
-  userSkills: string[]
+  jobSkills: string[] | null | undefined,
+  userSkills: string[] | null | undefined
 ): MatchResult {
+  // Defensive checks: handle null/undefined/empty arrays
+  const safeJobSkills = Array.isArray(jobSkills) ? jobSkills : [];
+  const safeUserSkills = Array.isArray(userSkills) ? userSkills : [];
+
   // Normalize skills: trim, lowercase, remove duplicates
-  const normalizedJobSkills = jobSkills
+  const normalizedJobSkills = safeJobSkills
+    .filter(skill => skill != null && typeof skill === 'string')
     .map(skill => skill.trim().toLowerCase())
     .filter(skill => skill.length > 0);
   
-  const normalizedUserSkills = userSkills
+  const normalizedUserSkills = safeUserSkills
+    .filter(skill => skill != null && typeof skill === 'string')
     .map(skill => skill.trim().toLowerCase())
     .filter(skill => skill.length > 0);
 
@@ -177,9 +183,9 @@ export function calculateMatchScore(
 
     if (matchedUserSkill) {
       // Find the original user skill that matched (preserve original casing)
-      const originalMatchedSkill = userSkills.find(us => {
-        return skillsMatch(us, jobSkill);
-      }) || jobSkills.find(js => skillsMatch(js, jobSkill)) || jobSkill;
+      const originalMatchedSkill = safeUserSkills.find(us => {
+        return us != null && typeof us === 'string' && skillsMatch(us, jobSkill);
+      }) || safeJobSkills.find(js => js != null && typeof js === 'string' && skillsMatch(js, jobSkill)) || jobSkill;
       
       // Only add if not already in matchedSkills (prevent duplicates)
       if (!matchedSkills.some(ms => skillsMatch(ms, originalMatchedSkill))) {
@@ -187,8 +193,8 @@ export function calculateMatchScore(
       }
     } else {
       // Preserve original casing from job skills
-      const originalMissingSkill = jobSkills.find(js => 
-        normalizeSkillName(js) === normalizeSkillName(jobSkill)
+      const originalMissingSkill = safeJobSkills.find(js => 
+        js != null && typeof js === 'string' && normalizeSkillName(js) === normalizeSkillName(jobSkill)
       ) || jobSkill;
       missingSkills.push(originalMissingSkill);
     }

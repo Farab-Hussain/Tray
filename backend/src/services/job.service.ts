@@ -28,9 +28,9 @@ export const jobServices = {
     return jobData;
   },
 
-  /**
-   * Get all jobs with pagination and filtering
-   */
+  
+    // Get all jobs with pagination and filtering
+
   async getAll(filters?: {
     status?: "active" | "closed" | "draft";
     jobType?: string;
@@ -173,7 +173,18 @@ export const jobServices = {
     if (!doc.exists) {
       throw new Error("Job not found");
     }
-    return doc.data() as Job;
+    const data = doc.data() as Job;
+    // Ensure required fields exist
+    if (!data.id) {
+      data.id = doc.id;
+    }
+    if (!data.requiredSkills) {
+      data.requiredSkills = [];
+    }
+    if (!data.status) {
+      data.status = "active";
+    }
+    return data;
   },
 
   /**
@@ -263,18 +274,31 @@ export const jobServices = {
    * Increment application count
    */
   async incrementApplicationCount(id: string, rating?: "gold" | "silver"): Promise<void> {
-    const jobRef = db.collection(COLLECTION).doc(id);
-    const updateData: any = {
-      applicationCount: FieldValue.increment(1),
-    };
+    try {
+      const jobRef = db.collection(COLLECTION).doc(id);
+      // Verify job exists before updating
+      const jobDoc = await jobRef.get();
+      if (!jobDoc.exists) {
+        console.warn(`Job ${id} not found when trying to increment application count`);
+        return; // Don't throw - this is a non-critical operation
+      }
 
-    if (rating === "gold") {
-      updateData.goldApplicantsCount = FieldValue.increment(1);
-    } else if (rating === "silver") {
-      updateData.silverApplicantsCount = FieldValue.increment(1);
+      const updateData: any = {
+        applicationCount: FieldValue.increment(1),
+      };
+
+      if (rating === "gold") {
+        updateData.goldApplicantsCount = FieldValue.increment(1);
+      } else if (rating === "silver") {
+        updateData.silverApplicantsCount = FieldValue.increment(1);
+      }
+
+      await jobRef.update(updateData);
+    } catch (error: any) {
+      // Log error but don't throw - this is a non-critical operation
+      console.error(`Error incrementing application count for job ${id}:`, error.message);
+      // Don't throw - application was already created successfully
     }
-
-    await jobRef.update(updateData);
   },
 
   /**

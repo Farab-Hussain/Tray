@@ -1,5 +1,6 @@
 // src/controllers/jobApplication.controller.ts
 import { Request, Response } from "express";
+import { Timestamp } from "firebase-admin/firestore";
 import { jobApplicationServices } from "../services/jobApplication.service";
 import { jobServices } from "../services/job.service";
 import { resumeServices } from "../services/resume.service";
@@ -12,69 +13,253 @@ import { JobApplicationInput } from "../models/jobApplication.model";
  * Automatically calculates match rating
  */
 export const applyForJob = async (req: Request, res: Response) => {
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
   try {
+    console.log(`[applyForJob:${requestId}] Starting application process`);
     const { id } = req.params; // Job ID
     const user = (req as any).user;
     
     if (!user || !user.uid) {
+      console.error(`[applyForJob:${requestId}] Authentication failed: no user or uid`);
       return res.status(401).json({ error: "Authentication required" });
     }
 
+    console.log(`[applyForJob:${requestId}] User authenticated: ${user.uid}`);
     const { resumeId, coverLetter } = req.body;
 
+    // Validate resumeId is provided
+    if (!resumeId) {
+      console.error(`[applyForJob:${requestId}] Validation failed: resumeId missing`);
+      return res.status(400).json({ error: "Resume ID is required" });
+    }
+
+    // Ensure resumeId is a string
+    const cleanResumeId = String(resumeId).trim();
+    if (!cleanResumeId) {
+      console.error(`[applyForJob:${requestId}] Validation failed: resumeId is empty after cleaning`);
+      return res.status(400).json({ error: "Resume ID is required" });
+    }
+    
+    console.log(`[applyForJob:${requestId}] Processing application - Job: ${id}, Resume: ${cleanResumeId}`);
+
     // Verify job exists
-    const job = await jobServices.getById(id);
+    let job;
+    try {
+      job = await jobServices.getById(id);
+    } catch (jobError: any) {
+      console.error("Error fetching job:", jobError);
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
     if (job.status !== "active") {
       return res.status(400).json({ error: "This job is not accepting applications" });
     }
 
     // Verify resume exists and belongs to user
-    const resume = await resumeServices.getById(resumeId);
-    if (resume.userId !== user.uid) {
-      return res.status(403).json({ error: "You can only use your own resume" });
+    let resume;
+    try {
+      console.log(`[applyForJob:${requestId}] Fetching resume: ${cleanResumeId}`);
+      resume = await resumeServices.getById(cleanResumeId);
+    } catch (resumeError: any) {
+      console.error(`[applyForJob:${requestId}] Error fetching resume:`, resumeError);
+      console.error(`[applyForJob:${requestId}] Resume error stack:`, resumeError?.stack);
+      if (!res.headersSent) {
+        return res.status(404).json({ error: "Resume not found" });
+      }
+      return;
     }
 
+    if (!resume) {
+      console.error(`[applyForJob:${requestId}] Resume not found: ${cleanResumeId}`);
+      if (!res.headersSent) {
+        return res.status(404).json({ error: "Resume not found" });
+      }
+      return;
+    }
+
+    if (resume.userId !== user.uid) {
+      console.error(`[applyForJob:${requestId}] Resume ownership mismatch - Resume userId: ${resume.userId}, User uid: ${user.uid}`);
+      if (!res.headersSent) {
+        return res.status(403).json({ error: "You can only use your own resume" });
+      }
+      return;
+    }
+    
+    console.log(`[applyForJob:${requestId}] Resume verified successfully`);
+
     // Check if user has already applied
-    const hasApplied = await jobApplicationServices.hasUserApplied(id, user.uid);
+    let hasApplied;
+    try {
+      hasApplied = await jobApplicationServices.hasUserApplied(id, user.uid);
+    } catch (hasAppliedError: any) {
+      console.error("Error checking if user has applied:", hasAppliedError);
+      // Don't fail the request if this check fails - continue with application
+      hasApplied = false;
+    }
+
     if (hasApplied) {
       return res.status(400).json({ error: "You have already applied for this job" });
     }
 
-    // Calculate match score
-    const matchResult = calculateMatchScore(job.requiredSkills, resume.skills);
+    // Calculate match score with defensive checks
+    const jobSkills = Array.isArray(job.requiredSkills) ? job.requiredSkills : [];
+    const resumeSkills = Array.isArray(resume.skills) ? resume.skills : [];
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[applyForJob] Job ID: ${id}, Job Skills: ${JSON.stringify(jobSkills)}, Resume Skills: ${JSON.stringify(resumeSkills)}`);
+    }
+    
+    let matchResult;
+    try {
+      matchResult = calculateMatchScore(jobSkills, resumeSkills);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[applyForJob] Match result:`, JSON.stringify(matchResult));
+      }
+    } catch (matchError: any) {
+      console.error("Error calculating match score:", matchError);
+      console.error("Match error stack:", matchError.stack);
+      // Use default match result if calculation fails
+      matchResult = {
+        score: 0,
+        totalRequired: jobSkills.length,
+        matchPercentage: 0,
+        rating: "basic" as const,
+        matchedSkills: [],
+        missingSkills: jobSkills,
+      };
+    }
 
     // Create application
     const applicationData: JobApplicationInput = {
       jobId: id,
-      resumeId,
-      coverLetter,
+      resumeId: cleanResumeId,
+      coverLetter: coverLetter || undefined,
     };
 
-    const application = await jobApplicationServices.create(
-      applicationData,
-      user.uid,
-      matchResult
-    );
+    console.log(`[applyForJob:${requestId}] Creating application with data:`, {
+      jobId: applicationData.jobId,
+      resumeId: applicationData.resumeId,
+      hasCoverLetter: !!applicationData.coverLetter,
+      matchScore: matchResult.score,
+      matchRating: matchResult.rating,
+    });
+
+    let application;
+    try {
+      // Validate matchResult before passing to create
+      const validatedMatchResult = {
+        score: typeof matchResult.score === 'number' ? matchResult.score : 0,
+        rating: (['gold', 'silver', 'bronze', 'basic'].includes(matchResult.rating) ? matchResult.rating : 'basic') as "gold" | "silver" | "bronze" | "basic",
+        matchedSkills: Array.isArray(matchResult.matchedSkills) ? matchResult.matchedSkills : [],
+        missingSkills: Array.isArray(matchResult.missingSkills) ? matchResult.missingSkills : [],
+      };
+      
+      application = await jobApplicationServices.create(
+        applicationData,
+        user.uid,
+        validatedMatchResult
+      );
+      console.log(`[applyForJob:${requestId}] Application created successfully:`, application.id);
+    } catch (createError: any) {
+      console.error(`[applyForJob:${requestId}] Error creating application:`, createError);
+      console.error(`[applyForJob:${requestId}] Create error name:`, createError?.name);
+      console.error(`[applyForJob:${requestId}] Create error message:`, createError?.message);
+      console.error(`[applyForJob:${requestId}] Create error stack:`, createError?.stack);
+      
+      if (!res.headersSent) {
+        return res.status(500).json({ 
+          error: "Failed to create application",
+          details: process.env.NODE_ENV !== 'production' ? createError.message : undefined,
+          requestId: requestId,
+        });
+      }
+      return;
+    }
 
     // Increment application count on job (only track gold and silver)
-    const ratingForCount = matchResult.rating === "gold" || matchResult.rating === "silver" 
-      ? matchResult.rating 
-      : undefined;
-    await jobServices.incrementApplicationCount(id, ratingForCount);
+    // Don't fail the request if this fails - application is already created
+    try {
+      const ratingForCount = matchResult.rating === "gold" || matchResult.rating === "silver" 
+        ? matchResult.rating 
+        : undefined;
+      await jobServices.incrementApplicationCount(id, ratingForCount);
+      console.log(`[applyForJob:${requestId}] Application count incremented for rating: ${ratingForCount || 'none'}`);
+    } catch (incrementError: any) {
+      console.error(`[applyForJob:${requestId}] Error incrementing application count:`, incrementError);
+      console.error(`[applyForJob:${requestId}] Increment error stack:`, incrementError?.stack);
+      // Continue - application was created successfully
+    }
 
-    res.status(201).json({
-      message: "Application submitted successfully",
-      application: serializeApplication({
+    // Serialize application with all match data
+    let serializedApplication;
+    try {
+      const applicationWithMatch = {
         ...application,
         matchScore: matchResult.score,
         matchRating: matchResult.rating,
-        matchedSkills: matchResult.matchedSkills,
-        missingSkills: matchResult.missingSkills,
-      }),
-    });
+        matchedSkills: matchResult.matchedSkills || [],
+        missingSkills: matchResult.missingSkills || [],
+      };
+      serializedApplication = serializeApplication(applicationWithMatch);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[applyForJob] Application serialized successfully`);
+      }
+    } catch (serializeError: any) {
+      console.error("Error serializing application:", serializeError);
+      console.error("Serialize error stack:", serializeError.stack);
+      // Return application without serialization if serialization fails
+      serializedApplication = {
+        ...application,
+        matchScore: matchResult.score,
+        matchRating: matchResult.rating,
+        matchedSkills: matchResult.matchedSkills || [],
+        missingSkills: matchResult.missingSkills || [],
+        appliedAt: application.appliedAt instanceof Timestamp 
+          ? application.appliedAt.toDate().toISOString() 
+          : application.appliedAt,
+      };
+    }
+
+    console.log(`[applyForJob:${requestId}] Sending success response`);
+    if (!res.headersSent) {
+      res.status(201).json({
+        message: "Application submitted successfully",
+        application: serializedApplication,
+      });
+    } else {
+      console.error(`[applyForJob:${requestId}] Response already sent, cannot send success response`);
+    }
   } catch (error: any) {
-    console.error("Error applying for job:", error);
-    res.status(500).json({ error: error.message || "Failed to submit application" });
+    console.error(`[applyForJob:${requestId}] Unexpected error in applyForJob:`, error);
+    console.error(`[applyForJob:${requestId}] Error name:`, error?.name);
+    console.error(`[applyForJob:${requestId}] Error message:`, error?.message);
+    console.error(`[applyForJob:${requestId}] Error stack:`, error?.stack);
+    
+    // Check if response has already been sent
+    if (res.headersSent) {
+      console.error(`[applyForJob:${requestId}] Response already sent, cannot send error response`);
+      return;
+    }
+    
+    // Provide more detailed error information in development
+    const errorMessage = process.env.NODE_ENV !== 'production' 
+      ? error.message || "Failed to submit application"
+      : "Failed to submit application";
+    
+    try {
+      res.status(500).json({ 
+        error: errorMessage,
+        details: process.env.NODE_ENV !== 'production' ? error.stack : undefined,
+        requestId: requestId,
+      });
+    } catch (responseError: any) {
+      console.error(`[applyForJob:${requestId}] Error sending error response:`, responseError);
+    }
   }
 };
 

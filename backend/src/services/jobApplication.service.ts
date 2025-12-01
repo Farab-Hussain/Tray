@@ -15,25 +15,68 @@ export const jobApplicationServices = {
     matchedSkills: string[];
     missingSkills: string[];
   }): Promise<JobApplication> {
-    const applicationRef = db.collection(COLLECTION).doc();
-    const now = Timestamp.now();
+    try {
+      // Validate input data
+      if (!data || !data.jobId || !data.resumeId) {
+        throw new Error("Invalid application data: jobId and resumeId are required");
+      }
 
-    const applicationData: JobApplication = {
-      id: applicationRef.id,
-      jobId: data.jobId,
-      userId,
-      resumeId: data.resumeId,
-      coverLetter: data.coverLetter,
-      matchScore: matchResult.score,
-      matchRating: matchResult.rating,
-      matchedSkills: matchResult.matchedSkills,
-      missingSkills: matchResult.missingSkills,
-      status: "pending",
-      appliedAt: now,
-    };
+      if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+        throw new Error("Invalid userId");
+      }
 
-    await applicationRef.set(applicationData);
-    return applicationData;
+      // Ensure matchResult has valid values
+      const validatedMatchResult = {
+        score: typeof matchResult.score === 'number' && !isNaN(matchResult.score) ? matchResult.score : 0,
+        rating: (['gold', 'silver', 'bronze', 'basic'].includes(matchResult.rating) ? matchResult.rating : 'basic') as "gold" | "silver" | "bronze" | "basic",
+        matchedSkills: Array.isArray(matchResult.matchedSkills) ? matchResult.matchedSkills.filter(s => s != null) : [],
+        missingSkills: Array.isArray(matchResult.missingSkills) ? matchResult.missingSkills.filter(s => s != null) : [],
+      };
+
+      const applicationRef = db.collection(COLLECTION).doc();
+      const now = Timestamp.now();
+
+      const applicationData: JobApplication = {
+        id: applicationRef.id,
+        jobId: String(data.jobId).trim(),
+        userId: String(userId).trim(),
+        resumeId: String(data.resumeId).trim(),
+        coverLetter: data.coverLetter && typeof data.coverLetter === 'string' ? data.coverLetter.trim() : undefined,
+        matchScore: validatedMatchResult.score,
+        matchRating: validatedMatchResult.rating,
+        matchedSkills: validatedMatchResult.matchedSkills,
+        missingSkills: validatedMatchResult.missingSkills,
+        status: "pending",
+        appliedAt: now,
+      };
+
+      // Remove undefined values to avoid Firestore issues
+      const cleanApplicationData: any = { ...applicationData };
+      Object.keys(cleanApplicationData).forEach(key => {
+        if (cleanApplicationData[key] === undefined) {
+          delete cleanApplicationData[key];
+        }
+      });
+
+      console.log(`[jobApplicationService] Creating application with ID: ${applicationData.id}`);
+      await applicationRef.set(cleanApplicationData);
+      console.log(`[jobApplicationService] Application created successfully: ${applicationData.id}`);
+      
+      return applicationData;
+    } catch (error: any) {
+      console.error("[jobApplicationService] Error in create method:", error);
+      console.error("[jobApplicationService] Error details:", {
+        errorName: error?.name,
+        errorMessage: error?.message,
+        errorStack: error?.stack,
+        inputData: {
+          jobId: data?.jobId,
+          resumeId: data?.resumeId,
+          userId: userId ? `${userId.substring(0, 10)}...` : 'missing',
+        },
+      });
+      throw error;
+    }
   },
 
   /**

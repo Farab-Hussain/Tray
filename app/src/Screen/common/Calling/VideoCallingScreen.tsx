@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler } from 'react-native';
+import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Phone, Mic, MicOff, Camera } from 'lucide-react-native';
@@ -221,6 +221,39 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                 // Settings might not be available
               }
             });
+          }
+          
+          // Ensure audio session is active for playback when remote stream arrives
+          if (InCallManager) {
+            try {
+              InCallManager.start({ media: 'audio', auto: true });
+              InCallManager.setForceSpeakerphoneOn(false);
+              InCallManager.setMicrophoneMute(isMutedRef.current);
+              InCallManager.setSpeakerphoneOn(false);
+              if (Platform.OS === 'ios') {
+                InCallManager.setSpeakerphoneOn(false); // Use earpiece
+              }
+              if (__DEV__) {
+                console.log('✅ [Receiver] Audio session activated for remote stream playback');
+              }
+              // Reactivate audio session after a short delay to ensure playback
+              setTimeout(() => {
+                if (InCallManager) {
+                  try {
+                    InCallManager.start({ media: 'audio', auto: true });
+                    if (__DEV__) {
+                      console.log('✅ [Receiver] Audio session reactivated for playback');
+                    }
+                  } catch (e) {
+                    // Ignore errors
+                  }
+                }
+              }, 100);
+            } catch (error: any) {
+                            if (__DEV__) {
+                console.warn('⚠️ [Receiver] Error activating audio session:', error.message)
+              };
+            }
           }
           
           // Force update by setting remote stream - this triggers re-render
@@ -635,10 +668,27 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         // For video calls, optionally use speakerphone by default
         // User can toggle via UI if needed
         InCallManager.setForceSpeakerphoneOn(false); // Use earpiece by default, user can toggle
+        // Ensure audio session is active for playback
+        if (Platform.OS === 'ios') {
+          InCallManager.setSpeakerphoneOn(false); // Use earpiece
+        }
         if (__DEV__) {
           console.log('✅ [InCallManager] Audio session started for video call (earpiece mode)');
           console.log('✅ [InCallManager] Audio route should be: earpiece');
         }
+        // Reactivate audio session after a short delay to ensure it's fully configured for playback
+        setTimeout(() => {
+          if (InCallManager && status === 'active' && pcRef.current) {
+            try {
+              InCallManager.start({ media: 'audio', auto: true });
+              if (__DEV__) {
+                console.log('✅ [InCallManager] Audio session reactivated for playback');
+              }
+            } catch (e) {
+              // Ignore errors
+            }
+          }
+        }, 300);
       } catch (error: any) {
                 if (__DEV__) {
           console.error('❌ [InCallManager] Error starting audio session:', error.message || error)
@@ -856,6 +906,39 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                   // Settings might not be available
                 }
               });
+            }
+            
+            // Ensure audio session is active for playback when remote stream arrives
+            if (InCallManager) {
+              try {
+                InCallManager.start({ media: 'audio', auto: true });
+                InCallManager.setForceSpeakerphoneOn(false);
+                InCallManager.setMicrophoneMute(isMutedRef.current);
+                InCallManager.setSpeakerphoneOn(false);
+                if (Platform.OS === 'ios') {
+                  InCallManager.setSpeakerphoneOn(false); // Use earpiece
+                }
+                if (__DEV__) {
+                  console.log('✅ [Caller] Audio session activated for remote stream playback');
+                }
+                // Reactivate audio session after a short delay to ensure playback
+                setTimeout(() => {
+                  if (InCallManager) {
+                    try {
+                      InCallManager.start({ media: 'audio', auto: true });
+                      if (__DEV__) {
+                        console.log('✅ [Caller] Audio session reactivated for playback');
+                      }
+                    } catch (e) {
+                      // Ignore errors
+                    }
+                  }
+                }, 100);
+              } catch (error: any) {
+                                if (__DEV__) {
+                  console.warn('⚠️ [Caller] Error activating audio session:', error.message)
+                };
+              }
             }
             
             // Force update by setting remote stream - this triggers re-render
@@ -1214,6 +1297,27 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                     });
                     if (videoTracks.length > 0) {
                       setIsVideoEnabled(true);
+                    }
+                    // Ensure audio session is active for playback
+                    const audioTracks = stream.getAudioTracks();
+                    audioTracks.forEach((track: any) => {
+                      track.enabled = true;
+                    });
+                    if (InCallManager && audioTracks.length > 0) {
+                      try {
+                        InCallManager.start({ media: 'audio', auto: true });
+                        setTimeout(() => {
+                          if (InCallManager) {
+                            try {
+                              InCallManager.start({ media: 'audio', auto: true });
+                            } catch (e) {
+                              // Ignore errors
+                            }
+                          }
+                        }, 100);
+                      } catch (e) {
+                        // Ignore errors
+                      }
                     }
                     setRemote(stream);
                   },

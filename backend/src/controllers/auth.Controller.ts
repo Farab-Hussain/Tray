@@ -6,6 +6,7 @@ import { sendEmail } from "../utils/email";
 import { randomUUID, randomBytes, createHash } from "crypto";
 import axios from "axios";
 import { cache } from "../utils/cache";
+import { consultantFlowService } from "../services/consultantFlow.service";
 
 
 /**
@@ -610,6 +611,12 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
 
     // Use web link if available, otherwise use mobile link
     const verificationLink = webLink || mobileLink;
+    
+    // Log both links for debugging
+    Logger.info(route, userRecord.uid, `Mobile deep link: ${mobileLink}`);
+    if (webLink) {
+      Logger.info(route, userRecord.uid, `Web link: ${webLink}`);
+    }
 
     Logger.success(route, userRecord.uid, `Generated custom verification token for ${userRecord.email}`);
     Logger.info(route, userRecord.uid, `Verification link: ${verificationLink}`);
@@ -630,13 +637,21 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
           </div>
           <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
             <p style="font-size: 16px;">Hello,</p>
-            <p style="font-size: 16px;">Thank you for registering with Tray! Please verify your email address by clicking the button below:</p>
+            <p style="font-size: 16px;">Thank you for registering with Tray! Please verify your email address by clicking one of the buttons below:</p>
             <div style="text-align: center; margin: 30px 0;">
-              ${webLink ? `<a href="${webLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; margin-bottom: 15px;">Verify your email</a>` : ''}
-             
+              ${webLink ? `<a href="${webLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; margin: 10px; width: 200px;">Verify on Web</a>` : ''}
+              <a href="${mobileLink}" style="background: #22c55e; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; margin: 10px; width: 200px;">Open in App</a>
             </div>
-            <p style="font-size: 14px; color: #666;">Or copy and paste this link into your browser to verify your email.</p>
-            <p style="font-size: 12px; color: #999; word-break: break-all; background: #fff; padding: 10px; border-radius: 5px;">${verificationLink}</p>
+            <div style="background: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea;">
+              <p style="font-size: 14px; color: #666; margin: 0 0 10px 0;"><strong>📱 For Mobile Users:</strong></p>
+              <p style="font-size: 12px; color: #999; word-break: break-all; margin: 0;">${mobileLink}</p>
+            </div>
+            ${webLink ? `
+            <div style="background: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea;">
+              <p style="font-size: 14px; color: #666; margin: 0 0 10px 0;"><strong>🌐 For Web Users:</strong></p>
+              <p style="font-size: 12px; color: #999; word-break: break-all; margin: 0;">${webLink}</p>
+            </div>
+            ` : ''}
             <p style="font-size: 14px; color: #666; margin-top: 30px;">This link will expire in 24 hours.</p>
             <p style="font-size: 14px; color: #666;">If you didn't create an account, please ignore this email.</p>
           </div>
@@ -652,13 +667,16 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
         
         Hello,
         
-        Thank you for registering with Tray! Please verify your email address by clicking the link below:
+        Thank you for registering with Tray! Please verify your email address using one of the links below:
         
-        ${webLink ? `Web Link: ${webLink}` : `Verification Link: ${verificationLink}`}
+        📱 For Mobile App Users:
+        ${mobileLink}
+        
+        ${webLink ? `🌐 For Web Users:\n${webLink}\n` : ''}
         
         This link will expire in 24 hours.
         
-        ${webLink ? 'Note: If you\'re on desktop, use the web link to verify your email.' : ''}
+        ${webLink ? 'Note: If you\'re on desktop, use the web link. If you\'re on mobile, use the mobile link to open in the app.' : 'Note: Click the mobile link above to open in the Tray app.'}
         
         If you didn't create an account, please ignore this email.
         
@@ -800,17 +818,59 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const endIndex = startIndex + limit;
     const paginatedDocs = allDocs.docs.slice(startIndex, endIndex);
 
-    // Map documents to user objects
-    const users = paginatedDocs.map(doc => {
-      const data = doc.data();
-      return {
-        uid: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate?.() || data.createdAt,
-        updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
-        deletedAt: data.deletedAt?.toDate?.() || data.deletedAt,
-      };
-    });
+        // Map documents to user objects and calculate profileComplete for consultants
+        const users = await Promise.all(
+          paginatedDocs.map(async (doc) => {
+            const data = doc.data();
+            const userRole = data.role || data.activeRole;
+            const userRoles = data.roles || [];
+            const userUid = doc.id;
+            
+            const userObj: any = {
+              uid: userUid,
+              ...data,
+              createdAt: data.createdAt?.toDate?.() || data.createdAt,
+              updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
+              deletedAt: data.deletedAt?.toDate?.() || data.deletedAt,
+            };
+
+            // Only calculate profileComplete for consultants
+            // Check both role field and roles array
+            const isConsultant = userRole === 'consultant' || userRoles.includes('consultant');
+            if (isConsultant) {
+          try {
+            // Check if consultant has an approved profile
+            const profileDoc = await db.collection("consultantProfiles").doc(userUid).get();
+            
+            if (profileDoc.exists) {
+              const profile = profileDoc.data();
+              const isProfileApproved = profile?.status === 'approved';
+              
+              if (isProfileApproved) {
+                // Check if consultant has at least one approved service application
+                const applications = await consultantFlowService.getApplicationsByConsultant(userUid);
+                const hasApprovedService = applications.some(app => app.status === 'approved');
+                
+                userObj.profileComplete = hasApprovedService;
+              } else {
+                userObj.profileComplete = false;
+              }
+            } else {
+              // No profile exists
+              userObj.profileComplete = false;
+            }
+          } catch (error: any) {
+            // If there's an error checking profile, default to incomplete
+            Logger.warn(route, userUid, `Error checking profile completeness: ${error.message}`);
+            userObj.profileComplete = false;
+          }
+        }
+        // For non-consultants (student, recruiter, admin), profileComplete is not applicable
+        // Don't set it, so it will be undefined in the response
+
+        return userObj;
+      })
+    );
 
     Logger.success(route, "", `Retrieved ${users.length} users (page ${page})`);
 

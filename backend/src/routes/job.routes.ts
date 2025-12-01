@@ -1,5 +1,5 @@
 // src/routes/job.routes.ts
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import {
   createJob,
   getAllJobs,
@@ -26,6 +26,13 @@ import {
 } from "../middleware/validation";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
 
+// Async handler wrapper to catch promise rejections
+const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+
 const router = express.Router();
 
 // Job Management Routes
@@ -47,7 +54,7 @@ router.delete("/:id", authenticateUser(), validateJobId, deleteJob); // DELETE /
 // Job Application Routes
 
 // Student routes
-router.post("/:id/apply", authenticateUser(), validateApplyForJob, applyForJob); // POST /jobs/:id/apply - Apply for a job
+router.post("/:id/apply", authenticateUser(), validateApplyForJob, asyncHandler(applyForJob)); // POST /jobs/:id/apply - Apply for a job
 router.get("/applications/my", authenticateUser(), getMyApplications); // GET /jobs/applications/my - Get my applications
 
 // Hiring Manager routes

@@ -3,8 +3,9 @@
  * Generates ATS-friendly resume formats and PDF exports
  */
 
-import { Platform, Share } from 'react-native';
+import { Platform, Share, Linking } from 'react-native';
 import { ResumeData } from '../services/resume.service';
+import RNFS from 'react-native-fs';
 
 // Import PDF library - use the correct API
 let generatePDF: ((options: any) => Promise<any>) | null = null;
@@ -478,23 +479,155 @@ export async function generateAndShareResumePDF(
           throw new Error('PDF generation failed: No file path returned');
         }
 
-        const pdfPath = file.filePath;
+        let pdfPath = file.filePath;
 
         if (__DEV__) {
           console.log('✅ PDF generated successfully at:', pdfPath);
         }
 
-        // Share PDF file - ensure proper file URI format
-        const fileUri = pdfPath.startsWith('file://') ? pdfPath : `file://${pdfPath}`;
+        // Android-specific fix: Copy file to public Downloads directory
+        if (Platform.OS === 'android') {
+          try {
+            // Remove file:// prefix if present
+            const sourcePath = pdfPath.replace('file://', '');
+            
+            // Verify source file exists
+            const sourceExists = await RNFS.exists(sourcePath);
+            if (!sourceExists) {
+              throw new Error(`Source PDF file not found: ${sourcePath}`);
+            }
 
-        if (__DEV__) {
-          console.log('📤 Sharing PDF file:', fileUri);
+            // Get public Downloads directory path
+            // On Android 10+, use ExternalStorageDirectoryPath/Download
+            const downloadsPath = RNFS.DownloadDirectoryPath || 
+                                 `${RNFS.ExternalStorageDirectoryPath}/Download` ||
+                                 RNFS.PicturesDirectoryPath;
+            
+            // Ensure Downloads directory exists
+            const downloadsExists = await RNFS.exists(downloadsPath);
+            if (!downloadsExists) {
+              await RNFS.mkdir(downloadsPath);
+            }
+
+            const publicPdfPath = `${downloadsPath}/${fileName}.pdf`;
+
+            if (__DEV__) {
+              console.log('📁 Source PDF path:', sourcePath);
+              console.log('📁 Downloads directory:', downloadsPath);
+              console.log('📁 Target PDF path:', publicPdfPath);
+            }
+
+            // Copy file to public Downloads directory
+            await RNFS.copyFile(sourcePath, publicPdfPath);
+
+            // Verify file was copied
+            const fileExists = await RNFS.exists(publicPdfPath);
+            if (!fileExists) {
+              throw new Error('Failed to copy PDF to Downloads directory - file not found after copy');
+            }
+
+            // Get file info to verify
+            const fileInfo = await RNFS.stat(publicPdfPath);
+            if (__DEV__) {
+              console.log('✅ PDF copied successfully. File size:', fileInfo.size, 'bytes');
+            }
+
+            pdfPath = publicPdfPath;
+
+            if (__DEV__) {
+              console.log('✅ PDF saved to public Downloads:', pdfPath);
+            }
+          } catch (copyError: any) {
+            if (__DEV__) {
+              console.error('❌ Failed to copy PDF to Downloads:', copyError.message);
+              console.error('Error details:', {
+                message: copyError.message,
+                code: copyError.code,
+                stack: copyError.stack?.substring(0, 300),
+              });
+            }
+            // Continue with original path - Share API might still work with file:// URI
+            // But user won't be able to find it in Downloads folder
+          }
         }
 
-        await Share.share({
-          url: fileUri,
-          title: `${exportData.name.trim()}'s Resume`,
-        });
+        // Share PDF file - Android requires content:// URI for proper sharing
+        if (Platform.OS === 'android') {
+          // Remove file:// prefix if present
+          const filePath = pdfPath.replace('file://', '');
+          
+          // Verify file exists
+          const fileExists = await RNFS.exists(filePath);
+          if (!fileExists) {
+            throw new Error(`PDF file not found: ${filePath}`);
+          }
+
+          // Get file info
+          const fileInfo = await RNFS.stat(filePath);
+          
+          if (__DEV__) {
+            console.log('📤 Sharing PDF file:', filePath);
+            console.log('📊 File info:', {
+              path: filePath,
+              size: fileInfo.size,
+              isFile: fileInfo.isFile(),
+            });
+          }
+
+          // Use Share API with proper URI format
+          // For Android, we need to ensure the file is accessible
+          // React Native Share should handle file:// to content:// conversion via FileProvider
+          try {
+            // Construct the file URI
+            // React Native Share API will use FileProvider to convert file:// to content://
+            const fileUri = `file://${filePath}`;
+            
+            if (__DEV__) {
+              console.log('📤 Sharing PDF with URI:', fileUri);
+              console.log('📤 FileProvider should convert this to content:// URI automatically');
+            }
+
+            // Share with file:// URI - React Native Share API + FileProvider will convert it
+            // The FileProvider we added to AndroidManifest will handle the conversion
+            const shareResult = await Share.share({
+              url: fileUri,
+              title: `${exportData.name.trim()}'s Resume`,
+              type: 'application/pdf',
+            });
+
+            if (__DEV__) {
+              console.log('✅ Share dialog opened:', shareResult);
+            }
+
+            // Note: If Google Drive still shows "no data", it might be a FileProvider configuration issue
+            // The file is saved to Downloads folder, so user can manually share it
+          } catch (shareError: any) {
+            if (__DEV__) {
+              console.error('❌ Share error:', shareError);
+              console.error('Error details:', {
+                message: shareError.message,
+                code: shareError.code,
+                stack: shareError.stack?.substring(0, 300),
+              });
+            }
+            
+            // If Share API fails, the file is still saved to Downloads
+            // User can manually share it from there or use a file manager
+            throw new Error('Failed to open share dialog. The PDF has been saved to your Downloads folder. You can share it manually from there.');
+          }
+        } else {
+          // iOS - use file:// URI
+          const fileUri = pdfPath.startsWith('file://') ? pdfPath : `file://${pdfPath}`;
+          
+          if (__DEV__) {
+            console.log('📤 Sharing PDF file (iOS):', fileUri);
+          }
+
+          await Share.share({
+            url: fileUri,
+            title: `${exportData.name.trim()}'s Resume`,
+          });
+        }
 
         return;
       } catch (pdfError: any) {

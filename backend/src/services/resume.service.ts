@@ -46,7 +46,19 @@ export const resumeServices = {
       throw new Error("Resume not found");
     }
 
-    return snapshot.docs[0].data() as Resume;
+    const doc = snapshot.docs[0];
+    const data = doc.data() as Resume;
+    // Ensure required fields exist
+    if (!data.id) {
+      data.id = doc.id;
+    }
+    if (!data.skills) {
+      data.skills = [];
+    }
+    if (!data.userId) {
+      data.userId = userId;
+    }
+    return data;
   },
 
   /**
@@ -57,7 +69,18 @@ export const resumeServices = {
     if (!doc.exists) {
       throw new Error("Resume not found");
     }
-    return doc.data() as Resume;
+    const data = doc.data() as Resume;
+    // Ensure required fields exist
+    if (!data.id) {
+      data.id = doc.id;
+    }
+    if (!data.skills) {
+      data.skills = [];
+    }
+    if (!data.userId) {
+      throw new Error("Resume missing userId field");
+    }
+    return data;
   },
 
   /**

@@ -1,4 +1,7 @@
 import { api } from '../lib/fetcher';
+import { Platform } from 'react-native';
+import RNFS from 'react-native-fs';
+import { auth } from '../lib/firebase';
 
 export interface UploadResponse {
   message: string;
@@ -18,6 +21,166 @@ export interface UploadSignatureResponse {
   folder: string;
 }
 
+/**
+ * Helper function to prepare file for upload (Android-specific fix)
+ * On Android, file:// URIs cannot be accessed by the network layer
+ * We need to use the file path without the file:// prefix
+ * @param file - File object with uri, type, and name
+ * @param defaultMimeType - Default MIME type if not provided (default: 'image/jpeg')
+ * @param defaultName - Default file name if not provided (default: 'image.jpg')
+ */
+const prepareFileForUpload = async (file: any, defaultMimeType: string = 'image/jpeg', defaultName: string = 'image.jpg'): Promise<any> => {
+  let fileUri = file.uri;
+  let fileToUpload: any;
+
+  if (Platform.OS === 'android') {
+    // On Android, use the original URI from react-native-image-picker
+    // It should already be in the correct format (file:///path/to/file)
+    // React Native FormData will handle the conversion internally
+    
+    // Get file path for verification
+    let filePath = fileUri;
+    if (filePath.startsWith('file://')) {
+      filePath = filePath.replace('file://', '');
+    }
+    if (filePath.startsWith('file:///')) {
+      filePath = filePath.replace('file:///', '/');
+    }
+    
+    if (__DEV__) {
+      console.log('📤 [UploadService] Android detected - using original URI format');
+      console.log('📤 [UploadService] Original URI:', fileUri);
+      console.log('📤 [UploadService] File path for verification:', filePath);
+    }
+
+    // Verify file exists
+    const fileExists = await RNFS.exists(filePath);
+    if (!fileExists) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
+    // Determine MIME type from file extension if not provided
+    let mimeType = file.type || defaultMimeType;
+    if (!file.type && file.name) {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (ext === 'png') mimeType = 'image/png';
+      else if (ext === 'gif') mimeType = 'image/gif';
+      else if (ext === 'webp') mimeType = 'image/webp';
+      else if (ext === 'pdf') mimeType = 'application/pdf';
+      else if (ext === 'doc') mimeType = 'application/msword';
+      else if (ext === 'docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+
+    // Use the original URI as-is - react-native-image-picker provides correct format
+    // React Native FormData on Android will handle file:// URIs correctly
+    fileToUpload = {
+      uri: fileUri, // Use original URI - React Native FormData handles it
+      type: mimeType, // Ensure correct MIME type
+      name: file.name || file.fileName || defaultName,
+    };
+
+    if (__DEV__) {
+      console.log('📤 [UploadService] Android file object prepared:', {
+        uri: fileToUpload.uri,
+        type: fileToUpload.type,
+        name: fileToUpload.name,
+        fileExists: true,
+      });
+    }
+  } else {
+    // iOS - use the original approach (works fine on iOS)
+    // Ensure URI is properly formatted for React Native
+    if (fileUri && !fileUri.startsWith('file://') && !fileUri.startsWith('content://') && !fileUri.startsWith('http://') && !fileUri.startsWith('https://')) {
+      // If it's a relative path, try to make it absolute
+      fileUri = fileUri.startsWith('/') ? `file://${fileUri}` : `file:///${fileUri}`;
+    }
+    
+    fileToUpload = {
+      uri: fileUri,
+      type: file.type || defaultMimeType,
+      name: file.name || file.fileName || defaultName,
+    };
+  }
+
+  return fileToUpload;
+};
+
+/**
+ * Helper function to upload file using fetch API (Android) or axios (iOS)
+ * Root cause fix: fetch API handles FormData correctly on Android, axios has issues
+ */
+const uploadWithPlatformSpecificMethod = async (
+  endpoint: string,
+  formData: FormData,
+  timeout: number = 60000
+): Promise<any> => {
+  if (Platform.OS === 'android') {
+    // Android: Use fetch API (handles FormData correctly)
+    if (__DEV__) {
+      console.log('📤 [UploadService] Using fetch API for Android upload');
+    }
+
+    // Get Firebase token for authentication
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const token = await user.getIdToken();
+    if (!token) {
+      throw new Error('Failed to get authentication token');
+    }
+
+    // Get base URL from api instance
+    const baseURL = api.defaults.baseURL || 'https://tray-ecru.vercel.app';
+    const uploadUrl = `${baseURL}${endpoint}`;
+
+    if (__DEV__) {
+      console.log('📤 [UploadService] Upload URL:', uploadUrl);
+    }
+
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      // Use fetch API which handles FormData correctly on Android
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type - fetch will set it automatically with boundary
+        },
+        body: formData,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(errorData.error || `Upload failed with status ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Upload timeout - request took too long');
+      }
+      throw error;
+    }
+  } else {
+    // iOS: Use axios (works fine on iOS)
+    const response = await api.post(endpoint, formData, {
+      timeout: timeout,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    });
+    return response.data;
+  }
+};
+
 const UploadService = {
   /**
    * Upload profile image (React Native compatible)
@@ -26,22 +189,20 @@ const UploadService = {
    */
   async uploadProfileImage(imageFile: any): Promise<UploadResponse> {
     try {
-      // Ensure the file object has the correct format for React Native FormData
-      const fileToUpload = {
-        uri: imageFile.uri,
-        type: imageFile.type || 'image/jpeg',
-        name: imageFile.name || 'image.jpg',
-      };
+      const fileToUpload = await prepareFileForUpload(imageFile);
 
       if (__DEV__) {
         console.log('📤 [UploadService] Uploading profile image:', {
           uri: fileToUpload.uri,
           type: fileToUpload.type,
           name: fileToUpload.name,
+          originalUri: imageFile.uri,
+          platform: Platform.OS,
         });
       }
 
       const formData = new FormData();
+      // For React Native, FormData expects { uri, type, name } format
       formData.append('image', fileToUpload as any);
 
       if (__DEV__) {
@@ -50,40 +211,33 @@ const UploadService = {
           fileUri: fileToUpload.uri,
           fileType: fileToUpload.type,
           fileName: fileToUpload.name,
+          platform: Platform.OS,
         });
       }
 
-      // Don't set Content-Type manually - axios will set it automatically with the correct boundary
       const startTime = Date.now();
-      const response = await api.post<UploadResponse>('/upload/profile-image', formData, {
-        timeout: 60000, // Increase to 60 seconds for large files or slow connections
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      });
+      
+      // Root cause fix: Use fetch API for Android (handles FormData correctly)
+      // Axios has known issues with FormData and file:// URIs on Android
+      const data = await uploadWithPlatformSpecificMethod('/upload/profile-image', formData, 60000);
       const duration = Date.now() - startTime;
       
       if (__DEV__) {
         console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        console.log('✅ [UploadService] Profile image uploaded successfully:', data);
       }
 
-      if (__DEV__) {
-        console.log('✅ [UploadService] Profile image uploaded successfully:', response.data);
-      }
-
-      return response.data;
+      return data;
     } catch (error: any) {
       console.error('❌ [UploadService] Error uploading profile image:', {
         message: error.message,
         code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-        },
+        status: error.status || error.response?.status,
+        statusText: error.statusText || error.response?.statusText,
+        data: error.data || error.response?.data,
+        platform: Platform.OS,
       });
-      throw new Error(error.response?.data?.error || error.message || 'Failed to upload image');
+      throw new Error(error.data?.error || error.response?.data?.error || error.message || 'Failed to upload image');
     }
   },
 
@@ -94,45 +248,42 @@ const UploadService = {
    */
   async uploadConsultantImage(imageFile: any): Promise<UploadResponse> {
     try {
-      // Ensure the file object has the correct format for React Native FormData
-      const fileToUpload = {
-        uri: imageFile.uri,
-        type: imageFile.type || 'image/jpeg',
-        name: imageFile.name || 'image.jpg',
-      };
+      const fileToUpload = await prepareFileForUpload(imageFile);
 
       if (__DEV__) {
         console.log('📤 [UploadService] Uploading consultant image:', {
           uri: fileToUpload.uri,
           type: fileToUpload.type,
           name: fileToUpload.name,
+          originalUri: imageFile.uri,
+          platform: Platform.OS,
         });
       }
 
       const formData = new FormData();
+      // For React Native, FormData expects { uri, type, name } format
       formData.append('image', fileToUpload as any);
 
-      // Don't set Content-Type manually - axios will set it automatically with the correct boundary
-      const response = await api.post<UploadResponse>('/upload/consultant-image', formData, {
-        timeout: 60000, // Increase to 60 seconds for large files or slow connections
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      });
+      const startTime = Date.now();
+      const data = await uploadWithPlatformSpecificMethod('/upload/consultant-image', formData, 60000);
+      const duration = Date.now() - startTime;
 
       if (__DEV__) {
-        console.log('✅ [UploadService] Consultant image uploaded successfully:', response.data);
+        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        console.log('✅ [UploadService] Consultant image uploaded successfully:', data);
       }
 
-      return response.data;
+      return data;
     } catch (error: any) {
       console.error('❌ [UploadService] Error uploading consultant image:', {
         message: error.message,
         code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
+        status: error.status || error.response?.status,
+        statusText: error.statusText || error.response?.statusText,
+        data: error.data || error.response?.data,
+        platform: Platform.OS,
       });
-      throw new Error(error.response?.data?.error || error.message || 'Failed to upload image');
+      throw new Error(error.data?.error || error.response?.data?.error || error.message || 'Failed to upload image');
     }
   },
 
@@ -178,18 +329,15 @@ const UploadService = {
    */
   async uploadServiceImage(imageFile: any): Promise<UploadResponse> {
     try {
-      // Ensure the file object has the correct format for React Native FormData
-      const fileToUpload = {
-        uri: imageFile.uri,
-        type: imageFile.type || 'image/jpeg',
-        name: imageFile.name || 'image.jpg',
-      };
+      const fileToUpload = await prepareFileForUpload(imageFile);
 
       if (__DEV__) {
         console.log('📤 [UploadService] Uploading service image:', {
           uri: fileToUpload.uri,
           type: fileToUpload.type,
           name: fileToUpload.name,
+          originalUri: imageFile.uri,
+          platform: Platform.OS,
         });
       }
 
@@ -198,9 +346,9 @@ const UploadService = {
       // // Use 'image' field for images, 'video' field for videos
       // const fieldName = fileToUpload.type?.startsWith('video/') ? 'video' : 'image';
       // formData.append(fieldName, fileToUpload as any);
+      // For React Native, FormData expects { uri, type, name } format
       formData.append('image', fileToUpload as any);
 
-      // Don't set Content-Type manually - axios will set it automatically with the correct boundary
       // VIDEO UPLOAD CODE - COMMENTED OUT
       // // For videos, use much longer timeout due to large file sizes and Cloudinary processing
       // // Estimate: ~1 minute per 10MB for slow connections, minimum 20 minutes for videos
@@ -212,28 +360,26 @@ const UploadService = {
       //   : 120000; // 2 minutes for images
       const timeout = 120000; // 2 minutes for images
       
-      // console.log(`📤 [UploadService] Upload timeout set to: ${timeout / 1000} seconds for ${fileSizeMB.toFixed(2)}MB ${isVideo ? 'video' : 'image'}`);
-      
-      const response = await api.post<UploadResponse>('/upload/service-image', formData, {
-        timeout: timeout,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      });
+      const startTime = Date.now();
+      const data = await uploadWithPlatformSpecificMethod('/upload/service-image', formData, timeout);
+      const duration = Date.now() - startTime;
 
       if (__DEV__) {
-        console.log('✅ [UploadService] Service image uploaded successfully:', response.data);
+        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        console.log('✅ [UploadService] Service image uploaded successfully:', data);
       }
 
-      return response.data;
+      return data;
     } catch (error: any) {
       console.error('❌ [UploadService] Error uploading service image:', {
         message: error.message,
         code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
+        status: error.status || error.response?.status,
+        statusText: error.statusText || error.response?.statusText,
+        data: error.data || error.response?.data,
+        platform: Platform.OS,
       });
-      throw new Error(error.response?.data?.error || error.message || 'Failed to upload image');
+      throw new Error(error.data?.error || error.response?.data?.error || error.message || 'Failed to upload image');
     }
   },
 
@@ -286,12 +432,7 @@ const UploadService = {
    */
   async uploadFile(file: any, fileType: 'resume' = 'resume'): Promise<UploadResponse> {
     try {
-      // Ensure the file object has the correct format for React Native FormData
-      const fileToUpload = {
-        uri: file.uri,
-        type: file.type || 'application/pdf',
-        name: file.fileName || file.name || 'resume.pdf',
-      };
+      const fileToUpload = await prepareFileForUpload(file, 'application/pdf', 'resume.pdf');
 
       if (__DEV__) {
         console.log('📤 [UploadService] Uploading file:', {
@@ -299,34 +440,37 @@ const UploadService = {
           type: fileToUpload.type,
           name: fileToUpload.name,
           fileType,
+          originalUri: file.uri,
+          platform: Platform.OS,
         });
       }
 
       const formData = new FormData();
+      // For React Native, FormData expects { uri, type, name } format
       formData.append('file', fileToUpload as any);
       formData.append('fileType', fileType);
 
       // Use longer timeout for file uploads (PDFs/DOCs can be larger)
-      const response = await api.post<UploadResponse>('/upload/file', formData, {
-        timeout: 120000, // 2 minutes for file uploads
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      });
+      const startTime = Date.now();
+      const data = await uploadWithPlatformSpecificMethod('/upload/file', formData, 120000);
+      const duration = Date.now() - startTime;
 
       if (__DEV__) {
-        console.log('✅ [UploadService] File uploaded successfully:', response.data);
+        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        console.log('✅ [UploadService] File uploaded successfully:', data);
       }
 
-      return response.data;
+      return data;
     } catch (error: any) {
       console.error('❌ [UploadService] Error uploading file:', {
         message: error.message,
         code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
+        status: error.status || error.response?.status,
+        statusText: error.statusText || error.response?.statusText,
+        data: error.data || error.response?.data,
+        platform: Platform.OS,
       });
-      throw new Error(error.response?.data?.error || error.message || 'Failed to upload file');
+      throw new Error(error.data?.error || error.response?.data?.error || error.message || 'Failed to upload file');
     }
   },
 

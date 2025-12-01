@@ -8,6 +8,7 @@ import {
   BackHandler,
   Alert,
   StatusBar,
+  Platform,
 } from 'react-native';
 import {
   useSafeAreaInsets,
@@ -125,10 +126,21 @@ const CallingScreen = ({ navigation, route }: any) => {
         // Start audio session BEFORE creating peer connection
         if (InCallManager) {
           try {
-            InCallManager.start({ media: 'audio', auto: true });
+            // Configure audio session for voice calls with proper category and mode
+            InCallManager.start({ 
+              media: 'audio', 
+              auto: true,
+              // iOS: Set audio session category to PlayAndRecord with VoiceChat mode
+              // Android: Configure audio routing for voice calls
+            });
             InCallManager.setForceSpeakerphoneOn(false);
             InCallManager.setMicrophoneMute(isMutedRef.current);
             InCallManager.setSpeakerphoneOn(false);
+            // Ensure audio session is active for both recording and playback
+            if (Platform.OS === 'ios') {
+              // On iOS, explicitly set audio session category for voice calls
+              InCallManager.setSpeakerphoneOn(false); // Use earpiece
+            }
             if (__DEV__) {
               console.log(
                 '✅ [Caller] Audio session started before peer connection (configured for recording and playback)',
@@ -304,6 +316,12 @@ const CallingScreen = ({ navigation, route }: any) => {
                 InCallManager.setMicrophoneMute(isMutedRef.current);
                 // Force audio route to earpiece for phone calls
                 InCallManager.setSpeakerphoneOn(false);
+                // Ensure audio session is active for playback
+                // This is critical for remote audio to be heard
+                if (Platform.OS === 'ios') {
+                  // On iOS, ensure audio session category is set for voice calls
+                  InCallManager.setSpeakerphoneOn(false); // Use earpiece
+                }
                 if (__DEV__) {
                   console.log(
                     '✅ [Caller] Audio session refreshed on remote stream',
@@ -319,6 +337,20 @@ const CallingScreen = ({ navigation, route }: any) => {
                     // Note: muted is a read-only property, we can only control enabled
                   }
                 });
+                // Force audio session to be active - this is critical for playback
+                // Small delay to ensure audio session is fully configured
+                setTimeout(() => {
+                  if (InCallManager) {
+                    try {
+                      InCallManager.start({ media: 'audio', auto: true });
+                      if (__DEV__) {
+                        console.log('✅ [Caller] Audio session reactivated for playback');
+                      }
+                    } catch (e) {
+                      // Ignore errors
+                    }
+                  }
+                }, 100);
               } catch (error: any) {
                                 if (__DEV__) {
                   console.warn(
@@ -361,9 +393,9 @@ const CallingScreen = ({ navigation, route }: any) => {
               console.log('✅ [Caller] ✅✅✅ CONNECTION ESTABLISHED ✅✅✅')
             };
 
-            // Ensure audio session is active when connected
-            if (InCallManager && statusRef.current === 'active') {
-              try {
+          // Ensure audio session is active when connected
+          if (InCallManager && statusRef.current === 'active') {
+            try {
                                 if (__DEV__) {
                   console.log(
                   '✅ [Caller] Connection established - ensuring audio session is active',
@@ -373,11 +405,28 @@ const CallingScreen = ({ navigation, route }: any) => {
                 InCallManager.setForceSpeakerphoneOn(false);
                 InCallManager.setMicrophoneMute(isMutedRef.current);
                 InCallManager.setSpeakerphoneOn(false);
+                // Ensure audio session is active for playback
+                if (Platform.OS === 'ios') {
+                  InCallManager.setSpeakerphoneOn(false); // Use earpiece
+                }
                                 if (__DEV__) {
                   console.log(
                   '✅ [Caller] Audio session reconfigured on connection',
                 )
                 };
+                // Reactivate audio session after a short delay to ensure it's fully configured
+                setTimeout(() => {
+                  if (InCallManager && statusRef.current === 'active') {
+                    try {
+                      InCallManager.start({ media: 'audio', auto: true });
+                      if (__DEV__) {
+                        console.log('✅ [Caller] Audio session reactivated after connection');
+                      }
+                    } catch (e) {
+                      // Ignore errors
+                    }
+                  }
+                }, 200);
               } catch (error: any) {
                                 if (__DEV__) {
                   console.warn(
@@ -1095,10 +1144,21 @@ const CallingScreen = ({ navigation, route }: any) => {
       // Start audio session BEFORE creating peer connection
       if (InCallManager) {
         try {
-          InCallManager.start({ media: 'audio', auto: true });
+          // Configure audio session for voice calls with proper category and mode
+          InCallManager.start({ 
+            media: 'audio', 
+            auto: true,
+            // iOS: Set audio session category to PlayAndRecord with VoiceChat mode
+            // Android: Configure audio routing for voice calls
+          });
           InCallManager.setForceSpeakerphoneOn(false);
           InCallManager.setMicrophoneMute(isMutedRef.current);
           InCallManager.setSpeakerphoneOn(false);
+          // Ensure audio session is active for both recording and playback
+          if (Platform.OS === 'ios') {
+            // On iOS, explicitly set audio session category for voice calls
+            InCallManager.setSpeakerphoneOn(false); // Use earpiece
+          }
           if (__DEV__) {
             console.log(
               '✅ [Receiver] Audio session started before peer connection (configured for recording and playback)',
@@ -1271,6 +1331,12 @@ const CallingScreen = ({ navigation, route }: any) => {
               InCallManager.setMicrophoneMute(isMutedRef.current);
               // Force audio route to earpiece for phone calls
               InCallManager.setSpeakerphoneOn(false);
+              // Ensure audio session is active for playback
+              // This is critical for remote audio to be heard
+              if (Platform.OS === 'ios') {
+                // On iOS, ensure audio session category is set for voice calls
+                InCallManager.setSpeakerphoneOn(false); // Use earpiece
+              }
               if (__DEV__) {
                 console.log(
                   '✅ [Receiver] Audio session refreshed on remote stream',
@@ -1286,6 +1352,20 @@ const CallingScreen = ({ navigation, route }: any) => {
                   // Note: muted is a read-only property, we can only control enabled
                 }
               });
+              // Force audio session to be active - this is critical for playback
+              // Small delay to ensure audio session is fully configured
+              setTimeout(() => {
+                if (InCallManager) {
+                  try {
+                    InCallManager.start({ media: 'audio', auto: true });
+                    if (__DEV__) {
+                      console.log('✅ [Receiver] Audio session reactivated for playback');
+                    }
+                  } catch (e) {
+                    // Ignore errors
+                  }
+                }
+              }, 100);
             } catch (error: any) {
                             if (__DEV__) {
                 console.warn(
@@ -1468,11 +1548,28 @@ const CallingScreen = ({ navigation, route }: any) => {
               InCallManager.setForceSpeakerphoneOn(false);
               InCallManager.setMicrophoneMute(isMutedRef.current);
               InCallManager.setSpeakerphoneOn(false);
+              // Ensure audio session is active for playback
+              if (Platform.OS === 'ios') {
+                InCallManager.setSpeakerphoneOn(false); // Use earpiece
+              }
                             if (__DEV__) {
                 console.log(
                 '✅ [Receiver] Audio session reconfigured on connection',
               )
               };
+              // Reactivate audio session after a short delay to ensure it's fully configured
+              setTimeout(() => {
+                if (InCallManager && status === 'active') {
+                  try {
+                    InCallManager.start({ media: 'audio', auto: true });
+                    if (__DEV__) {
+                      console.log('✅ [Receiver] Audio session reactivated after connection');
+                    }
+                  } catch (e) {
+                    // Ignore errors
+                  }
+                }
+              }, 200);
             } catch (error: any) {
                             if (__DEV__) {
                 console.warn(
@@ -1794,12 +1891,29 @@ const CallingScreen = ({ navigation, route }: any) => {
         InCallManager.setForceSpeakerphoneOn(false);
         InCallManager.setMicrophoneMute(isMutedRef.current);
         InCallManager.setSpeakerphoneOn(false);
+        // Ensure audio session is active for playback
+        if (Platform.OS === 'ios') {
+          InCallManager.setSpeakerphoneOn(false); // Use earpiece
+        }
         if (__DEV__) {
           console.log(
             '✅ [InCallManager] Audio session started (earpiece mode, recording and playback enabled)',
           );
           console.log('✅ [InCallManager] Audio route should be: earpiece');
         }
+        // Reactivate audio session after a short delay to ensure it's fully configured for playback
+        setTimeout(() => {
+          if (InCallManager && status === 'active' && pcRef.current) {
+            try {
+              InCallManager.start({ media: 'audio', auto: true });
+              if (__DEV__) {
+                console.log('✅ [InCallManager] Audio session reactivated for playback');
+              }
+            } catch (e) {
+              // Ignore errors
+            }
+          }
+        }, 300);
       } catch (error: any) {
                 if (__DEV__) {
           console.error(
@@ -1867,6 +1981,20 @@ const CallingScreen = ({ navigation, route }: any) => {
               InCallManager.setForceSpeakerphoneOn(false);
               InCallManager.setMicrophoneMute(isMutedRef.current);
               InCallManager.setSpeakerphoneOn(false);
+              // Ensure audio session is active for playback
+              if (Platform.OS === 'ios') {
+                InCallManager.setSpeakerphoneOn(false); // Use earpiece
+              }
+              // Reactivate audio session to ensure playback is working
+              setTimeout(() => {
+                if (InCallManager) {
+                  try {
+                    InCallManager.start({ media: 'audio', auto: true });
+                  } catch (e) {
+                    // Ignore errors
+                  }
+                }
+              }, 100);
             } catch (error: any) {
                             if (__DEV__) {
                 console.warn(

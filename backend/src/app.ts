@@ -68,6 +68,7 @@ app.get("/health", async (req, res) => {
     environment: string;
     services: {
       firebase: { status: string; responseTime?: number; error?: string };
+      email: { status: string; configured?: boolean; error?: string };
     };
     memory: {
       used: number;
@@ -81,6 +82,7 @@ app.get("/health", async (req, res) => {
     environment: process.env.NODE_ENV || "development",
     services: {
       firebase: { status: "unknown" },
+      email: { status: "unknown" },
     },
     memory: {
       used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
@@ -90,6 +92,33 @@ app.get("/health", async (req, res) => {
       ),
     },
   };
+  
+  // Check email configuration
+  try {
+    const SMTP_USER = process.env.SMTP_USER || process.env.SMTP_EMAIL;
+    const SMTP_PASSWORD = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
+    const isEmailConfigured = SMTP_USER && SMTP_PASSWORD && SMTP_USER !== "no-reply@tray.com";
+    
+    if (isEmailConfigured) {
+      healthCheck.services.email = {
+        status: "configured",
+        configured: true,
+      };
+    } else {
+      healthCheck.services.email = {
+        status: "not_configured",
+        configured: false,
+        error: "SMTP credentials not set. Please configure SMTP_USER/SMTP_EMAIL and SMTP_PASSWORD in environment variables.",
+      };
+      healthCheck.status = "unhealthy";
+    }
+  } catch (emailError: any) {
+    healthCheck.services.email = {
+      status: "error",
+      configured: false,
+      error: emailError.message || "Unknown error",
+    };
+  }
 
   // Check Firebase connection
   try {
