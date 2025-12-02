@@ -1,6 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, View, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
+import {
+  Text,
+  View,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  RefreshControl,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import HomeHeader from '../../../components/shared/HomeHeader';
 import { screenStyles } from '../../../constants/styles/screenStyles';
@@ -20,7 +27,7 @@ const Home = ({ navigation }: any) => {
   const [imageCacheKey, setImageCacheKey] = useState(0);
   const { user, activeRole, roles } = useAuth();
   const { openChatWith } = useChatContext();
-  
+
   // Check if user is a recruiter
   const isRecruiter = activeRole === 'recruiter' || roles.includes('recruiter');
 
@@ -31,66 +38,79 @@ const Home = ({ navigation }: any) => {
     consultant: any,
     navigation: any,
     user: any,
-    openChatWith: any
+    openChatWith: any,
   ) => {
+    
     try {
       // Check if student has booked this consultant
       const bookings = await BookingService.getMyBookings();
       const studentBookings = bookings?.bookings || [];
-      
+
       // Find all bookings with this consultant (any status)
       const consultantBookings = studentBookings.filter(
-        (booking: any) => booking.consultantId === consultantId
+        (booking: any) => booking.consultantId === consultantId,
       );
-      
+
       // Find if student has a confirmed/approved booking with this consultant
       const confirmedBooking = consultantBookings.find(
         (booking: any) =>
-          booking.status === 'accepted' || 
-          booking.status === 'approved' || 
-          booking.status === 'confirmed'
+          booking.status === 'accepted' ||
+          booking.status === 'approved' ||
+          booking.status === 'confirmed',
       );
-      
+
       // Find if there's a pending booking (waiting for consultant confirmation)
       const pendingBooking = consultantBookings.find(
-        (booking: any) => booking.status === 'pending'
+        (booking: any) => booking.status === 'pending',
       );
 
       // If no booking exists or booking is pending, show alert
       if (!confirmedBooking) {
         let alertMessage = '';
-        
+
         if (pendingBooking) {
           // Booking exists but waiting for consultant confirmation
-          alertMessage = `Your booking with ${consultant.name} is pending confirmation. Please wait for the consultant to confirm your booking before you can ${iconType === 'message' ? 'send messages' : iconType === 'phone' ? 'make audio calls' : 'make video calls'}.`;
+          alertMessage = `Your booking with ${
+            consultant.name
+          } is pending confirmation. Please wait for the consultant to confirm your booking before you can ${
+            iconType === 'message'
+              ? 'send messages'
+              : iconType === 'phone'
+              ? 'make audio calls'
+              : 'make video calls'
+          }.`;
         } else {
           // No booking exists
-          alertMessage = `You need to book with ${consultant.name} before you can ${iconType === 'message' ? 'send messages' : iconType === 'phone' ? 'make audio calls' : 'make video calls'}.`;
+          alertMessage = `You need to book with ${
+            consultant.name
+          } before you can ${
+            iconType === 'message'
+              ? 'send messages'
+              : iconType === 'phone'
+              ? 'make audio calls'
+              : 'make video calls'
+          }.`;
         }
-        
-        Alert.alert(
-          'Booking Required',
-          alertMessage,
-          [
-            {
-              text: pendingBooking ? 'View Booking' : 'Book Now',
-              onPress: () => {
-                navigation.navigate('MainTabs', {
-                  screen: 'Services',
+
+        Alert.alert('Booking Required', alertMessage, [
+          {
+            text: pendingBooking ? 'View Booking' : 'Book Now',
+            onPress: () => {
+              navigation.navigate('MainTabs', {
+                screen: 'Services',
+                params: {
+                  screen: 'ServicesScreen',
                   params: {
-                    screen: 'ServicesScreen',
-                    params: {
-                      consultantId: consultantId,
-                      consultantName: consultant.name,
-                      consultantCategory: consultant.category
-                    }
-                  }
-                });
-              }
+                    consultantId: consultantId,
+                    consultantName: consultant.name,
+                    consultantCategory: consultant.category,
+                  },
+                },
+              });
             },
-            { text: 'Cancel', style: 'cancel' }
-          ]
-        );
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
         return;
       }
 
@@ -101,7 +121,7 @@ const Home = ({ navigation }: any) => {
           showError('You must be logged in to send messages');
           return;
         }
-        
+
         try {
           const chatId = await openChatWith(consultantId);
           navigation.navigate('ChatScreen', {
@@ -117,9 +137,9 @@ const Home = ({ navigation }: any) => {
             },
           });
         } catch (error) {
-                    if (__DEV__) {
-            console.error('Error opening chat:', error)
-          };
+          if (__DEV__) {
+            console.error('Error opening chat:', error);
+          }
           showError('Failed to open chat');
         }
       } else if (iconType === 'phone') {
@@ -128,10 +148,10 @@ const Home = ({ navigation }: any) => {
           showError('You must be logged in to make calls');
           return;
         }
-        
+
         // Generate callId: callerId_receiverId-timestamp
         const callId = `${user.uid}_${consultantId}-${Date.now()}`;
-        
+
         // Navigate to audio call screen with proper parameters
         navigation.navigate('CallingScreen', {
           callId,
@@ -145,10 +165,10 @@ const Home = ({ navigation }: any) => {
           showError('You must be logged in to make calls');
           return;
         }
-        
+
         // Generate callId: callerId_receiverId-timestamp
         const callId = `${user.uid}_${consultantId}-${Date.now()}`;
-        
+
         // Navigate to video call screen with proper parameters
         navigation.navigate('VideoCallingScreen', {
           callId,
@@ -158,9 +178,9 @@ const Home = ({ navigation }: any) => {
         });
       }
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error checking booking access:', error)
-      };
+      if (__DEV__) {
+        console.error('Error checking booking access:', error);
+      }
       showError('Unable to verify booking status');
     }
   };
@@ -186,34 +206,34 @@ const Home = ({ navigation }: any) => {
       const allConsultantsData = all?.consultants || [];
 
       const filteredConsultants = allConsultantsData.filter(
-        (consultant: any) => consultant.uid !== topConsultantData?.uid
+        (consultant: any) => consultant.uid !== topConsultantData?.uid,
       );
 
       // Backend now handles sorting by rating and reviews
-            if (__DEV__) {
+      if (__DEV__) {
         console.log(
-        '⭐ Selected Top Consultant:',
-        topConsultantData?.name,
-        'with rating:',
-        topConsultantData?.rating,
-      )
-      };
-            if (__DEV__) {
+          '⭐ Selected Top Consultant:',
+          topConsultantData?.name,
+          'with rating:',
+          topConsultantData?.rating,
+        );
+      }
+      if (__DEV__) {
         console.log(
-        '📊 Other Consultants:',
-        filteredConsultants.length,
-        'consultants',
-      )
-      };
+          '📊 Other Consultants:',
+          filteredConsultants.length,
+          'consultants',
+        );
+      }
 
       setTopConsultant(topConsultantData);
       setConsultants(filteredConsultants);
       // Update cache key to force image reload
       setImageCacheKey(prev => prev + 1);
     } catch (err) {
-            if (__DEV__) {
-        console.error('Error fetching consultants:', err)
-      };
+      if (__DEV__) {
+        console.error('Error fetching consultants:', err);
+      }
       showWarning('Unable to load consultants. Please try again later.');
     } finally {
       setLoading(false);
@@ -230,7 +250,7 @@ const Home = ({ navigation }: any) => {
   useFocusEffect(
     useCallback(() => {
       fetchConsultants();
-    }, [fetchConsultants])
+    }, [fetchConsultants]),
   );
 
   // If recruiter, show different content
@@ -246,12 +266,33 @@ const Home = ({ navigation }: any) => {
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
         >
-          <View style={{ padding: 20, alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
-            <Text style={[screenStyles.heading, { marginBottom: 16, textAlign: 'center' }]}>
+          <View
+            style={{
+              padding: 20,
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 400,
+            }}
+          >
+            <Text
+              style={[
+                screenStyles.heading,
+                { marginBottom: 16, textAlign: 'center' },
+              ]}
+            >
               Welcome, Recruiter!
             </Text>
-            <Text style={{ fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center', lineHeight: 24 }}>
-              Manage your job postings and review applications from your Account screen.
+            <Text
+              style={{
+                fontSize: 16,
+                color: '#666',
+                marginBottom: 32,
+                textAlign: 'center',
+                lineHeight: 24,
+              }}
+            >
+              Manage your job postings and review applications from your Account
+              screen.
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('RecruiterMyJobs')}
@@ -316,17 +357,44 @@ const Home = ({ navigation }: any) => {
             }
             avatarUri={
               topConsultant.profileImage
-                ? { uri: `${topConsultant.profileImage}?t=${imageCacheKey}&uid=${topConsultant.uid}` }
+                ? {
+                    uri: `${topConsultant.profileImage}?t=${imageCacheKey}&uid=${topConsultant.uid}`,
+                  }
                 : require('../../../assets/image/avatar.png')
             }
             rating={topConsultant.rating ?? 0}
             consultantId={topConsultant.uid}
             navigation={navigation}
             onChatPress={async () => {
-              await handleIconPress('message', topConsultant.uid, topConsultant, navigation, user, openChatWith);
+              await handleIconPress(
+                'message',
+                topConsultant.uid,
+                topConsultant,
+                navigation,
+                user,
+                openChatWith,
+              );
             }}
-            onCallPress={() => handleIconPress('phone', topConsultant.uid, topConsultant, navigation, user, openChatWith)}
-            onVideoCallPress={() => handleIconPress('video', topConsultant.uid, topConsultant, navigation, user, openChatWith)}
+            onCallPress={() =>
+              handleIconPress(
+                'phone',
+                topConsultant.uid,
+                topConsultant,
+                navigation,
+                user,
+                openChatWith,
+              )
+            }
+            onVideoCallPress={() =>
+              handleIconPress(
+                'video',
+                topConsultant.uid,
+                topConsultant,
+                navigation,
+                user,
+                openChatWith,
+              )
+            }
           />
         ) : (
           <Text style={screenStyles.emptyStateText}>
@@ -355,23 +423,25 @@ const Home = ({ navigation }: any) => {
                   title={item.category || 'Consultant'}
                   avatarUri={
                     item.profileImage
-                      ? { uri: `${item.profileImage}?t=${imageCacheKey}&uid=${item.uid}` }
+                      ? {
+                          uri: `${item.profileImage}?t=${imageCacheKey}&uid=${item.uid}`,
+                        }
                       : require('../../../assets/image/avatar.png')
                   }
                   rating={item.rating ?? 0}
                   onBookPress={() => {
-                                        if (__DEV__) {
-                      console.log('📍 Book Now Clicked - Home Screen')
-                    };
-                                        if (__DEV__) {
-                      console.log('🆔 Consultant UID:', item.uid)
-                    };
-                                        if (__DEV__) {
-                      console.log('👤 Consultant Name:', item.name)
-                    };
-                                        if (__DEV__) {
-                      console.log('📂 Consultant Category:', item.category)
-                    };
+                    if (__DEV__) {
+                      console.log('📍 Book Now Clicked - Home Screen');
+                    }
+                    if (__DEV__) {
+                      console.log('🆔 Consultant UID:', item.uid);
+                    }
+                    if (__DEV__) {
+                      console.log('👤 Consultant Name:', item.name);
+                    }
+                    if (__DEV__) {
+                      console.log('📂 Consultant Category:', item.category);
+                    }
                     navigation.navigate('MainTabs', {
                       screen: 'Services',
                       params: {
@@ -379,16 +449,41 @@ const Home = ({ navigation }: any) => {
                         params: {
                           consultantId: item.uid,
                           consultantName: item.name,
-                          consultantCategory: item.category
-                        }
-                      }
+                          consultantCategory: item.category,
+                        },
+                      },
                     });
                   }}
                   onChatPress={async () => {
-                    await handleIconPress('message', item.uid, item, navigation, user, openChatWith);
+                    await handleIconPress(
+                      'message',
+                      item.uid,
+                      item,
+                      navigation,
+                      user,
+                      openChatWith,
+                    );
                   }}
-                  onCallPress={() => handleIconPress('phone', item.uid, item, navigation, user, openChatWith)}
-                  onVideoCallPress={() => handleIconPress('video', item.uid, item, navigation, user, openChatWith)}
+                  onCallPress={() =>
+                    handleIconPress(
+                      'phone',
+                      item.uid,
+                      item,
+                      navigation,
+                      user,
+                      openChatWith,
+                    )
+                  }
+                  onVideoCallPress={() =>
+                    handleIconPress(
+                      'video',
+                      item.uid,
+                      item,
+                      navigation,
+                      user,
+                      openChatWith,
+                    )
+                  }
                 />
               </View>
             ))}

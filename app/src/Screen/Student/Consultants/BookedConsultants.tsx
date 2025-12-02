@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
@@ -9,6 +9,8 @@ import LoadingState from '../../../components/ui/LoadingState';
 import { Calendar, Clock, Phone,  Star } from 'lucide-react-native';
 import { getStatusColor } from '../../../utils/statusUtils';
 import { BookingService } from '../../../services/booking.service';
+import { useAuth } from '../../../contexts/AuthContext';
+import { showError } from '../../../utils/toast';
 
 const BookedConsultants = ({ navigation }: any) => {
   const [bookedConsultants, setBookedConsultants] = useState<any[]>([]);
@@ -17,6 +19,7 @@ const BookedConsultants = ({ navigation }: any) => {
   // const [debugInfo, setDebugInfo] = useState<any>(null);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const isFetchingRef = useRef(false);
+  const { user } = useAuth();
 
   // Debounced fetch function to prevent rapid successive calls
   const fetchBookedConsultants = useCallback(async (forceRefresh = false) => {
@@ -102,6 +105,86 @@ const BookedConsultants = ({ navigation }: any) => {
         return COLORS.red; // Red background for pending
       default:
         return COLORS.red;
+    }
+  };
+
+  const handleCallPress = async (consultant: any) => {
+    try {
+      if (!user?.uid) {
+        showError('You must be logged in to make calls');
+        return;
+      }
+
+      const consultantId = consultant.uid || consultant.id;
+      if (!consultantId) {
+        showError('Consultant information is missing');
+        return;
+      }
+
+      // Check if student has a confirmed booking with this consultant
+      const bookings = await BookingService.getMyBookings();
+      const studentBookings = bookings?.bookings || [];
+
+      const consultantBookings = studentBookings.filter(
+        (booking: any) => booking.consultantId === consultantId,
+      );
+
+      const confirmedBooking = consultantBookings.find(
+        (booking: any) =>
+          booking.status === 'accepted' ||
+          booking.status === 'approved' ||
+          booking.status === 'confirmed',
+      );
+
+      if (!confirmedBooking) {
+        const pendingBooking = consultantBookings.find(
+          (booking: any) => booking.status === 'pending',
+        );
+
+        let alertMessage = '';
+        if (pendingBooking) {
+          alertMessage = `Your booking with ${consultant.name || 'this consultant'} is pending confirmation. Please wait for the consultant to confirm your booking before you can make calls.`;
+        } else {
+          alertMessage = `You need to book with ${consultant.name || 'this consultant'} before you can make calls.`;
+        }
+
+        Alert.alert('Booking Required', alertMessage, [
+          {
+            text: pendingBooking ? 'View Booking' : 'Book Now',
+            onPress: () => {
+              navigation.navigate('MainTabs', {
+                screen: 'Services',
+                params: {
+                  screen: 'ServicesScreen',
+                  params: {
+                    consultantId: consultantId,
+                    consultantName: consultant.name,
+                    consultantCategory: consultant.category,
+                  },
+                },
+              });
+            },
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+        return;
+      }
+
+      // Generate callId: callerId_receiverId-timestamp
+      const callId = `${user.uid}_${consultantId}-${Date.now()}`;
+
+      // Navigate to audio call screen
+      navigation.navigate('CallingScreen', {
+        callId,
+        callerId: user.uid,
+        receiverId: consultantId,
+        isCaller: true,
+      });
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Error initiating call:', error);
+      }
+      showError('Unable to initiate call. Please try again.');
     }
   };
 
@@ -277,7 +360,10 @@ const BookedConsultants = ({ navigation }: any) => {
                   {/* Action buttons */}
                   <View style={bookedConsultantsStyles.actionButtons}>
                
-                  <TouchableOpacity style={bookedConsultantsStyles.callButton}>
+                  <TouchableOpacity 
+                    style={bookedConsultantsStyles.callButton}
+                    onPress={() => handleCallPress(consultant)}
+                  >
                     <Phone size={16} color={COLORS.white} />
                     <Text style={bookedConsultantsStyles.callButtonText}>Call</Text>
                   </TouchableOpacity>
