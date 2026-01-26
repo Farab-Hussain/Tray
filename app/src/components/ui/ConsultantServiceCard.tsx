@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Linking,
 } from 'react-native';
 import { Clock, X } from 'lucide-react-native';
 import { COLORS } from '../../constants/core/colors';
@@ -20,7 +19,7 @@ type ConsultantServiceCardProps = {
   // VIDEO UPLOAD CODE - COMMENTED OUT
   // videoUrl?: string;
   duration?: number;
-  price?: number;
+  price?: number; 
   rating?: number;
   onSetAvailabilityPress?: () => void;
 };
