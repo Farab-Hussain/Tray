@@ -41,7 +41,7 @@ const StudentProfile = ({ navigation }: any) => {
 
     try {
       setLoading(true);
-      
+
       // Fetch user profile
       const profileResponse = await UserService.getUserProfile();
       setBackendProfile(profileResponse);
@@ -55,14 +55,14 @@ const StudentProfile = ({ navigation }: any) => {
       } catch (error: any) {
         // Resume not found is okay
         if (error?.response?.status !== 404) {
-                    if (__DEV__) {
+          if (__DEV__) {
             console.log('Error fetching resume:', error)
           };
         }
         setResume(null);
       }
     } catch (error: any) {
-            if (__DEV__) {
+      if (__DEV__) {
         console.error('Error fetching profile data:', error)
       };
       // Set fallback profile from Firebase
@@ -100,8 +100,8 @@ const StudentProfile = ({ navigation }: any) => {
         await UserService.updateProfile({
           avatarUrl: imageUrl,
         });
-      } catch (error) {
-                if (__DEV__) {
+      } catch (error: unknown) {
+        if (__DEV__) {
           console.log('Backend update failed, but Firebase updated')
         };
       }
@@ -111,7 +111,7 @@ const StudentProfile = ({ navigation }: any) => {
       showSuccess('Profile image updated successfully');
       fetchProfileData();
     } catch (error: any) {
-            if (__DEV__) {
+      if (__DEV__) {
         console.error('Error updating profile image:', error)
       };
       showError(error.message || 'Failed to update profile image');
@@ -151,7 +151,7 @@ const StudentProfile = ({ navigation }: any) => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader title="Profile" onBackPress={() => navigation.goBack()} />
-      
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -174,19 +174,19 @@ const StudentProfile = ({ navigation }: any) => {
                 <User size={60} color={COLORS.gray} />
               </View>
             )}
-            
+
             {/* Camera Icon Overlay */}
-          <TouchableOpacity
-            style={styles.cameraButton}
-            onPress={() => navigation.navigate('EditProfile')}
-            disabled={updatingImage}
-          >
-            {updatingImage ? (
-              <Loader message="" />
-            ) : (
-              <Camera size={20} color={COLORS.white} />
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cameraButton}
+              onPress={() => navigation.navigate('EditProfile')}
+              disabled={updatingImage}
+            >
+              {updatingImage ? (
+                <Loader message="" />
+              ) : (
+                <Camera size={20} color={COLORS.white} />
+              )}
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.displayName}>{displayName}</Text>
@@ -196,7 +196,7 @@ const StudentProfile = ({ navigation }: any) => {
         {/* Profile Information Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Profile Information</Text>
-          
+
           <View style={styles.sectionContent}>
             {/* Username */}
             <TouchableOpacity
@@ -237,7 +237,7 @@ const StudentProfile = ({ navigation }: any) => {
         {/* Security Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security</Text>
-          
+
           <View style={styles.sectionContent}>
             <TouchableOpacity
               style={styles.infoItem}
@@ -261,7 +261,7 @@ const StudentProfile = ({ navigation }: any) => {
         {/* Resume Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Resume</Text>
-          
+
           <View style={styles.sectionContent}>
             {resume ? (
               <TouchableOpacity
