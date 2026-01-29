@@ -147,10 +147,16 @@ export const handleApiError = (error: any) => {
         });
         break;
       case 404:
-        showToast.info({
-          title: 'Not found',
-          message: 'This doesn\'t seem to exist. Try going back and checking again.',
-        });
+        // Don't show toast for 404 errors - these are expected for new users without resumes
+        // Only log in development
+        if (__DEV__) {
+          console.log('404 Error (Expected):', message || 'Resource not found');
+        }
+        // Special case: if it's "Resume not found", this is normal for new students
+        if (message === 'Resume not found') {
+          // This is expected - no action needed
+          return;
+        }
         break;
       case 422:
         showValidationError(message || 'Let\'s double-check those fields.');

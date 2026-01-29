@@ -50,13 +50,84 @@ export const ResumeService = {
       const response = await api.get('/resumes/my');
       return response.data;
     } catch (error: any) {
-      // If resume not found (404), return empty resume object instead of throwing
-      // This is expected for recruiters or users who haven't created a resume yet
       if (error.response?.status === 404) {
-        return { resume: null };
+        throw error; // Re-throw 404 as expected for new users
       }
       throw error;
     }
+  },
+
+  /**
+   * Get profile completion status (Student) - NEW
+   */
+  async getProfileCompletionStatus() {
+    try {
+      const response = await api.get('/resumes/completion-status');
+      return response.data;
+    } catch (error: any) {
+      // If resume not found (404), return default completion status
+      if (error.response?.status === 404) {
+        return { 
+          status: {
+            overallCompletion: 0,
+            basicProfile: false,
+            workPreferences: false,
+            authorization: false,
+            careerGoals: false,
+            externalProfiles: false
+          }
+        };
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Update work preferences (Student) - NEW
+   */
+  async updateWorkPreferences(preferences: any) {
+    const response = await api.put('/resumes/work-preferences', preferences);
+    return response.data;
+  },
+
+  /**
+   * Get work preferences (Student) - NEW
+   */
+  async getWorkPreferences() {
+    const response = await api.get('/resumes/work-preferences');
+    return response.data;
+  },
+
+  /**
+   * Update authorization information (Student) - NEW
+   */
+  async updateAuthorization(authorization: any) {
+    const response = await api.put('/resumes/authorization', authorization);
+    return response.data;
+  },
+
+  /**
+   * Get authorization information (Student) - NEW
+   */
+  async getAuthorization() {
+    const response = await api.get('/resumes/authorization');
+    return response.data;
+  },
+
+  /**
+   * Update career goals (Student) - NEW
+   */
+  async updateCareerGoals(careerGoals: any) {
+    const response = await api.put('/resumes/career-goals', careerGoals);
+    return response.data;
+  },
+
+  /**
+   * Get career goals (Student) - NEW
+   */
+  async getCareerGoals() {
+    const response = await api.get('/resumes/career-goals');
+    return response.data;
   },
 
   /**

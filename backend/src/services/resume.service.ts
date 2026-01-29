@@ -4,6 +4,39 @@ import { Resume, ResumeInput } from "../models/resume.model";
 
 const COLLECTION = "resumes";
 
+// Types for new features
+export interface WorkPreferences {
+  workRestrictions?: string[];
+  transportationStatus?: 'own-car' | 'public-transport' | 'none';
+  shiftFlexibility?: {
+    days: ('Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun')[];
+    shifts: ('morning' | 'evening' | 'night')[];
+  };
+  preferredWorkTypes?: ('full-time' | 'part-time' | 'contract' | 'internship')[];
+  jobsToAvoid?: string[];
+}
+
+export interface AuthorizationInfo {
+  workAuthorized: boolean;
+  authorizationDocuments?: string[];
+  backgroundCheckRequired?: boolean;
+}
+
+export interface CareerGoals {
+  careerInterests?: string[];
+  targetIndustries?: string[];
+  salaryExpectation?: {
+    min: number;
+    max: number;
+  };
+}
+
+export interface ExternalProfiles {
+  linkedIn?: string;
+  portfolio?: string;
+  github?: string;
+}
+
 export const resumeServices = {
   /**
    * Create or update resume (upsert)
@@ -132,5 +165,225 @@ export const resumeServices = {
 
     await batch.commit();
   },
+
+  // ==================== NEW FEATURE METHODS ====================
+
+  /**
+   * Update work preferences
+   */
+  async updateWorkPreferences(uid: string, preferences: WorkPreferences): Promise<Resume> {
+    const existingResume = await this.getByUserId(uid);
+    
+    const updateData = {
+      workRestrictions: preferences.workRestrictions,
+      transportationStatus: preferences.transportationStatus,
+      shiftFlexibility: preferences.shiftFlexibility,
+      preferredWorkTypes: preferences.preferredWorkTypes,
+      jobsToAvoid: preferences.jobsToAvoid,
+    };
+
+    return this.update(existingResume.id, updateData);
+  },
+
+  /**
+   * Get work preferences
+   */
+  async getWorkPreferences(uid: string): Promise<WorkPreferences> {
+    const resume = await this.getByUserId(uid);
+    
+    return {
+      workRestrictions: resume.workRestrictions || [],
+      transportationStatus: resume.transportationStatus,
+      shiftFlexibility: resume.shiftFlexibility,
+      preferredWorkTypes: resume.preferredWorkTypes || [],
+      jobsToAvoid: resume.jobsToAvoid || [],
+    };
+  },
+
+  /**
+   * Update authorization information
+   */
+  async updateAuthorization(uid: string, authorization: AuthorizationInfo): Promise<Resume> {
+    const existingResume = await this.getByUserId(uid);
+    
+    const updateData = {
+      workAuthorized: authorization.workAuthorized,
+      authorizationDocuments: authorization.authorizationDocuments,
+      backgroundCheckRequired: authorization.backgroundCheckRequired,
+    };
+
+    return this.update(existingResume.id, updateData);
+  },
+
+  /**
+   * Get authorization information
+   */
+  async getAuthorization(uid: string): Promise<AuthorizationInfo> {
+    const resume = await this.getByUserId(uid);
+    
+    return {
+      workAuthorized: resume.workAuthorized || false,
+      authorizationDocuments: resume.authorizationDocuments || [],
+      backgroundCheckRequired: resume.backgroundCheckRequired || false,
+    };
+  },
+
+  /**
+   * Update career goals
+   */
+  async updateCareerGoals(uid: string, goals: CareerGoals): Promise<Resume> {
+    const existingResume = await this.getByUserId(uid);
+    
+    const updateData = {
+      careerInterests: goals.careerInterests,
+      targetIndustries: goals.targetIndustries,
+      salaryExpectation: goals.salaryExpectation,
+    };
+
+    return this.update(existingResume.id, updateData);
+  },
+
+  /**
+   * Get career goals
+   */
+  async getCareerGoals(uid: string): Promise<CareerGoals> {
+    const resume = await this.getByUserId(uid);
+    
+    return {
+      careerInterests: resume.careerInterests || [],
+      targetIndustries: resume.targetIndustries || [],
+      salaryExpectation: resume.salaryExpectation,
+    };
+  },
+
+  /**
+   * Update external profiles
+   */
+  async updateExternalProfiles(uid: string, profiles: ExternalProfiles): Promise<Resume> {
+    const existingResume = await this.getByUserId(uid);
+    
+    const updateData = {
+      externalProfiles: profiles,
+    };
+
+    return this.update(existingResume.id, updateData);
+  },
+
+  /**
+   * Get external profiles
+   */
+  async getExternalProfiles(uid: string): Promise<ExternalProfiles> {
+    const resume = await this.getByUserId(uid);
+    
+    return {
+      linkedIn: resume.externalProfiles?.linkedIn,
+      portfolio: resume.externalProfiles?.portfolio,
+      github: resume.externalProfiles?.github,
+    };
+  },
+
+  /**
+   * Update multiple sections at once
+   */
+  async updateMultipleSections(
+    uid: string, 
+    updates: {
+      workPreferences?: WorkPreferences;
+      authorization?: AuthorizationInfo;
+      careerGoals?: CareerGoals;
+      externalProfiles?: ExternalProfiles;
+    }
+  ): Promise<Resume> {
+    const existingResume = await this.getByUserId(uid);
+    
+    const updateData: Partial<Resume> = {
+      updatedAt: Timestamp.now(),
+    };
+
+    // Add work preferences
+    if (updates.workPreferences) {
+      updateData.workRestrictions = updates.workPreferences.workRestrictions;
+      updateData.transportationStatus = updates.workPreferences.transportationStatus;
+      updateData.shiftFlexibility = updates.workPreferences.shiftFlexibility;
+      updateData.preferredWorkTypes = updates.workPreferences.preferredWorkTypes;
+      updateData.jobsToAvoid = updates.workPreferences.jobsToAvoid;
+    }
+
+    // Add authorization info
+    if (updates.authorization) {
+      updateData.workAuthorized = updates.authorization.workAuthorized;
+      updateData.authorizationDocuments = updates.authorization.authorizationDocuments;
+      updateData.backgroundCheckRequired = updates.authorization.backgroundCheckRequired;
+    }
+
+    // Add career goals
+    if (updates.careerGoals) {
+      updateData.careerInterests = updates.careerGoals.careerInterests;
+      updateData.targetIndustries = updates.careerGoals.targetIndustries;
+      updateData.salaryExpectation = updates.careerGoals.salaryExpectation;
+    }
+
+    // Add external profiles
+    if (updates.externalProfiles) {
+      updateData.externalProfiles = updates.externalProfiles;
+    }
+
+    return this.update(existingResume.id, updateData);
+  },
+
+  /**
+   * Check if student has completed new feature sections
+   */
+  async getProfileCompletionStatus(uid: string): Promise<{
+    basicProfile: boolean;
+    workPreferences: boolean;
+    authorization: boolean;
+    careerGoals: boolean;
+    externalProfiles: boolean;
+    overallCompletion: number;
+  }> {
+    const resume = await this.getByUserId(uid);
+    
+    const basicProfile = !!(resume.personalInfo && resume.skills && resume.experience);
+    const workPreferences = !!(
+      resume.workRestrictions || 
+      resume.transportationStatus || 
+      resume.shiftFlexibility ||
+      resume.preferredWorkTypes ||
+      resume.jobsToAvoid
+    );
+    const authorization = !!(
+      resume.workAuthorized !== undefined || 
+      resume.authorizationDocuments ||
+      resume.backgroundCheckRequired !== undefined
+    );
+    const careerGoals = !!(
+      resume.careerInterests || 
+      resume.targetIndustries || 
+      resume.salaryExpectation
+    );
+    const externalProfiles = !!(
+      resume.externalProfiles?.linkedIn || 
+      resume.externalProfiles?.portfolio || 
+      resume.externalProfiles?.github
+    );
+
+    const completedSections = [
+      basicProfile,
+      workPreferences,
+      authorization,
+      careerGoals,
+      externalProfiles
+    ].filter(Boolean).length;
+
+    return {
+      basicProfile,
+      workPreferences,
+      authorization,
+      careerGoals,
+      externalProfiles,
+      overallCompletion: (completedSections / 5) * 100
+    };
+  }
 };
 

@@ -343,5 +343,99 @@ export const jobServices = {
       total: filteredJobs.length,
     };
   },
+
+  // ==================== PAYMENT ENFORCEMENT METHODS ====================
+
+  /**
+   * Check if job posting payment is required for user
+   */
+  async checkJobPostingPayment(userId: string): Promise<{
+    required: boolean;
+    paid: boolean;
+    amount?: number;
+    paymentUrl?: string;
+    subscriptionActive?: boolean;
+  }> {
+    try {
+      // Check if user has active subscription (Phase 2 feature - placeholder)
+      const subscriptionActive = false; // TODO: Implement subscription check
+
+      // Check if user already paid for this job posting
+      const paymentSnapshot = await db
+        .collection("jobPostingPayments")
+        .where("userId", "==", userId)
+        .where("status", "==", "paid")
+        .where("expiresAt", ">", Timestamp.now())
+        .limit(1)
+        .get();
+
+      const hasValidPayment = !paymentSnapshot.empty;
+
+      // Job posting fee: $1.00 per post
+      const JOB_POSTING_FEE = 100; // $1.00 in cents
+
+      return {
+        required: !subscriptionActive, // Free for subscribers
+        paid: hasValidPayment,
+        amount: subscriptionActive ? 0 : JOB_POSTING_FEE,
+        paymentUrl: hasValidPayment ? undefined : "/payment/job-posting",
+        subscriptionActive,
+      };
+    } catch (error) {
+      console.error("Error checking job posting payment:", error);
+      // Default to requiring payment if check fails
+      return {
+        required: true,
+        paid: false,
+        amount: 100,
+        paymentUrl: "/payment/job-posting",
+        subscriptionActive: false,
+      };
+    }
+  },
+
+  /**
+   * Record job posting payment
+   */
+  async recordJobPostingPayment(userId: string, paymentId: string, amount: number): Promise<void> {
+    const paymentRef = db.collection("jobPostingPayments").doc();
+    const now = Timestamp.now();
+
+    // Payment valid for 30 days
+    const expiresAt = new Timestamp(now.seconds + (30 * 24 * 60 * 60), now.nanoseconds);
+
+    await paymentRef.set({
+      id: paymentRef.id,
+      userId,
+      paymentId,
+      amount,
+      status: "paid",
+      createdAt: now,
+      expiresAt,
+    });
+  },
+
+  /**
+   * Get user's job posting payment history
+   */
+  async getJobPostingPaymentHistory(userId: string): Promise<{
+    id: string;
+    paymentId: string;
+    amount: number;
+    status: string;
+    createdAt: Timestamp;
+    expiresAt?: Timestamp;
+  }[]> {
+    const snapshot = await db
+      .collection("jobPostingPayments")
+      .where("userId", "==", userId)
+      .orderBy("createdAt", "desc")
+      .get();
+
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as any[];
+  },
 };
 

@@ -51,37 +51,89 @@ export const studentProfileStyles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.black,
-    marginTop: 10,
+    marginBottom: 5,
   },
   email: {
     fontSize: 16,
     color: COLORS.gray,
-    marginTop: 5,
+    marginBottom: 20,
   },
   section: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 8,
+    backgroundColor: COLORS.white,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.black,
-    marginBottom: 12,
+  },
+  sectionDescription: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginBottom: 15,
+    lineHeight: 20,
   },
   sectionContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    // Content styles
   },
+  // Profile completion styles
+  completionBar: {
+    height: 8,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 4,
+    marginBottom: 10,
+  },
+  completionFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  completionText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.black,
+    marginBottom: 5,
+  },
+  completionSubtext: {
+    fontSize: 14,
+    color: COLORS.gray,
+    textAlign: 'center',
+  },
+  // Quick info styles
+  quickInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.lightBackground,
+    borderRadius: 8,
+  },
+  quickInfoText: {
+    fontSize: 14,
+    color: COLORS.black,
+    flex: 1,
+  },
+  // Original profile styles
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -92,9 +144,8 @@ export const studentProfileStyles = StyleSheet.create({
   },
   separator: {
     height: 0.5,
-    backgroundColor: '#F0F0F0',
-    marginLeft: 16,
-    marginRight: 16,
+    backgroundColor: COLORS.lightGray,
+    marginHorizontal: 16,
   },
   infoItemLeft: {
     flexDirection: 'row',
@@ -105,19 +156,19 @@ export const studentProfileStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F0F8F0',
+    backgroundColor: COLORS.lightBackground,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   infoItemText: {
-    marginLeft: 12,
     flex: 1,
   },
   infoLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.black,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   infoValue: {
     fontSize: 14,
@@ -129,4 +180,3 @@ export const studentProfileStyles = StyleSheet.create({
     marginTop: 2,
   },
 });
-

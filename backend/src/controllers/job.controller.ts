@@ -16,6 +16,18 @@ export const createJob = async (req: Request, res: Response) => {
     }
 
     const jobData = req.body;
+
+    // ENFORCEMENT: Check if job posting payment is required
+    const paymentRequired = await jobServices.checkJobPostingPayment(user.uid);
+    if (paymentRequired.required && !paymentRequired.paid) {
+      return res.status(402).json({
+        error: "Payment required for job posting",
+        paymentAmount: paymentRequired.amount,
+        paymentUrl: paymentRequired.paymentUrl,
+        message: "Please pay the job posting fee to continue"
+      });
+    }
+
     const job = await jobServices.create(jobData, user.uid);
 
     res.status(201).json({

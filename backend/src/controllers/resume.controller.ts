@@ -1,6 +1,6 @@
 // src/controllers/resume.controller.ts
 import { Request, Response } from "express";
-import { resumeServices } from "../services/resume.service";
+import { resumeServices, WorkPreferences, AuthorizationInfo, CareerGoals, ExternalProfiles } from "../services/resume.service";
 import { Resume, ResumeInput } from "../models/resume.model";
 
 /**
@@ -44,6 +44,213 @@ export const getMyResume = async (req: Request, res: Response) => {
     }
     console.error("Error fetching resume:", error);
     res.status(500).json({ error: error.message || "Failed to fetch resume" });
+  }
+};
+
+// ==================== NEW FEATURE CONTROLLERS ====================
+
+/**
+ * Update work preferences
+ */
+export const updateWorkPreferences = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const preferences: WorkPreferences = req.body;
+    const resume = await resumeServices.updateWorkPreferences(user.uid, preferences);
+
+    res.status(200).json({
+      message: "Work preferences updated successfully",
+      resume,
+    });
+  } catch (error: any) {
+    console.error("Error updating work preferences:", error);
+    res.status(500).json({ error: error.message || "Failed to update work preferences" });
+  }
+};
+
+/**
+ * Get work preferences
+ */
+export const getWorkPreferences = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const preferences = await resumeServices.getWorkPreferences(user.uid);
+    res.status(200).json({ preferences });
+  } catch (error: any) {
+    console.error("Error fetching work preferences:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch work preferences" });
+  }
+};
+
+/**
+ * Update authorization information
+ */
+export const updateAuthorization = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const authorization: AuthorizationInfo = req.body;
+    const resume = await resumeServices.updateAuthorization(user.uid, authorization);
+
+    res.status(200).json({
+      message: "Authorization information updated successfully",
+      resume,
+    });
+  } catch (error: any) {
+    console.error("Error updating authorization:", error);
+    res.status(500).json({ error: error.message || "Failed to update authorization" });
+  }
+};
+
+/**
+ * Get authorization information
+ */
+export const getAuthorization = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const authorization = await resumeServices.getAuthorization(user.uid);
+    res.status(200).json({ authorization });
+  } catch (error: any) {
+    console.error("Error fetching authorization:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch authorization" });
+  }
+};
+
+/**
+ * Update career goals
+ */
+export const updateCareerGoals = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const goals: CareerGoals = req.body;
+    const resume = await resumeServices.updateCareerGoals(user.uid, goals);
+
+    res.status(200).json({
+      message: "Career goals updated successfully",
+      resume,
+    });
+  } catch (error: any) {
+    console.error("Error updating career goals:", error);
+    res.status(500).json({ error: error.message || "Failed to update career goals" });
+  }
+};
+
+/**
+ * Get career goals
+ */
+export const getCareerGoals = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const goals = await resumeServices.getCareerGoals(user.uid);
+    res.status(200).json({ goals });
+  } catch (error: any) {
+    console.error("Error fetching career goals:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch career goals" });
+  }
+};
+
+/**
+ * Update external profiles
+ */
+export const updateExternalProfiles = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const profiles: ExternalProfiles = req.body;
+    const resume = await resumeServices.updateExternalProfiles(user.uid, profiles);
+
+    res.status(200).json({
+      message: "External profiles updated successfully",
+      resume,
+    });
+  } catch (error: any) {
+    console.error("Error updating external profiles:", error);
+    res.status(500).json({ error: error.message || "Failed to update external profiles" });
+  }
+};
+
+/**
+ * Get external profiles
+ */
+export const getExternalProfiles = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const profiles = await resumeServices.getExternalProfiles(user.uid);
+    res.status(200).json({ profiles });
+  } catch (error: any) {
+    console.error("Error fetching external profiles:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch external profiles" });
+  }
+};
+
+/**
+ * Update multiple sections at once
+ */
+export const updateMultipleSections = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const updates = req.body;
+    const resume = await resumeServices.updateMultipleSections(user.uid, updates);
+
+    res.status(200).json({
+      message: "Multiple sections updated successfully",
+      resume,
+    });
+  } catch (error: any) {
+    console.error("Error updating multiple sections:", error);
+    res.status(500).json({ error: error.message || "Failed to update multiple sections" });
+  }
+};
+
+/**
+ * Get profile completion status
+ */
+export const getProfileCompletionStatus = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const status = await resumeServices.getProfileCompletionStatus(user.uid);
+    res.status(200).json({ status });
+  } catch (error: any) {
+    console.error("Error fetching profile completion status:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch profile completion status" });
   }
 };
 

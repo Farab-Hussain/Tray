@@ -15,7 +15,26 @@ import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserService } from '../../../services/user.service';
 import { ResumeService } from '../../../services/resume.service';
-import { Camera, User, Lock, FileText, Edit2, Mail, CheckCircle } from 'lucide-react-native';
+import { 
+  Camera, 
+  User, 
+  Lock, 
+  FileText, 
+  Edit2, 
+  Mail, 
+  CheckCircle,
+  Briefcase,
+  Car,
+  Clock,
+  DollarSign,
+  Target,
+  ExternalLink,
+  Shield,
+  Upload,
+  BarChart3,
+  ChevronRight,
+  AlertCircle
+} from 'lucide-react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { showError, showSuccess } from '../../../utils/toast';
 import Loader from '../../../components/ui/Loader';
@@ -32,6 +51,7 @@ const StudentProfile = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [updatingImage, setUpdatingImage] = useState(false);
   const [imageCacheKey, setImageCacheKey] = useState(0);
+  const [profileCompletion, setProfileCompletion] = useState<any>(null);
 
   const fetchProfileData = useCallback(async () => {
     if (!user) {
@@ -46,6 +66,19 @@ const StudentProfile = ({ navigation }: any) => {
       const profileResponse = await UserService.getUserProfile();
       setBackendProfile(profileResponse);
 
+      // Fetch profile completion status
+      try {
+        const completionResponse = await ResumeService.getProfileCompletionStatus();
+        setProfileCompletion(completionResponse.status);
+      } catch (error: any) {
+        // 404 is expected if user has no resume data yet
+        if (error?.response?.status !== 404) {
+          if (__DEV__) {
+            console.log('Error fetching completion status:', error);
+          }
+        }
+      }
+
       // Fetch resume if exists
       try {
         const resumeResponse = await ResumeService.getMyResume();
@@ -53,7 +86,7 @@ const StudentProfile = ({ navigation }: any) => {
           setResume(resumeResponse.resume);
         }
       } catch (error: any) {
-        // Resume not found is okay
+        // Resume not found is okay - this is expected for new users
         if (error?.response?.status !== 404) {
           if (__DEV__) {
             console.log('Error fetching resume:', error)
@@ -148,6 +181,14 @@ const StudentProfile = ({ navigation }: any) => {
   const displayName = backendProfile?.name || user?.displayName || 'No name set';
   const email = backendProfile?.email || user?.email || 'No email';
 
+  // Calculate profile completion percentage
+  const completionPercentage = profileCompletion?.overallCompletion || 0;
+  const getCompletionColor = (percentage: number) => {
+    if (percentage >= 80) return COLORS.green;
+    if (percentage >= 60) return COLORS.yellow;
+    return COLORS.red;
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader title="Profile" onBackPress={() => navigation.goBack()} />
@@ -191,6 +232,148 @@ const StudentProfile = ({ navigation }: any) => {
 
           <Text style={styles.displayName}>{displayName}</Text>
           <Text style={styles.email}>{email}</Text>
+        </View>
+
+        {/* Profile Completion Status - NEW */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Profile Completion</Text>
+            <BarChart3 size={20} color={completionPercentage >= 80 ? COLORS.green : completionPercentage >= 60 ? COLORS.yellow : COLORS.red} />
+          </View>
+          
+          <View style={styles.sectionContent}>
+            <View style={styles.completionBar}>
+              <View style={[styles.completionFill, { 
+                width: `${completionPercentage}%`,
+                backgroundColor: completionPercentage >= 80 ? COLORS.green : completionPercentage >= 60 ? COLORS.yellow : COLORS.red
+              }]} />
+            </View>
+            <Text style={styles.completionText}>{completionPercentage}% Complete</Text>
+            
+            <Text style={styles.completionSubtext}>
+              {completionPercentage < 100 
+                ? 'Complete your profile to increase job match chances!' 
+                : 'Excellent! Your profile is complete.'
+              }
+            </Text>
+          </View>
+        </View>
+
+        {/* NEW: Work Preferences Section */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.sectionHeader}
+            onPress={() => navigation.navigate('WorkPreferences')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.sectionTitleContainer}>
+              <Briefcase size={20} color={COLORS.green} />
+              <Text style={styles.sectionTitle}>Work Preferences</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.gray} />
+          </TouchableOpacity>
+
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionDescription}>
+              Set your work restrictions, transportation, and preferred job types
+            </Text>
+            
+            {resume?.workRestrictions && resume.workRestrictions.length > 0 && (
+              <View style={styles.quickInfo}>
+                <AlertCircle size={16} color={COLORS.yellow} />
+                <Text style={styles.quickInfoText}>
+                  {resume.workRestrictions.length} work restrictions set
+                </Text>
+              </View>
+            )}
+            
+            {resume?.transportationStatus && (
+              <View style={styles.quickInfo}>
+                <Car size={16} color={COLORS.green} />
+                <Text style={styles.quickInfoText}>
+                  Transportation: {resume.transportationStatus.replace('-', ' ')}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* NEW: Work Authorization Section */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.sectionHeader}
+            onPress={() => navigation.navigate('AuthorizationDocuments')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.sectionTitleContainer}>
+              <Shield size={20} color={COLORS.green} />
+              <Text style={styles.sectionTitle}>Work Authorization</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.gray} />
+          </TouchableOpacity>
+
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionDescription}>
+              Manage work authorization documents and background check status
+            </Text>
+            
+            {resume?.workAuthorized !== undefined && (
+              <View style={styles.quickInfo}>
+                <CheckCircle size={16} color={resume.workAuthorized ? COLORS.green : COLORS.red} />
+                <Text style={styles.quickInfoText}>
+                  Work Authorized: {resume.workAuthorized ? 'Yes' : 'No'}
+                </Text>
+              </View>
+            )}
+            
+            {resume?.authorizationDocuments && resume.authorizationDocuments.length > 0 && (
+              <View style={styles.quickInfo}>
+                <FileText size={16} color={COLORS.blue} />
+                <Text style={styles.quickInfoText}>
+                  {resume.authorizationDocuments.length} documents uploaded
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* NEW: Career Goals Section */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.sectionHeader}
+            onPress={() => navigation.navigate('CareerGoals')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.sectionTitleContainer}>
+              <Target size={20} color={COLORS.green} />
+              <Text style={styles.sectionTitle}>Career Goals</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.gray} />
+          </TouchableOpacity>
+
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionDescription}>
+              Define your career interests and salary expectations
+            </Text>
+            
+            {resume?.careerInterests && resume.careerInterests.length > 0 && (
+              <View style={styles.quickInfo}>
+                <Target size={16} color={COLORS.purple} />
+                <Text style={styles.quickInfoText}>
+                  {resume.careerInterests.length} career interests
+                </Text>
+              </View>
+            )}
+            
+            {resume?.salaryExpectation && (
+              <View style={styles.quickInfo}>
+                <DollarSign size={16} color={COLORS.green} />
+                <Text style={styles.quickInfoText}>
+                  Salary: ${resume.salaryExpectation.min?.toLocaleString()} - ${resume.salaryExpectation.max?.toLocaleString()}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Profile Information Section */}

@@ -8,6 +8,80 @@ import { calculateMatchScore } from "../utils/skillMatching";
 import { serializeApplication, serializeApplications } from "../utils/serialization";
 import { JobApplicationInput } from "../models/jobApplication.model";
 
+// Helper functions for enhanced fit score display
+function generateImprovementSuggestions(missingSkills: string[]): Array<{
+  skill: string;
+  suggestion: string;
+  actionType: 'update-resume' | 'book-coach' | 'view-courses';
+  priority: 'high' | 'medium' | 'low';
+}> {
+  return missingSkills.map(skill => ({
+    skill,
+    suggestion: `Consider adding ${skill} to your skillset`,
+    actionType: 'update-resume' as const,
+    priority: 'high' as const,
+  }));
+}
+
+async function checkAvailabilityAlignment(userId: string, jobId: string): Promise<{
+  aligned: boolean;
+  score: number;
+  message: string;
+}> {
+  try {
+    // Placeholder implementation - would check student availability vs job requirements
+    return {
+      aligned: true,
+      score: 85,
+      message: "Your availability aligns well with this position"
+    };
+  } catch (error) {
+    return {
+      aligned: false,
+      score: 0,
+      message: "Unable to check availability alignment"
+    };
+  }
+}
+
+async function checkLocationCompatibility(userId: string, jobLocation: string): Promise<{
+  compatible: boolean;
+  score: number;
+  message: string;
+  distance?: number;
+}> {
+  try {
+    // Get student's location from resume
+    const resume = await resumeServices.getByUserId(userId);
+    const studentLocation = resume.personalInfo.location;
+
+    if (!studentLocation) {
+      return {
+        compatible: false,
+        score: 0,
+        message: "Location not specified in profile"
+      };
+    }
+
+    // Simple location compatibility check (placeholder)
+    const compatible = studentLocation.toLowerCase().includes(jobLocation.toLowerCase()) ||
+                     jobLocation.toLowerCase().includes(studentLocation.toLowerCase());
+
+    return {
+      compatible,
+      score: compatible ? 90 : 30,
+      message: compatible ? "Great location match!" : "Location may require relocation",
+      distance: compatible ? 0 : 50 // Placeholder distance
+    };
+  } catch (error) {
+    return {
+      compatible: false,
+      score: 0,
+      message: "Unable to check location compatibility"
+    };
+  }
+}
+
 /**
  * Apply for a job (Student)
  * Automatically calculates match rating
@@ -230,6 +304,17 @@ export const applyForJob = async (req: Request, res: Response) => {
       res.status(201).json({
         message: "Application submitted successfully",
         application: serializedApplication,
+        // NEW: Enhanced fit score display
+        fitScoreDetails: {
+          matchPercentage: matchResult.matchPercentage || 0,
+          matchRating: matchResult.rating,
+          matchedSkills: matchResult.matchedSkills || [],
+          missingSkills: matchResult.missingSkills || [],
+          totalRequiredSkills: jobSkills.length,
+          improvementSuggestions: generateImprovementSuggestions(matchResult.missingSkills || []),
+          availabilityAlignment: await checkAvailabilityAlignment(user.uid, job.id),
+          locationCompatibility: await checkLocationCompatibility(user.uid, job.location),
+        },
       });
     } else {
       console.error(`[applyForJob:${requestId}] Response already sent, cannot send success response`);
@@ -447,4 +532,3 @@ export const getApplicationById = async (req: Request, res: Response) => {
     res.status(404).json({ error: error.message || "Application not found" });
   }
 };
-

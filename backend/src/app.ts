@@ -18,6 +18,9 @@ import registerSupportRoutes from './routes/support.routes';
 import activityRoutes from './routes/activity.routes';
 import jobRoutes from './routes/job.routes';
 import resumeRoutes from './routes/resume.routes';
+import studentRoutes from './routes/student.routes';
+import authorizationDocumentRoutes from './routes/authorizationDocument.routes';
+import consultantContentRoutes from './routes/consultantContent.routes';
 
 dotenv.config();
 
@@ -148,6 +151,7 @@ app.get("/health", async (req, res) => {
 
 // Auth routes
 app.use("/auth", authRouter);
+app.use("/student", studentRoutes); 
 app.use("/consultants", consultantRoutes);
 app.use("/bookings", bookingRoutes);
 app.use("/reviews", reviewRoutes);
@@ -161,6 +165,8 @@ app.use("/analytics", analyticsRoutes);
 app.use("/admin/activities", activityRoutes);
 app.use("/jobs", jobRoutes);
 app.use("/resumes", resumeRoutes);
+app.use("/authorization-documents", authorizationDocumentRoutes);
+app.use("/consultant-content", consultantContentRoutes);
 registerSupportRoutes(app);
 
 // 404 handler for unmatched routes

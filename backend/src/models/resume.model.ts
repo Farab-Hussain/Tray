@@ -34,6 +34,32 @@ export interface Resume {
   }>;
   resumeFileUrl?: string; // PDF/DOC file URL - students attach resume
   resumeFilePublicId?: string; // Cloudinary public ID
+  // NEW: Work preferences (missing student features)
+  workRestrictions?: string[];
+  transportationStatus?: 'own-car' | 'public-transport' | 'none';
+  shiftFlexibility?: {
+    days: ('Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun')[];
+    shifts: ('morning' | 'evening' | 'night')[];
+  };
+  preferredWorkTypes?: ('full-time' | 'part-time' | 'contract' | 'internship')[];
+  jobsToAvoid?: string[];
+  // NEW: Work authorization
+  workAuthorized?: boolean;
+  authorizationDocuments?: string[];
+  backgroundCheckRequired?: boolean;
+  // NEW: Career goals
+  careerInterests?: string[];
+  targetIndustries?: string[];
+  salaryExpectation?: {
+    min: number;
+    max: number;
+  };
+  // NEW: External profiles
+  externalProfiles?: {
+    linkedIn?: string;
+    portfolio?: string;
+    github?: string;
+  };
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -70,5 +96,34 @@ export interface ResumeInput {
   }>;
   resumeFileUrl?: string;
   resumeFilePublicId?: string;
-}
+  // NEW: Work preferences (missing student features)
+  workRestrictions?: string[];
+  transportationStatus?: 'own-car' | 'public-transport' | 'none';
+  shiftFlexibility?: {
+    days: ('Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun')[];
+    shifts: ('morning' | 'evening' | 'night')[];
+  };
+  preferredWorkTypes?: ('full-time' | 'part-time' | 'contract' | 'internship')[];
+  jobsToAvoid?: string[];
 
+  // NEW: Work authorization
+  workAuthorized?: boolean;
+  authorizationDocuments?: string[];
+  backgroundCheckRequired?: boolean;
+
+  // NEW: Career goals
+  careerInterests?: string[];
+  targetIndustries?: string[];
+  salaryExpectation?: {
+    min: number;
+    max: number;
+  };
+
+  // NEW: External profiles
+  externalProfiles?: {
+    linkedIn?: string;
+    portfolio?: string;
+    github?: string;
+  };
+
+}

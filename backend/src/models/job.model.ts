@@ -23,7 +23,18 @@ export interface Job {
   updatedAt: Timestamp;
   applicationCount?: number; // Cached count
   goldApplicantsCount?: number; // Count of Gold-rated applicants
-  silverApplicantsCount?: number; // Count of Silver-rated applicants
+  silverApplicantsCount?: number; // Count of Silver-rated applicants;
+  // NEW: Fair-chance hiring indicators
+  fairChanceHiring?: {
+    banTheBox: boolean; // Don't ask about criminal history initially
+    felonyFriendly: boolean; // Open to candidates with felony records
+    caseByCaseReview: boolean; // Review criminal history case by case
+    noBackgroundCheck: boolean; // No background check required
+    secondChancePolicy: boolean; // Has second-chance hiring policy
+  };
+  // NEW: Background check requirements
+  backgroundCheckRequired?: boolean;
+  backgroundCheckType?: 'basic' | 'standard' | 'enhanced' | 'none';
 }
 
 // Input type for creating/updating jobs
@@ -43,6 +54,17 @@ export interface JobInput {
   educationRequired?: string;
   status?: "active" | "closed" | "draft";
   expiryDate?: Timestamp;
+  // NEW: Fair-chance hiring indicators
+  fairChanceHiring?: {
+    banTheBox: boolean;
+    felonyFriendly: boolean;
+    caseByCaseReview: boolean;
+    noBackgroundCheck: boolean;
+    secondChancePolicy: boolean;
+  };
+  // NEW: Background check requirements
+  backgroundCheckRequired?: boolean;
+  backgroundCheckType?: 'basic' | 'standard' | 'enhanced' | 'none';
 }
 
 // Lightweight job data for cards (optimized for frontend)
@@ -62,5 +84,11 @@ export interface JobCard {
   createdAt: Timestamp;
   matchScore?: number; // Optional: match score for current user
   matchRating?: "gold" | "silver" | "bronze" | "basic"; // Optional: match rating for current user
+  // NEW: Fair-chance indicators for job cards
+  fairChanceIndicators?: {
+    banTheBox: boolean;
+    felonyFriendly: boolean;
+    secondChancePolicy: boolean;
+  };
 }
 
