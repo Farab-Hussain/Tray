@@ -8,6 +8,8 @@ import {
   updatePlatformFeeConfig,
   getStripeConfig,
   handleWebhook,
+  createJobPostingPaymentIntent,
+  confirmJobPostingPayment,
 } from "../controllers/payment.controller";
 import { triggerPayouts, getPayoutHistory } from "../controllers/payout.controller";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
@@ -24,6 +26,8 @@ router.post(
 );
 
 router.post("/create-payment-intent", createPaymentIntent);
+router.post("/job-posting/create-intent", authenticateUser(), createJobPostingPaymentIntent);
+router.post("/job-posting/confirm", authenticateUser(), confirmJobPostingPayment);
 router.get("/config", getStripeConfig);
 router.post("/connect/create-account", authenticateUser(), createConnectAccount);
 router.get("/connect/account-status", authenticateUser(), getConnectAccountStatus);

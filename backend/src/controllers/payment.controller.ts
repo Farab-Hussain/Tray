@@ -553,3 +553,93 @@ export const transferToConsultant = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * Create payment intent for job posting
+ */
+export const createJobPostingPaymentIntent = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Job posting fee: $1.00
+    const JOB_POSTING_FEE = 100; // $1.00 in cents
+
+    // Create payment intent
+    const paymentIntent = await getStripeClient().paymentIntents.create({
+      amount: JOB_POSTING_FEE,
+      currency: "usd",
+      metadata: { 
+        type: "job-posting",
+        userId: user.uid,
+        description: "Job posting fee"
+      },
+    });
+
+    res.status(200).json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount: JOB_POSTING_FEE,
+      currency: "usd",
+      description: "Job posting fee - $1.00"
+    });
+  } catch (error: any) {
+    console.error('Error creating job posting payment intent:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to create payment intent',
+      code: error.code || 'PAYMENT_INTENT_ERROR'
+    });
+  }
+};
+
+/**
+ * Confirm job posting payment and record it
+ */
+export const confirmJobPostingPayment = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { paymentIntentId } = req.body;
+
+    if (!paymentIntentId) {
+      return res.status(400).json({ error: "Payment intent ID is required" });
+    }
+
+    // Retrieve the payment intent to confirm it's paid
+    const paymentIntent = await getStripeClient().paymentIntents.retrieve(paymentIntentId);
+
+    if (paymentIntent.status !== 'succeeded') {
+      return res.status(400).json({ 
+        error: "Payment not successful",
+        status: paymentIntent.status 
+      });
+    }
+
+    // Verify the payment intent is for job posting and belongs to this user
+    if (paymentIntent.metadata.type !== 'job-posting' || paymentIntent.metadata.userId !== user.uid) {
+      return res.status(400).json({ error: "Invalid payment intent" });
+    }
+
+    // Record the payment in Firestore
+    const { jobServices } = await import("../services/job.service");
+    await jobServices.recordJobPostingPayment(user.uid, paymentIntentId, paymentIntent.amount);
+
+    res.status(200).json({
+      message: "Job posting payment confirmed and recorded",
+      paymentIntentId,
+      amount: paymentIntent.amount,
+      status: "paid"
+    });
+  } catch (error: any) {
+    console.error('Error confirming job posting payment:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to confirm payment',
+      code: error.code || 'PAYMENT_CONFIRMATION_ERROR'
+    });
+  }
+};

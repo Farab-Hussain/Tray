@@ -10,11 +10,20 @@ import {
   getUserDocumentStats,
 } from "../controllers/authorizationDocument.controller";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
+import { 
+  enforceDocumentSecurity, 
+  checkConsultantDocumentAccess, 
+  sanitizeDocumentForEmployer,
+  logDocumentAccess 
+} from "../middleware/documentSecurity.middleware";
 
 const router = express.Router();
 
 // User routes (require authentication)
 router.use(authenticateUser());
+
+// Apply logging to all routes
+router.use(logDocumentAccess);
 
 // Upload document
 router.post("/", uploadDocument); // POST /authorization-documents
@@ -25,11 +34,11 @@ router.get("/my", getUserDocuments); // GET /authorization-documents/my
 // Get user document statistics
 router.get("/my/stats", getUserDocumentStats); // GET /authorization-documents/my/stats
 
-// Get specific document
-router.get("/:id", getDocumentById); // GET /authorization-documents/:id
+// Get specific document - apply security middleware
+router.get("/:id", enforceDocumentSecurity, getDocumentById); // GET /authorization-documents/:id
 
-// Delete document
-router.delete("/:id", deleteDocument); // DELETE /authorization-documents/:id
+// Delete document - apply security middleware
+router.delete("/:id", enforceDocumentSecurity, deleteDocument); // DELETE /authorization-documents/:id
 
 // Admin routes (require admin role)
 router.use(authorizeRole(['admin']));

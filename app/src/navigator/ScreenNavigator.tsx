@@ -25,6 +25,13 @@ import EditProfile from '../Screen/common/Account/EditProfile';
 import ChangePassword from '../Screen/common/Account/ChangePassword';
 import ChangeUsername from '../Screen/common/Account/ChangeUsername';
 import StudentProfile from '../Screen/Student/Profile/StudentProfile';
+import WorkPreferences from '../Screen/Student/Profile/WorkPreferences';
+import AuthorizationDocuments from '../Screen/Student/Profile/AuthorizationDocuments';
+import CareerGoals from '../Screen/Student/Profile/CareerGoals';
+import EducationScreen from '../Screen/Student/Profile/EducationScreen';
+import CertificationsScreen from '../Screen/Student/Profile/CertificationsScreen';
+import SkillsScreen from '../Screen/Student/Profile/SkillsScreen';
+import ExternalProfilesScreen from '../Screen/Student/Profile/ExternalProfilesScreen';
 import RecruiterProfile from '../Screen/Recruiter/Profile/RecruiterProfile';
 import ConsultantProfile from '../Screen/Consultant/Profile/ConsultantProfile';
 import RecruiterJobs from '../Screen/Recruiter/Jobs/RecruiterJobs';
@@ -45,6 +52,9 @@ import ConsultantServiceSetupScreen from '../Screen/Consultant/ServiceSetup/Cons
 import ConsultantVerificationFlow from '../Screen/Consultant/Verification/ConsultantVerificationFlow';
 import CreateProfile from '../Screen/common/Profile/CreateProfile';
 import StripePaymentSetup from '../Screen/Consultant/Payment/StripePaymentSetup';
+import JobPostingPaymentScreen from '../Screen/Recruiter/Payment/JobPostingPaymentScreen';
+// Consultant Content screens
+import ConsultantContentPostingScreen from '../Screen/Consultant/Content/ConsultantContentPostingScreen';
 // Job screens
 import JobListScreen from '../Screen/Student/Jobs/JobListScreen';
 import JobDetailScreen from '../Screen/Student/Jobs/JobDetailScreen';
@@ -389,6 +399,69 @@ const ScreenNavigator = () => {
       <Stack.Screen
         name="StudentProfile"
         component={StudentProfile}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Work Preferences Screen */}
+      <Stack.Screen
+        name="WorkPreferences"
+        component={WorkPreferences}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Authorization Documents Screen */}
+      <Stack.Screen
+        name="AuthorizationDocuments"
+        component={AuthorizationDocuments}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Career Goals Screen */}
+      <Stack.Screen
+        name="CareerGoals"
+        component={CareerGoals}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Education Screen */}
+      <Stack.Screen
+        name="EducationScreen"
+        component={EducationScreen}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Certifications Screen */}
+      <Stack.Screen
+        name="CertificationsScreen"
+        component={CertificationsScreen}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* Skills Screen */}
+      <Stack.Screen
+        name="SkillsScreen"
+        component={SkillsScreen}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      {/* External Profiles Screen */}
+      <Stack.Screen
+        name="ExternalProfilesScreen"
+        component={ExternalProfilesScreen}
         options={{
           cardStyleInterpolator: slideFromRight,
         }}
@@ -847,6 +920,15 @@ const ScreenNavigator = () => {
           cardStyleInterpolator: slideFromRight,
         }}
       />
+      
+      <Stack.Screen
+        name="ConsultantContentPosting" 
+        component={ConsultantContentPostingScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
 
       <Stack.Screen 
         name="BrowseServices" 
@@ -1005,6 +1087,15 @@ const ScreenNavigator = () => {
       <Stack.Screen 
         name="RecruiterPostJob" 
         component={PostJobScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="JobPostingPayment" 
+        component={JobPostingPaymentScreen}
         options={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,

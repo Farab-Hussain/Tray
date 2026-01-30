@@ -8,6 +8,7 @@ import {
   Modal,
   ScrollView,
   Pressable,
+  Alert,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -107,10 +108,35 @@ const PostJobScreen = ({ navigation }: any) => {
       showSuccess('Job posted successfully');
       navigation.goBack();
     } catch (error: any) {
-            if (__DEV__) {
+      if (__DEV__) {
         console.error('Error posting job:', error)
       };
-      showError(error.message || 'Failed to post job');
+      
+      // Handle payment required error
+      if (error.response?.status === 402) {
+        const paymentData = error.response.data;
+        Alert.alert(
+          'Payment Required',
+          paymentData.message || 'Payment is required to post this job',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Pay Now',
+              onPress: () => {
+                navigation.navigate('JobPostingPayment', {
+                  jobData,
+                  returnScreen: 'RecruiterPostJob'
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        showError(error.message || 'Failed to post job');
+      }
     } finally {
       setPosting(false);
     }

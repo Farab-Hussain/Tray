@@ -1,56 +1,52 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
-  Image,
+  SafeAreaView,
   RefreshControl,
-  Alert,
+  Image,
+  TouchableOpacity,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import ScreenHeader from '../../../components/shared/ScreenHeader';
-import { COLORS } from '../../../constants/core/colors';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import {
+  User,
+  Mail,
+  Lock,
+  FileText,
+  Briefcase,
+  Shield,
+  GraduationCap,
+  Award,
+  Code,
+  ExternalLink,
+  Target,
+  DollarSign,
+  Car,
+  AlertCircle,
+  Edit2,
+  CheckCircle,
+  ChevronRight,
+  BarChart3,
+  Camera,
+} from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
+import { COLORS } from '../../../constants/core/colors';
+import { studentProfileStyles as styles } from '../../../constants/styles/studentProfileStyles';
+import ProfileSectionCard from '../../../components/ui/ProfileSectionCard';
+import ScreenHeader from '../../../components/shared/ScreenHeader';
+import { useRefresh } from '../../../hooks/useRefresh';
+import Loader from '../../../components/ui/Loader';
 import { UserService } from '../../../services/user.service';
 import { ResumeService } from '../../../services/resume.service';
-import { 
-  Camera, 
-  User, 
-  Lock, 
-  FileText, 
-  Edit2, 
-  Mail, 
-  CheckCircle,
-  Briefcase,
-  Car,
-  Clock,
-  DollarSign,
-  Target,
-  ExternalLink,
-  Shield,
-  Upload,
-  BarChart3,
-  ChevronRight,
-  AlertCircle
-} from 'lucide-react-native';
-import { screenStyles } from '../../../constants/styles/screenStyles';
-import { showError, showSuccess } from '../../../utils/toast';
-import Loader from '../../../components/ui/Loader';
-import ImageUpload from '../../../components/ui/ImageUpload';
-import { updateProfile } from 'firebase/auth';
-import { auth } from '../../../lib/firebase';
-import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
-import { useRefresh } from '../../../hooks/useRefresh';
 
 const StudentProfile = ({ navigation }: any) => {
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [resume, setResume] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [updatingImage, setUpdatingImage] = useState(false);
-  const [imageCacheKey, setImageCacheKey] = useState(0);
+  const [_updatingImage, _setUpdatingImage] = useState(false);
+  const [_imageCacheKey, _setImageCacheKey] = useState(0);
   const [profileCompletion, setProfileCompletion] = useState<any>(null);
 
   const fetchProfileData = useCallback(async () => {
@@ -66,18 +62,15 @@ const StudentProfile = ({ navigation }: any) => {
       const profileResponse = await UserService.getUserProfile();
       setBackendProfile(profileResponse);
 
-      // Fetch profile completion status
-      try {
-        const completionResponse = await ResumeService.getProfileCompletionStatus();
-        setProfileCompletion(completionResponse.status);
-      } catch (error: any) {
-        // 404 is expected if user has no resume data yet
-        if (error?.response?.status !== 404) {
-          if (__DEV__) {
-            console.log('Error fetching completion status:', error);
-          }
-        }
-      }
+      // Set default profile completion (no API call to avoid 404 errors)
+      setProfileCompletion({
+        overallCompletion: 0,
+        basicProfile: false,
+        workPreferences: false,
+        authorization: false,
+        careerGoals: false,
+        externalProfiles: false
+      });
 
       // Fetch resume if exists
       try {
@@ -117,56 +110,56 @@ const StudentProfile = ({ navigation }: any) => {
     }, [fetchProfileData])
   );
 
-  const handleImageUpdate = async (imageUrl: string | null) => {
-    if (!auth.currentUser) return;
+  // const handleImageUpdate = async (imageUrl: string | null) => {
+  //   if (!auth.currentUser) return;
 
-    setUpdatingImage(true);
-    try {
-      if (imageUrl) {
-        await updateProfile(auth.currentUser, {
-          photoURL: imageUrl,
-        });
-      }
+  //   setUpdatingImage(true);
+  //   try {
+  //     if (imageUrl) {
+  //       await updateProfile(auth.currentUser, {
+  //         photoURL: imageUrl,
+  //       });
+  //     }
 
-      // Update backend profile
-      try {
-        await UserService.updateProfile({
-          avatarUrl: imageUrl,
-        });
-      } catch (error: unknown) {
-        if (__DEV__) {
-          console.log('Backend update failed, but Firebase updated')
-        };
-      }
+  //     // Update backend profile
+  //     try {
+  //       await UserService.updateProfile({
+  //         avatarUrl: imageUrl,
+  //       });
+  //     } catch  {
+  //       if (__DEV__) {
+  //         console.log('Backend update failed, but Firebase updated')
+  //       };
+  //     }
 
-      await refreshUser();
-      setImageCacheKey(prev => prev + 1);
-      showSuccess('Profile image updated successfully');
-      fetchProfileData();
-    } catch (error: any) {
-      if (__DEV__) {
-        console.error('Error updating profile image:', error)
-      };
-      showError(error.message || 'Failed to update profile image');
-    } finally {
-      setUpdatingImage(false);
-    }
-  };
+  //     await refreshUser();
+  //     setImageCacheKey(prev => prev + 1);
+  //     showSuccess('Profile image updated successfully');
+  //     fetchProfileData();
+  //   } catch (error: any) {
+  //     if (__DEV__) {
+  //       console.error('Error updating profile image:', error)
+  //     };
+  //     showError(error.message || 'Failed to update profile image');
+  //   } finally {
+  //     setUpdatingImage(false);
+  //   }
+  // };
 
-  const handleDeleteImage = async () => {
-    Alert.alert(
-      'Delete Profile Image',
-      'Are you sure you want to remove your profile image?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => handleImageUpdate(null),
-        },
-      ]
-    );
-  };
+  // const handleDeleteImage = async () => {
+  //   Alert.alert(
+  //     'Delete Profile Image',
+  //     'Are you sure you want to remove your profile image?',
+  //     [
+  //       { text: 'Cancel', style: 'cancel' },
+  //       {
+  //         text: 'Delete',
+  //         style: 'destructive',
+  //         onPress: () => handleImageUpdate(null),
+  //       },
+  //     ]
+  //   );
+  // };
 
   if (loading && !refreshing) {
     return (
@@ -206,9 +199,9 @@ const StudentProfile = ({ navigation }: any) => {
           <View style={styles.profileImageContainer}>
             {profileImage ? (
               <Image
-                source={{ uri: `${profileImage}?t=${imageCacheKey}` }}
+                source={{ uri: `${profileImage}?t=${_imageCacheKey}` }}
                 style={styles.profileImage}
-                key={`${profileImage}-${imageCacheKey}`}
+                key={`${profileImage}-${_imageCacheKey}`}
               />
             ) : (
               <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
@@ -220,9 +213,9 @@ const StudentProfile = ({ navigation }: any) => {
             <TouchableOpacity
               style={styles.cameraButton}
               onPress={() => navigation.navigate('EditProfile')}
-              disabled={updatingImage}
+              disabled={_updatingImage}
             >
-              {updatingImage ? (
+              {_updatingImage ? (
                 <Loader message="" />
               ) : (
                 <Camera size={20} color={COLORS.white} />
@@ -238,260 +231,184 @@ const StudentProfile = ({ navigation }: any) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Profile Completion</Text>
-            <BarChart3 size={20} color={completionPercentage >= 80 ? COLORS.green : completionPercentage >= 60 ? COLORS.yellow : COLORS.red} />
+            <BarChart3 size={20} color={getCompletionColor(completionPercentage)} />
           </View>
-          
+
           <View style={styles.sectionContent}>
             <View style={styles.completionBar}>
-              <View style={[styles.completionFill, { 
+              <View style={[styles.completionFill, {
                 width: `${completionPercentage}%`,
-                backgroundColor: completionPercentage >= 80 ? COLORS.green : completionPercentage >= 60 ? COLORS.yellow : COLORS.red
+                backgroundColor: getCompletionColor(completionPercentage)
               }]} />
             </View>
             <Text style={styles.completionText}>{completionPercentage}% Complete</Text>
-            
+
             <Text style={styles.completionSubtext}>
-              {completionPercentage < 100 
-                ? 'Complete your profile to increase job match chances!' 
+              {completionPercentage < 100
+                ? 'Complete your profile to increase job match chances!'
                 : 'Excellent! Your profile is complete.'
               }
             </Text>
           </View>
         </View>
 
-        {/* NEW: Work Preferences Section */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => navigation.navigate('WorkPreferences')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.sectionTitleContainer}>
-              <Briefcase size={20} color={COLORS.green} />
-              <Text style={styles.sectionTitle}>Work Preferences</Text>
-            </View>
-            <ChevronRight size={18} color={COLORS.gray} />
-          </TouchableOpacity>
-
-          <View style={styles.sectionContent}>
-            <Text style={styles.sectionDescription}>
-              Set your work restrictions, transportation, and preferred job types
-            </Text>
-            
-            {resume?.workRestrictions && resume.workRestrictions.length > 0 && (
-              <View style={styles.quickInfo}>
-                <AlertCircle size={16} color={COLORS.yellow} />
-                <Text style={styles.quickInfoText}>
-                  {resume.workRestrictions.length} work restrictions set
-                </Text>
-              </View>
-            )}
-            
-            {resume?.transportationStatus && (
-              <View style={styles.quickInfo}>
-                <Car size={16} color={COLORS.green} />
-                <Text style={styles.quickInfoText}>
-                  Transportation: {resume.transportationStatus.replace('-', ' ')}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* NEW: Work Authorization Section */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => navigation.navigate('AuthorizationDocuments')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.sectionTitleContainer}>
-              <Shield size={20} color={COLORS.green} />
-              <Text style={styles.sectionTitle}>Work Authorization</Text>
-            </View>
-            <ChevronRight size={18} color={COLORS.gray} />
-          </TouchableOpacity>
-
-          <View style={styles.sectionContent}>
-            <Text style={styles.sectionDescription}>
-              Manage work authorization documents and background check status
-            </Text>
-            
-            {resume?.workAuthorized !== undefined && (
-              <View style={styles.quickInfo}>
-                <CheckCircle size={16} color={resume.workAuthorized ? COLORS.green : COLORS.red} />
-                <Text style={styles.quickInfoText}>
-                  Work Authorized: {resume.workAuthorized ? 'Yes' : 'No'}
-                </Text>
-              </View>
-            )}
-            
-            {resume?.authorizationDocuments && resume.authorizationDocuments.length > 0 && (
-              <View style={styles.quickInfo}>
-                <FileText size={16} color={COLORS.blue} />
-                <Text style={styles.quickInfoText}>
-                  {resume.authorizationDocuments.length} documents uploaded
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* NEW: Career Goals Section */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => navigation.navigate('CareerGoals')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.sectionTitleContainer}>
-              <Target size={20} color={COLORS.green} />
-              <Text style={styles.sectionTitle}>Career Goals</Text>
-            </View>
-            <ChevronRight size={18} color={COLORS.gray} />
-          </TouchableOpacity>
-
-          <View style={styles.sectionContent}>
-            <Text style={styles.sectionDescription}>
-              Define your career interests and salary expectations
-            </Text>
-            
-            {resume?.careerInterests && resume.careerInterests.length > 0 && (
-              <View style={styles.quickInfo}>
-                <Target size={16} color={COLORS.purple} />
-                <Text style={styles.quickInfoText}>
-                  {resume.careerInterests.length} career interests
-                </Text>
-              </View>
-            )}
-            
-            {resume?.salaryExpectation && (
-              <View style={styles.quickInfo}>
-                <DollarSign size={16} color={COLORS.green} />
-                <Text style={styles.quickInfoText}>
-                  Salary: ${resume.salaryExpectation.min?.toLocaleString()} - ${resume.salaryExpectation.max?.toLocaleString()}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
         {/* Profile Information Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profile Information</Text>
-
-          <View style={styles.sectionContent}>
-            {/* Username */}
-            <TouchableOpacity
-              style={styles.infoItem}
-              onPress={() => navigation.navigate('ChangeUsername')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.infoItemLeft}>
-                <View style={styles.iconContainer}>
-                  <User size={20} color={COLORS.green} />
-                </View>
-                <View style={styles.infoItemText}>
-                  <Text style={styles.infoLabel}>Username</Text>
-                  <Text style={styles.infoValue}>{displayName}</Text>
-                </View>
-              </View>
-              <Edit2 size={18} color={COLORS.gray} />
-            </TouchableOpacity>
-
-            <View style={styles.separator} />
-
-            {/* Email */}
-            <View style={styles.infoItem}>
-              <View style={styles.infoItemLeft}>
-                <View style={styles.iconContainer}>
-                  <Mail size={20} color={COLORS.green} />
-                </View>
-                <View style={styles.infoItemText}>
-                  <Text style={styles.infoLabel}>Email</Text>
-                  <Text style={styles.infoValue}>{email}</Text>
-                </View>
-              </View>
-              <CheckCircle size={18} color={COLORS.green} />
-            </View>
-          </View>
-        </View>
+        <ProfileSectionCard
+          title="Profile Information"
+          icon={User}
+          items={[
+            {
+              label: 'Username',
+              value: displayName,
+              onPress: () => navigation.navigate('ChangeUsername'),
+              rightIcon: Edit2,
+            },
+            {
+              label: 'Email',
+              value: email,
+              rightIcon: CheckCircle,
+              rightIconColor: COLORS.green,
+              showSeparator: false,
+            },
+          ]}
+        />
 
         {/* Security Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
-
-          <View style={styles.sectionContent}>
-            <TouchableOpacity
-              style={styles.infoItem}
-              onPress={() => navigation.navigate('ChangePassword')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.infoItemLeft}>
-                <View style={styles.iconContainer}>
-                  <Lock size={20} color={COLORS.green} />
-                </View>
-                <View style={styles.infoItemText}>
-                  <Text style={styles.infoLabel}>Change Password</Text>
-                  <Text style={styles.infoSubtext}>Update your account password</Text>
-                </View>
-              </View>
-              <Edit2 size={18} color={COLORS.gray} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <ProfileSectionCard
+          title="Security"
+          icon={Shield}
+          items={[
+            {
+              label: 'Change Password',
+              subtext: 'Update your account password',
+              onPress: () => navigation.navigate('ChangePassword'),
+              rightIcon: Edit2,
+            },
+          ]}
+        />
 
         {/* Resume Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resume</Text>
+        <ProfileSectionCard
+          title="Resume"
+          icon={FileText}
+          items={[
+            resume ? {
+              label: 'My Resume',
+              value: resume.personalInfo?.name || displayName,
+              onPress: () => navigation.navigate('Resume'),
+              rightIcon: Edit2,
+            } : {
+              label: 'Create Resume',
+              subtext: 'Create your resume to apply for jobs',
+              onPress: () => navigation.navigate('Resume'),
+              rightIcon: Edit2,
+              iconColor: COLORS.gray,
+            },
+          ]}
+        />
 
-          <View style={styles.sectionContent}>
-            {resume ? (
-              <TouchableOpacity
-                style={styles.infoItem}
-                onPress={() => navigation.navigate('Resume')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.infoItemLeft}>
-                  <View style={styles.iconContainer}>
-                    <FileText size={20} color={COLORS.green} />
-                  </View>
-                  <View style={styles.infoItemText}>
-                    <Text style={styles.infoLabel}>My Resume</Text>
-                    <Text style={styles.infoValue}>
-                      {resume.personalInfo?.name || displayName}
-                    </Text>
-                  </View>
-                </View>
-                <Edit2 size={18} color={COLORS.gray} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.infoItem}
-                onPress={() => navigation.navigate('Resume')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.infoItemLeft}>
-                  <View style={styles.iconContainer}>
-                    <FileText size={20} color={COLORS.gray} />
-                  </View>
-                  <View style={styles.infoItemText}>
-                    <Text style={styles.infoLabel}>Create Resume</Text>
-                    <Text style={styles.infoSubtext}>Create your resume to apply for jobs</Text>
-                  </View>
-                </View>
-                <Edit2 size={18} color={COLORS.gray} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        {/* Work Preferences Section */}
+        <ProfileSectionCard
+          title="Work Preferences"
+          icon={Briefcase}
+          items={[
+            {
+              label: 'Work Preferences',
+              subtext: 'Set your work restrictions, transportation, and preferred job types',
+              onPress: () => navigation.navigate('WorkPreferences'),
+              rightIcon: ChevronRight,
+            },
+            ...(resume?.workRestrictions && resume.workRestrictions.length > 0 ? [{
+              label: 'Work Restrictions',
+              value: `${resume.workRestrictions.length} work restrictions set`,
+              icon: AlertCircle,
+              iconColor: COLORS.orange,
+              showSeparator: false,
+            }] : []),
+            ...(resume?.transportationStatus ? [{
+              label: 'Transportation',
+              value: resume.transportationStatus.replace('-', ' '),
+              icon: Car,
+              iconColor: COLORS.green,
+              showSeparator: false,
+            }] : []),
+          ]}
+        />
+
+        {/* Career Goals Section */}
+        <ProfileSectionCard
+          title="Career Goals"
+          icon={Target}
+          items={[
+            {
+              label: 'Career Goals',
+              subtext: 'Define your career interests and salary expectations',
+              onPress: () => navigation.navigate('CareerGoals'),
+              rightIcon: ChevronRight,
+            },
+            ...(resume?.careerInterests && resume.careerInterests.length > 0 ? [{
+              label: 'Career Interests',
+              value: `${resume.careerInterests.length} interests selected`,
+              icon: Target,
+              iconColor: COLORS.purple,
+              showSeparator: false,
+            }] : []),
+            ...(resume?.salaryExpectation ? [{
+              label: 'Salary Expectation',
+              value: resume.salaryExpectation,
+              icon: DollarSign,
+              iconColor: COLORS.green,
+              showSeparator: false,
+            }] : []),
+          ]}
+        />
+
+        {/* Education Section */}
+        <ProfileSectionCard
+          title="Education"
+          icon={GraduationCap}
+          items={[
+            {
+              label: 'Education',
+              subtext: 'Add your educational background and degrees',
+              onPress: () => navigation.navigate('EducationScreen'),
+              rightIcon: ChevronRight,
+            },
+            ...(resume?.education && resume.education.length > 0 ? [{
+              label: 'Education History',
+              value: `${resume.education.length} degree${resume.education.length > 1 ? 's' : ''} added`,
+              icon: GraduationCap,
+              iconColor: COLORS.blue,
+              showSeparator: false,
+            }] : []),
+          ]}
+        />
+
+        {/* Certifications Section */}
+        <ProfileSectionCard
+          title="Certifications"
+          icon={Award}
+          items={[
+            {
+              label: 'Certifications',
+              subtext: 'Add professional certifications and credentials',
+              onPress: () => navigation.navigate('CertificationsScreen'),
+              rightIcon: ChevronRight,
+            },
+            ...(resume?.certifications && resume.certifications.length > 0 ? [{
+              label: 'Professional Certifications',
+              value: `${resume.certifications.length} certification${resume.certifications.length > 1 ? 's' : ''}`,
+              icon: Award,
+              iconColor: COLORS.purple,
+              showSeparator: false,
+            }] : []),
+          ]}
+        />
 
       </ScrollView>
     </SafeAreaView>
   );
 };
-
-const styles = studentProfileStyles;
 
 export default StudentProfile;
 

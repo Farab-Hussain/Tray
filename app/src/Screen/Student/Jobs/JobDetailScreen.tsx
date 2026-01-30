@@ -1,14 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, Alert, RefreshControl } from 'react-native';
-import ScreenHeader from '../../../components/shared/ScreenHeader';
-import AppButton from '../../../components/ui/AppButton';
-import Loader from '../../../components/ui/Loader';
-import { JobService } from '../../../services/job.service';
-import { ResumeService } from '../../../services/resume.service';
-import { COLORS } from '../../../constants/core/colors';
-import { showError, showSuccess, showInfo } from '../../../utils/toast';
 import { useAuth } from '../../../contexts/AuthContext';
+import { screenStyles } from '../../../constants/styles/screenStyles';
+import { COLORS } from '../../../constants/core/colors';
+import ScreenHeader from '../../../components/shared/ScreenHeader';
+import { jobDetailStyles } from '../../../constants/styles/jobDetailStyles';
+import { JobService } from '../../../services/job.service';
+import { ApplicationService } from '../../../services/application.service';
+import { ResumeService } from '../../../services/resume.service';
+import FitScoreDisplay from '../../../components/ui/FitScoreDisplay';
+import { showError, showSuccess, showInfo } from '../../../utils/toast';
 import { jobDetailScreenStyles } from '../../../constants/styles/jobDetailScreenStyles';
 import { useRefresh } from '../../../hooks/useRefresh';
 
@@ -317,59 +328,13 @@ const JobDetailScreen = ({ navigation, route }: any) => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-        {/* Match Score Banner */}
+        {/* Enhanced Fit Score Display */}
         {matchScore && (
-          <View style={styles.matchBannerWrapper}>
-            <View style={[styles.matchBanner, { borderLeftColor: getRatingColor(matchScore.matchRating) }]}>
-              <View style={styles.matchBannerHeader}>
-                <View style={[styles.matchBadge, { backgroundColor: getRatingColor(matchScore.matchRating) }]}>
-                  <Text style={styles.matchBadgeText}>
-                    {matchScore.matchRating.toUpperCase()}
-                  </Text>
-                </View>
-                <Text style={styles.matchBannerTitle}>MATCH ⭐</Text>
-              </View>
-              <View style={styles.matchStatsRow}>
-                <View style={styles.matchStat}>
-                  <Text style={styles.matchStatValue} numberOfLines={1}>
-                    {matchScore.score ?? 0}/{matchScore.totalRequired ?? 0}
-                  </Text>
-                  <Text style={styles.matchStatLabel}>Skills Matched</Text>
-                </View>
-                <View style={styles.matchStatDivider} />
-                <View style={styles.matchStat}>
-                  <Text style={styles.matchStatValue} numberOfLines={1}>
-                    {matchScore.matchPercentage ? matchScore.matchPercentage.toFixed(0) : 0}%
-                  </Text>
-                  <Text style={styles.matchStatLabel}>Match Rate</Text>
-                </View>
-              </View>
-              {matchScore.matchedSkills && matchScore.matchedSkills.length > 0 && (
-                <View style={styles.matchSkillsSection}>
-                  <Text style={styles.matchSkillsSectionTitle}>✓ Matched Skills</Text>
-                  <View style={styles.matchSkillsTags}>
-                    {matchScore.matchedSkills.filter((skill: string) => skill).map((skill: string, index: number) => (
-                      <View key={index} style={styles.matchSkillTag}>
-                        <Text style={styles.matchSkillTagText}>{skill}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-              {matchScore.missingSkills && matchScore.missingSkills.length > 0 && (
-                <View style={styles.matchSkillsSection}>
-                  <Text style={styles.missingSkillsSectionTitle}>Missing Skills</Text>
-                  <View style={styles.matchSkillsTags}>
-                    {matchScore.missingSkills.filter((skill: string) => skill).map((skill: string, index: number) => (
-                      <View key={index} style={styles.missingSkillTag}>
-                        <Text style={styles.missingSkillTagText}>{skill}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
+          <FitScoreDisplay
+            matchScore={matchScore}
+            compact={false}
+            showDetails={true}
+          />
         )}
 
         {/* Job Header */}

@@ -12,6 +12,7 @@ import { showError } from '../../../utils/toast';
 import { jobListScreenStyles } from '../../../constants/styles/jobListScreenStyles';
 import { useRefresh } from '../../../hooks/useRefresh';
 import LoadMoreButton from '../../../components/ui/LoadMoreButton';
+import FitScoreDisplay from '../../../components/ui/FitScoreDisplay';
 
 interface Job {
   id: string;
@@ -217,12 +218,20 @@ const JobListScreen = ({ navigation }: any) => {
                       )}
                     </View>
 
-                    {job.matchScore !== undefined && (
-                      <View style={styles.matchContainer}>
-                        <Text style={styles.matchText}>
-                          Match: {job.matchScore}/{job.requiredSkills.length} skills
-                        </Text>
-                      </View>
+                    {/* Enhanced Fit Score Display */}
+                    {job.matchScore && (
+                      <FitScoreDisplay
+                        matchScore={{
+                          score: job.matchScore,
+                          totalRequired: job.requiredSkills.length,
+                          matchPercentage: (job.matchScore / job.requiredSkills.length) * 100,
+                          matchRating: job.matchRating || 'basic',
+                          matchedSkills: job.matchedSkills || [],
+                          missingSkills: job.missingSkills || [],
+                        }}
+                        compact={true}
+                        showDetails={false}
+                      />
                     )}
                   </TouchableOpacity>
 

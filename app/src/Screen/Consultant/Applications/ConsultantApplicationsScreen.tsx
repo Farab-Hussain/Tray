@@ -2,24 +2,24 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Modal,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ChevronLeft, Plus, X, CheckCircle, Clock, XCircle, FileText, Trash2, Pencil } from 'lucide-react-native';
+import { ChevronLeft, Plus } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
 import { consultantApplicationsScreenStyles as styles } from '../../../constants/styles/consultantApplicationsScreenStyles';
-import { getStatusColor } from '../../../utils/statusUtils';
 import EmptyState from '../../../components/ui/EmptyState';
+import ConsultantApplicationCard from '../../../components/ui/ConsultantApplicationCard';
+import ConsultantServiceModal from '../../../components/ui/ConsultantServiceModal';
+import FormInput from '../../../components/ui/FormInput';
+import PriceInput from '../../../components/ui/PriceInput';
+import ImageUpload from '../../../components/ui/ImageUpload';
+import StatCard from '../../../components/ui/StatCard';
 import {
   createConsultantApplication,
   getConsultantApplications,
@@ -27,8 +27,6 @@ import {
   updateConsultantApplication,
   ConsultantApplication,
 } from '../../../services/consultantFlow.service';
-import ImageUpload from '../../../components/ui/ImageUpload';
-import StatCard from '../../../components/ui/StatCard';
 import { api } from '../../../lib/fetcher';
 import { ConsultantService } from '../../../services/consultant.service';
 import axios from 'axios';
@@ -293,7 +291,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     
     // Validate form and show errors immediately
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors before submitting');
+      Alert.alert('', 'Please fix the errors before submitting');
       return;
     }
 
@@ -667,19 +665,9 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     setEditingApplication(null);
     setEditingServiceId(null);
     setEditingOriginalValues(null);
-  setIsLoadingServiceDetails(false);
-  setLoadingServiceId(null);
-  setMutatingApplicationId(null);
-  };
-
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle size={16} color={COLORS.green} />;
-      case 'pending': return <Clock size={16} color={COLORS.orange} />;
-      case 'rejected': return <XCircle size={16} color={COLORS.red} />;
-      default: return <FileText size={16} color={COLORS.gray} />;
-    }
+    setIsLoadingServiceDetails(false);
+    setLoadingServiceId(null);
+    setMutatingApplicationId(null);
   };
 
   const pendingCount = applications.filter(a => a.status === 'pending').length;
@@ -745,107 +733,16 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
         ) : (
           <View style={styles.applicationsList}>
             {applications.map((app) => (
-              <View key={app.id} style={styles.applicationCard}>
-                <View style={styles.cardHeader}>
-                  <FileText size={20} color={COLORS.green} />
-                  <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(app.status, 'service')}20` }]}>
-                    <View style={styles.statusContent}>
-                      {getStatusIcon(app.status)}
-                      <Text style={[styles.statusText, { color: getStatusColor(app.status, 'service') }]}>
-                        {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <Text style={styles.cardTitle}>
-                  {app.type === 'new' || app.type === 'update'
-                    ? app.customService?.title
-                    : app.existingServiceTitle || 'Service Application'}
-                </Text>
-                
-                {(app.type === 'new' || app.type === 'update') && app.customService && (
-                  <>
-                    {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
-                    {/* {(app.customService.imageUrl || app.customService.videoUrl) && ( */}
-                    {app.customService.imageUrl && (
-                      <View style={styles.serviceImageContainer}>
-                        {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
-                        {/* {app.customService.videoUrl ? (
-                          ... video preview code ...
-                        ) : ( */}
-                          <Image 
-                            source={{ uri: app.customService.imageUrl! }} 
-                            style={styles.serviceImage}
-                            resizeMode="cover"
-                          />
-                        {/* )} */}
-                      </View>
-                    )}
-                    <Text style={styles.cardDescription} numberOfLines={2}>
-                      {app.customService.description}
-                    </Text>
-                    <View style={styles.cardDetails}>
-                      <Text style={styles.cardDetailText}>
-                        ${app.customService.price} • {app.customService.duration} mins
-                      </Text>
-                    </View>
-                  </>
-                )}
-
-                {app.reviewNotes && (
-                  <View style={styles.reviewNotes}>
-                    <Text style={styles.reviewNotesLabel}>Review Notes:</Text>
-                    <Text style={styles.reviewNotesText}>{app.reviewNotes}</Text>
-                  </View>
-                )}
-
-                {(app.status === 'pending' || app.status === 'approved') && (
-                  <View style={styles.cardActions}>
-                    {/* Only show Edit button for approved services */}
-                    {app.status === 'approved' && (app.type === 'new' || app.type === 'update') && (
-                      <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => handleEditApplication(app)}
-                        disabled={isLoadingServiceDetails || isSubmitting}
-                      >
-                        {loadingServiceId === app.id && isLoadingServiceDetails ? (
-                          <ActivityIndicator size="small" color={COLORS.green} />
-                        ) : (
-                          <>
-                            <Pencil size={16} color={COLORS.green} />
-                            <Text style={styles.editButtonText}>Edit</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={[
-                        styles.deleteButton,
-                        app.status === 'approved' && styles.deleteButtonEmphasis,
-                      ]}
-                      onPress={() => handleDeleteApplication(app)}
-                      disabled={isSubmitting}
-                    >
-                      {mutatingApplicationId === app.id && isSubmitting ? (
-                        <ActivityIndicator size="small" color={COLORS.red} />
-                      ) : (
-                        <>
-                          <Trash2 size={16} color={COLORS.red} />
-                          <Text
-                            style={[
-                              styles.deleteButtonText,
-                              app.status === 'approved' && styles.deleteButtonTextStrong,
-                            ]}
-                          >
-                            Delete
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
+              <ConsultantApplicationCard
+                key={app.id}
+                application={app}
+                onEdit={handleEditApplication}
+                onDelete={handleDeleteApplication}
+                isLoadingServiceDetails={isLoadingServiceDetails}
+                loadingServiceId={loadingServiceId}
+                isSubmitting={isSubmitting}
+                mutatingApplicationId={mutatingApplicationId}
+              />
             ))}
           </View>
         )}
@@ -854,177 +751,82 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       </ScrollView>
 
       {/* New Application Modal */}
-      <Modal
+      <ConsultantServiceModal
         visible={showModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={handleCloseModal}
+        isEditing={isEditing}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmitApplication}
+        isSubmitting={isSubmitting}
+        submitButtonText={isEditing ? 'Update Service' : 'Submit Application'}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{isEditing ? 'Edit Service' : 'New Application'}</Text>
-              <TouchableOpacity onPress={handleCloseModal}>
-                <X size={24} color={COLORS.gray} />
-              </TouchableOpacity>
-            </View>
+        <FormInput
+          label="Service Title"
+          value={serviceTitle}
+          onChangeText={(text) => {
+            setServiceTitle(text);
+            clearFieldError('serviceTitle');
+          }}
+          placeholder="e.g., Career Mentorship Session"
+          error={validationErrors.serviceTitle}
+          required
+        />
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalForm}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Service Title *</Text>
-                  <TextInput
-                    style={[styles.input, validationErrors.serviceTitle && { borderColor: COLORS.red }]}
-                    value={serviceTitle}
-                    onChangeText={(text) => {
-                      setServiceTitle(text);
-                      clearFieldError('serviceTitle');
-                    }}
-                    placeholder="e.g., Career Mentorship Session"
-                    placeholderTextColor={COLORS.lightGray}
-                  />
-                  {validationErrors.serviceTitle && (
-                    <Text style={{ color: COLORS.red, fontSize: 12, marginTop: 4 }}>
-                      {validationErrors.serviceTitle}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Service Media *</Text>
-                  <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-                    Upload an image to showcase your service
-                  </Text>
-                  <ImageUpload
-                    currentImageUrl={serviceImage || ''}
-                    // VIDEO UPLOAD CODE - COMMENTED OUT: currentVideoUrl={serviceVideo || ''}
-                    currentPublicId={serviceImagePublicId || ''}
-                    // VIDEO UPLOAD CODE - COMMENTED OUT: currentVideoPublicId={serviceVideoPublicId || ''}
-                    onImageUploaded={(imageUrl, publicId) => {
-                      setServiceImage(imageUrl);
-                      setServiceImagePublicId(publicId);
-                      // VIDEO UPLOAD CODE - COMMENTED OUT
-                      // // Clear video when image is uploaded
-                      // setServiceVideo(null);
-                      // setServiceVideoPublicId(null);
-                      clearFieldError('serviceImage');
-                    }}
-                    // VIDEO UPLOAD CODE - COMMENTED OUT: onVideoUploaded={(videoUrl, publicId) => { ... }}
-                    onImageDeleted={() => {
-                      setServiceImage(null);
-                      setServiceImagePublicId(null);
-                      clearFieldError('serviceImage');
-                    }}
-                    // VIDEO UPLOAD CODE - COMMENTED OUT: onVideoDeleted={() => { ... }}
-                    placeholder="Upload service image"
-                    style={styles.imageUpload}
-                    required={true}
-                    error={validationErrors.serviceImage}
-                    uploadType="service"
-                    // VIDEO UPLOAD CODE - COMMENTED OUT: allowVideo={true}
-                  />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Description * (min 20 chars)</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea, validationErrors.serviceDescription && { borderColor: COLORS.red }]}
-                    value={serviceDescription}
-                    onChangeText={(text) => {
-                      setServiceDescription(text);
-                      clearFieldError('serviceDescription');
-                    }}
-                    placeholder="Describe your service..."
-                    multiline
-                    numberOfLines={4}
-                    placeholderTextColor={COLORS.lightGray}
-                  />
-                  <Text style={styles.charCount}>{serviceDescription.length} chars</Text>
-                  {validationErrors.serviceDescription && (
-                    <Text style={{ color: COLORS.red, fontSize: 12, marginTop: 4 }}>
-                      {validationErrors.serviceDescription}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.row}>
-                  <View style={[styles.inputContainer, styles.halfWidth]}>
-                    <Text style={styles.label}>Duration (mins) *</Text>
-                    <TextInput
-                      style={[styles.input, validationErrors.serviceDuration && { borderColor: COLORS.red }]}
-                      value={serviceDuration}
-                      onChangeText={(text) => {
-                        setServiceDuration(text);
-                        clearFieldError('serviceDuration');
-                      }}
-                      placeholder="60"
-                      keyboardType="numeric"
-                      placeholderTextColor={COLORS.lightGray}
-                    />
-                    {validationErrors.serviceDuration && (
-                      <Text style={{ color: COLORS.red, fontSize: 12, marginTop: 4 }}>
-                        {validationErrors.serviceDuration}
-                      </Text>
-                    )}
-                  </View>
-
-                  <View style={[styles.inputContainer, styles.halfWidth]}>
-                    <Text style={styles.label}>Price (USD) *</Text>
-                    <View style={styles.priceInput}>
-                      <Text style={styles.priceSymbol}>$</Text>
-                      <TextInput
-                        style={[styles.input, styles.priceInputField, validationErrors.servicePrice && { borderColor: COLORS.red }]}
-                        value={servicePrice}
-                        onChangeText={(text) => {
-                          setServicePrice(text);
-                          clearFieldError('servicePrice');
-                        }}
-                        placeholder="150"
-                        keyboardType="numeric"
-                        placeholderTextColor={COLORS.lightGray}
-                      />
-                    </View>
-                    {validationErrors.servicePrice && (
-                      <Text style={{ color: COLORS.red, fontSize: 12, marginTop: 4 }}>
-                        {validationErrors.servicePrice}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={handleCloseModal}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-                onPress={handleSubmitApplication}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.submitButtonText}>
-                    {isEditing ? 'Save Changes' : 'Submit'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Service Media *</Text>
+          <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+            Upload an image to showcase your service
+          </Text>
+          <ImageUpload
+            image={serviceImage}
+            setImage={setServiceImage}
+            imagePublicId={serviceImagePublicId}
+            setImagePublicId={setServiceImagePublicId}
+            aspectRatio={16/9}
+            placeholder="Upload Service Image"
+          />
         </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+        <FormInput
+          label="Description (min 20 chars)"
+          value={serviceDescription}
+          onChangeText={(text) => {
+            setServiceDescription(text);
+            clearFieldError('serviceDescription');
+          }}
+          placeholder="Describe your service in detail..."
+          multiline
+          numberOfLines={4}
+          error={validationErrors.serviceDescription}
+          required
+        />
+
+        <View style={styles.row}>
+          <FormInput
+            label="Duration (mins)"
+            value={serviceDuration}
+            onChangeText={(text) => {
+              setServiceDuration(text);
+              clearFieldError('serviceDuration');
+            }}
+            placeholder="60"
+            keyboardType="numeric"
+            error={validationErrors.serviceDuration}
+            required
+            style={styles.halfWidth}
+          />
+
+          <PriceInput
+            value={servicePrice}
+            onChangeText={(text) => {
+              setServicePrice(text);
+              clearFieldError('servicePrice');
+            }}
+            error={validationErrors.servicePrice}
+            required
+            style={styles.halfWidth}
+          />
+        </View>
+      </ConsultantServiceModal>
     </SafeAreaView>
   );
 }
-
-

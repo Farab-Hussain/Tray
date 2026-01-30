@@ -11,6 +11,11 @@ export interface PaymentIntentRequest {
 export interface PaymentIntentResponse {
   clientSecret: string;
   paymentIntentId: string;
+  amount?: number;
+  currency?: string;
+  description?: string;
+  success?: boolean;
+  error?: string;
 }
 
 export interface PaymentIntentError {
@@ -169,6 +174,74 @@ class PaymentService {
         console.error('Error updating platform fee config:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to update platform fee configuration');
+    }
+  }
+
+  /**
+   * Create payment intent for job posting
+   */
+  async createJobPostingPaymentIntent(): Promise<PaymentIntentResponse> {
+    try {
+      if (__DEV__) {
+        console.log('Creating job posting payment intent...')
+      };
+
+      const response = await api.post<PaymentIntentResponse>('/payment/job-posting/create-intent');
+
+      if (__DEV__) {
+        console.log('Job posting payment intent created:', response.data)
+      };
+
+      return {
+        ...response.data,
+        success: true
+      };
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Error creating job posting payment intent:', error)
+      };
+      
+      return {
+        clientSecret: '',
+        paymentIntentId: '',
+        success: false,
+        error: error.response?.data?.error || 'Failed to create job posting payment intent'
+      };
+    }
+  }
+
+  /**
+   * Confirm job posting payment
+   */
+  async confirmJobPostingPayment(paymentIntentId: string): Promise<PaymentIntentResponse> {
+    try {
+      if (__DEV__) {
+        console.log('Confirming job posting payment:', paymentIntentId)
+      };
+
+      const response = await api.post<PaymentIntentResponse>('/payment/job-posting/confirm', {
+        paymentIntentId
+      });
+
+      if (__DEV__) {
+        console.log('Job posting payment confirmed:', response.data)
+      };
+
+      return {
+        ...response.data,
+        success: true
+      };
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Error confirming job posting payment:', error)
+      };
+      
+      return {
+        clientSecret: '',
+        paymentIntentId: '',
+        success: false,
+        error: error.response?.data?.error || 'Failed to confirm job posting payment'
+      };
     }
   }
 }
