@@ -172,32 +172,77 @@ export const resumeServices = {
    * Update work preferences
    */
   async updateWorkPreferences(uid: string, preferences: WorkPreferences): Promise<Resume> {
-    const existingResume = await this.getByUserId(uid);
-    
-    const updateData = {
-      workRestrictions: preferences.workRestrictions,
-      transportationStatus: preferences.transportationStatus,
-      shiftFlexibility: preferences.shiftFlexibility,
-      preferredWorkTypes: preferences.preferredWorkTypes,
-      jobsToAvoid: preferences.jobsToAvoid,
-    };
+    try {
+      const existingResume = await this.getByUserId(uid);
+      
+      const updateData = {
+        workRestrictions: preferences.workRestrictions,
+        transportationStatus: preferences.transportationStatus,
+        shiftFlexibility: preferences.shiftFlexibility,
+        preferredWorkTypes: preferences.preferredWorkTypes,
+        jobsToAvoid: preferences.jobsToAvoid,
+      };
 
-    return this.update(existingResume.id, updateData);
+      return this.update(existingResume.id, updateData);
+    } catch (error: any) {
+      // If no resume exists, create one with just the work preferences
+      if (error.message === "Resume not found") {
+        const resumeRef = db.collection(COLLECTION).doc();
+        const now = Timestamp.now();
+
+        const resumeData: Resume = {
+          id: resumeRef.id,
+          userId: uid,
+          personalInfo: {
+            name: '',
+            email: '',
+          },
+          skills: [],
+          experience: [],
+          education: [],
+          workRestrictions: preferences.workRestrictions,
+          transportationStatus: preferences.transportationStatus,
+          shiftFlexibility: preferences.shiftFlexibility,
+          preferredWorkTypes: preferences.preferredWorkTypes,
+          jobsToAvoid: preferences.jobsToAvoid,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        await resumeRef.set(resumeData);
+        return resumeData;
+      }
+      throw error;
+    }
   },
 
   /**
    * Get work preferences
    */
   async getWorkPreferences(uid: string): Promise<WorkPreferences> {
-    const resume = await this.getByUserId(uid);
-    
-    return {
-      workRestrictions: resume.workRestrictions || [],
-      transportationStatus: resume.transportationStatus,
-      shiftFlexibility: resume.shiftFlexibility,
-      preferredWorkTypes: resume.preferredWorkTypes || [],
-      jobsToAvoid: resume.jobsToAvoid || [],
-    };
+    try {
+      const resume = await this.getByUserId(uid);
+      
+      return {
+        workRestrictions: resume.workRestrictions || [],
+        transportationStatus: resume.transportationStatus || 'none',
+        shiftFlexibility: resume.shiftFlexibility || { days: [], shifts: [] },
+        preferredWorkTypes: resume.preferredWorkTypes || [],
+        jobsToAvoid: resume.jobsToAvoid || [],
+      };
+    } catch (error: any) {
+      // If no resume exists, return default preferences
+      if (error.message === "Resume not found") {
+        return {
+          workRestrictions: [],
+          transportationStatus: 'none',
+          shiftFlexibility: { days: [], shifts: [] },
+          preferredWorkTypes: [],
+          jobsToAvoid: [],
+        };
+      }
+      throw error;
+    }
   },
 
   /**
@@ -232,28 +277,69 @@ export const resumeServices = {
    * Update career goals
    */
   async updateCareerGoals(uid: string, goals: CareerGoals): Promise<Resume> {
-    const existingResume = await this.getByUserId(uid);
-    
-    const updateData = {
-      careerInterests: goals.careerInterests,
-      targetIndustries: goals.targetIndustries,
-      salaryExpectation: goals.salaryExpectation,
-    };
+    try {
+      const existingResume = await this.getByUserId(uid);
+      
+      const updateData = {
+        careerInterests: goals.careerInterests,
+        targetIndustries: goals.targetIndustries,
+        salaryExpectation: goals.salaryExpectation,
+      };
 
-    return this.update(existingResume.id, updateData);
+      return this.update(existingResume.id, updateData);
+    } catch (error: any) {
+      // If no resume exists, create one with just the career goals
+      if (error.message === "Resume not found") {
+        const resumeRef = db.collection(COLLECTION).doc();
+        const now = Timestamp.now();
+
+        const resumeData: Resume = {
+          id: resumeRef.id,
+          userId: uid,
+          personalInfo: {
+            name: '',
+            email: '',
+          },
+          skills: [],
+          experience: [],
+          education: [],
+          careerInterests: goals.careerInterests,
+          targetIndustries: goals.targetIndustries,
+          salaryExpectation: goals.salaryExpectation,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        await resumeRef.set(resumeData);
+        return resumeData;
+      }
+      throw error;
+    }
   },
 
   /**
    * Get career goals
    */
   async getCareerGoals(uid: string): Promise<CareerGoals> {
-    const resume = await this.getByUserId(uid);
-    
-    return {
-      careerInterests: resume.careerInterests || [],
-      targetIndustries: resume.targetIndustries || [],
-      salaryExpectation: resume.salaryExpectation,
-    };
+    try {
+      const resume = await this.getByUserId(uid);
+      
+      return {
+        careerInterests: resume.careerInterests || [],
+        targetIndustries: resume.targetIndustries || [],
+        salaryExpectation: resume.salaryExpectation || { min: 0, max: 0 },
+      };
+    } catch (error: any) {
+      // If no resume exists, return default career goals
+      if (error.message === "Resume not found") {
+        return {
+          careerInterests: [],
+          targetIndustries: [],
+          salaryExpectation: { min: 0, max: 0 },
+        };
+      }
+      throw error;
+    }
   },
 
   /**

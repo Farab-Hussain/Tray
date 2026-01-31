@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
+import { ResumeService } from '../../../services/resume.service';
 import {
   GraduationCap,
   Plus,
@@ -41,6 +42,30 @@ const EducationScreen = ({ navigation }: any) => {
   });
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    loadEducation();
+  }, []);
+
+  const loadEducation = async () => {
+    try {
+      const response = await ResumeService.getMyResume();
+      if (response.resume && response.resume.education) {
+        setEducationList(response.resume.education);
+        if (__DEV__) {
+          console.log('📥 [EducationScreen] Loaded education:', response.resume.education);
+        }
+      }
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        console.log('No existing education found, starting with defaults');
+      } else {
+        if (__DEV__) {
+          console.error('Error loading education:', error);
+        }
+      }
+    }
+  };
+
   const addEducation = () => {
     if (!newEducation.institution.trim() || !newEducation.degree.trim()) {
       Alert.alert('Validation Error', 'Please fill in at least institution and degree');
@@ -68,11 +93,14 @@ const EducationScreen = ({ navigation }: any) => {
   };
 
   const handleSave = async () => {
-    // Validation checks
+    // More lenient validation - allow partial saves
     const errors: string[] = [];
     
-    if (educationList.length === 0) {
-      errors.push('Please add at least one education entry or remove this section');
+    // Only validate if user has entered some data
+    const hasSomeData = educationList.length > 0;
+    
+    if (!hasSomeData) {
+      errors.push('Please add at least one education entry before saving');
     }
     
     if (errors.length > 0) {
@@ -83,11 +111,17 @@ const EducationScreen = ({ navigation }: any) => {
     setLoading(true);
     
     try {
-      // TODO: Save to backend
+      if (__DEV__) {
+        console.log('💾 [EducationScreen] Saving education:', educationList);
+      }
+      
+      // Use existing updateResume endpoint instead of specific education endpoint
+      await ResumeService.updateResume({ education: educationList });
       Alert.alert('Success', 'Education information saved successfully!');
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save education information');
+      console.error('Error saving education:', error);
+      Alert.alert('Error', 'Failed to save education information. Please try again.');
     } finally {
       setLoading(false);
     }

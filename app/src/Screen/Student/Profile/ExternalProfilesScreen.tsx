@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Alert,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
+import { UserService } from '../../../services/user.service';
 import {
   Linkedin,
   Globe,
@@ -35,6 +36,55 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
     url: '',
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadExternalProfiles();
+  }, []);
+
+  const loadExternalProfiles = async () => {
+    try {
+      const response = await UserService.getProfile();
+      if (response.profile && response.profile.externalProfiles) {
+        const externalProfiles = response.profile.externalProfiles;
+        const loadedProfiles: ExternalProfile[] = [];
+        
+        // Convert backend format to frontend format
+        if (externalProfiles.linkedin) {
+          loadedProfiles.push({
+            id: 'linkedin',
+            platform: 'linkedin',
+            url: externalProfiles.linkedin,
+            displayText: getDisplayText(externalProfiles.linkedin, 'linkedin'),
+          });
+        }
+        if (externalProfiles.github) {
+          loadedProfiles.push({
+            id: 'github',
+            platform: 'github',
+            url: externalProfiles.github,
+            displayText: getDisplayText(externalProfiles.github, 'github'),
+          });
+        }
+        if (externalProfiles.portfolio) {
+          loadedProfiles.push({
+            id: 'portfolio',
+            platform: 'portfolio',
+            url: externalProfiles.portfolio,
+            displayText: getDisplayText(externalProfiles.portfolio, 'portfolio'),
+          });
+        }
+        
+        setProfiles(loadedProfiles);
+        if (__DEV__) {
+          console.log('📥 [ExternalProfilesScreen] Loaded external profiles:', loadedProfiles);
+        }
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Error loading external profiles:', error);
+      }
+    }
+  };
 
   const platformConfig = {
     linkedin: {
@@ -143,11 +193,33 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
     setLoading(true);
     
     try {
-      // TODO: Save to backend
+      // Convert frontend format to backend format
+      const externalProfilesData: any = {};
+      
+      profiles.forEach(profile => {
+        switch (profile.platform) {
+          case 'linkedin':
+            externalProfilesData.linkedin = profile.url;
+            break;
+          case 'github':
+            externalProfilesData.github = profile.url;
+            break;
+          case 'portfolio':
+            externalProfilesData.portfolio = profile.url;
+            break;
+        }
+      });
+
+      if (__DEV__) {
+        console.log('💾 [ExternalProfilesScreen] Saving external profiles:', externalProfilesData);
+      }
+      
+      await UserService.updateProfile({ externalProfiles: externalProfilesData });
       Alert.alert('Success', 'External profiles saved successfully!');
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save external profiles');
+      console.error('Error saving external profiles:', error);
+      Alert.alert('Error', 'Failed to save external profiles. Please try again.');
     } finally {
       setLoading(false);
     }

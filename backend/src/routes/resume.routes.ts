@@ -14,6 +14,10 @@ import {
   getAuthorization,
   updateCareerGoals,
   getCareerGoals,
+  updateEducation,
+  getEducation,
+  updateCertifications,
+  getCertifications,
   updateExternalProfiles,
   getExternalProfiles,
   updateMultipleSections,
@@ -50,6 +54,14 @@ router.get("/authorization", authenticateUser(), getAuthorization); // GET /resu
 // Career Goals
 router.put("/career-goals", authenticateUser(), updateCareerGoals); // PUT /resumes/career-goals
 router.get("/career-goals", authenticateUser(), getCareerGoals); // GET /resumes/career-goals
+
+// Education
+router.put("/education", authenticateUser(), updateEducation); // PUT /resumes/education
+router.get("/education", authenticateUser(), getEducation); // GET /resumes/education
+
+// Certifications
+router.put("/certifications", authenticateUser(), updateCertifications); // PUT /resumes/certifications
+router.get("/certifications", authenticateUser(), getCertifications); // GET /resumes/certifications
 
 // External Profiles
 router.put("/external-profiles", authenticateUser(), updateExternalProfiles); // PUT /resumes/external-profiles

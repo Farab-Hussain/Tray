@@ -3,11 +3,11 @@ import {
   View,
   Text,
   ScrollView,
-  SafeAreaView,
   RefreshControl,
   Image,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
   User,
@@ -29,6 +29,9 @@ import {
   ChevronRight,
   BarChart3,
   Camera,
+  Globe,
+  Linkedin,
+  Github,
 } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
@@ -62,21 +65,20 @@ const StudentProfile = ({ navigation }: any) => {
       const profileResponse = await UserService.getUserProfile();
       setBackendProfile(profileResponse);
 
-      // Set default profile completion (no API call to avoid 404 errors)
-      setProfileCompletion({
-        overallCompletion: 0,
-        basicProfile: false,
-        workPreferences: false,
-        authorization: false,
-        careerGoals: false,
-        externalProfiles: false
-      });
-
       // Fetch resume if exists
+      let resumeData = null;
       try {
         const resumeResponse = await ResumeService.getMyResume();
         if (resumeResponse.resume) {
           setResume(resumeResponse.resume);
+          resumeData = resumeResponse.resume;
+          if (__DEV__) {
+            console.log('✅ [StudentProfile] Resume data loaded:', {
+              careerInterests: resumeData.careerInterests,
+              targetIndustries: resumeData.targetIndustries,
+              salaryExpectation: resumeData.salaryExpectation
+            });
+          }
         }
       } catch (error: any) {
         // Resume not found is okay - this is expected for new users
@@ -87,6 +89,117 @@ const StudentProfile = ({ navigation }: any) => {
         }
         setResume(null);
       }
+
+      // Calculate profile completion based on actual data
+      const calculateProfileCompletion = (profileData: any, resumeData: any) => {
+        let completion = 0;
+        const maxCompletion = 100;
+        
+        // Basic profile (30%)
+        if (profileData?.name || user?.displayName) completion += 10;
+        if (profileData?.email || user?.email) completion += 10;
+        if (profileData?.profileImage || user?.photoURL) completion += 10;
+        
+        // Resume (25%)
+        if (resumeData) {
+          if (resumeData.skills && resumeData.skills.length > 0) completion += 10;
+          if (resumeData.experience && resumeData.experience.length > 0) completion += 10;
+          if (resumeData.education && resumeData.education.length > 0) completion += 5;
+        }
+        
+        // Work preferences (20%)
+        // Check if work preferences exist in the resume data
+        if (resumeData) {
+          if (resumeData.shiftFlexibility?.days && resumeData.shiftFlexibility.days.length > 0) completion += 10;
+          if (resumeData.transportationStatus && resumeData.transportationStatus !== 'none') completion += 5;
+          if (resumeData.workRestrictions && resumeData.workRestrictions.length > 0) completion += 5;
+        }
+        
+        // Career goals (15%)
+        if (resumeData) {
+          let careerGoalsCompletion = 0;
+          
+          if (resumeData.careerInterests && resumeData.careerInterests.length > 0) {
+            careerGoalsCompletion += 8;
+            if (__DEV__) {
+              console.log('✅ [ProfileCompletion] Career interests found:', resumeData.careerInterests.length);
+            }
+          }
+          if (resumeData.targetIndustries && resumeData.targetIndustries.length > 0) {
+            careerGoalsCompletion += 7;
+            if (__DEV__) {
+              console.log('✅ [ProfileCompletion] Target industries found:', resumeData.targetIndustries.length);
+            }
+          }
+          
+          // If no interests or industries but salary is set, give partial credit
+          if (careerGoalsCompletion === 0 && resumeData.salaryExpectation) {
+            const hasValidSalary = (resumeData.salaryExpectation.min && resumeData.salaryExpectation.min > 0) ||
+                                 (resumeData.salaryExpectation.max && resumeData.salaryExpectation.max > 0);
+            if (hasValidSalary) {
+              careerGoalsCompletion = 5; // Partial credit for salary only
+              if (__DEV__) {
+                console.log('✅ [ProfileCompletion] Salary expectation found, partial credit given');
+              }
+            }
+          }
+          
+          completion += careerGoalsCompletion;
+          
+          if (__DEV__) {
+            console.log('📊 [ProfileCompletion] Career goals data:', {
+              hasCareerInterests: !!(resumeData.careerInterests && resumeData.careerInterests.length > 0),
+              hasTargetIndustries: !!(resumeData.targetIndustries && resumeData.targetIndustries.length > 0),
+              hasSalaryExpectation: !!(resumeData.salaryExpectation),
+              careerGoalsCompletion
+            });
+          }
+        }
+        
+        // External profiles (10%)
+        if (profileData?.externalProfiles) {
+          if (profileData.externalProfiles.linkedin || profileData.externalProfiles.github || profileData.externalProfiles.portfolio) {
+            completion += 10;
+          }
+        }
+        
+        return {
+          overallCompletion: Math.min(completion, maxCompletion),
+          basicProfile: !!(profileData?.name || user?.displayName) && !!(profileData?.email || user?.email),
+          workPreferences: !!(resumeData && (
+            (resumeData.shiftFlexibility?.days && resumeData.shiftFlexibility.days.length > 0) ||
+            resumeData.transportationStatus !== 'none' ||
+            (resumeData.workRestrictions && resumeData.workRestrictions.length > 0)
+          )),
+          authorization: !!(resumeData?.workAuthorized),
+          careerGoals: !!(resumeData && (
+            (resumeData.careerInterests && resumeData.careerInterests.length > 0) ||
+            (resumeData.targetIndustries && resumeData.targetIndustries.length > 0) ||
+            (resumeData.salaryExpectation && (
+              (resumeData.salaryExpectation.min && resumeData.salaryExpectation.min > 0) ||
+              (resumeData.salaryExpectation.max && resumeData.salaryExpectation.max > 0)
+            ))
+          )),
+          externalProfiles: !!(profileData?.externalProfiles),
+          hasResume: !!resumeData,
+          hasSkills: !!(resumeData?.skills && resumeData.skills.length > 0),
+          hasExperience: !!(resumeData?.experience && resumeData.experience.length > 0),
+          hasEducation: !!(resumeData?.education && resumeData.education.length > 0),
+        };
+      };
+
+      const completionData = calculateProfileCompletion(profileResponse, resumeData);
+      
+      if (__DEV__) {
+        console.log('🎯 [StudentProfile] Final completion data:', {
+          overallCompletion: completionData.overallCompletion,
+          careerGoals: completionData.careerGoals,
+          hasResume: completionData.hasResume,
+          resumeDataKeys: resumeData ? Object.keys(resumeData) : 'No resume data'
+        });
+      }
+      
+      setProfileCompletion(completionData);
     } catch (error: any) {
       if (__DEV__) {
         console.error('Error fetching profile data:', error)
@@ -97,6 +210,39 @@ const StudentProfile = ({ navigation }: any) => {
         email: user.email || null,
         profileImage: user.photoURL || null,
       });
+
+      // Calculate completion with fallback data
+      const calculateFallbackCompletion = (profileData: any) => {
+        let completion = 0;
+        
+        // Basic profile (30%)
+        if (profileData?.name || user?.displayName) completion += 10;
+        if (profileData?.email || user?.email) completion += 10;
+        if (profileData?.profileImage || user?.photoURL) completion += 10;
+        
+        return {
+          overallCompletion: completion,
+          basicProfile: !!(profileData?.name || user?.displayName) && !!(profileData?.email || user?.email),
+          workPreferences: false,
+          authorization: false,
+          careerGoals: false,
+          externalProfiles: false,
+          hasResume: false,
+          hasSkills: false,
+          hasExperience: false,
+          hasEducation: false,
+        };
+      };
+
+      const fallbackData = {
+        name: user.displayName || null,
+        email: user.email || null,
+        profileImage: user.photoURL || null,
+      };
+      
+      const completionData = calculateFallbackCompletion(fallbackData);
+      setProfileCompletion(completionData);
+      setResume(null);
     } finally {
       setLoading(false);
     }
@@ -107,7 +253,7 @@ const StudentProfile = ({ navigation }: any) => {
   useFocusEffect(
     useCallback(() => {
       fetchProfileData();
-    }, [fetchProfileData])
+    }, [user])
   );
 
   // const handleImageUpdate = async (imageUrl: string | null) => {
@@ -249,6 +395,141 @@ const StudentProfile = ({ navigation }: any) => {
                 : 'Excellent! Your profile is complete.'
               }
             </Text>
+
+            {/* Detailed completion breakdown */}
+            <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8, color: COLORS.black }}>
+                Profile Breakdown:
+              </Text>
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: COLORS.gray }}>Basic Info:</Text>
+                <Text style={{ fontSize: 12, color: profileCompletion?.basicProfile ? COLORS.green : COLORS.red }}>
+                  {profileCompletion?.basicProfile ? '✓ Complete' : '✗ Incomplete'}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: COLORS.gray }}>Resume:</Text>
+                <Text style={{ fontSize: 12, color: profileCompletion?.hasResume ? COLORS.green : COLORS.red }}>
+                  {profileCompletion?.hasResume ? '✓ Complete' : '✗ Incomplete'}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: COLORS.gray }}>Skills:</Text>
+                <Text style={{ fontSize: 12, color: profileCompletion?.hasSkills ? COLORS.green : COLORS.red }}>
+                  {profileCompletion?.hasSkills ? '✓ Complete' : '✗ Incomplete'}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: COLORS.gray }}>Experience:</Text>
+                <Text style={{ fontSize: 12, color: profileCompletion?.hasExperience ? COLORS.green : COLORS.red }}>
+                  {profileCompletion?.hasExperience ? '✓ Complete' : '✗ Incomplete'}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: COLORS.gray }}>Education:</Text>
+                <Text style={{ fontSize: 12, color: profileCompletion?.hasEducation ? COLORS.green : COLORS.red }}>
+                  {profileCompletion?.hasEducation ? '✓ Complete' : '✗ Incomplete'}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: COLORS.gray }}>Work Preferences:</Text>
+                <Text style={{ fontSize: 12, color: profileCompletion?.workPreferences ? COLORS.green : COLORS.red }}>
+                  {profileCompletion?.workPreferences ? '✓ Complete' : '✗ Incomplete'}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 12, color: COLORS.gray }}>Career Goals:</Text>
+                <Text style={{ fontSize: 12, color: profileCompletion?.careerGoals ? COLORS.green : COLORS.red }}>
+                  {profileCompletion?.careerGoals ? '✓ Complete' : '✗ Incomplete'}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                <Text style={{ fontSize: 12, color: COLORS.gray }}>External Profiles:</Text>
+                <Text style={{ fontSize: 12, color: profileCompletion?.externalProfiles ? COLORS.green : COLORS.red }}>
+                  {profileCompletion?.externalProfiles ? '✓ Complete' : '✗ Incomplete'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Action buttons for incomplete sections */}
+            {completionPercentage < 100 && (
+              <View style={{ marginTop: 12 }}>
+                {!profileCompletion?.hasResume && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: COLORS.green,
+                      borderRadius: 6,
+                      padding: 8,
+                      alignItems: 'center',
+                      marginBottom: 8,
+                    }}
+                    onPress={() => navigation.navigate('Resume')}
+                  >
+                    <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>
+                      Add Resume (+25%)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {!profileCompletion?.workPreferences && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: COLORS.blue,
+                      borderRadius: 6,
+                      padding: 8,
+                      alignItems: 'center',
+                      marginBottom: 8,
+                    }}
+                    onPress={() => navigation.navigate('WorkPreferences')}
+                  >
+                    <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>
+                      Set Work Preferences (+20%)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {!profileCompletion?.careerGoals && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: COLORS.purple,
+                      borderRadius: 6,
+                      padding: 8,
+                      alignItems: 'center',
+                    }}
+                    onPress={() => navigation.navigate('CareerGoals')}
+                  >
+                    <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>
+                      Set Career Goals (+15%)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {!profileCompletion?.externalProfiles && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: COLORS.blue,
+                      borderRadius: 6,
+                      padding: 8,
+                      alignItems: 'center',
+                      marginTop: 8,
+                    }}
+                    onPress={() => navigation.navigate('ExternalProfilesScreen')}
+                  >
+                    <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>
+                      Add External Profiles (+10%)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
         </View>
 
@@ -355,7 +636,7 @@ const StudentProfile = ({ navigation }: any) => {
             }] : []),
             ...(resume?.salaryExpectation ? [{
               label: 'Salary Expectation',
-              value: resume.salaryExpectation,
+              value: `$${resume.salaryExpectation.min?.toLocaleString() || 0} - $${resume.salaryExpectation.max?.toLocaleString() || 0}`,
               icon: DollarSign,
               iconColor: COLORS.green,
               showSeparator: false,
@@ -400,6 +681,41 @@ const StudentProfile = ({ navigation }: any) => {
               value: `${resume.certifications.length} certification${resume.certifications.length > 1 ? 's' : ''}`,
               icon: Award,
               iconColor: COLORS.purple,
+              showSeparator: false,
+            }] : []),
+          ]}
+        />
+
+        {/* External Profiles Section */}
+        <ProfileSectionCard
+          title="External Profiles"
+          icon={Globe}
+          items={[
+            {
+              label: 'External Profiles',
+              subtext: 'Add your LinkedIn, GitHub, and portfolio links',
+              onPress: () => navigation.navigate('ExternalProfilesScreen'),
+              rightIcon: ChevronRight,
+            },
+            ...(backendProfile?.externalProfiles?.linkedin ? [{
+              label: 'LinkedIn',
+              value: 'LinkedIn profile connected',
+              icon: Linkedin,
+              iconColor: COLORS.blue,
+              showSeparator: false,
+            }] : []),
+            ...(backendProfile?.externalProfiles?.github ? [{
+              label: 'GitHub',
+              value: 'GitHub profile connected',
+              icon: Github,
+              iconColor: COLORS.gray,
+              showSeparator: false,
+            }] : []),
+            ...(backendProfile?.externalProfiles?.portfolio ? [{
+              label: 'Portfolio',
+              value: 'Portfolio website connected',
+              icon: Globe,
+              iconColor: COLORS.green,
               showSeparator: false,
             }] : []),
           ]}

@@ -119,11 +119,12 @@ export const jobApplicationServices = {
 
   /**
    * Get applications with populated user and resume data (for hiring manager view)
+   * SECURITY: Filters out sensitive information from employers
    */
-  async getByJobIdWithDetails(jobId: string): Promise<JobApplicationWithDetails[]> {
+  async getByJobIdWithDetails(jobId: string, requestingUserId?: string, requestingUserRole?: string): Promise<JobApplicationWithDetails[]> {
     const applications = await this.getByJobId(jobId);
 
-    // Populate user and resume data
+    // Populate user and resume data with security filtering
     const applicationsWithDetails = await Promise.all(
       applications.map(async (app) => {
         try {
@@ -139,21 +140,14 @@ export const jobApplicationServices = {
           const jobDoc = await db.collection("jobs").doc(app.jobId).get();
           const jobData = jobDoc.exists ? jobDoc.data() : null;
 
+          // SECURITY FILTER: Remove sensitive information for employers
+          const filteredUserData = this.filterUserDataForEmployer(userData, requestingUserRole);
+          const filteredResumeData = this.filterResumeDataForEmployer(resumeData, requestingUserRole);
+
           const details: JobApplicationWithDetails = {
             ...app,
-            user: userData ? {
-              uid: userData.uid || app.userId,
-              name: userData.name || "",
-              email: userData.email || "",
-              profileImage: userData.profileImage,
-            } : undefined,
-            resume: resumeData ? {
-              id: resumeData.id || app.resumeId,
-              skills: resumeData.skills || [],
-              experience: resumeData.experience || [],
-              education: resumeData.education || [],
-              resumeFileUrl: resumeData.resumeFileUrl,
-            } : undefined,
+            user: filteredUserData as { uid: string; name: string; email: string; profileImage?: string | undefined } | undefined,
+            resume: filteredResumeData,
             job: jobData ? {
               id: jobData.id || app.jobId,
               title: jobData.title || "",
@@ -171,6 +165,85 @@ export const jobApplicationServices = {
     );
 
     return applicationsWithDetails;
+  },
+
+  /**
+   * SECURITY: Filter user data to prevent employers from accessing sensitive information
+   */
+  filterUserDataForEmployer(userData: any, requestingUserRole?: string) {
+    // If not an employer, return full data
+    if (requestingUserRole !== 'employer') {
+      return userData ? {
+        uid: userData.uid || "",
+        name: userData.name || "",
+        email: userData.email || "",
+        profileImage: userData.profileImage,
+      } : undefined;
+    }
+
+    // EMPLOYER SECURITY: Block access to sensitive user information
+    return userData ? {
+      uid: userData.uid || "",
+      name: userData.name || "",
+      // BLOCKED: email, profileImage, phone, address, etc.
+      // Only provide basic identification for matching purposes
+    } : undefined;
+  },
+
+  /**
+   * SECURITY: Filter resume data to prevent employers from accessing private documents
+   */
+  filterResumeDataForEmployer(resumeData: any, requestingUserRole?: string) {
+    // If not an employer, return full data
+    if (requestingUserRole !== 'employer') {
+      return resumeData ? {
+        id: resumeData.id || "",
+        skills: resumeData.skills || [],
+        experience: resumeData.experience || [],
+        education: resumeData.education || [],
+        resumeFileUrl: resumeData.resumeFileUrl,
+      } : undefined;
+    }
+
+    // EMPLOYER SECURITY: Block access to private resume documents and sensitive info
+    return resumeData ? {
+      id: resumeData.id || "",
+      skills: resumeData.skills || [], // Allow skills for matching
+      experience: resumeData.experience?.map((exp: any) => ({
+        title: exp.title,
+        company: exp.company,
+        duration: exp.duration,
+        // BLOCKED: detailed descriptions, achievements, references
+      })) || [],
+      education: resumeData.education?.map((edu: any) => ({
+        degree: edu.degree,
+        field: edu.field,
+        institution: edu.institution,
+        // BLOCKED: graduation year, GPA, achievements
+      })) || [],
+      // BLOCKED: resumeFileUrl - employers cannot download private resumes
+      // BLOCKED: personal information, work restrictions, transportation, etc.
+    } : undefined;
+  },
+
+  /**
+   * Get secure application details for employer review
+   * This is the main method that should be called for employer views
+   */
+  async getSecureApplicationsForEmployer(jobId: string, employerUserId: string): Promise<JobApplicationWithDetails[]> {
+    // Verify that the employer owns this job
+    const jobDoc = await db.collection("jobs").doc(jobId).get();
+    if (!jobDoc.exists) {
+      throw new Error("Job not found");
+    }
+
+    const jobData = jobDoc.data();
+    if (jobData && jobData.postedBy !== employerUserId) {
+      throw new Error("Access denied: You can only view applications for your own jobs");
+    }
+
+    // Get applications with security filtering
+    return await this.getByJobIdWithDetails(jobId, employerUserId, 'employer');
   },
 
   /**

@@ -5,9 +5,9 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ResumeService } from '../../../services/resume.service';
 import { COLORS } from '../../../constants/core/colors';
@@ -62,27 +62,47 @@ const WorkPreferences = ({ navigation }: any) => {
   }, []);
 
   const loadWorkPreferences = async () => {
-    _setLoading(false);
+    try {
+      const response = await ResumeService.getWorkPreferences();
+      if (response.preferences) {
+        setWorkPreferences({
+          workRestrictions: response.preferences.workRestrictions || [],
+          transportationStatus: response.preferences.transportationStatus || 'none',
+          shiftFlexibility: {
+            days: response.preferences.shiftFlexibility?.days || [],
+            shifts: response.preferences.shiftFlexibility?.shifts || []
+          },
+          preferredWorkTypes: response.preferences.preferredWorkTypes || [],
+          jobsToAvoid: response.preferences.jobsToAvoid || []
+        });
+      }
+    } catch (error: any) {
+      // 404 is expected for new users - no work preferences exist yet
+      if (error?.response?.status === 404) {
+        console.log('No existing work preferences found, starting with defaults');
+      } else {
+        // Log other errors but don't crash the app
+        if (__DEV__) {
+          console.error('Error loading work preferences:', error);
+        }
+      }
+    }
   };
 
   const handleSave = async () => {
-    // Validation checks
+    // More lenient validation - allow partial saves
     const errors: string[] = [];
     
-    if (workPreferences.workRestrictions.length === 0) {
-      errors.push('Please add at least one work restriction or remove this section');
-    }
-    
-    if (!workPreferences.transportationStatus) {
-      errors.push('Please select your transportation method');
-    }
-    
-    if (workPreferences.preferredWorkTypes.length === 0) {
-      errors.push('Please select at least one preferred work type');
-    }
-    
-    if (workPreferences.shiftFlexibility.days.length === 0 || workPreferences.shiftFlexibility.shifts.length === 0) {
-      errors.push('Please select at least one available day and one preferred shift');
+    // Only validate if user has entered some data
+    const hasSomeData = 
+      workPreferences.workRestrictions.length > 0 ||
+      workPreferences.transportationStatus !== 'none' ||
+      workPreferences.preferredWorkTypes.length > 0 ||
+      workPreferences.shiftFlexibility.days.length > 0 ||
+      workPreferences.shiftFlexibility.shifts.length > 0;
+
+    if (!hasSomeData) {
+      errors.push('Please add at least one preference before saving');
     }
     
     if (errors.length > 0) {
@@ -96,7 +116,8 @@ const WorkPreferences = ({ navigation }: any) => {
       Alert.alert('Success', 'Work preferences updated successfully!');
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'Failed to update work preferences');
+      console.error('Error saving work preferences:', error);
+      Alert.alert('Error', 'Failed to update work preferences. Please try again.');
     } finally {
       setSaving(false);
     }

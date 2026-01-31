@@ -6,6 +6,18 @@ export const UserService = {
     return await fetcher('/auth/me');
   },
 
+  // Alias for getUserProfile for consistency
+  async getProfile() {
+    if (__DEV__) {
+      console.log('📥 [UserService] Fetching user profile...');
+    }
+    const result = await this.getUserProfile();
+    if (__DEV__) {
+      console.log('✅ [UserService] Profile data received:', result);
+    }
+    return result;
+  },
+
   // Update user profile (uses /auth/profile endpoint)
   async updateProfile(profileData: {
     name?: string;
@@ -17,6 +29,11 @@ export const UserService = {
     experience?: string;
     avatarUrl?: string | null;
     profileImage?: string | null; // Backend uses profileImage field
+    externalProfiles?: {
+      linkedin?: string;
+      github?: string;
+      portfolio?: string;
+    };
   }) {
     // Map avatarUrl to profileImage for backend compatibility
     // Handle null explicitly (null means delete, undefined means don't update)
@@ -34,7 +51,16 @@ export const UserService = {
     
     delete backendData.avatarUrl; // Remove frontend field
     
+    if (__DEV__) {
+      console.log('💾 [UserService] Updating profile with data:', backendData);
+    }
+    
     const response = await api.put('/auth/profile', backendData);
+    
+    if (__DEV__) {
+      console.log('✅ [UserService] Profile update response:', response.data);
+    }
+    
     return response.data;
   },
 

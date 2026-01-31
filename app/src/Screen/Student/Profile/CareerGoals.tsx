@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ResumeService } from '../../../services/resume.service';
 import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -31,6 +32,43 @@ const CareerGoals = ({ navigation }: any) => {
 
   const [newInterest, setNewInterest] = useState('');
   const [newIndustry, setNewIndustry] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadCareerGoals();
+  }, []);
+
+  const loadCareerGoals = async () => {
+    try {
+      const response = await ResumeService.getCareerGoals();
+      if (response.goals) {
+        const loadedGoals = {
+          careerInterests: response.goals.careerInterests || [],
+          targetIndustries: response.goals.targetIndustries || [],
+          salaryExpectation: {
+            min: response.goals.salaryExpectation?.min?.toString() || '',
+            max: response.goals.salaryExpectation?.max?.toString() || ''
+          }
+        };
+        
+        if (__DEV__) {
+          console.log('📥 [CareerGoals] Loaded career goals:', loadedGoals);
+        }
+        
+        setCareerGoals(loadedGoals);
+      }
+    } catch (error: any) {
+      // 404 is expected for new users - no career goals exist yet
+      if (error?.response?.status === 404) {
+        console.log('No existing career goals found, starting with defaults');
+      } else {
+        // Log other errors but don't crash the app
+        if (__DEV__) {
+          console.error('Error loading career goals:', error);
+        }
+      }
+    }
+  };
 
   const addCareerInterest = () => {
     if (newInterest.trim()) {
@@ -66,21 +104,22 @@ const CareerGoals = ({ navigation }: any) => {
     }));
   };
 
-  const handleSave = () => {
-    // Validation checks
+  const handleSave = async () => {
+    // More lenient validation - allow partial saves
     const errors: string[] = [];
     
-    if (careerGoals.careerInterests.length === 0) {
-      errors.push('Please add at least one career interest');
+    // Only validate if user has entered some data
+    const hasSomeData = 
+      careerGoals.careerInterests.length > 0 ||
+      careerGoals.targetIndustries.length > 0 ||
+      (careerGoals.salaryExpectation.min && careerGoals.salaryExpectation.max);
+
+    if (!hasSomeData) {
+      errors.push('Please add at least one career goal before saving');
     }
     
-    if (careerGoals.targetIndustries.length === 0) {
-      errors.push('Please add at least one target industry');
-    }
-    
-    if (!careerGoals.salaryExpectation.min || !careerGoals.salaryExpectation.max) {
-      errors.push('Please specify both minimum and maximum salary expectations');
-    } else {
+    // Validate salary if both fields are filled
+    if (careerGoals.salaryExpectation.min && careerGoals.salaryExpectation.max) {
       const min = parseInt(careerGoals.salaryExpectation.min, 10);
       const max = parseInt(careerGoals.salaryExpectation.max, 10);
       
@@ -98,8 +137,31 @@ const CareerGoals = ({ navigation }: any) => {
       return;
     }
 
-    Alert.alert('Success', 'Career goals updated successfully!');
-    navigation.goBack();
+    try {
+      setSaving(true);
+      
+      const careerGoalsData = {
+        careerInterests: careerGoals.careerInterests,
+        targetIndustries: careerGoals.targetIndustries,
+        salaryExpectation: {
+          min: careerGoals.salaryExpectation.min ? parseInt(careerGoals.salaryExpectation.min, 10) : 0,
+          max: careerGoals.salaryExpectation.max ? parseInt(careerGoals.salaryExpectation.max, 10) : 0
+        }
+      };
+
+      if (__DEV__) {
+        console.log('💾 [CareerGoals] Saving career goals data:', careerGoalsData);
+      }
+
+      await ResumeService.updateCareerGoals(careerGoalsData);
+      Alert.alert('Success', 'Career goals updated successfully!');
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error saving career goals:', error);
+      Alert.alert('Error', 'Failed to update career goals. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {

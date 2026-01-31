@@ -17,7 +17,7 @@ interface ProfileSectionCardProps {
 
 interface ProfileItem {
   label: string;
-  value?: string;
+  value?: string | number | null;
   subtext?: string;
   icon?: LucideIcon;
   iconColor?: string;
@@ -59,8 +59,13 @@ const ProfileSectionCard: React.FC<ProfileSectionCardProps> = ({
                 )}
                 <View style={styles.infoItemText}>
                   <Text style={styles.infoLabel}>{item.label}</Text>
-                  {item.value && (
-                    <Text style={styles.infoValue}>{item.value}</Text>
+                  {item.value !== undefined && item.value !== null && (
+                    <Text style={styles.infoValue}>
+                      {typeof item.value === 'string' || typeof item.value === 'number' 
+                        ? item.value.toString() 
+                        : 'Invalid data format'
+                      }
+                    </Text>
                   )}
                   {item.subtext && (
                     <Text style={styles.infoSubtext}>{item.subtext}</Text>

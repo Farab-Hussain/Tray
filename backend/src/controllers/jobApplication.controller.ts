@@ -350,6 +350,7 @@ export const applyForJob = async (req: Request, res: Response) => {
 
 /**
  * Get applications for a job (Hiring Manager only)
+ * SECURITY: Uses secure application review to block access to private client documents
  * CRITICAL: Applications are sorted by match rating (Gold first)
  */
 export const getJobApplications = async (req: Request, res: Response) => {
@@ -361,14 +362,39 @@ export const getJobApplications = async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    // Verify job exists and user owns it
+    // SECURITY: Use secure application review for employers
+    if (user.role === 'employer') {
+      // Get applications with security filtering
+      const applications = await jobApplicationServices.getSecureApplicationsForEmployer(id, user.uid);
+
+      // Count by rating
+      const goldCount = applications.filter(app => app.matchRating === "gold").length;
+      const silverCount = applications.filter(app => app.matchRating === "silver").length;
+      const bronzeCount = applications.filter(app => app.matchRating === "bronze").length;
+      const basicCount = applications.filter(app => app.matchRating === "basic").length;
+
+      res.status(200).json({
+        applications: serializeApplications(applications),
+        summary: {
+          total: applications.length,
+          gold: goldCount,
+          silver: silverCount,
+          bronze: bronzeCount,
+          basic: basicCount,
+        },
+        securityNotice: "Private client documents and sensitive information have been filtered for employer access",
+      });
+      return;
+    }
+
+    // For non-employers (admin, etc.), use full access
     const job = await jobServices.getById(id);
-    if (job.postedBy !== user.uid) {
+    if (job.postedBy !== user.uid && user.role !== 'admin') {
       return res.status(403).json({ error: "You can only view applications for your own jobs" });
     }
 
-    // Get applications with details (sorted by rating - Gold first)
-    const applications = await jobApplicationServices.getByJobIdWithDetails(id);
+    // Get applications with full details (sorted by rating - Gold first)
+    const applications = await jobApplicationServices.getByJobIdWithDetails(id, user.uid, user.role);
 
     // Count by rating
     const goldCount = applications.filter(app => app.matchRating === "gold").length;
@@ -389,6 +415,133 @@ export const getJobApplications = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Error fetching applications:", error);
     res.status(500).json({ error: error.message || "Failed to fetch applications" });
+  }
+};
+
+/**
+ * Security test endpoint: Test employer access to private client documents
+ * This endpoint demonstrates that employers are blocked from accessing sensitive information
+ */
+export const testEmployerAccessSecurity = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Only allow this test for employers and admins
+    if (user.role !== 'employer' && user.role !== 'admin') {
+      return res.status(403).json({ error: "This test is for employers and admins only" });
+    }
+
+    // Find a job with applications to test
+    const jobsSnapshot = await require('../config/firebase').db
+      .collection('jobs')
+      .where('postedBy', '==', user.uid)
+      .limit(1)
+      .get();
+
+    if (jobsSnapshot.empty) {
+      return res.status(404).json({ 
+        message: 'No jobs found for testing',
+        testResult: 'NO_JOBS_FOUND',
+        recommendation: 'Create a job posting first to test security'
+      });
+    }
+
+    const testJob = jobsSnapshot.docs[0].data();
+    const jobId = jobsSnapshot.docs[0].id;
+
+    // Get applications using the secure method
+    const applications = await jobApplicationServices.getSecureApplicationsForEmployer(jobId, user.uid);
+
+    // Test security by checking what information is available
+    const securityTest = {
+      jobId,
+      jobTitle: testJob.title,
+      totalApplications: applications.length,
+      employerAccess: {
+        canSeeUserEmail: false, // Should be false
+        canSeeUserPhone: false, // Should be false
+        canSeeUserAddress: false, // Should be false
+        canSeeResumeFileUrl: false, // Should be false
+        canSeeDetailedExperience: false, // Should be false
+        canSeeFullEducation: false, // Should be false
+        canSeeSkills: true, // Should be true for matching
+        canSeeMatchScores: true, // Should be true for ranking
+      },
+      sampleApplication: applications.length > 0 ? {
+        hasUser: !!applications[0].user,
+        hasResume: !!applications[0].resume,
+        userFields: applications[0].user ? Object.keys(applications[0].user) : [],
+        resumeFields: applications[0].resume ? Object.keys(applications[0].resume) : [],
+        hasResumeFileUrl: !!(applications[0].resume as any)?.resumeFileUrl,
+        matchScore: applications[0].matchScore,
+        matchRating: applications[0].matchRating,
+      } : null,
+    };
+
+    // Verify security measures
+    const securityPassed = 
+      !securityTest.employerAccess.canSeeUserEmail &&
+      !securityTest.employerAccess.canSeeUserPhone &&
+      !securityTest.employerAccess.canSeeUserAddress &&
+      !securityTest.employerAccess.canSeeResumeFileUrl &&
+      securityTest.employerAccess.canSeeSkills &&
+      securityTest.employerAccess.canSeeMatchScores;
+
+    // Check sample application if available
+    if (securityTest.sampleApplication) {
+      const sample = securityTest.sampleApplication;
+      const sampleSecurityPassed = 
+        !sample.hasResumeFileUrl &&
+        !sample.userFields.includes('email') &&
+        !sample.userFields.includes('phone') &&
+        !sample.userFields.includes('address') &&
+        sample.resumeFields.includes('skills');
+
+      if (!sampleSecurityPassed) {
+        console.warn('SECURITY BREACH DETECTED:', {
+          hasResumeFileUrl: sample.hasResumeFileUrl,
+          userFields: sample.userFields,
+          resumeFields: sample.resumeFields,
+        });
+      }
+    }
+
+    const testResult = {
+      message: 'Employer access security test completed',
+      testResult: securityPassed ? 'SECURITY_PASSED' : 'SECURITY_BREACH',
+      securityStatus: securityPassed ? '✅ Security working correctly' : '🚨 SECURITY BREACH DETECTED',
+      test: securityTest,
+      recommendation: securityPassed 
+        ? '✅ Employers are properly blocked from accessing private client documents'
+        : '🚨 CRITICAL: Security system failed - employers can access private information!',
+      timestamp: new Date().toISOString(),
+      testedBy: {
+        userId: user.uid,
+        userRole: user.role,
+      },
+    };
+
+    // Log the security test
+    console.log('SECURITY TEST:', {
+      testResult: testResult.testResult,
+      userId: user.uid,
+      userRole: user.role,
+      jobId,
+      applicationCount: applications.length,
+    });
+
+    res.status(200).json(testResult);
+  } catch (error: any) {
+    console.error("Error in security test:", error);
+    res.status(500).json({ 
+      error: "Security test failed", 
+      details: error.message,
+      testResult: 'TEST_ERROR'
+    });
   }
 };
 

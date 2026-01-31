@@ -16,6 +16,7 @@ import {
   getMyApplications,
   updateApplicationStatus,
   getApplicationById,
+  testEmployerAccessSecurity,
 } from "../controllers/jobApplication.controller";
 import {
   validateCreateJob,
@@ -61,6 +62,9 @@ router.get("/applications/my", authenticateUser(), getMyApplications); // GET /j
 router.get("/:id/applications", authenticateUser(), validateJobId, getJobApplications); // GET /jobs/:id/applications - Get applications for a job (sorted by rating)
 router.put("/applications/:id/status", authenticateUser(), validateUpdateApplicationStatus, updateApplicationStatus); // PUT /jobs/applications/:id/status - Update application status
 router.get("/applications/:id", authenticateUser(), getApplicationById); // GET /jobs/applications/:id - Get application by ID
+
+// Security Test Routes
+router.post("/security/test-employer-access", authenticateUser(), testEmployerAccessSecurity); // POST /jobs/security/test-employer-access - Test employer security access
 
 export default router;
 

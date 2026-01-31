@@ -131,6 +131,22 @@ export const ResumeService = {
   },
 
   /**
+   * Update education (Student) - NEW
+   */
+  async updateEducation(education: any[]) {
+    const response = await api.put('/resumes/education', { education });
+    return response.data;
+  },
+
+  /**
+   * Update certifications (Student) - NEW
+   */
+  async updateCertifications(certifications: any[]) {
+    const response = await api.put('/resumes/certifications', { certifications });
+    return response.data;
+  },
+
+  /**
    * Get resume by ID (for job applications)
    */
   async getResumeById(resumeId: string) {

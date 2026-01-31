@@ -264,7 +264,7 @@ export const updateProfile = async (req: Request, res: Response) => {
 
   try {
     const user = (req as any).user;
-    const { name, profileImage } = req.body;
+    const { name, profileImage, externalProfiles } = req.body;
 
     const updateData: any = {
       updatedAt: new Date(),
@@ -272,6 +272,9 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     if (name) updateData.name = name;
     if (profileImage !== undefined) updateData.profileImage = profileImage;
+    if (externalProfiles) updateData.externalProfiles = externalProfiles;
+
+    console.log(`💾 [PUT /auth/profile] - Updating user ${user.uid} with data:`, updateData);
 
     await db.collection("users").doc(user.uid).update(updateData);
 
@@ -281,7 +284,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     console.log(`🗑️ [PUT /auth/profile] - Cache invalidated for user: ${user.uid}`);
 
     console.log(`✅ [PUT /auth/profile] - Profile updated successfully: ${user.uid}`);
-    res.json({ message: "Profile updated successfully" });
+    res.json({ message: "Profile updated successfully", updateData });
   } catch (error) {
     console.error("❌ [PUT /auth/profile] - Update profile error:", error);
     res.status(500).json({ error: (error as Error).message });

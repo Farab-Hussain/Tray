@@ -46,6 +46,10 @@ export const validateLogin = [
 export const validateUpdateProfile = [
   body('name').optional().isString().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be between 1 and 100 characters'),
   body('profileImage').optional().isString().isURL().withMessage('Profile image must be a valid URL'),
+  body('externalProfiles').optional().isObject().withMessage('External profiles must be an object'),
+  body('externalProfiles.linkedin').optional().isURL().withMessage('LinkedIn URL must be a valid URL'),
+  body('externalProfiles.github').optional().isURL().withMessage('GitHub URL must be a valid URL'),
+  body('externalProfiles.portfolio').optional().isURL().withMessage('Portfolio URL must be a valid URL'),
   handleValidationErrors,
 ];
 

@@ -343,3 +343,107 @@ export const updateResumeSkills = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Update education (Student)
+ */
+export const updateEducation = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { education } = req.body;
+    if (!Array.isArray(education)) {
+      return res.status(400).json({ error: "Education must be an array" });
+    }
+
+    const resume = await resumeServices.getByUserId(user.uid);
+    const updatedResume = await resumeServices.update(resume.id, { education });
+
+    res.status(200).json({
+      message: "Education updated successfully",
+      resume: updatedResume,
+    });
+  } catch (error: any) {
+    if (error.message === "Resume not found") {
+      return res.status(404).json({ error: "Resume not found. Please create a resume first." });
+    }
+    console.error("Error updating education:", error);
+    res.status(500).json({ error: error.message || "Failed to update education" });
+  }
+};
+
+/**
+ * Get education (Student)
+ */
+export const getEducation = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const resume = await resumeServices.getByUserId(user.uid);
+    res.status(200).json({ education: resume.education || [] });
+  } catch (error: any) {
+    if (error.message === "Resume not found") {
+      return res.status(404).json({ error: "Resume not found" });
+    }
+    console.error("Error fetching education:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch education" });
+  }
+};
+
+/**
+ * Update certifications (Student)
+ */
+export const updateCertifications = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { certifications } = req.body;
+    if (!Array.isArray(certifications)) {
+      return res.status(400).json({ error: "Certifications must be an array" });
+    }
+
+    const resume = await resumeServices.getByUserId(user.uid);
+    const updatedResume = await resumeServices.update(resume.id, { certifications });
+
+    res.status(200).json({
+      message: "Certifications updated successfully",
+      resume: updatedResume,
+    });
+  } catch (error: any) {
+    if (error.message === "Resume not found") {
+      return res.status(404).json({ error: "Resume not found. Please create a resume first." });
+    }
+    console.error("Error updating certifications:", error);
+    res.status(500).json({ error: error.message || "Failed to update certifications" });
+  }
+};
+
+/**
+ * Get certifications (Student)
+ */
+export const getCertifications = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const resume = await resumeServices.getByUserId(user.uid);
+    res.status(200).json({ certifications: resume.certifications || [] });
+  } catch (error: any) {
+    if (error.message === "Resume not found") {
+      return res.status(404).json({ error: "Resume not found" });
+    }
+    console.error("Error fetching certifications:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch certifications" });
+  }
+};
+
