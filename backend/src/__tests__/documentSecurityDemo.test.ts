@@ -34,7 +34,7 @@ jest.mock('../config/firebase', () => ({
   db: {
     collection: jest.fn(() => ({
       doc: jest.fn((docId: string) => {
-        // Mock document ownership based on document ID
+        // DEtail on the base of the document ID
         const mockDoc = {
           get: jest.fn(() => Promise.resolve({
             exists: true,
