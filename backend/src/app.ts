@@ -20,9 +20,10 @@ import jobRoutes from './routes/job.routes';
 import resumeRoutes from './routes/resume.routes';
 import studentRoutes from './routes/student.routes';
 import authorizationDocumentRoutes from './routes/authorizationDocument.routes';
-import consultantContentRoutes from './routes/consultantContent.routes';
-import fileSecurityRoutes from './routes/fileSecurity.routes';
-import companyRoutes from './routes/company.routes';
+import consultantContentRoutes from "./routes/consultantContent.routes";
+import fileSecurityRoutes from "./routes/fileSecurity.routes";
+import companyRoutes from "./routes/company.routes";
+import courseRoutes from "./routes/course.routes";
 
 dotenv.config();
 
@@ -171,6 +172,7 @@ app.use("/authorization-documents", authorizationDocumentRoutes);
 app.use("/consultant-content", consultantContentRoutes);
 app.use("/files", fileSecurityRoutes);
 app.use("/companies", companyRoutes);
+app.use("/courses", courseRoutes);
 registerSupportRoutes(app);
 
 // 404 handler for unmatched routes
