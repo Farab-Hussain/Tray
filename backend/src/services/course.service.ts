@@ -9,328 +9,294 @@ import {
   CourseFilters,
   CourseSearchResult,
   CourseBookmark,
-  CourseNote
+  CourseNote,
+  CourseCategory,
+  QuizQuestion,
+  QuizAttempt,
+  AssignmentSubmission,
+  CoursePurchase,
+  CourseSubscription,
+  CourseCertificate
 } from '../models/course.model';
 import { db } from '../config/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import { randomUUID } from 'crypto';
 
 export class CourseService {
   private coursesCollection = db.collection('courses');
-  private lessonsCollection = db.collection('courseLessons');
   private enrollmentsCollection = db.collection('courseEnrollments');
   private progressCollection = db.collection('courseProgress');
   private reviewsCollection = db.collection('courseReviews');
   private bookmarksCollection = db.collection('courseBookmarks');
   private notesCollection = db.collection('courseNotes');
+  
+  // NEW: Collections for enhanced features
+  private purchasesCollection = db.collection('coursePurchases');
+  private subscriptionsCollection = db.collection('courseSubscriptions');
+  private certificatesCollection = db.collection('courseCertificates');
 
   /**
    * Create a new course
    */
-  async create(courseData: CourseInput, instructorId: string): Promise<Course> {
-    const courseId = randomUUID();
-    const now = Timestamp.now();
-
-    // Get instructor info
-    const instructorDoc = await db.collection('users').doc(instructorId).get();
-    const instructorData = instructorDoc.data() || {};
-
+  async createCourse(courseData: CourseInput, instructorId: string): Promise<Course> {
     const course: Course = {
-      id: courseId,
+      id: '',
       ...courseData,
       instructorId,
-      instructorName: `${instructorData.firstName || ''} ${instructorData.lastName || ''}`.trim() || instructorData.displayName || 'Instructor',
-      instructorBio: instructorData.bio,
-      instructorAvatar: instructorData.photoURL,
+      instructorName: '', // Will be populated from user profile
       status: 'draft',
       enrollmentCount: 0,
       completionCount: 0,
       averageRating: 0,
       ratingCount: 0,
       reviewCount: 0,
-      createdAt: now,
-      updatedAt: now,
-      publishedAt: undefined,
-      approvedBy: undefined,
-      approvedAt: undefined,
-      rejectionReason: undefined,
       featured: false,
       trending: false,
       bestseller: false,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      
+      // NEW: Initialize enhanced fields with defaults
+      pricingOptions: courseData.pricingOptions || {
+        monthly: courseData.price,
+        yearly: Math.floor(courseData.price * 10), // 10 months for yearly
+        lifetime: Math.floor(courseData.price * 20), // 20 months for lifetime
+      },
+      enrollmentType: courseData.enrollmentType || 'instant',
+      availabilitySchedule: {
+        startDate: courseData.availabilitySchedule?.startDate 
+          ? Timestamp.fromDate(courseData.availabilitySchedule.startDate) 
+          : Timestamp.now(),
+        endDate: courseData.availabilitySchedule?.endDate 
+          ? Timestamp.fromDate(courseData.availabilitySchedule.endDate) 
+          : undefined,
+        enrollmentDeadline: courseData.availabilitySchedule?.enrollmentDeadline 
+          ? Timestamp.fromDate(courseData.availabilitySchedule.enrollmentDeadline) 
+          : undefined,
+        maxEnrollments: courseData.availabilitySchedule?.maxEnrollments,
+        currentEnrollments: 0,
+      },
+      accessDuration: courseData.accessDuration || {
+        type: 'lifetime',
+      },
+      isLaunched: courseData.isLaunched || false,
+      launchDate: courseData.launchDate 
+        ? Timestamp.fromDate(courseData.launchDate) 
+        : undefined,
     };
 
-    await this.coursesCollection.doc(courseId).set(course);
-    return course;
+    const docRef = await this.coursesCollection.add(course);
+    return { ...course, id: docRef.id };
   }
 
   /**
    * Get course by ID
    */
-  async getById(courseId: string): Promise<Course> {
+  async getCourseById(courseId: string): Promise<Course | null> {
     const doc = await this.coursesCollection.doc(courseId).get();
-    if (!doc.exists) {
-      throw new Error('Course not found');
-    }
-    return doc.data() as Course;
+    return doc.exists ? { id: doc.id, ...doc.data() } as Course : null;
   }
 
   /**
    * Get course by slug
    */
-  async getBySlug(slug: string): Promise<Course> {
-    const snapshot = await this.coursesCollection.where('slug', '==', slug).limit(1).get();
-    if (snapshot.empty) {
-      throw new Error('Course not found');
-    }
-    return snapshot.docs[0].data() as Course;
+  async getCourseBySlug(slug: string): Promise<Course | null> {
+    const snapshot = await this.coursesCollection
+      .where('slug', '==', slug)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) return null;
+    
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as Course;
   }
 
   /**
    * Update course
    */
-  async update(courseId: string, instructorId: string, updates: Partial<CourseInput>): Promise<Course> {
-    const course = await this.getById(courseId);
+  async updateCourse(courseId: string, instructorId: string, updates: Partial<Course>): Promise<Course> {
+    const courseRef = this.coursesCollection.doc(courseId);
     
-    if (course.instructorId !== instructorId) {
-      throw new Error('Only course instructor can update course');
+    // Verify instructor owns the course
+    const course = await this.getCourseById(courseId);
+    if (!course || course.instructorId !== instructorId) {
+      throw new Error('Course not found or access denied');
     }
 
     const updatedCourse = {
-      ...course,
       ...updates,
       updatedAt: Timestamp.now(),
     };
 
-    await this.coursesCollection.doc(courseId).update(updatedCourse);
-    return updatedCourse;
+    await courseRef.update(updatedCourse);
+    return { ...course, id: courseId, ...updatedCourse } as Course;
   }
 
   /**
    * Delete course
    */
-  async delete(courseId: string, instructorId: string): Promise<void> {
-    const course = await this.getById(courseId);
-    
-    if (course.instructorId !== instructorId) {
-      throw new Error('Only course instructor can delete course');
-    }
-
-    // Check if course has enrollments
-    const enrollmentsSnapshot = await this.enrollmentsCollection
-      .where('courseId', '==', courseId)
-      .limit(1)
-      .get();
-
-    if (!enrollmentsSnapshot.empty) {
-      throw new Error('Cannot delete course with active enrollments');
+  async deleteCourse(courseId: string, instructorId: string): Promise<void> {
+    const course = await this.getCourseById(courseId);
+    if (!course || course.instructorId !== instructorId) {
+      throw new Error('Course not found or access denied');
     }
 
     await this.coursesCollection.doc(courseId).delete();
-    
-    // Delete related lessons
-    const lessonsSnapshot = await this.lessonsCollection
-      .where('courseId', '==', courseId)
-      .get();
-    
-    const batch = db.batch();
-    lessonsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
   }
 
   /**
    * Search courses with filters
    */
-  async search(filters: CourseFilters): Promise<CourseSearchResult> {
+  async searchCourses(filters: CourseFilters): Promise<CourseSearchResult> {
+    const {
+      search,
+      category,
+      subcategory,
+      level,
+      language,
+      priceRange,
+      rating,
+      hasCertificate,
+      isFree,
+      sort = 'newest',
+      page = 1,
+      limit = 20,
+    } = filters;
+
     let query = this.coursesCollection.where('status', '==', 'published');
 
     // Apply filters
-    if (filters.category) {
-      query = query.where('category', '==', filters.category);
+    if (category) {
+      query = query.where('category', '==', category);
     }
-    if (filters.level) {
-      query = query.where('level', '==', filters.level);
+    
+    if (level) {
+      query = query.where('level', '==', level);
     }
-    if (filters.isFree !== undefined) {
-      query = query.where('isFree', '==', filters.isFree);
+
+    if (language) {
+      query = query.where('language', '==', language);
     }
-    if (filters.hasCertificate) {
+
+    if (typeof isFree === 'boolean') {
+      query = query.where('isFree', '==', isFree);
+    }
+
+    if (hasCertificate) {
       query = query.where('certificateAvailable', '==', true);
     }
-    if (filters.instructorId) {
-      query = query.where('instructorId', '==', filters.instructorId);
-    }
-    if (filters.featured) {
-      query = query.where('featured', '==', true);
-    }
-    if (filters.trending) {
-      query = query.where('trending', '==', true);
-    }
-    if (filters.bestseller) {
-      query = query.where('bestseller', '==', true);
+
+    // Price range filter
+    if (priceRange) {
+      if (priceRange.min !== undefined) {
+        query = query.where('price', '>=', priceRange.min);
+      }
+      if (priceRange.max !== undefined) {
+        query = query.where('price', '<=', priceRange.max);
+      }
     }
 
-    // Price range filtering
-    if (filters.priceRange) {
-      query = query.where('price', '>=', filters.priceRange.min)
-                  .where('price', '<=', filters.priceRange.max);
+    // Rating filter
+    if (rating) {
+      query = query.where('averageRating', '>=', rating);
     }
 
-    // Rating filtering
-    if (filters.rating) {
-      query = query.where('averageRating', '>=', filters.rating);
+    // Apply sorting (simplified for testing - avoid complex composite queries)
+    const sortConfig = this.getSortConfig(sort);
+    
+    // Get results and sort in memory for complex queries
+    const snapshot = await query.limit(100).get(); // Get more for sorting
+    let courses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
+
+    // Apply text search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      courses = courses.filter(course => 
+        course.title.toLowerCase().includes(searchLower) ||
+        course.description.toLowerCase().includes(searchLower) ||
+        course.tags.some(tag => tag.toLowerCase().includes(searchLower))
+      );
     }
 
-    // Text search (basic implementation)
-    if (filters.search) {
-      // Note: For full-text search, consider using Algolia or Elasticsearch
-      // This is a basic implementation using Firestore queries
-      const searchTerm = filters.search.toLowerCase();
-      // You would need to add search keywords field to course documents
+    // Apply subcategory filter
+    if (subcategory) {
+      courses = courses.filter(course => course.subcategory === subcategory);
     }
 
-    // Sorting
-    const sortField = this.getSortField(filters.sort || 'newest');
-    query = query.orderBy(sortField.field, sortField.direction);
+    // Sort courses
+    courses.sort((a, b) => {
+      let comparison = 0;
+      
+      if (sortConfig.field === 'rating') {
+        comparison = a.averageRating - b.averageRating;
+      } else if (sortConfig.field === 'price') {
+        comparison = a.price - b.price;
+      } else if (sortConfig.field === 'enrollment') {
+        comparison = a.enrollmentCount - b.enrollmentCount;
+      } else {
+        comparison = b.createdAt.toMillis() - a.createdAt.toMillis();
+      }
+
+      return sortConfig.direction === 'desc' ? -comparison : comparison;
+    });
 
     // Pagination
-    const limit = filters.limit || 20;
-    const page = filters.page || 1;
-    const offset = (page - 1) * limit;
-
-    const snapshot = await query.limit(limit).offset(offset).get();
-    const courses = snapshot.docs.map(doc => doc.data() as Course);
-
-    // Get total count for pagination
-    const totalSnapshot = await this.coursesCollection
-      .where('status', '==', 'published')
-      .get();
-    const total = totalSnapshot.size;
+    const startIndex = (page - 1) * limit;
+    const paginatedCourses = courses.slice(startIndex, startIndex + limit);
 
     return {
-      courses,
-      total,
+      courses: paginatedCourses,
+      total: courses.length,
       page,
       limit,
-      hasMore: offset + courses.length < total,
+      hasMore: startIndex + limit < courses.length,
     };
   }
 
   /**
-   * Get instructor's courses
+   * Get sort configuration
    */
-  async getInstructorCourses(instructorId: string, filters: {
-    status?: string;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<{ courses: Course[]; total: number }> {
-    let query = this.coursesCollection.where('instructorId', '==', instructorId);
-
-    if (filters.status) {
-      query = query.where('status', '==', filters.status);
+  private getSortConfig(sort: string): { field: string; direction: 'asc' | 'desc' } {
+    switch (sort) {
+      case 'newest':
+        return { field: 'createdAt', direction: 'desc' };
+      case 'oldest':
+        return { field: 'createdAt', direction: 'asc' };
+      case 'price-low':
+        return { field: 'price', direction: 'asc' };
+      case 'price-high':
+        return { field: 'price', direction: 'desc' };
+      case 'rating-high':
+        return { field: 'rating', direction: 'desc' };
+      case 'rating-low':
+        return { field: 'rating', direction: 'asc' };
+      case 'helpful':
+        return { field: 'helpfulCount', direction: 'desc' };
+      default:
+        return { field: 'createdAt', direction: 'desc' };
     }
-
-    const limit = filters.limit || 20;
-    const page = filters.page || 1;
-    const offset = (page - 1) * limit;
-
-    query = query.orderBy('createdAt', 'desc')
-                .limit(limit)
-                .offset(offset);
-
-    const snapshot = await query.get();
-    const courses = snapshot.docs.map(doc => doc.data() as Course);
-
-    // Get total count
-    const totalQuery = this.coursesCollection.where('instructorId', '==', instructorId);
-    if (filters.status) {
-      totalQuery.where('status', '==', filters.status);
-    }
-    const totalSnapshot = await totalQuery.get();
-    const total = totalSnapshot.size;
-
-    return { courses, total };
   }
 
   /**
-   * Submit course for approval
+   * Get my courses (instructor)
    */
-  async submitForApproval(courseId: string, instructorId: string): Promise<Course> {
-    const course = await this.getById(courseId);
+  async getMyCourses(instructorId: string): Promise<Course[]> {
+    console.log(`🔍 [CourseService] getMyCourses starting for instructor: ${instructorId}`);
+    const startTime = Date.now();
     
-    if (course.instructorId !== instructorId) {
-      throw new Error('Only course instructor can submit for approval');
-    }
-
-    if (course.status !== 'draft') {
-      throw new Error('Only draft courses can be submitted for approval');
-    }
-
-    // Validate course has required lessons
-    const lessonsSnapshot = await this.lessonsCollection
-      .where('courseId', '==', courseId)
+    const snapshot = await this.coursesCollection
+      .where('instructorId', '==', instructorId)
+      .orderBy('createdAt', 'desc')
       .get();
 
-    if (lessonsSnapshot.empty) {
-      throw new Error('Course must have at least one lesson before submission');
-    }
+    const duration = Date.now() - startTime;
+    console.log(`✅ [CourseService] getMyCourses completed in ${duration}ms, found ${snapshot.docs.length} courses`);
 
-    const updatedCourse = {
-      ...course,
-      status: 'pending' as const,
-      updatedAt: Timestamp.now(),
-    };
-
-    await this.coursesCollection.doc(courseId).update(updatedCourse);
-    return updatedCourse;
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
   }
 
   /**
-   * Approve course (Admin only)
-   */
-  async approveCourse(courseId: string, adminId: string): Promise<Course> {
-    const course = await this.getById(courseId);
-    
-    if (course.status !== 'pending') {
-      throw new Error('Only pending courses can be approved');
-    }
-
-    const updatedCourse = {
-      ...course,
-      status: 'published' as const,
-      approvedBy: adminId,
-      approvedAt: Timestamp.now(),
-      publishedAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    };
-
-    await this.coursesCollection.doc(courseId).update(updatedCourse);
-    return updatedCourse;
-  }
-
-  /**
-   * Reject course (Admin only)
-   */
-  async rejectCourse(courseId: string, adminId: string, reason: string): Promise<Course> {
-    const course = await this.getById(courseId);
-    
-    if (course.status !== 'pending') {
-      throw new Error('Only pending courses can be rejected');
-    }
-
-    const updatedCourse = {
-      ...course,
-      status: 'draft' as const,
-      approvedBy: adminId,
-      rejectionReason: reason,
-      updatedAt: Timestamp.now(),
-    };
-
-    await this.coursesCollection.doc(courseId).update(updatedCourse);
-    return updatedCourse;
-  }
-
-  /**
-   * Get pending courses (Admin only)
+   * Get pending courses (admin)
    */
   async getPendingCourses(): Promise<Course[]> {
     const snapshot = await this.coursesCollection
@@ -338,260 +304,212 @@ export class CourseService {
       .orderBy('createdAt', 'desc')
       .get();
 
-    return snapshot.docs.map(doc => doc.data() as Course);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
   }
 
   /**
-   * Enroll student in course
+   * Submit course for approval
    */
-  async enrollStudent(courseId: string, studentId: string, paymentDetails?: {
-    paymentId?: string;
-    subscriptionId?: string;
-  }): Promise<CourseEnrollment> {
-    const course = await this.getById(courseId);
-    
-    // Check if already enrolled
-    const existingEnrollment = await this.enrollmentsCollection
-      .where('courseId', '==', courseId)
-      .where('studentId', '==', studentId)
-      .limit(1)
-      .get();
-
-    if (!existingEnrollment.empty) {
-      throw new Error('Student already enrolled in this course');
+  async submitForApproval(courseId: string, instructorId: string): Promise<Course> {
+    const course = await this.getCourseById(courseId);
+    if (!course || course.instructorId !== instructorId) {
+      throw new Error('Course not found or access denied');
     }
 
-    const enrollmentId = randomUUID();
+    await this.coursesCollection.doc(courseId).update({
+      status: 'pending',
+      updatedAt: Timestamp.now(),
+    });
+
+    return { ...course, status: 'pending', updatedAt: Timestamp.now() };
+  }
+
+  /**
+   * Approve course (admin)
+   */
+  async approveCourse(courseId: string, adminId: string): Promise<Course> {
+    const course = await this.getCourseById(courseId);
+    if (!course) {
+      throw new Error('Course not found');
+    }
+
+    await this.coursesCollection.doc(courseId).update({
+      status: 'published',
+      approvedBy: adminId,
+      approvedAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+
+    return { 
+      ...course, 
+      status: 'published', 
+      approvedBy: adminId,
+      approvedAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    };
+  }
+
+  /**
+   * Reject course (admin)
+   */
+  async rejectCourse(courseId: string, adminId: string, reason: string): Promise<Course> {
+    const course = await this.getCourseById(courseId);
+    if (!course) {
+      throw new Error('Course not found');
+    }
+
+    await this.coursesCollection.doc(courseId).update({
+      status: 'draft',
+      rejectionReason: reason,
+      updatedAt: Timestamp.now(),
+    });
+
+    return { 
+      ...course, 
+      status: 'draft', 
+      rejectionReason: reason,
+      updatedAt: Timestamp.now()
+    };
+  }
+
+  /**
+   * Enroll in course
+   */
+  async enrollInCourse(courseId: string, studentId: string, paymentId?: string): Promise<CourseEnrollment> {
+    const course = await this.getCourseById(courseId);
+    if (!course) {
+      throw new Error('Course not found');
+    }
+
+    if (course.status !== 'published') {
+      throw new Error('Course is not available for enrollment');
+    }
+
+    // Check if already enrolled
+    const existingEnrollment = await this.getEnrollment(courseId, studentId);
+    if (existingEnrollment) {
+      throw new Error('Already enrolled in this course');
+    }
+
     const enrollment: CourseEnrollment = {
-      id: enrollmentId,
+      id: '',
       courseId,
       studentId,
       enrolledAt: Timestamp.now(),
-      completedAt: undefined,
-      lastAccessedAt: Timestamp.now(),
-      progress: 0,
       status: 'active',
-      certificateIssued: false,
-      paymentId: paymentDetails?.paymentId,
-      subscriptionId: paymentDetails?.subscriptionId,
+      progress: 0,
+      completedAt: undefined,
+      paymentId,
       refundRequested: false,
       refundProcessed: false,
+      certificateIssued: false,
       totalTimeSpent: 0,
       lessonsCompleted: 0,
       quizzesPassed: 0,
       averageQuizScore: 0,
+      lastAccessedAt: Timestamp.now(),
       notesCount: 0,
       bookmarksCount: 0,
       discussionPostsCount: 0,
     };
 
-    await this.enrollmentsCollection.doc(enrollmentId).set(enrollment);
-
-    // Update course enrollment count
-    await this.coursesCollection.doc(courseId).update({
-      enrollmentCount: course.enrollmentCount + 1,
-    });
-
-    return enrollment;
+    const docRef = await this.enrollmentsCollection.add(enrollment);
+    return { ...enrollment, id: docRef.id };
   }
 
   /**
-   * Get student's enrollments
+   * Get enrollment
    */
-  async getStudentEnrollments(studentId: string, filters: {
-    status?: string;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<{ enrollments: CourseEnrollment[]; total: number }> {
-    let query = this.enrollmentsCollection.where('studentId', '==', studentId);
+  async getEnrollment(courseId: string, studentId: string): Promise<CourseEnrollment | null> {
+    const snapshot = await this.enrollmentsCollection
+      .where('courseId', '==', courseId)
+      .where('studentId', '==', studentId)
+      .limit(1)
+      .get();
 
-    if (filters.status) {
-      query = query.where('status', '==', filters.status);
-    }
-
-    const limit = filters.limit || 20;
-    const page = filters.page || 1;
-    const offset = (page - 1) * limit;
-
-    query = query.orderBy('enrolledAt', 'desc')
-                .limit(limit)
-                .offset(offset);
-
-    const snapshot = await query.get();
-    const enrollments = snapshot.docs.map(doc => doc.data() as CourseEnrollment);
-
-    // Get total count
-    const totalQuery = this.enrollmentsCollection.where('studentId', '==', studentId);
-    if (filters.status) {
-      totalQuery.where('status', '==', filters.status);
-    }
-    const totalSnapshot = await totalQuery.get();
-    const total = totalSnapshot.size;
-
-    return { enrollments, total };
-  }
-
-  /**
-   * Get course enrollments (Instructor only)
-   */
-  async getCourseEnrollments(courseId: string, instructorId: string, filters: {
-    status?: string;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<{ enrollments: CourseEnrollment[]; total: number }> {
-    const course = await this.getById(courseId);
+    if (snapshot.empty) return null;
     
-    if (course.instructorId !== instructorId) {
-      throw new Error('Only course instructor can view enrollments');
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as CourseEnrollment;
+  }
+
+  /**
+   * Get my enrollments (student)
+   */
+  async getMyEnrollments(studentId: string): Promise<CourseEnrollment[]> {
+    const snapshot = await this.enrollmentsCollection
+      .where('studentId', '==', studentId)
+      .orderBy('enrolledAt', 'desc')
+      .get();
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CourseEnrollment));
+  }
+
+  /**
+   * Get course enrollments (instructor)
+   */
+  async getCourseEnrollments(courseId: string, instructorId: string): Promise<CourseEnrollment[]> {
+    const course = await this.getCourseById(courseId);
+    if (!course || course.instructorId !== instructorId) {
+      throw new Error('Course not found or access denied');
     }
 
-    let query = this.enrollmentsCollection.where('courseId', '==', courseId);
+    const snapshot = await this.enrollmentsCollection
+      .where('courseId', '==', courseId)
+      .orderBy('enrolledAt', 'desc')
+      .get();
 
-    if (filters.status) {
-      query = query.where('status', '==', filters.status);
-    }
-
-    const limit = filters.limit || 20;
-    const page = filters.page || 1;
-    const offset = (page - 1) * limit;
-
-    query = query.orderBy('enrolledAt', 'desc')
-                .limit(limit)
-                .offset(offset);
-
-    const snapshot = await query.get();
-    const enrollments = snapshot.docs.map(doc => doc.data() as CourseEnrollment);
-
-    // Get total count
-    const totalQuery = this.enrollmentsCollection.where('courseId', '==', courseId);
-    if (filters.status) {
-      totalQuery.where('status', '==', filters.status);
-    }
-    const totalSnapshot = await totalQuery.get();
-    const total = totalSnapshot.size;
-
-    return { enrollments, total };
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CourseEnrollment));
   }
 
   /**
    * Update lesson progress
    */
   async updateLessonProgress(
-    enrollmentId: string,
-    lessonId: string,
+    enrollmentId: string, 
+    lessonId: string, 
+    studentId: string,
     progressData: {
-      progress: number;
-      timeSpent: number;
+      progress?: number;
+      timeSpent?: number;
       watchTime?: number;
       lastPosition?: number;
       completed?: boolean;
     }
   ): Promise<CourseProgress> {
-    const progressId = `${enrollmentId}_${lessonId}`;
+    const progressRef = this.progressCollection.doc(`${enrollmentId}_${lessonId}`);
     
-    const progressRef = this.progressCollection.doc(progressId);
-    const progressDoc = await progressRef.get();
-
-    const progress: CourseProgress = progressDoc.exists 
-      ? progressDoc.data() as CourseProgress
+    const existingProgress = await progressRef.get();
+    const currentProgress = existingProgress.exists 
+      ? existingProgress.data() as CourseProgress
       : {
-          id: progressId,
+          id: '',
           enrollmentId,
           lessonId,
-          studentId: '', // Will be filled from enrollment
-          startedAt: Timestamp.now(),
-          completedAt: undefined,
+          studentId,
           progress: 0,
           timeSpent: 0,
+          watchTime: 0,
+          lastPosition: 0,
+          completed: false,
           bookmarked: false,
+          startedAt: Timestamp.now(),
           quizAttempts: [],
           assignmentSubmissions: [],
         };
 
-    // Get student ID from enrollment if not present
-    if (!progress.studentId) {
-      const enrollmentDoc = await this.enrollmentsCollection.doc(enrollmentId).get();
-      const enrollment = enrollmentDoc.data() as CourseEnrollment;
-      progress.studentId = enrollment.studentId;
-    }
-
-    // Update progress
-    progress.progress = progressData.progress;
-    progress.timeSpent += progressData.timeSpent;
-    if (progressData.watchTime) {
-      progress.watchTime = progressData.watchTime;
-    }
-    if (progressData.lastPosition) {
-      progress.lastPosition = progressData.lastPosition;
-    }
-    if (progressData.completed && !progress.completedAt) {
-      progress.completedAt = Timestamp.now();
-    }
-
-    await progressRef.set(progress, { merge: true });
-
-    // Update overall enrollment progress
-    await this.updateEnrollmentProgress(enrollmentId);
-
-    return progress;
-  }
-
-  /**
-   * Update overall enrollment progress
-   */
-  private async updateEnrollmentProgress(enrollmentId: string): Promise<void> {
-    const enrollmentDoc = await this.enrollmentsCollection.doc(enrollmentId).get();
-    const enrollment = enrollmentDoc.data() as CourseEnrollment;
-
-    // Get all lessons for the course
-    const lessonsSnapshot = await this.lessonsCollection
-      .where('courseId', '==', enrollment.courseId)
-      .orderBy('order')
-      .get();
-
-    const totalLessons = lessonsSnapshot.size;
-    if (totalLessons === 0) return;
-
-    // Get progress for all lessons
-    const progressPromises = lessonsSnapshot.docs.map(async (lessonDoc) => {
-      const lessonId = lessonDoc.id;
-      const progressId = `${enrollmentId}_${lessonId}`;
-      const progressDoc = await this.progressCollection.doc(progressId).get();
-      return progressDoc.exists ? progressDoc.data() as CourseProgress : null;
-    });
-
-    const allProgress = await Promise.all(progressPromises);
-    const completedLessons = allProgress.filter(p => p && p.completedAt).length;
-
-    const overallProgress = Math.round((completedLessons / totalLessons) * 100);
-    const lessonsCompleted = completedLessons;
-
-    // Update enrollment
-    const updates: Partial<CourseEnrollment> = {
-      progress: overallProgress,
-      lessonsCompleted,
-      lastAccessedAt: Timestamp.now(),
+    const updatedProgress: CourseProgress = {
+      ...currentProgress,
+      ...progressData,
     };
 
-    if (overallProgress === 100 && !enrollment.completedAt) {
-      updates.completedAt = Timestamp.now();
-      updates.status = 'completed';
-      
-      // Update course completion count
-      const courseDoc = await this.coursesCollection.doc(enrollment.courseId).get();
-      const course = courseDoc.data() as Course;
-      await this.coursesCollection.doc(enrollment.courseId).update({
-        completionCount: course.completionCount + 1,
-      });
-
-      // Issue certificate if available
-      if (course.certificateAvailable && !enrollment.certificateIssued) {
-        updates.certificateIssued = true;
-        // TODO: Generate certificate URL
-      }
+    if (existingProgress.exists) {
+      await progressRef.update(updatedProgress as any);
+      return { ...updatedProgress, id: progressRef.id };
+    } else {
+      const docRef = await this.progressCollection.add(updatedProgress as any);
+      return { ...updatedProgress, id: docRef.id };
     }
-
-    await this.enrollmentsCollection.doc(enrollmentId).update(updates);
   }
 
   /**
@@ -624,182 +542,127 @@ export class CourseService {
       .get();
 
     if (!existingReviewSnapshot.empty) {
-      throw new Error('Student has already reviewed this course');
+      throw new Error('You have already reviewed this course');
     }
 
-    const reviewId = randomUUID();
     const review: CourseReview = {
-      id: reviewId,
+      id: '',
       courseId,
       studentId,
       rating: reviewData.rating,
       title: reviewData.title,
       comment: reviewData.comment,
-      pros: reviewData.pros,
-      cons: reviewData.cons,
+      pros: reviewData.pros || [],
+      cons: reviewData.cons || [],
       helpfulCount: 0,
       verifiedPurchase: true,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
 
-    await this.reviewsCollection.doc(reviewId).set(review);
-
-    // Update course rating
-    await this.updateCourseRating(courseId);
-
-    return review;
-  }
-
-  /**
-   * Update course average rating
-   */
-  private async updateCourseRating(courseId: string): Promise<void> {
-    const reviewsSnapshot = await this.reviewsCollection
-      .where('courseId', '==', courseId)
-      .get();
-
-    const reviews = reviewsSnapshot.docs.map(doc => doc.data() as CourseReview);
-    
-    if (reviews.length === 0) return;
-
-    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
-    const averageRating = totalRating / reviews.length;
-
-    await this.coursesCollection.doc(courseId).update({
-      averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
-      ratingCount: reviews.length,
-      reviewCount: reviews.length,
-    });
+    const docRef = await this.reviewsCollection.add(review);
+    return { ...review, id: docRef.id };
   }
 
   /**
    * Get course reviews
    */
-  async getCourseReviews(courseId: string, filters: {
-    rating?: number;
-    page?: number;
-    limit?: number;
-    sort?: 'newest' | 'oldest' | 'rating-high' | 'rating-low' | 'helpful';
-  } = {}): Promise<{ reviews: CourseReview[]; total: number }> {
+  async getCourseReviews(
+    courseId: string, 
+    page: number = 1, 
+    limit: number = 10,
+    sort: string = 'newest'
+  ): Promise<{ reviews: CourseReview[]; total: number }> {
     let query = this.reviewsCollection.where('courseId', '==', courseId);
 
-    if (filters.rating) {
-      query = query.where('rating', '==', filters.rating);
+    // Apply sorting
+    if (sort === 'helpful') {
+      query = query.orderBy('helpfulCount', 'desc');
+    } else {
+      query = query.orderBy('createdAt', 'desc');
     }
-
-    const limit = filters.limit || 20;
-    const page = filters.page || 1;
-    const offset = (page - 1) * limit;
-
-    // Sorting
-    const sortField = this.getReviewSortField(filters.sort || 'newest');
-    query = query.orderBy(sortField.field, sortField.direction);
-
-    query = query.limit(limit).offset(offset);
 
     const snapshot = await query.get();
-    const reviews = snapshot.docs.map(doc => doc.data() as CourseReview);
+    const reviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CourseReview));
 
-    // Get total count
-    const totalQuery = this.reviewsCollection.where('courseId', '==', courseId);
-    if (filters.rating) {
-      totalQuery.where('rating', '==', filters.rating);
-    }
-    const totalSnapshot = await totalQuery.get();
-    const total = totalSnapshot.size;
+    // Pagination
+    const startIndex = (page - 1) * limit;
+    const paginatedReviews = reviews.slice(startIndex, startIndex + limit);
 
-    return { reviews, total };
+    return {
+      reviews: paginatedReviews,
+      total: reviews.length,
+    };
   }
 
   /**
-   * Helper method to get sort field for courses
-   */
-  private getSortField(sort: string): { field: string; direction: 'asc' | 'desc' } {
-    switch (sort) {
-      case 'newest':
-        return { field: 'createdAt', direction: 'desc' };
-      case 'oldest':
-        return { field: 'createdAt', direction: 'asc' };
-      case 'price-low':
-        return { field: 'price', direction: 'asc' };
-      case 'price-high':
-        return { field: 'price', direction: 'desc' };
-      case 'rating':
-        return { field: 'averageRating', direction: 'desc' };
-      case 'popular':
-        return { field: 'enrollmentCount', direction: 'desc' };
-      case 'trending':
-        return { field: 'trending', direction: 'desc' };
-      default:
-        return { field: 'createdAt', direction: 'desc' };
-    }
-  }
-
-  /**
-   * Helper method to get sort field for reviews
-   */
-  private getReviewSortField(sort: string): { field: string; direction: 'asc' | 'desc' } {
-    switch (sort) {
-      case 'newest':
-        return { field: 'createdAt', direction: 'desc' };
-      case 'oldest':
-        return { field: 'createdAt', direction: 'asc' };
-      case 'rating-high':
-        return { field: 'rating', direction: 'desc' };
-      case 'rating-low':
-        return { field: 'rating', direction: 'asc' };
-      case 'helpful':
-        return { field: 'helpfulCount', direction: 'desc' };
-      default:
-        return { field: 'createdAt', direction: 'desc' };
-    }
-  }
-
-  /**
-   * Get featured courses
+   * Get featured courses (simplified to avoid index issues)
    */
   async getFeaturedCourses(limit: number = 10): Promise<Course[]> {
+    // Get all published courses and filter in memory
     const snapshot = await this.coursesCollection
       .where('status', '==', 'published')
-      .where('featured', '==', true)
-      .orderBy('enrollmentCount', 'desc')
-      .limit(limit)
+      .limit(50) // Get more and filter in memory
       .get();
 
-    return snapshot.docs.map(doc => doc.data() as Course);
+    const courses = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Course));
+
+    // Filter and sort in memory
+    return courses
+      .filter(course => course.featured)
+      .sort((a, b) => b.enrollmentCount - a.enrollmentCount)
+      .slice(0, limit);
   }
 
   /**
-   * Get trending courses
+   * Get trending courses (simplified to avoid index issues)
    */
   async getTrendingCourses(limit: number = 10): Promise<Course[]> {
+    // Get all published courses and filter in memory
     const snapshot = await this.coursesCollection
       .where('status', '==', 'published')
-      .where('trending', '==', true)
-      .orderBy('enrollmentCount', 'desc')
-      .limit(limit)
+      .limit(50) // Get more and filter in memory
       .get();
 
-    return snapshot.docs.map(doc => doc.data() as Course);
+    const courses = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Course));
+
+    // Filter and sort in memory
+    return courses
+      .filter(course => course.trending)
+      .sort((a, b) => b.enrollmentCount - a.enrollmentCount)
+      .slice(0, limit);
   }
 
   /**
-   * Get bestseller courses
+   * Get bestseller courses (simplified to avoid index issues)
    */
   async getBestsellerCourses(limit: number = 10): Promise<Course[]> {
+    // Get all published courses and filter in memory
     const snapshot = await this.coursesCollection
       .where('status', '==', 'published')
-      .where('bestseller', '==', true)
-      .orderBy('enrollmentCount', 'desc')
-      .limit(limit)
+      .limit(50) // Get more and filter in memory
       .get();
 
-    return snapshot.docs.map(doc => doc.data() as Course);
+    const courses = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Course));
+
+    // Filter and sort in memory
+    return courses
+      .filter(course => course.bestseller)
+      .sort((a, b) => b.enrollmentCount - a.enrollmentCount)
+      .slice(0, limit);
   }
 
   /**
-   * Get course statistics for instructor
+   * Get instructor statistics
    */
   async getInstructorStats(instructorId: string): Promise<{
     totalCourses: number;
@@ -809,20 +672,39 @@ export class CourseService {
     totalRevenue: number;
     averageRating: number;
   }> {
+    // Get instructor's courses
     const coursesSnapshot = await this.coursesCollection
       .where('instructorId', '==', instructorId)
       .get();
 
-    const courses = coursesSnapshot.docs.map(doc => doc.data() as Course);
-    const publishedCourses = courses.filter(c => c.status === 'published');
-
-    const totalEnrollments = publishedCourses.reduce((sum, course) => sum + course.enrollmentCount, 0);
-    const totalCompletions = publishedCourses.reduce((sum, course) => sum + course.completionCount, 0);
-    const totalRevenue = publishedCourses.reduce((sum, course) => sum + (course.price * course.enrollmentCount), 0);
+    const courses = coursesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
     
-    const ratedCourses = publishedCourses.filter(c => c.ratingCount > 0);
-    const averageRating = ratedCourses.length > 0 
-      ? ratedCourses.reduce((sum, course) => sum + course.averageRating, 0) / ratedCourses.length
+    const publishedCourses = courses.filter(course => course.status === 'published');
+    
+    // Get enrollments for all courses
+    const enrollmentsSnapshot = await this.enrollmentsCollection
+      .where('courseId', 'in', courses.map(c => c.id))
+      .get();
+
+    const enrollments = enrollmentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CourseEnrollment));
+    
+    const totalEnrollments = enrollments.length;
+    const totalCompletions = enrollments.filter(e => e.status === 'completed').length;
+    
+    // Calculate revenue (simplified)
+    const totalRevenue = enrollments.reduce((sum, e) => {
+      const course = courses.find(c => c.id === e.courseId);
+      return sum + (course?.price || 0);
+    }, 0);
+
+    // Calculate average rating
+    const reviewsSnapshot = await this.reviewsCollection
+      .where('courseId', 'in', courses.map(c => c.id))
+      .get();
+
+    const reviews = reviewsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CourseReview));
+    const averageRating = reviews.length > 0 
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
       : 0;
 
     return {
@@ -833,6 +715,263 @@ export class CourseService {
       totalRevenue,
       averageRating: Math.round(averageRating * 10) / 10,
     };
+  }
+
+  // NEW: Enhanced course purchase and subscription methods
+
+  /**
+   * Purchase a course with specific pricing option
+   */
+  async purchaseCourse(
+    courseId: string,
+    studentId: string,
+    paymentId: string,
+    pricingOption: 'monthly' | 'yearly' | 'lifetime' | 'custom',
+    customDuration?: string
+  ): Promise<CoursePurchase> {
+    const course = await this.getCourseById(courseId);
+    if (!course) {
+      throw new Error('Course not found');
+    }
+
+    // Check if course is launched and available
+    if (!course.isLaunched) {
+      throw new Error('Course is not yet available');
+    }
+
+    // Check enrollment deadline
+    if (course.availabilitySchedule.enrollmentDeadline && 
+        course.availabilitySchedule.enrollmentDeadline.toDate() < new Date()) {
+      throw new Error('Enrollment period has ended');
+    }
+
+    // Check max enrollments
+    if (course.availabilitySchedule.maxEnrollments && 
+        course.availabilitySchedule.currentEnrollments >= course.availabilitySchedule.maxEnrollments) {
+      throw new Error('Course is fully enrolled');
+    }
+
+    // Calculate price based on option
+    let price = 0;
+    if (pricingOption === 'monthly' && course.pricingOptions.monthly) {
+      price = course.pricingOptions.monthly;
+    } else if (pricingOption === 'yearly' && course.pricingOptions.yearly) {
+      price = course.pricingOptions.yearly;
+    } else if (pricingOption === 'lifetime' && course.pricingOptions.lifetime) {
+      price = course.pricingOptions.lifetime;
+    } else if (pricingOption === 'custom' && customDuration) {
+      const customOption = course.pricingOptions.custom?.find(
+        option => option.duration === customDuration
+      );
+      if (!customOption) {
+        throw new Error('Invalid custom duration');
+      }
+      price = customOption.price;
+    } else {
+      throw new Error('Invalid pricing option');
+    }
+
+    // Calculate access dates
+    const now = Timestamp.now();
+    let accessEndsAt: Timestamp | undefined;
+    
+    if (pricingOption === 'monthly') {
+      accessEndsAt = new Timestamp(now.seconds + (30 * 24 * 60 * 60), 0);
+    } else if (pricingOption === 'yearly') {
+      accessEndsAt = new Timestamp(now.seconds + (365 * 24 * 60 * 60), 0);
+    }
+    // lifetime and custom durations don't have end dates
+
+    const purchase: CoursePurchase = {
+      id: '',
+      courseId,
+      studentId,
+      pricingOption,
+      customDuration,
+      pricePaid: price,
+      currency: course.currency,
+      paymentId,
+      paymentStatus: 'completed',
+      purchasedAt: now,
+      accessStartsAt: course.enrollmentType === 'instant' ? now : course.availabilitySchedule.startDate,
+      accessEndsAt,
+      isActive: true,
+      autoRenew: pricingOption === 'monthly' || pricingOption === 'yearly',
+      nextBillingDate: (pricingOption === 'monthly' || pricingOption === 'yearly') ? accessEndsAt : undefined,
+      refundRequested: false,
+      refundProcessed: false,
+    };
+
+    const docRef = await this.purchasesCollection.add(purchase);
+    const createdPurchase = { ...purchase, id: docRef.id };
+
+    // Update course enrollment count
+    await this.coursesCollection.doc(courseId).update({
+      enrollmentCount: course.enrollmentCount + 1,
+      'availabilitySchedule.currentEnrollments': course.availabilitySchedule.currentEnrollments + 1,
+    });
+
+    // Create enrollment record
+    await this.enrollInCourse(courseId, studentId, paymentId);
+
+    return createdPurchase;
+  }
+
+  /**
+   * Get student's course purchases
+   */
+  async getStudentPurchases(studentId: string): Promise<CoursePurchase[]> {
+    const snapshot = await this.purchasesCollection
+      .where('studentId', '==', studentId)
+      .where('isActive', '==', true)
+      .orderBy('purchasedAt', 'desc')
+      .get();
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CoursePurchase));
+  }
+
+  /**
+   * Check if student has access to a course
+   */
+  async hasCourseAccess(courseId: string, studentId: string): Promise<boolean> {
+    const snapshot = await this.purchasesCollection
+      .where('courseId', '==', courseId)
+      .where('studentId', '==', studentId)
+      .where('isActive', '==', true)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) return false;
+
+    const purchase = snapshot.docs[0].data() as CoursePurchase;
+    
+    // Check if access has expired
+    if (purchase.accessEndsAt && purchase.accessEndsAt.toDate() < new Date()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Launch a course (make it available for purchase)
+   */
+  async launchCourse(courseId: string, instructorId: string): Promise<Course> {
+    const course = await this.getCourseById(courseId);
+    if (!course || course.instructorId !== instructorId) {
+      throw new Error('Course not found or access denied');
+    }
+
+    if (course.status !== 'approved') {
+      throw new Error('Course must be approved before launching');
+    }
+
+    const updatedCourse = {
+      isLaunched: true,
+      launchDate: Timestamp.now(),
+      status: 'published' as const,
+      updatedAt: Timestamp.now(),
+    };
+
+    await this.coursesCollection.doc(courseId).update(updatedCourse);
+    return { ...course, ...updatedCourse };
+  }
+
+  /**
+   * Issue certificate for course completion
+   */
+  async issueCertificate(
+    courseId: string,
+    studentId: string,
+    enrollmentId: string
+  ): Promise<CourseCertificate> {
+    const course = await this.getCourseById(courseId);
+    if (!course) {
+      throw new Error('Course not found');
+    }
+
+    // Check if student has completed the course
+    const enrollment = await this.enrollmentsCollection
+      .where('courseId', '==', courseId)
+      .where('studentId', '==', studentId)
+      .where('id', '==', enrollmentId)
+      .limit(1)
+      .get();
+
+    if (enrollment.empty || enrollment.docs[0].data().status !== 'completed') {
+      throw new Error('Course not completed');
+    }
+
+    // Check if certificate already issued
+    const existingCert = await this.certificatesCollection
+      .where('courseId', '==', courseId)
+      .where('studentId', '==', studentId)
+      .limit(1)
+      .get();
+
+    if (!existingCert.empty) {
+      throw new Error('Certificate already issued');
+    }
+
+    const verificationCode = this.generateVerificationCode();
+    const certificate: CourseCertificate = {
+      id: '',
+      courseId,
+      studentId,
+      enrollmentId,
+      certificateUrl: '', // Will be generated by certificate service
+      issuedAt: Timestamp.now(),
+      verificationCode,
+      templateId: course.certificateTemplate,
+      instructorSignature: course.instructorName,
+      issuerName: 'Tray Learning Platform',
+      issuerTitle: 'Course Completion Certificate',
+      completionDate: Timestamp.now(),
+      isRevoked: false,
+    };
+
+    const docRef = await this.certificatesCollection.add(certificate);
+    return { ...certificate, id: docRef.id };
+  }
+
+  /**
+   * Generate unique verification code for certificates
+   */
+  private generateVerificationCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 12; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  /**
+   * Get student's certificates
+   */
+  async getStudentCertificates(studentId: string): Promise<CourseCertificate[]> {
+    const snapshot = await this.certificatesCollection
+      .where('studentId', '==', studentId)
+      .where('isRevoked', '==', false)
+      .orderBy('issuedAt', 'desc')
+      .get();
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CourseCertificate));
+  }
+
+  /**
+   * Verify certificate
+   */
+  async verifyCertificate(verificationCode: string): Promise<CourseCertificate | null> {
+    const snapshot = await this.certificatesCollection
+      .where('verificationCode', '==', verificationCode)
+      .where('isRevoked', '==', false)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) return null;
+    
+    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as CourseCertificate;
   }
 }
 

@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { courseService } from "../services/course.service";
 import { CourseInput, CourseFilters } from "../models/course.model";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
+import { Timestamp } from "firebase-admin/firestore";
 
 /**
  * Create a new course (Consultant only)
@@ -20,7 +21,7 @@ export const createCourse = async (req: Request, res: Response) => {
     }
 
     const courseData: CourseInput = req.body;
-    const course = await courseService.create(courseData, user.uid);
+    const course = await courseService.createCourse(courseData, user.uid);
 
     res.status(201).json({
       message: "Course created successfully",
@@ -38,7 +39,7 @@ export const createCourse = async (req: Request, res: Response) => {
 export const getCourseById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const course = await courseService.getById(id);
+    const course = await courseService.getCourseById(id);
 
     res.status(200).json({ course });
   } catch (error: any) {
@@ -53,7 +54,7 @@ export const getCourseById = async (req: Request, res: Response) => {
 export const getCourseBySlug = async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
-    const course = await courseService.getBySlug(slug);
+    const course = await courseService.getCourseBySlug(slug);
 
     res.status(200).json({ course });
   } catch (error: any) {
@@ -75,7 +76,21 @@ export const updateCourse = async (req: Request, res: Response) => {
     const { id } = req.params;
     const updates: Partial<CourseInput> = req.body;
 
-    const course = await courseService.update(id, user.uid, updates);
+    const course = await courseService.updateCourse(id, user.uid, {
+      ...updates,
+      availabilitySchedule: updates.availabilitySchedule ? {
+        startDate: updates.availabilitySchedule.startDate 
+          ? Timestamp.fromDate(updates.availabilitySchedule.startDate) 
+          : undefined,
+        endDate: updates.availabilitySchedule.endDate 
+          ? Timestamp.fromDate(updates.availabilitySchedule.endDate) 
+          : undefined,
+        enrollmentDeadline: updates.availabilitySchedule.enrollmentDeadline 
+          ? Timestamp.fromDate(updates.availabilitySchedule.enrollmentDeadline) 
+          : undefined,
+        maxEnrollments: updates.availabilitySchedule.maxEnrollments,
+      } : undefined,
+    } as any);
 
     res.status(200).json({
       message: "Course updated successfully",
@@ -98,7 +113,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
     }
 
     const { id } = req.params;
-    await courseService.delete(id, user.uid);
+    await courseService.deleteCourse(id, user.uid);
 
     res.status(200).json({
       message: "Course deleted successfully",
@@ -141,7 +156,7 @@ export const searchCourses = async (req: Request, res: Response) => {
       limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
     };
 
-    const result = await courseService.search(filters);
+    const result = await courseService.searchCourses(filters);
 
     res.status(200).json(result);
   } catch (error: any) {
@@ -155,6 +170,9 @@ export const searchCourses = async (req: Request, res: Response) => {
  */
 export const getMyCourses = async (req: Request, res: Response) => {
   try {
+    const startTime = Date.now();
+    console.log(`🔍 [getMyCourses] Starting fetch for user: ${req.user?.uid}`);
+    
     const user = (req as any).user;
     if (!user || !user.uid) {
       return res.status(401).json({ error: "Authentication required" });
@@ -166,9 +184,14 @@ export const getMyCourses = async (req: Request, res: Response) => {
       limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
     };
 
-    const result = await courseService.getInstructorCourses(user.uid, filters);
+    console.log(`🔍 [getMyCourses] Filters:`, filters);
 
-    res.status(200).json(result);
+    const courses = await courseService.getMyCourses(user.uid);
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ [getMyCourses] Completed in ${duration}ms, found ${courses.length} courses`);
+
+    res.status(200).json({ courses });
   } catch (error: any) {
     console.error("Error fetching instructor courses:", error);
     res.status(500).json({ error: error.message || "Failed to fetch courses" });
@@ -277,10 +300,7 @@ export const enrollInCourse = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { paymentId, subscriptionId } = req.body;
 
-    const enrollment = await courseService.enrollStudent(id, user.uid, {
-      paymentId,
-      subscriptionId,
-    });
+    const enrollment = await courseService.enrollInCourse(id, user.uid, paymentId);
 
     res.status(201).json({
       message: "Successfully enrolled in course",
@@ -308,9 +328,9 @@ export const getMyEnrollments = async (req: Request, res: Response) => {
       limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
     };
 
-    const result = await courseService.getStudentEnrollments(user.uid, filters);
+    const enrollments = await courseService.getMyEnrollments(user.uid);
 
-    res.status(200).json(result);
+    res.status(200).json({ enrollments });
   } catch (error: any) {
     console.error("Error fetching enrollments:", error);
     res.status(500).json({ error: error.message || "Failed to fetch enrollments" });
@@ -334,9 +354,9 @@ export const getCourseEnrollments = async (req: Request, res: Response) => {
       limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
     };
 
-    const result = await courseService.getCourseEnrollments(id, user.uid, filters);
+    const enrollments = await courseService.getCourseEnrollments(id, user.uid);
 
-    res.status(200).json(result);
+    res.status(200).json({ enrollments });
   } catch (error: any) {
     console.error("Error fetching course enrollments:", error);
     res.status(500).json({ error: error.message || "Failed to fetch enrollments" });
@@ -359,6 +379,7 @@ export const updateLessonProgress = async (req: Request, res: Response) => {
     const progress = await courseService.updateLessonProgress(
       enrollmentId,
       lessonId,
+      user.uid,
       progressData
     );
 
@@ -410,7 +431,7 @@ export const getCourseReviews = async (req: Request, res: Response) => {
       sort: req.query.sort as any,
     };
 
-    const result = await courseService.getCourseReviews(id, filters);
+    const result = await courseService.getCourseReviews(id, filters.page, filters.limit, filters.sort);
 
     res.status(200).json(result);
   } catch (error: any) {
@@ -480,5 +501,174 @@ export const getInstructorStats = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Error fetching instructor stats:", error);
     res.status(500).json({ error: error.message || "Failed to fetch stats" });
+  }
+};
+
+// NEW: Enhanced course purchase and management endpoints
+
+/**
+ * Purchase a course (Student only)
+ */
+export const purchaseCourse = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Verify user is a student
+    if (user.role !== 'student') {
+      return res.status(403).json({ error: "Student access required" });
+    }
+
+    const { courseId, pricingOption, customDuration, paymentId } = req.body;
+    
+    const purchase = await courseService.purchaseCourse(
+      courseId,
+      user.uid,
+      paymentId,
+      pricingOption,
+      customDuration
+    );
+
+    res.status(201).json({
+      message: "Course purchased successfully",
+      purchase,
+    });
+  } catch (error: any) {
+    console.error("Error purchasing course:", error);
+    res.status(400).json({ error: error.message || "Failed to purchase course" });
+  }
+};
+
+/**
+ * Get student's course purchases (Student only)
+ */
+export const getStudentPurchases = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const purchases = await courseService.getStudentPurchases(user.uid);
+
+    res.status(200).json({ purchases });
+  } catch (error: any) {
+    console.error("Error fetching student purchases:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch purchases" });
+  }
+};
+
+/**
+ * Check if student has access to a course (Student only)
+ */
+export const checkCourseAccess = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { courseId } = req.params;
+    const hasAccess = await courseService.hasCourseAccess(courseId, user.uid);
+
+    res.status(200).json({ hasAccess });
+  } catch (error: any) {
+    console.error("Error checking course access:", error);
+    res.status(500).json({ error: error.message || "Failed to check access" });
+  }
+};
+
+/**
+ * Launch a course (Consultant only)
+ */
+export const launchCourse = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Verify user is a consultant
+    if (user.role !== 'consultant') {
+      return res.status(403).json({ error: "Consultant access required" });
+    }
+
+    const { courseId } = req.params;
+    const course = await courseService.launchCourse(courseId, user.uid);
+
+    res.status(200).json({
+      message: "Course launched successfully",
+      course,
+    });
+  } catch (error: any) {
+    console.error("Error launching course:", error);
+    res.status(400).json({ error: error.message || "Failed to launch course" });
+  }
+};
+
+/**
+ * Issue certificate for course completion (Student only)
+ */
+export const issueCertificate = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { courseId, enrollmentId } = req.body;
+    const certificate = await courseService.issueCertificate(
+      courseId,
+      user.uid,
+      enrollmentId
+    );
+
+    res.status(201).json({
+      message: "Certificate issued successfully",
+      certificate,
+    });
+  } catch (error: any) {
+    console.error("Error issuing certificate:", error);
+    res.status(400).json({ error: error.message || "Failed to issue certificate" });
+  }
+};
+
+/**
+ * Get student's certificates (Student only)
+ */
+export const getStudentCertificates = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const certificates = await courseService.getStudentCertificates(user.uid);
+
+    res.status(200).json({ certificates });
+  } catch (error: any) {
+    console.error("Error fetching student certificates:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch certificates" });
+  }
+};
+
+/**
+ * Verify certificate (Public)
+ */
+export const verifyCertificate = async (req: Request, res: Response) => {
+  try {
+    const { verificationCode } = req.params;
+    const certificate = await courseService.verifyCertificate(verificationCode);
+
+    if (!certificate) {
+      return res.status(404).json({ error: "Certificate not found or invalid" });
+    }
+
+    res.status(200).json({ certificate });
+  } catch (error: any) {
+    console.error("Error verifying certificate:", error);
+    res.status(500).json({ error: error.message || "Failed to verify certificate" });
   }
 };

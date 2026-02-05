@@ -15,7 +15,7 @@ export interface Course {
   tags: string[];
   level: 'beginner' | 'intermediate' | 'advanced';
   language: string;
-  price: number; // In cents
+  price: number; // In cents (legacy, kept for compatibility)
   currency: string; // e.g., 'USD'
   isFree: boolean;
   thumbnailUrl?: string;
@@ -56,6 +56,31 @@ export interface Course {
   featured: boolean;
   trending: boolean;
   bestseller: boolean;
+  
+  // NEW: Enhanced pricing and scheduling
+  pricingOptions: {
+    monthly?: number; // Price in cents for monthly access
+    yearly?: number; // Price in cents for yearly access
+    lifetime?: number; // Price in cents for lifetime access
+    custom?: { // Custom duration options
+      duration: string; // e.g., "3 months", "6 months"
+      price: number; // Price in cents
+    }[];
+  };
+  enrollmentType: 'instant' | 'scheduled' | 'subscription'; // How students can access
+  availabilitySchedule: {
+    startDate: Timestamp; // When course becomes available
+    endDate?: Timestamp; // When course ends (optional)
+    enrollmentDeadline?: Timestamp; // Last date to enroll
+    maxEnrollments?: number; // Maximum students allowed
+    currentEnrollments: number; // Currently enrolled students
+  };
+  accessDuration: {
+    type: 'lifetime' | 'custom'; // How long access lasts
+    days?: number; // Number of days if custom
+  };
+  isLaunched: boolean; // Whether course is officially launched
+  launchDate?: Timestamp; // When course was launched
 }
 
 export interface CourseInput {
@@ -85,6 +110,30 @@ export interface CourseInput {
   slug: string;
   metaTitle?: string;
   metaDescription?: string;
+  
+  // NEW: Enhanced pricing and scheduling
+  pricingOptions?: {
+    monthly?: number;
+    yearly?: number;
+    lifetime?: number;
+    custom?: {
+      duration: string;
+      price: number;
+    }[];
+  };
+  enrollmentType?: 'instant' | 'scheduled' | 'subscription';
+  availabilitySchedule?: {
+    startDate: Date;
+    endDate?: Date;
+    enrollmentDeadline?: Date;
+    maxEnrollments?: number;
+  };
+  accessDuration?: {
+    type: 'lifetime' | 'custom';
+    days?: number;
+  };
+  isLaunched?: boolean;
+  launchDate?: Date;
 }
 
 export interface CourseLesson {
@@ -294,4 +343,64 @@ export interface CourseSearchResult {
     priceRanges: { range: string; count: number }[];
     languages: { name: string; count: number }[];
   };
+}
+
+// NEW: Course purchase and subscription interfaces
+export interface CoursePurchase {
+  id: string;
+  courseId: string;
+  studentId: string;
+  pricingOption: 'monthly' | 'yearly' | 'lifetime' | 'custom';
+  customDuration?: string; // For custom pricing options
+  pricePaid: number; // In cents
+  currency: string;
+  paymentId: string; // Stripe payment ID
+  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
+  purchasedAt: Timestamp;
+  accessStartsAt: Timestamp; // When access begins
+  accessEndsAt?: Timestamp; // When access ends (if not lifetime)
+  isActive: boolean;
+  autoRenew: boolean; // For subscriptions
+  nextBillingDate?: Timestamp; // For subscriptions
+  cancellationDate?: Timestamp; // When user cancelled
+  refundRequested: boolean;
+  refundProcessed: boolean;
+  refundAmount?: number; // In cents
+  refundReason?: string;
+  refundProcessedAt?: Timestamp;
+}
+
+export interface CourseSubscription {
+  id: string;
+  courseId: string;
+  studentId: string;
+  pricingOption: 'monthly' | 'yearly';
+  price: number; // In cents
+  currency: string;
+  stripeSubscriptionId: string;
+  status: 'active' | 'canceled' | 'past_due' | 'unpaid' | 'incomplete';
+  currentPeriodStart: Timestamp;
+  currentPeriodEnd: Timestamp;
+  createdAt: Timestamp;
+  canceledAt?: Timestamp;
+  endedAt?: Timestamp;
+}
+
+export interface CourseCertificate {
+  id: string;
+  courseId: string;
+  studentId: string;
+  enrollmentId: string;
+  certificateUrl: string;
+  issuedAt: Timestamp;
+  verificationCode: string; // Unique code for verification
+  templateId?: string;
+  instructorSignature?: string;
+  issuerName: string;
+  issuerTitle: string;
+  completionDate: Timestamp;
+  grade?: string; // Optional grade/score
+  isRevoked: boolean;
+  revokedAt?: Timestamp;
+  revokeReason?: string;
 }

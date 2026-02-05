@@ -1,5 +1,5 @@
 // src/services/course.service.ts
-import { fetcher, api } from '../lib/fetcher';
+import { api } from '../lib/fetcher';
 
 export interface Course {
   id: string;
@@ -30,18 +30,28 @@ export interface Course {
   difficultyScore: number;
   timeCommitment: string;
   certificateAvailable: boolean;
-  slug: string;
-  enrollmentCount: number;
-  completionCount: number;
-  averageRating: number;
-  ratingCount: number;
-  reviewCount: number;
-  featured: boolean;
-  trending: boolean;
-  bestseller: boolean;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt?: string;
+  rating?: number;
+  ratingCount?: number;
+  enrollmentCount?: number;
+  completionCount?: number;
+  averageRating?: number;
+  isLaunched?: boolean;
+  featured?: boolean;
+  trending?: boolean;
+  bestseller?: boolean;
+  pricingOptions?: {
+    monthly?: number;
+    yearly?: number;
+    lifetime?: number;
+    custom?: { duration: string; price: number }[];
+  };
+  availabilitySchedule?: {
+    startDate: Date;
+    endDate?: Date;
+    enrollmentDeadline?: Date;
+    maxEnrollments?: number;
+  };
+  enrollmentType?: 'instant' | 'scheduled' | 'subscription' | 'manual';
 }
 
 export interface CourseInput {
@@ -50,7 +60,6 @@ export interface CourseInput {
   shortDescription: string;
   category: string;
   subcategory?: string;
-  tags: string[];
   level: 'beginner' | 'intermediate' | 'advanced';
   language: string;
   price: number;
@@ -67,156 +76,90 @@ export interface CourseInput {
   difficultyScore: number;
   timeCommitment: string;
   certificateAvailable: boolean;
-  slug: string;
-}
-
-export interface CourseLesson {
-  id: string;
-  courseId: string;
-  title: string;
-  description: string;
-  order: number;
-  duration: number;
-  durationText: string;
-  type: 'video' | 'text' | 'quiz' | 'assignment' | 'resource';
-  contentUrl?: string;
-  contentData?: {
-    text?: string;
-    questions?: QuizQuestion[];
-    instructions?: string;
-    resourceUrl?: string;
-    resourceType?: string;
+  tags: string[];
+  pricingOptions?: {
+    monthly?: number;
+    yearly?: number;
+    lifetime?: number;
+    custom?: { duration: string; price: number }[];
   };
-  isPreview: boolean;
-  isRequired: boolean;
-  createdAt: string;
-  updatedAt: string;
-  completionCount: number;
-  averageWatchTime?: number;
-}
-
-export interface QuizQuestion {
-  id: string;
-  question: string;
-  type: 'multiple-choice' | 'true-false' | 'text';
-  options?: string[];
-  correctAnswer: string | boolean;
-  explanation?: string;
-  points: number;
+  availabilitySchedule?: {
+    startDate: Date;
+    endDate?: Date;
+    enrollmentDeadline?: Date;
+    maxEnrollments?: number;
+  };
+  enrollmentType?: 'instant' | 'scheduled' | 'subscription' | 'manual';
 }
 
 export interface CourseEnrollment {
   id: string;
   courseId: string;
   studentId: string;
-  enrolledAt: string;
-  completedAt?: string;
-  lastAccessedAt?: string;
+  enrolledAt: Date;
   progress: number;
-  status: 'active' | 'completed' | 'dropped' | 'suspended';
-  certificateIssued: boolean;
-  certificateUrl?: string;
-  paymentId?: string;
-  subscriptionId?: string;
+  completedAt?: Date;
+  certificateIssued?: boolean;
+  certificateId?: string;
+  status: 'active' | 'completed' | 'cancelled' | 'suspended';
+  lastAccessAt?: Date;
+  timeSpent: number;
+  lessonsCompleted: number;
+  totalLessons: number;
+  currentLesson?: string;
+  completionRate: number;
+  accessEndsAt?: Date;
+  autoRenew: boolean;
+  nextBillingDate?: Date;
   refundRequested: boolean;
   refundProcessed: boolean;
-  refundAmount?: number;
-  refundReason?: string;
-  refundProcessedAt?: string;
-  totalTimeSpent: number;
-  lessonsCompleted: number;
-  quizzesPassed: number;
-  averageQuizScore: number;
-  lastLessonCompleted?: string;
-  currentLesson?: string;
-  notesCount: number;
-  bookmarksCount: number;
-  discussionPostsCount: number;
 }
 
 export interface CourseProgress {
   id: string;
   enrollmentId: string;
   lessonId: string;
-  studentId: string;
-  startedAt: string;
-  completedAt?: string;
   progress: number;
   timeSpent: number;
   watchTime?: number;
   lastPosition?: number;
-  notes?: string;
-  bookmarked: boolean;
-  quizAttempts: QuizAttempt[];
-  assignmentSubmissions: AssignmentSubmission[];
-}
-
-export interface QuizAttempt {
-  id: string;
-  quizQuestionId: string;
-  studentAnswer: string | boolean;
-  isCorrect: boolean;
-  score: number;
-  attemptedAt: string;
-  timeSpent: number;
-}
-
-export interface AssignmentSubmission {
-  id: string;
-  lessonId: string;
-  studentId: string;
-  submissionUrl?: string;
-  submissionText?: string;
-  submissionType: 'file' | 'text';
-  submittedAt: string;
-  graded: boolean;
-  grade?: number;
-  feedback?: string;
-  gradedBy?: string;
-  gradedAt?: string;
+  completed?: boolean;
+  completedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CourseReview {
   id: string;
   courseId: string;
   studentId: string;
+  studentName?: string;
+  studentAvatar?: string;
   rating: number;
   title?: string;
   comment: string;
   pros?: string[];
   cons?: string[];
-  helpfulCount: number;
-  verifiedPurchase: boolean;
-  createdAt: string;
-  updatedAt: string;
-  response?: string;
-  respondedAt?: string;
-  respondedBy?: string;
+  helpful?: number;
+  verified?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  instructorResponse?: string;
+  instructorRespondedAt?: Date;
 }
 
 export interface CourseFilters {
   category?: string;
   subcategory?: string;
-  level?: string;
-  priceRange?: {
-    min: number;
-    max: number;
-  };
-  duration?: {
-    min: number;
-    max: number;
-  };
+  level?: string | string[];
+  language?: string;
+  priceRange?: { min: number; max: number };
+  durationRange?: { min: number; max: number };
   rating?: number;
   tags?: string[];
-  language?: string;
-  isFree?: boolean;
-  hasCertificate?: boolean;
-  instructorId?: string;
-  featured?: boolean;
-  trending?: boolean;
-  bestseller?: boolean;
+  instructor?: string;
   search?: string;
-  sort?: 'newest' | 'oldest' | 'price-low' | 'price-high' | 'rating' | 'popular' | 'trending';
+  sort?: 'newest' | 'oldest' | 'rating-high' | 'rating-low' | 'price-low' | 'price-high' | 'popular';
   page?: number;
   limit?: number;
 }
@@ -227,12 +170,6 @@ export interface CourseSearchResult {
   page: number;
   limit: number;
   hasMore: boolean;
-  facets?: {
-    categories: { name: string; count: number }[];
-    levels: { name: string; count: number }[];
-    priceRanges: { range: string; count: number }[];
-    languages: { name: string; count: number }[];
-  };
 }
 
 export interface InstructorStats {
@@ -245,41 +182,30 @@ export interface InstructorStats {
 }
 
 class CourseService {
-  private getAuthHeaders() {
-    const token = getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-  }
+  // No need for getAuthHeaders since we use api instance with interceptors
 
   /**
    * Search courses with filters
    */
   async searchCourses(filters: CourseFilters = {}): Promise<CourseSearchResult> {
     try {
-      const queryParams = new URLSearchParams();
-      
-      // Add all filter parameters
+      // Build query string manually to avoid URLSearchParams issues
+      const queryParts: string[] = [];
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          if (typeof value === 'object') {
-            if (key === 'priceRange' || key === 'duration') {
-              queryParams.set(`${key}Min`, value.min.toString());
-              queryParams.set(`${key}Max`, value.max.toString());
-            } else if (key === 'tags') {
-              queryParams.set(key, (value as string[]).join(','));
-            }
+          if (typeof value === 'object' && value.min !== undefined && value.max !== undefined) {
+            queryParts.push(`${key}Min=${value.min}`);
+            queryParts.push(`${key}Max=${value.max}`);
+          } else if (key === 'tags') {
+            queryParts.push(`${key}=${(value as string[]).join(',')}`);
           } else {
-            queryParams.set(key, value.toString());
+            queryParts.push(`${key}=${value.toString()}`);
           }
         }
       });
+      const queryString = queryParts.join('&');
 
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/search?${queryParams.toString()}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/public?${queryString}`);
 
       return response.data;
     } catch (error: any) {
@@ -293,10 +219,7 @@ class CourseService {
    */
   async getCourseById(courseId: string): Promise<Course> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/${courseId}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/${courseId}`);
 
       return response.data.course;
     } catch (error: any) {
@@ -310,10 +233,7 @@ class CourseService {
    */
   async getCourseBySlug(slug: string): Promise<Course> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/slug/${slug}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/slug/${slug}`);
 
       return response.data.course;
     } catch (error: any) {
@@ -327,10 +247,7 @@ class CourseService {
    */
   async getFeaturedCourses(limit: number = 10): Promise<{ courses: Course[] }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/featured?limit=${limit}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/featured?limit=${limit}`);
 
       return response.data;
     } catch (error: any) {
@@ -344,10 +261,7 @@ class CourseService {
    */
   async getTrendingCourses(limit: number = 10): Promise<{ courses: Course[] }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/trending?limit=${limit}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/trending?limit=${limit}`);
 
       return response.data;
     } catch (error: any) {
@@ -361,10 +275,7 @@ class CourseService {
    */
   async getBestsellerCourses(limit: number = 10): Promise<{ courses: Course[] }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/bestseller?limit=${limit}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/bestseller?limit=${limit}`);
 
       return response.data;
     } catch (error: any) {
@@ -378,11 +289,7 @@ class CourseService {
    */
   async createCourse(courseData: CourseInput): Promise<Course> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/courses`,
-        courseData,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.post('/courses/', courseData, { timeout: 10000 });
 
       return response.data.course;
     } catch (error: any) {
@@ -396,11 +303,7 @@ class CourseService {
    */
   async updateCourse(courseId: string, updates: Partial<CourseInput>): Promise<Course> {
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/courses/${courseId}`,
-        updates,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.put(`/courses/${courseId}`, updates);
 
       return response.data.course;
     } catch (error: any) {
@@ -414,10 +317,7 @@ class CourseService {
    */
   async deleteCourse(courseId: string): Promise<void> {
     try {
-      await axios.delete(
-        `${API_BASE_URL}/courses/${courseId}`,
-        { headers: this.getAuthHeaders() }
-      );
+      await api.delete(`/courses/${courseId}`);
     } catch (error: any) {
       console.error('Error deleting course:', error);
       throw new Error(error.response?.data?.error || 'Failed to delete course');
@@ -433,17 +333,16 @@ class CourseService {
     limit?: number;
   } = {}): Promise<{ courses: Course[]; total: number }> {
     try {
-      const queryParams = new URLSearchParams();
+      // Build query string manually
+      const queryParts: string[] = [];
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          queryParams.set(key, value.toString());
+          queryParts.push(`${key}=${value.toString()}`);
         }
       });
+      const queryString = queryParts.join('&');
 
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/instructor/my?${queryParams.toString()}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/instructor/my?${queryString}`, { timeout: 30000 });
 
       return response.data;
     } catch (error: any) {
@@ -457,11 +356,7 @@ class CourseService {
    */
   async submitForApproval(courseId: string): Promise<Course> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/courses/${courseId}/submit-for-approval`,
-        {},
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.post(`/courses/${courseId}/submit-for-approval`, {});
 
       return response.data.course;
     } catch (error: any) {
@@ -478,11 +373,7 @@ class CourseService {
     subscriptionId?: string;
   }): Promise<CourseEnrollment> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/courses/${courseId}/enroll`,
-        paymentDetails || {},
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.post(`/courses/${courseId}/enroll`, paymentDetails || {});
 
       return response.data.enrollment;
     } catch (error: any) {
@@ -500,17 +391,16 @@ class CourseService {
     limit?: number;
   } = {}): Promise<{ enrollments: CourseEnrollment[]; total: number }> {
     try {
-      const queryParams = new URLSearchParams();
+      // Build query string manually
+      const queryParts: string[] = [];
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          queryParams.set(key, value.toString());
+          queryParts.push(`${key}=${value.toString()}`);
         }
       });
+      const queryString = queryParts.join('&');
 
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/enrollments/my?${queryParams.toString()}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/enrollments/my?${queryString}`);
 
       return response.data;
     } catch (error: any) {
@@ -528,17 +418,16 @@ class CourseService {
     limit?: number;
   } = {}): Promise<{ enrollments: CourseEnrollment[]; total: number }> {
     try {
-      const queryParams = new URLSearchParams();
+      // Build query string manually
+      const queryParts: string[] = [];
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          queryParams.set(key, value.toString());
+          queryParts.push(`${key}=${value.toString()}`);
         }
       });
+      const queryString = queryParts.join('&');
 
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/${courseId}/enrollments?${queryParams.toString()}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/${courseId}/enrollments?${queryString}`);
 
       return response.data;
     } catch (error: any) {
@@ -562,11 +451,7 @@ class CourseService {
     }
   ): Promise<CourseProgress> {
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/courses/progress/${enrollmentId}/${lessonId}`,
-        progressData,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.put(`/courses/progress/${enrollmentId}/${lessonId}`, progressData);
 
       return response.data.progress;
     } catch (error: any) {
@@ -586,11 +471,7 @@ class CourseService {
     cons?: string[];
   }): Promise<CourseReview> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/courses/${courseId}/reviews`,
-        reviewData,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.post(`/courses/${courseId}/reviews`, reviewData);
 
       return response.data.review;
     } catch (error: any) {
@@ -609,17 +490,16 @@ class CourseService {
     sort?: 'newest' | 'oldest' | 'rating-high' | 'rating-low' | 'helpful';
   } = {}): Promise<{ reviews: CourseReview[]; total: number }> {
     try {
-      const queryParams = new URLSearchParams();
+      // Build query string manually
+      const queryParts: string[] = [];
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          queryParams.set(key, value.toString());
+          queryParts.push(`${key}=${value.toString()}`);
         }
       });
+      const queryString = queryParts.join('&');
 
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/${courseId}/reviews?${queryParams.toString()}`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get(`/courses/${courseId}/reviews?${queryString}`);
 
       return response.data;
     } catch (error: any) {
@@ -633,10 +513,7 @@ class CourseService {
    */
   async getInstructorStats(): Promise<InstructorStats> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/instructor/stats`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get('/courses/instructor/stats');
 
       return response.data.stats;
     } catch (error: any) {
@@ -650,10 +527,7 @@ class CourseService {
    */
   async getPendingCourses(): Promise<{ courses: Course[] }> {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/courses/admin/pending`,
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.get('/courses/admin/pending');
 
       return response.data;
     } catch (error: any) {
@@ -667,11 +541,7 @@ class CourseService {
    */
   async approveCourse(courseId: string): Promise<Course> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/courses/${courseId}/approve`,
-        {},
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.post(`/courses/${courseId}/approve`, {});
 
       return response.data.course;
     } catch (error: any) {
@@ -685,16 +555,125 @@ class CourseService {
    */
   async rejectCourse(courseId: string, reason: string): Promise<Course> {
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/courses/${courseId}/reject`,
-        { reason },
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await api.post(`/courses/${courseId}/reject`, { reason });
 
       return response.data.course;
     } catch (error: any) {
       console.error('Error rejecting course:', error);
       throw new Error(error.response?.data?.error || 'Failed to reject course');
+    }
+  }
+
+  // NEW: Enhanced course purchase and management methods
+
+  /**
+   * Purchase a course with specific pricing option
+   */
+  async purchaseCourse(
+    courseId: string,
+    paymentId: string,
+    pricingOption: 'monthly' | 'yearly' | 'lifetime' | 'custom',
+    customDuration?: string
+  ): Promise<any> {
+    try {
+      const response = await api.post('/courses/purchase', {
+        courseId,
+        pricingOption,
+        customDuration,
+        paymentId,
+      });
+
+      return response.data.purchase;
+    } catch (error: any) {
+      console.error('Error purchasing course:', error);
+      throw new Error(error.message || 'Failed to purchase course');
+    }
+  }
+
+  /**
+   * Check if student has access to a course
+   */
+  async checkCourseAccess(courseId: string): Promise<any> {
+    try {
+      const response = await api.get(`/courses/${courseId}/access`);
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error checking course access:', error);
+      throw new Error(error.message || 'Failed to check access');
+    }
+  }
+
+  /**
+   * Launch a course
+   */
+  async launchCourse(courseId: string): Promise<Course> {
+    try {
+      const response = await api.post(`/courses/${courseId}/launch`);
+
+      return response.data.course;
+    } catch (error: any) {
+      console.error('Error launching course:', error);
+      throw new Error(error.message || 'Failed to launch course');
+    }
+  }
+
+  /**
+   * Issue certificate for course completion
+   */
+  async issueCertificate(courseId: string, enrollmentId: string): Promise<any> {
+    try {
+      const response = await api.post('/courses/issue-certificate', {
+        enrollmentId,
+        courseId,
+      });
+
+      return response.data.certificate;
+    } catch (error: any) {
+      console.error('Error issuing certificate:', error);
+      throw new Error(error.message || 'Failed to issue certificate');
+    }
+  }
+
+  /**
+   * Get student's purchase history
+   */
+  async getStudentPurchases(): Promise<any> {
+    try {
+      const response = await api.get('/courses/purchases/my');
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching purchase history:', error);
+      throw new Error(error.message || 'Failed to fetch purchase history');
+    }
+  }
+
+  /**
+   * Get student's certificates
+   */
+  async getStudentCertificates(): Promise<any> {
+    try {
+      const response = await api.get('/courses/certificates/my');
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching certificates:', error);
+      throw new Error(error.message || 'Failed to fetch certificates');
+    }
+  }
+
+  /**
+   * Verify certificate
+   */
+  async verifyCertificate(verificationCode: string): Promise<any> {
+    try {
+      const response = await api.get(`/courses/certificates/verify/${verificationCode}`);
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Error verifying certificate:', error);
+      throw new Error(error.message || 'Failed to verify certificate');
     }
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { courseService } from '../../services/course.service';
+import { Star, Search, Filter, Clock, Users, BookOpen, Award } from 'lucide-react-native';
+import { courseService } from '../../../services/course.service';
 
 type CourseLibraryScreenNavigationProp = StackNavigationProp<any, 'CourseLibrary'>;
 type CourseLibraryScreenRouteProp = RouteProp<any, 'CourseLibrary'>;
@@ -33,12 +33,12 @@ interface Course {
   duration: number;
   durationText: string;
   lessonsCount: number;
-  enrollmentCount: number;
-  averageRating: number;
-  ratingCount: number;
-  featured: boolean;
-  trending: boolean;
-  bestseller: boolean;
+  enrollmentCount?: number;
+  averageRating?: number;
+  ratingCount?: number;
+  featured?: boolean;
+  trending?: boolean;
+  bestseller?: boolean;
   certificateAvailable: boolean;
   tags: string[];
 }
@@ -50,7 +50,7 @@ interface CourseFilters {
   isFree?: boolean;
   hasCertificate?: boolean;
   search?: string;
-  sort?: string;
+  sort?: 'newest' | 'oldest' | 'rating-high' | 'rating-low' | 'price-low' | 'price-high' | 'popular';
 }
 
 interface Props {
@@ -58,7 +58,7 @@ interface Props {
   route: CourseLibraryScreenRouteProp;
 }
 
-const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
+const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [featuredCourses, setFeaturedCourses] = useState<Course[]>([]);
   const [trendingCourses, setTrendingCourses] = useState<Course[]>([]);
@@ -86,69 +86,17 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
   ];
 
   const levels = ['All', 'Beginner', 'Intermediate', 'Advanced'];
-  const sortOptions = [
+  const sortOptions: Array<{ value: 'newest' | 'oldest' | 'price-low' | 'price-high' | 'rating-high' | 'rating-low' | 'popular'; label: string }> = [
     { value: 'newest', label: 'Newest' },
     { value: 'oldest', label: 'Oldest' },
     { value: 'price-low', label: 'Price: Low to High' },
     { value: 'price-high', label: 'Price: High to Low' },
-    { value: 'rating', label: 'Highest Rated' },
+    { value: 'rating-high', label: 'Highest Rated' },
+    { value: 'rating-low', label: 'Lowest Rated' },
     { value: 'popular', label: 'Most Popular' },
   ];
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (searchQuery.length > 2 || searchQuery.length === 0) {
-      searchCourses();
-    }
-  }, [searchQuery]);
-
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        loadFeaturedCourses(),
-        loadTrendingCourses(),
-        loadBestsellerCourses(),
-        loadCourses(),
-      ]);
-    } catch (error) {
-      console.error('Error loading initial data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadFeaturedCourses = async () => {
-    try {
-      const response = await courseService.getFeaturedCourses(5);
-      setFeaturedCourses(response.courses);
-    } catch (error) {
-      console.error('Error loading featured courses:', error);
-    }
-  };
-
-  const loadTrendingCourses = async () => {
-    try {
-      const response = await courseService.getTrendingCourses(5);
-      setTrendingCourses(response.courses);
-    } catch (error) {
-      console.error('Error loading trending courses:', error);
-    }
-  };
-
-  const loadBestsellerCourses = async () => {
-    try {
-      const response = await courseService.getBestsellerCourses(5);
-      setBestsellerCourses(response.courses);
-    } catch (error) {
-      console.error('Error loading bestseller courses:', error);
-    }
-  };
-
-  const loadCourses = async (reset: boolean = false) => {
+  const loadCourses = useCallback(async (reset: boolean = false) => {
     try {
       if (reset) {
         setCurrentPage(1);
@@ -177,9 +125,9 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
     } catch (error) {
       console.error('Error loading courses:', error);
     }
-  };
+  }, [filters, searchQuery, currentPage]);
 
-  const searchCourses = async () => {
+  const searchCourses = useCallback(async () => {
     try {
       setLoading(true);
       await loadCourses(true);
@@ -187,6 +135,59 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
       console.error('Error searching courses:', error);
     } finally {
       setLoading(false);
+    }
+  }, [loadCourses]);
+
+  const loadInitialData = useCallback(async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        loadFeaturedCourses(),
+        loadTrendingCourses(),
+        loadBestsellerCourses(),
+        loadCourses(),
+      ]);
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadCourses]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  useEffect(() => {
+    if (searchQuery.length > 2 || searchQuery.length === 0) {
+      searchCourses();
+    }
+  }, [searchQuery, searchCourses]);
+
+  const loadFeaturedCourses = async () => {
+    try {
+      const response = await courseService.getFeaturedCourses(5);
+      setFeaturedCourses(response.courses);
+    } catch (error) {
+      console.error('Error loading featured courses:', error);
+    }
+  };
+
+  const loadTrendingCourses = async () => {
+    try {
+      const response = await courseService.getTrendingCourses(5);
+      setTrendingCourses(response.courses);
+    } catch (error) {
+      console.error('Error loading trending courses:', error);
+    }
+  };
+
+  const loadBestsellerCourses = async () => {
+    try {
+      const response = await courseService.getBestsellerCourses(5);
+      setBestsellerCourses(response.courses);
+    } catch (error) {
+      console.error('Error loading bestseller courses:', error);
     }
   };
 
@@ -258,24 +259,24 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
 
         <View style={styles.courseMeta}>
           <View style={styles.metaItem}>
-            <Ionicons name="time-outline" size={14} color="#666" />
+            <Clock size={14} color="#666" />
             <Text style={styles.metaText}>{item.durationText}</Text>
           </View>
           <View style={styles.metaItem}>
-            <Ionicons name="book-outline" size={14} color="#666" />
+            <BookOpen size={14} color="#666" />
             <Text style={styles.metaText}>{item.lessonsCount} lessons</Text>
           </View>
           <View style={styles.metaItem}>
-            <Ionicons name="people-outline" size={14} color="#666" />
-            <Text style={styles.metaText}>{item.enrollmentCount.toLocaleString()}</Text>
+            <Users size={14} color="#666" />
+            <Text style={styles.metaText}>{item.enrollmentCount?.toLocaleString() || 0}</Text>
           </View>
         </View>
 
         <View style={styles.courseFooter}>
           <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={14} color="#FFA500" />
-            <Text style={styles.ratingText}>{item.averageRating.toFixed(1)}</Text>
-            <Text style={styles.ratingCount}>({item.ratingCount})</Text>
+            <Star size={14} color="#FFA500" />
+            <Text style={styles.ratingText}>{item.averageRating?.toFixed(1) || '0.0'}</Text>
+            <Text style={styles.ratingCount}>({item.ratingCount || 0})</Text>
           </View>
           
           <View style={styles.priceContainer}>
@@ -289,7 +290,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {item.certificateAvailable && (
           <View style={styles.certificateBadge}>
-            <Ionicons name="award-outline" size={12} color="#4CAF50" />
+            <Award size={12} color="#4CAF50" />
             <Text style={styles.certificateText}>Certificate</Text>
           </View>
         )}
@@ -308,11 +309,11 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
     </View>
   );
 
-  const renderHorizontalCourseList = (courses: Course[], title: string, seeAll?: string) => (
+  const renderHorizontalCourseList = (courseList: Course[], title: string, seeAll?: string) => (
     <View style={styles.section}>
       {renderSectionHeader(title, seeAll)}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {courses.map((course) => (
+        {courseList.map((course) => (
           <TouchableOpacity
             key={course.id}
             style={styles.horizontalCourseCard}
@@ -327,8 +328,8 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={styles.horizontalInstructorName}>{course.instructorName}</Text>
               <View style={styles.horizontalCourseMeta}>
                 <View style={styles.horizontalRatingContainer}>
-                  <Ionicons name="star" size={12} color="#FFA500" />
-                  <Text style={styles.horizontalRatingText}>{course.averageRating.toFixed(1)}</Text>
+                  <Star size={12} color="#FFA500" />
+                  <Text style={styles.horizontalRatingText}>{course.averageRating?.toFixed(1) || '0.0'}</Text>
                 </View>
                 <Text style={styles.horizontalPrice}>
                   {course.isFree ? 'Free' : `$${(course.price / 100).toFixed(2)}`}
@@ -346,7 +347,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
       <View style={styles.filtersHeader}>
         <Text style={styles.filtersTitle}>Filters</Text>
         <TouchableOpacity onPress={() => setShowFilters(false)}>
-          <Ionicons name="close" size={24} color="#333" />
+          <Filter size={24} color="#333" />
         </TouchableOpacity>
       </View>
 
@@ -481,14 +482,14 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Course Library</Text>
         <TouchableOpacity onPress={() => navigation.navigate('MyEnrollments')}>
-          <Ionicons name="library-outline" size={24} color="#007AFF" />
+          <BookOpen size={24} color="#007AFF" />
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={20} color="#666" />
+          <Search size={20} color="#666" />
           <TextInput
             style={styles.searchInput}
             placeholder="Search courses..."
@@ -498,7 +499,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         </View>
         <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilters(true)}>
-          <Ionicons name="filter-outline" size={20} color="#007AFF" />
+          <Filter size={20} color="#007AFF" />
         </TouchableOpacity>
       </View>
 
@@ -540,7 +541,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="book-outline" size={48} color="#ccc" />
+            <BookOpen size={48} color="#ccc" />
             <Text style={styles.emptyText}>No courses found</Text>
             <Text style={styles.emptySubText}>Try adjusting your filters or search query</Text>
           </View>

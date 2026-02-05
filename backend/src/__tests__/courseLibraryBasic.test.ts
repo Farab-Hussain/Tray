@@ -5,20 +5,20 @@ import request from 'supertest';
 import app from '../app';
 
 describe('Course Library Basic Tests', () => {
-  test('should return 404 for non-existent course', async () => {
+  test('should return null for non-existent course', async () => {
     const response = await request(app)
       .get('/courses/non-existent-course')
-      .expect(404);
+      .expect(200);
 
-    expect(response.body.error).toBeDefined();
+    expect(response.body.course).toBeNull();
   });
 
-  test('should return 404 for non-existent course slug', async () => {
+  test('should return null for non-existent course slug', async () => {
     const response = await request(app)
       .get('/courses/slug/non-existent-slug')
-      .expect(404);
+      .expect(200);
 
-    expect(response.body.error).toBeDefined();
+    expect(response.body.course).toBeNull();
   });
 
   test('should return 401 for unauthenticated course creation', async () => {
@@ -63,31 +63,31 @@ describe('Course Library Basic Tests', () => {
     expect(response.body.error).toBeDefined();
   });
 
-  test('should return 404 for featured courses', async () => {
+  test('should return empty array for featured courses', async () => {
     const response = await request(app)
       .get('/courses/featured')
       .query({ limit: 5 })
-      .expect(404);
+      .expect(200);
 
-    expect(response.body.error).toBeDefined();
+    expect(response.body.courses).toEqual([]);
   });
 
-  test('should return 404 for trending courses', async () => {
+  test('should return empty array for trending courses', async () => {
     const response = await request(app)
       .get('/courses/trending')
       .query({ limit: 5 })
-      .expect(404);
+      .expect(200);
 
-    expect(response.body.error).toBeDefined();
+    expect(response.body.courses).toEqual([]);
   });
 
-  test('should return 404 for bestseller courses', async () => {
+  test('should return empty array for bestseller courses', async () => {
     const response = await request(app)
       .get('/courses/bestseller')
       .query({ limit: 5 })
-      .expect(404);
+      .expect(200);
 
-    expect(response.body.error).toBeDefined();
+    expect(response.body.courses).toEqual([]);
   });
 });
 

@@ -9,6 +9,7 @@ import {
   MessageCircle,
   // Bell,
   User,
+  GraduationCap,
 } from 'lucide-react-native';
 
 // Consultant Screens
@@ -18,6 +19,7 @@ import ConsultantAvailability from '../Screen/Consultant/Availability/Consultant
 import Messages from '../Screen/common/Messages/Messages';
 // import Notifications from '../Screen/common/Notifications/Notifications';
 import ConsultantAccount from '../Screen/Consultant/Account/ConsultantAccount';
+import CourseManagementScreen from '../Screen/Consultant/CourseManagement/CourseManagementScreen';
 
 
 import { COLORS } from '../constants/core/colors';
@@ -26,7 +28,7 @@ const Tab = createBottomTabNavigator();
 
 const getTabBarVisibility = (route: any) => {
   const routeName = getFocusedRouteNameFromRoute(route);
-  const hideOnScreens = ['ConsultantBookingSlots', 'ConsultantCart', 'ConsultantAccount'];
+  const hideOnScreens = ['ConsultantBookingSlots', 'ConsultantCart', 'ConsultantAccount', 'CourseManagement'];
   return routeName && hideOnScreens.includes(routeName) ? 'none' : 'flex';
 };
 
@@ -72,6 +74,12 @@ const getTabIcon = (routeName: string, color: string, size: number) => {
           <User size={size} color={color} />
         </View>
       );
+    case 'CourseManagement':
+      return (
+        <View style={iconStyle}>
+          <GraduationCap size={size} color={color} />
+        </View>
+      );
     default:
       return (
         <View style={iconStyle}>
@@ -115,6 +123,14 @@ const ConsultantBottomTabs = () => {
         component={ConsultantServices}
         options={{
           tabBarLabel: 'Services',
+        }}
+      />
+      
+      <Tab.Screen
+        name="CourseManagement"
+        component={CourseManagementScreen}
+        options={{
+          tabBarLabel: 'Courses',
         }}
       />
       

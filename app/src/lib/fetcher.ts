@@ -97,7 +97,7 @@ if (__DEV__) {
 // Create axios instance with automatic token attachment
 export const api = axios.create({
   baseURL: baseURL,
-  timeout: 15000, // 15 second timeout for regular requests (upload requests override this)
+  timeout: 25000, // 25 second timeout for regular requests (upload requests override this)
   headers: {
     'ngrok-skip-browser-warning': 'true', // Skip ngrok browser warning on free tier
     'Cache-Control': 'no-cache, no-store, must-revalidate', // Prevent caching
