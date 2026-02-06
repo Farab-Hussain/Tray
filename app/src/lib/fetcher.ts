@@ -430,7 +430,8 @@ api.interceptors.response.use(
       } catch (retryError: any) {
         // Retry also failed - show error as normal
         if (__DEV__) {
-          console.log('❌ API retry also failed:', url);
+          console.log('❌ API retry also failed:', error.config?.url);
+          console.log('🔍 [Debug] Error status:', error.response?.status, 'Data:', error.response?.data);
         }
         // Continue to normal error handling below
         error = retryError;

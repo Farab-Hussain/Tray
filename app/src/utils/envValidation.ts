@@ -26,6 +26,12 @@ export const validateEnvironment = (): ValidationResult => {
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  // Debug: Log what API_URL value we're getting
+  if (__DEV__) {
+    console.log('🔍 [Env Debug] API_URL value:', API_URL);
+    console.log('🔍 [Env Debug] API_URL type:', typeof API_URL);
+  }
+
   // Production-only validations
   if (!__DEV__) {
     // API_URL is required in production
@@ -47,10 +53,19 @@ export const validateEnvironment = (): ValidationResult => {
     }
   } else {
     // Development warnings
-    if (!API_URL || API_URL.includes('localhost')) {
+    if (!API_URL) {
+      warnings.push(
+        'API_URL is not set - please set it in your .env file for mobile development',
+      );
+    } else if (API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
       warnings.push(
         'API_URL is using localhost - this will not work on mobile devices',
       );
+    } else if (API_URL.includes('ngrok')) {
+      // In development, log success for ngrok URLs
+      if (__DEV__) {
+        console.log('✅ API_URL is using ngrok - perfect for mobile development!');
+      }
     }
   }
 

@@ -28,70 +28,16 @@ import {
   Search, 
   BookOpen
 } from 'lucide-react-native';
-import { courseService } from '../../../services/course.service';
+import { courseService, Course, CourseInput } from '../../../services/course.service';
 
 type CourseManagementNavigationProp = StackNavigationProp<any, 'CourseManagement'>;
-
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  shortDescription: string;
-  category: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
-  price: number;
-  currency: string;
-  isFree: boolean;
-  thumbnailUrl?: string;
-  previewVideoUrl?: string;
-  duration: number;
-  durationText: string;
-  lessonsCount: number;
-  status: 'draft' | 'pending' | 'approved' | 'published' | 'archived';
-  objectives: string[];
-  prerequisites: string[];
-  targetAudience: string[];
-  difficultyScore: number;
-  timeCommitment: string;
-  certificateAvailable: boolean;
-  tags: string[];
-  
-  // Enhanced fields
-  pricingOptions?: {
-    monthly?: number;
-    yearly?: number;
-    lifetime?: number;
-    custom?: {
-      duration: string;
-      price: number;
-    }[];
-  };
-  enrollmentType?: 'instant' | 'scheduled' | 'subscription';
-  availabilitySchedule?: {
-    startDate: string;
-    endDate?: string;
-    enrollmentDeadline?: string;
-    maxEnrollments?: number;
-    currentEnrollments: number;
-  };
-  accessDuration?: {
-    type: 'lifetime' | 'custom';
-    days?: number;
-  };
-  isLaunched?: boolean;
-  launchDate?: string;
-  enrollmentCount: number;
-  completionCount: number;
-  averageRating: number;
-  ratingCount: number;
-}
 
 interface Props {
   navigation: CourseManagementNavigationProp;
   route: any;
 }
 
-export const CourseManagementScreen: React.FC<Props> = ({ navigation, route }) => {
+export const CourseManagementScreen: React.FC<Props> = ({ navigation: _navigation, route: _route }) => {
   const insets = useSafeAreaInsets();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,14 +97,11 @@ export const CourseManagementScreen: React.FC<Props> = ({ navigation, route }) =
 
   const levels = ['beginner', 'intermediate', 'advanced'];
 
-  useEffect(() => {
-    loadCourses();
-  }, []);
-
-  const loadCourses = async () => {
+  const loadCourses = useCallback(async () => {
     try {
       setLoading(true);
-      const coursesData = await courseService.getMyCourses();
+      // Pass empty filters object to get all courses
+      const coursesData = await courseService.getMyCourses({});
       setCourses(coursesData.courses || []);
     } catch (error: any) {
       console.error('Error loading courses:', error);
@@ -179,7 +122,11 @@ export const CourseManagementScreen: React.FC<Props> = ({ navigation, route }) =
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCourses();
+  }, [loadCourses]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -195,7 +142,7 @@ export const CourseManagementScreen: React.FC<Props> = ({ navigation, route }) =
         return;
       }
 
-      const courseData = {
+      const courseData: CourseInput = {
         ...formData,
         pricingOptions,
         language: 'English',
@@ -363,10 +310,10 @@ export const CourseManagementScreen: React.FC<Props> = ({ navigation, route }) =
           <Text style={styles.category}>{item.category}</Text>
           <Text style={styles.level}>{item.level}</Text>
           <Text style={styles.enrollmentCount}>
-            {item.enrollmentCount} students
+            {item.enrollmentCount || 0} students
           </Text>
           <Text style={styles.rating}>
-            ⭐ {item.averageRating.toFixed(1)} ({item.ratingCount})
+            ⭐ {item.averageRating?.toFixed(1) || '0.0'} ({item.ratingCount || 0})
           </Text>
         </View>
         
@@ -892,6 +839,17 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 8,
   },
   emptyContainer: {
     flex: 1,

@@ -86,7 +86,7 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       // Step 4: Verify token with timeout protection
       // OPTIMIZATION: Don't check revoked tokens (false) - faster, reduces network calls
       // Industry best practice: Only check revocation when absolutely necessary (e.g., sensitive operations)
-      const VERIFY_TIMEOUT_MS = 8000; // 8 seconds - reduced for faster failure
+      const VERIFY_TIMEOUT_MS = 2000; // 2 seconds - very aggressive timeout
       
       // Use false to skip revocation check - much faster, only checks token signature and expiration
       // This avoids an extra network call to check token revocation status

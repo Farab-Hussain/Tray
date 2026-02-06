@@ -17,6 +17,7 @@ interface ChatContextValue {
   refreshChats: () => Promise<void>;
   openChatWith: (otherUid: string) => Promise<string>; // returns chatId
   deleteChat: (chatId: string) => Promise<void>;
+  createTestChat: () => Promise<string>; // debug function
 }
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
@@ -97,9 +98,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     await refreshChats();
   }, [userId, refreshChats]);
 
+  const createTestChat = useCallback(async () => {
+    if (!userId) throw new Error('User not authenticated');
+    const chatId = await ChatService.createTestChat(userId);
+    // Refresh chat list after creating test chat
+    await refreshChats();
+    return chatId;
+  }, [userId, refreshChats]);
+
   const value = useMemo(
-    () => ({ userId, chats, refreshChats, openChatWith, deleteChat }),
-    [userId, chats, refreshChats, openChatWith, deleteChat],
+    () => ({ userId, chats, refreshChats, openChatWith, deleteChat, createTestChat }),
+    [userId, chats, refreshChats, openChatWith, deleteChat, createTestChat],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

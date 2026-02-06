@@ -284,10 +284,17 @@ export class CourseService {
     console.log(`🔍 [CourseService] getMyCourses starting for instructor: ${instructorId}`);
     const startTime = Date.now();
     
-    const snapshot = await this.coursesCollection
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore query timeout')), 25000); // 25 second timeout
+    });
+    
+    const queryPromise = this.coursesCollection
       .where('instructorId', '==', instructorId)
       .orderBy('createdAt', 'desc')
       .get();
+
+    const snapshot = await Promise.race([queryPromise, timeoutPromise]);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [CourseService] getMyCourses completed in ${duration}ms, found ${snapshot.docs.length} courses`);

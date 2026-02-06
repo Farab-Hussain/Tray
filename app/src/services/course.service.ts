@@ -1,6 +1,44 @@
 // src/services/course.service.ts
 import { api } from '../lib/fetcher';
 
+export interface CourseInput {
+  title: string;
+  description: string;
+  shortDescription: string;
+  category: string;
+  subcategory?: string;
+  tags: string[];
+  level: 'beginner' | 'intermediate' | 'advanced';
+  language: string;
+  price: number;
+  currency: string;
+  isFree: boolean;
+  thumbnailUrl?: string;
+  previewVideoUrl?: string;
+  duration: number;
+  durationText: string;
+  lessonsCount: number;
+  objectives: string[];
+  prerequisites: string[];
+  targetAudience: string[];
+  difficultyScore: number;
+  timeCommitment: string;
+  certificateAvailable: boolean;
+  slug: string;
+  pricingOptions?: {
+    monthly?: number;
+    yearly?: number;
+    lifetime?: number;
+    custom?: { duration: string; price: number }[];
+  };
+  availabilitySchedule?: {
+    startDate: Date;
+    endDate?: Date;
+    enrollmentDeadline?: Date;
+    maxEnrollments?: number;
+  };
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -289,11 +327,13 @@ class CourseService {
    */
   async createCourse(courseData: CourseInput): Promise<Course> {
     try {
-      const response = await api.post('/courses/', courseData, { timeout: 10000 });
-
-      return response.data.course;
+      console.log('🚀 [CourseService] Creating course with timeout: 120000ms');
+      // Set a very high timeout to bypass any React Native caching issues
+      const response = await api.post('/courses', courseData, { timeout: 120000 }); // 2 minutes timeout
+      console.log('✅ [CourseService] Course created successfully');
+      return response.data;
     } catch (error: any) {
-      console.error('Error creating course:', error);
+      console.error('❌ [CourseService] Error creating course:', error);
       throw new Error(error.response?.data?.error || 'Failed to create course');
     }
   }
@@ -336,13 +376,14 @@ class CourseService {
       // Build query string manually
       const queryParts: string[] = [];
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && value !== '') {
           queryParts.push(`${key}=${value.toString()}`);
         }
       });
-      const queryString = queryParts.join('&');
+      const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
-      const response = await api.get(`/courses/instructor/my?${queryString}`, { timeout: 30000 });
+      // Reduce timeout to 10 seconds to fail fast
+      const response = await api.get(`/courses/instructor/my${queryString}`, { timeout: 10000 });
 
       return response.data;
     } catch (error: any) {

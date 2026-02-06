@@ -1,4 +1,4 @@
-import { ref, push, set, get, update, onValue, off, query, orderByChild, serverTimestamp, DataSnapshot } from 'firebase/database';
+import { ref, push, set, get, update, onValue, off, query, orderByChild, serverTimestamp } from 'firebase/database';
 // @ts-ignore
 import { database, auth } from '../lib/firebase.ts';
 import { api } from '../lib/fetcher';
@@ -259,7 +259,7 @@ export const listenMessages = (
     const messagesRef = ref(db, `chats/${chatId}/messages`);
     const messagesQuery = query(messagesRef, orderByChild('createdAt'));
 
-    const unsubscribe = onValue(messagesQuery, (snapshot: DataSnapshot) => {
+    const unsubscribe = onValue(messagesQuery, (snapshot) => {
         if (snapshot.exists()) {
             const messagesData = snapshot.val();
             const messages: (Message & { id: string })[] = Object.keys(messagesData).map((key) => ({
@@ -288,6 +288,7 @@ export const listenMessages = (
 
     return () => {
         off(messagesRef);
+        unsubscribe();
     };
 };
 
@@ -397,11 +398,14 @@ export const fetchUserChats = async (uid: string) => {
                         if (__DEV__) {
               console.log(`🔍 [ChatService] Current user ID: ${uid}`)
             };
+            
+            // Check if user is in participants (case-sensitive and exact match)
+            const isUserParticipant = chat.participants && chat.participants.includes(uid);
                         if (__DEV__) {
-              console.log(`🔍 [ChatService] Is user in participants?`, chat.participants?.includes(uid))
+              console.log(`🔍 [ChatService] Is user in participants?`, isUserParticipant)
             };
             
-            if (chat.participants && chat.participants.includes(uid)) {
+            if (isUserParticipant) {
                                 if (__DEV__) {
                   console.log('✅ [ChatService] User is participant in chat:', chatId)
                 };
@@ -465,6 +469,26 @@ export const fetchUserChats = async (uid: string) => {
                 if (__DEV__) {
           console.log(`✅ [ChatService] Found ${sortedChats.length} chats for user ${uid}`)
         };
+        
+        // Additional debug info if no chats found
+        if (sortedChats.length === 0) {
+                    if (__DEV__) {
+            console.log('💡 [ChatService] No chats found. This could mean:')
+            };
+                    if (__DEV__) {
+            console.log('   1. User has no existing conversations')
+            };
+                    if (__DEV__) {
+            console.log('   2. User ID changed (signed out/in with different account)')
+            };
+                    if (__DEV__) {
+            console.log('   3. Chats exist but user is not a participant')
+            };
+                    if (__DEV__) {
+            console.log('💡 [ChatService] Try creating a new chat to test functionality')
+            };
+        }
+        
         return sortedChats;
     } catch (error: any) {
         // Check if it's a permission error
@@ -621,8 +645,7 @@ export const deleteMessages = async (
         }
 
         const updates: Record<string, null> = {};
-        const messagesRef = ref(db, `chats/${chatId}/messages`);
-
+        
         // Verify all messages belong to the user before deleting
         for (const messageId of messageIds) {
             const messageRef = ref(db, `chats/${chatId}/messages/${messageId}`);
@@ -705,6 +728,31 @@ export const deleteChat = async (chatId: string, userId: string) => {
     }
 };
 
+
+/**
+ * Debug function to create a test chat for the current user
+ * This helps verify that chat creation and fetching works correctly
+ */
+export const createTestChat = async (currentUserId: string, testUserId: string = 'test_user_12345') => {
+    try {
+        if (__DEV__) {
+            console.log('🧪 [ChatService] Creating test chat for user:', currentUserId, 'with test user:', testUserId);
+        }
+        
+        const chatId = await createChatIfNotExists(currentUserId, testUserId);
+        
+        if (__DEV__) {
+            console.log('✅ [ChatService] Test chat created successfully:', chatId);
+        }
+        
+        return chatId;
+    } catch (error) {
+        if (__DEV__) {
+            console.error('❌ [ChatService] Error creating test chat:', error);
+        }
+        throw error;
+    }
+};
 
 /**
  * Update chat lastMessage metadata after message deletion
