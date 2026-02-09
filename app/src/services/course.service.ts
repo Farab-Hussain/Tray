@@ -317,8 +317,8 @@ class CourseService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching bestseller courses:', error);
-      throw new Error(error.response?.data?.error || 'Failed to fetch bestseller courses');
+      console.log('Bestseller courses fetch issue:', error);
+      throw new Error(error.response?.data?.error || 'Unable to load bestseller courses');
     }
   }
 
@@ -333,8 +333,8 @@ class CourseService {
       console.log('✅ [CourseService] Course created successfully');
       return response.data;
     } catch (error: any) {
-      console.error('❌ [CourseService] Error creating course:', error);
-      throw new Error(error.response?.data?.error || 'Failed to create course');
+      console.log('Course creation issue:', error);
+      throw new Error(error.response?.data?.error || 'Unable to create course');
     }
   }
 
@@ -387,8 +387,8 @@ class CourseService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching my courses:', error);
-      throw new Error(error.response?.data?.error || 'Failed to fetch courses');
+      console.log('Course fetch issue:', error);
+      throw new Error(error.response?.data?.error || 'Unable to load courses');
     }
   }
 

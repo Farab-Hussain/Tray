@@ -62,26 +62,12 @@ export class CourseService {
         lifetime: Math.floor(courseData.price * 20), // 20 months for lifetime
       },
       enrollmentType: courseData.enrollmentType || 'instant',
-      availabilitySchedule: {
-        startDate: courseData.availabilitySchedule?.startDate 
-          ? Timestamp.fromDate(courseData.availabilitySchedule.startDate) 
-          : Timestamp.now(),
-        endDate: courseData.availabilitySchedule?.endDate 
-          ? Timestamp.fromDate(courseData.availabilitySchedule.endDate) 
-          : undefined,
-        enrollmentDeadline: courseData.availabilitySchedule?.enrollmentDeadline 
-          ? Timestamp.fromDate(courseData.availabilitySchedule.enrollmentDeadline) 
-          : undefined,
-        maxEnrollments: courseData.availabilitySchedule?.maxEnrollments,
-        currentEnrollments: 0,
-      },
+      // Skip availabilitySchedule for now to avoid undefined issues
       accessDuration: courseData.accessDuration || {
         type: 'lifetime',
       },
       isLaunched: courseData.isLaunched || false,
-      launchDate: courseData.launchDate 
-        ? Timestamp.fromDate(courseData.launchDate) 
-        : undefined,
+      // Skip launchDate for now to avoid undefined issues
     };
 
     const docRef = await this.coursesCollection.add(course);

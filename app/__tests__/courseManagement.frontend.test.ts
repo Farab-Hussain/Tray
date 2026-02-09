@@ -4,7 +4,7 @@
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { CourseManagementScreen } from '../src/Screen/Consultant/CourseManagement/CourseManagementScreen';
+import { ServiceManagementScreen } from '../src/Screen/Consultant/CourseManagement/ServiceManagementScreen';
 import { courseService } from '../src/services/course.service';
 
 // Mock the course service
@@ -117,7 +117,7 @@ describe('Course Management Frontend Tests', () => {
   const renderComponent = () => {
     return render(
       <NavigationContainer>
-        <CourseManagementScreen navigation={{} as any} />
+        <ServiceManagementScreen navigation={{} as any} />
       </NavigationContainer>
     );
   };

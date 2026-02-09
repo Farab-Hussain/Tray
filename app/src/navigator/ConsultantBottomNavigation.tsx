@@ -2,14 +2,13 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { View } from 'react-native';
-import {
+import { 
   Home,
-  BookOpen,
   Calendar,
   MessageCircle,
+  BookOpen,
   // Bell,
-  User,
-  GraduationCap,
+  // User,
 } from 'lucide-react-native';
 
 // Consultant Screens
@@ -19,7 +18,7 @@ import ConsultantAvailability from '../Screen/Consultant/Availability/Consultant
 import Messages from '../Screen/common/Messages/Messages';
 // import Notifications from '../Screen/common/Notifications/Notifications';
 import ConsultantAccount from '../Screen/Consultant/Account/ConsultantAccount';
-import CourseManagementScreen from '../Screen/Consultant/CourseManagement/CourseManagementScreen';
+// import ServiceManagementScreen from '../Screen/Consultant/CourseManagement/ServiceManagementScreen';
 
 
 import { COLORS } from '../constants/core/colors';
@@ -28,7 +27,7 @@ const Tab = createBottomTabNavigator();
 
 const getTabBarVisibility = (route: any) => {
   const routeName = getFocusedRouteNameFromRoute(route);
-  const hideOnScreens = ['ConsultantBookingSlots', 'ConsultantCart', 'ConsultantAccount', 'CourseManagement'];
+  const hideOnScreens = ['ConsultantBookingSlots', 'ConsultantCart', 'ConsultantAccount'];
   return routeName && hideOnScreens.includes(routeName) ? 'none' : 'flex';
 };
 
@@ -68,16 +67,16 @@ const getTabIcon = (routeName: string, color: string, size: number) => {
     //       <Bell size={size} color={color} />
     //     </View>
     //   );
+    // case 'ServiceManagement':
+    //   return (
+    //     <View style={iconStyle}>
+    //       <GraduationCap size={size} color={color} />
+    //     </View>
+    //   );
     case 'ConsultantAccount':
       return (
         <View style={iconStyle}>
-          <User size={size} color={color} />
-        </View>
-      );
-    case 'CourseManagement':
-      return (
-        <View style={iconStyle}>
-          <GraduationCap size={size} color={color} />
+          <Home size={size} color={color} />
         </View>
       );
     default:
@@ -123,14 +122,6 @@ const ConsultantBottomTabs = () => {
         component={ConsultantServices}
         options={{
           tabBarLabel: 'Services',
-        }}
-      />
-      
-      <Tab.Screen
-        name="CourseManagement"
-        component={CourseManagementScreen}
-        options={{
-          tabBarLabel: 'Courses',
         }}
       />
       
