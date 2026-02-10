@@ -13,25 +13,18 @@ cloudinary.config({
 
 console.log('☁️ Cloudinary configured with cloud name:', process.env.CLOUDINARY_CLOUD_NAME);
 
-// Configure multer for memory storage - VIDEO UPLOAD CODE COMMENTED OUT
+// Configure multer for memory storage - VIDEO UPLOAD ENABLED
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit (images only)
+    fileSize: 100 * 1024 * 1024, // 100MB limit (images and videos)
   },
   fileFilter: (req, file, cb) => {
-    // VIDEO UPLOAD CODE - COMMENTED OUT
-    // // Check file type - allow both images and videos
-    // if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-    //   cb(null, true);
-    // } else {
-    //   cb(new Error('Only image and video files are allowed!') as any, false);
-    // }
-    // Only allow images
-    if (file.mimetype.startsWith('image/')) {
+    // Check file type - allow both images and videos
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed!') as any, false);
+      cb(new Error('Only image and video files are allowed!') as any, false);
     }
   },
 });
@@ -62,12 +55,9 @@ export const uploadSingle = (req: Request, res: Response, next: any) => {
   console.log('📎 [uploadSingle] Content-Type:', req.headers['content-type']);
   console.log('📎 [uploadSingle] Content-Length:', req.headers['content-length']);
   
-  // VIDEO UPLOAD CODE - COMMENTED OUT
-  // // Use .any() to accept any field name (image or video)
-  // // This is more flexible and handles both field names
-  // upload.any()(req, res, (err: any) => {
-  // Use .single('image') for images only
-  upload.single('image')(req, res, (err: any) => {
+  // Use .any() to accept any field name (image or video)
+  // This is more flexible and handles both field names
+  upload.any()(req, res, (err: any) => {
     if (err) {
       console.error('❌ [uploadSingle] Multer error:', err.message);
       return res.status(400).json({ error: err.message || 'File upload error' });
@@ -575,5 +565,96 @@ export const getUploadSignature = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Get upload signature error:", error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+// Upload service video (NEW FUNCTION)
+export const uploadServiceVideo = async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  let cloudinaryUploadCompleted = false;
+  
+  try {
+    const userId = (req as any).user.uid;
+    const file = req.file;
+
+    if (!file) {
+      console.error('❌ [uploadServiceVideo] No file uploaded');
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Check if it's actually a video file
+    if (!file.mimetype.startsWith('video/')) {
+      console.error('❌ [uploadServiceVideo] Not a video file:', file.mimetype);
+      return res.status(400).json({ error: "Only video files are allowed" });
+    }
+
+    console.log('📤 [uploadServiceVideo] Uploading video for user:', userId, 'File size:', file.size, 'bytes');
+
+    // Set a longer timeout for video uploads (20 minutes for large videos)
+    req.setTimeout(1200000); // 20 minutes
+    res.setTimeout(1200000);
+
+    // Upload to Cloudinary with timeout
+    const cloudinaryPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'video',
+          folder: 'tray/service-videos',
+          public_id: `${userId}/${randomUUID()}`,
+          timeout: 1200000, // 20 minute timeout for Cloudinary
+        },
+        (error, result) => {
+          if (error) {
+            console.error('❌ [uploadServiceVideo] Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            cloudinaryUploadCompleted = true;
+            console.log('✅ [uploadServiceVideo] Cloudinary upload completed in', Date.now() - startTime, 'ms');
+            resolve(result);
+          }
+        }
+      );
+      
+      uploadStream.end(file.buffer);
+    });
+
+    // Add timeout wrapper for Cloudinary upload
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        if (!cloudinaryUploadCompleted) {
+          console.error('❌ [uploadServiceVideo] Cloudinary upload timeout after 20 minutes');
+          reject(new Error('Cloudinary upload timeout'));
+        }
+      }, 1200000);
+    });
+
+    const result = await Promise.race([cloudinaryPromise, timeoutPromise]);
+
+    console.log('✅ [uploadServiceVideo] Video uploaded successfully to Cloudinary');
+
+    const responseData = {
+      message: "Video uploaded successfully",
+      videoUrl: (result as any).secure_url,
+      publicId: (result as any).public_id,
+      mediaType: 'video',
+    };
+
+    console.log('✅ [uploadServiceVideo] Total time:', Date.now() - startTime, 'ms');
+    res.status(200).json(responseData);
+
+  } catch (error: any) {
+    console.error('❌ [uploadServiceVideo] Upload error:', {
+      message: error.message,
+      code: error.code,
+      status: error.status || error.response?.status,
+      statusText: error.statusText || error.response?.statusText,
+      data: error.data || error.response?.data,
+      elapsedTime: Date.now() - startTime,
+    });
+    
+    // Make sure to send a response even on error
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.data?.error || error.response?.data?.error || error.message || 'Failed to upload video' });
+    }
   }
 };

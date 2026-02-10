@@ -6,11 +6,9 @@ import { auth } from '../lib/firebase';
 export interface UploadResponse {
   message: string;
   imageUrl?: string;
-  // VIDEO UPLOAD CODE - COMMENTED OUT
-  // videoUrl?: string;
+  videoUrl?: string;
   publicId: string;
-  // mediaType?: 'image' | 'video'; // VIDEO UPLOAD CODE - COMMENTED OUT
-  mediaType?: 'image';
+  mediaType?: 'image' | 'video';
 }
 
 export interface UploadSignatureResponse {
@@ -380,6 +378,59 @@ const UploadService = {
         platform: Platform.OS,
       });
       throw new Error(error.data?.error || error.response?.data?.error || error.message || 'Failed to upload image');
+    }
+  },
+
+  /**
+   * Upload service video (React Native compatible)
+   * @param videoFile - File object with uri, type, and name
+   * @returns UploadResponse with videoUrl and publicId
+   */
+  async uploadServiceVideo(videoFile: any): Promise<UploadResponse> {
+    try {
+      const fileToUpload = await prepareFileForUpload(videoFile, 'video/mp4', 'video.mp4');
+
+      if (__DEV__) {
+        console.log('📤 [UploadService] Uploading service video:', {
+          uri: fileToUpload.uri,
+          type: fileToUpload.type,
+          name: fileToUpload.name,
+          originalUri: videoFile.uri,
+          platform: Platform.OS,
+        });
+      }
+
+      const formData = new FormData();
+      formData.append('video', fileToUpload as any);
+
+      // For videos, use much longer timeout due to large file sizes and Cloudinary processing
+      // Estimate: ~1 minute per 10MB for slow connections, minimum 20 minutes for videos
+      const isVideo = fileToUpload.type?.startsWith('video/');
+      const fileSizeMB = (videoFile as any).size ? (videoFile as any).size / (1024 * 1024) : 0;
+      const timeout = isVideo 
+        ? Math.max(1200000, Math.ceil(fileSizeMB / 10) * 60000) // At least 20 min, or 1 min per 10MB
+        : 120000; // 2 minutes for images
+      
+      const startTime = Date.now();
+      const data = await uploadWithPlatformSpecificMethod('/upload/service-video', formData, timeout);
+      const duration = Date.now() - startTime;
+
+      if (__DEV__) {
+        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        console.log('✅ [UploadService] Service video uploaded successfully:', data);
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('❌ [UploadService] Error uploading service video:', {
+        message: error.message,
+        code: error.code,
+        status: error.status || error.response?.status,
+        statusText: error.statusText || error.response?.statusText,
+        data: error.data || error.response?.data,
+        platform: Platform.OS,
+      });
+      throw new Error(error.data?.error || error.response?.data?.error || error.message || 'Failed to upload video');
     }
   },
 

@@ -1,29 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useCallback } from 'react';
 import {
-  ScrollView,
   View,
   Text,
-  RefreshControl,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
   TextInput,
-  Modal,
   Alert,
   Switch,
+  Modal,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { Camera, Video } from 'lucide-react-native';
+import { COLORS } from '../../../constants/core/colors';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import SearchBar from '../../../components/shared/SearchBar';
 import ConsultantServiceCard from '../../../components/ui/ConsultantServiceCard';
 import { ConsultantService } from '../../../services/consultant.service';
-import { getConsultantVerificationStatus } from '../../../services/consultantFlow.service';
-import { useAuth } from '../../../contexts/AuthContext';
-import { COLORS } from '../../../constants/core/colors';
-import ErrorDisplay from '../../../components/ui/ErrorDisplay';
-import LoadingState from '../../../components/ui/LoadingState';
 import { courseService, CourseInput } from '../../../services/course.service';
+import UploadService from '../../../services/upload.service';
+import { useFocusEffect } from '@react-navigation/native';
+import { RefreshControl } from 'react-native';
+import { useAuth } from '../../../contexts/AuthContext';
+// import ErrorDisplay from '../../../components/ui/ErrorDisplay';
+// import LoadingState from '../../../components/ui/LoadingState';
 
 interface Service {
   id: string;
@@ -51,12 +53,10 @@ const ConsultantServices = ({ navigation }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [services, setServices] = useState<Service[]>([]);
   const [filteredServices, setFilteredServices] = useState<Service[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [, setConsultantUid] = useState<string | null>(null);
-  
-  // Course creation state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [formData, setFormData] = useState<{
     title: string;
@@ -79,10 +79,12 @@ const ConsultantServices = ({ navigation }: any) => {
     // New fields
     imageUrl: string;
     videoUrl: string;
-    subscriptionType: 'monthly' | 'yearly' | 'lifetime';
+    subscriptionType: 'monthly' | 'yearly' | 'lifetime' | 'allMonthly' | 'allYearly';
     monthlyPrice: number;
     yearlyPrice: number;
     lifetimePrice: number;
+    allCoursesMonthlyPrice: number;
+    allCoursesYearlyPrice: number;
   }>({
     title: '',
     description: '',
@@ -108,201 +110,171 @@ const ConsultantServices = ({ navigation }: any) => {
     monthlyPrice: 0,
     yearlyPrice: 0,
     lifetimePrice: 0,
+    allCoursesMonthlyPrice: 0,
+    allCoursesYearlyPrice: 0,
   });
 
-  const categories = ['Business', 'Technology', 'Design', 'Marketing', 'Personal Development', 'Health & Fitness'];
-  const levels = ['beginner', 'intermediate', 'advanced'];
+  // const categories = ['Business', 'Technology', 'Design', 'Marketing', 'Personal Development', 'Health & Fitness'];
+  // const levels = ['beginner', 'intermediate', 'advanced'];
+
+  // Image picker functions
+  const pickImage = async () => {
+    try {
+      const options = {
+        mediaType: 'photo' as const,
+        includeBase64: false,
+        maxHeight: 2000,
+        maxWidth: 2000,
+      };
+
+      launchImageLibrary(options, async (response) => {
+        if (response.didCancel || response.errorMessage) {
+          return;
+        }
+
+        if (response.assets && response.assets[0]) {
+          try {
+            // Show loading indicator
+            Alert.alert('Uploading', 'Please wait while we upload your image...');
+            
+            // Upload to Cloudinary
+            const uploadResult = await UploadService.uploadServiceImage(response.assets[0]);
+            
+            // Store Cloudinary URL
+            setFormData(prev => ({ 
+              ...prev, 
+              imageUrl: uploadResult.imageUrl || '' 
+            }));
+            
+            Alert.alert('Success', 'Image uploaded successfully!');
+          } catch (uploadError) {
+            console.error('Image upload error:', uploadError);
+            Alert.alert('Error', 'Failed to upload image. Please try again.');
+          }
+        }
+      });
+    } catch (pickError) {
+      Alert.alert('Error', 'Failed to pick image');
+      console.error('Image picker error:', pickError);
+    }
+  };
+
+  const pickVideo = async () => {
+    try {
+      const options = {
+        mediaType: 'video' as const,
+        includeBase64: false,
+      };
+
+      launchImageLibrary(options, async (response) => {
+        if (response.didCancel || response.errorMessage) {
+          return;
+        }
+
+        if (response.assets && response.assets[0]) {
+          try {
+            // Show loading indicator
+            Alert.alert('Uploading', 'Please wait while we upload your video. This may take a few minutes...');
+            
+            // Upload to Cloudinary
+            const uploadResult = await UploadService.uploadServiceVideo(response.assets[0]);
+            
+            // Store Cloudinary URL
+            setFormData(prev => ({ 
+              ...prev, 
+              videoUrl: uploadResult.videoUrl || '' 
+            }));
+            
+            Alert.alert('Success', 'Video uploaded successfully!');
+          } catch (uploadError) {
+            console.error('Video upload error:', uploadError);
+            Alert.alert('Error', 'Failed to upload video. Please try again.');
+          }
+        }
+      });
+    } catch (pickError) {
+      Alert.alert('Error', 'Failed to pick video');
+      console.error('Video picker error:', pickError);
+    }
+  };
 
   // Fetch consultant services function
   const fetchConsultantServices = useCallback(async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       setError(null);
 
       // Get consultant's profile to get their UID
             if (__DEV__) {
         console.log('📡 Fetching consultant status...')
       };
-      const statusResponse = await getConsultantVerificationStatus();
-            if (__DEV__) {
-        console.log(
-        '📊 Status response:',
-        JSON.stringify(statusResponse, null, 2),
-      )
-      };
-
-      if (!statusResponse.profile?.uid) {
-                if (__DEV__) {
-          console.error('❌ No profile UID found in response')
-        };
-        setError('Consultant profile not found. Please complete your profile.');
-        setServices([]);
-        setFilteredServices([]);
-        return;
+      
+      // Get user from auth context instead of calling non-existent function
+      if (!user?.uid) {
+        throw new Error('User not authenticated');
+      }
+      
+      if (__DEV__) {
+        console.log('📊 User authenticated:', user.uid)
       }
 
-      const uid = statusResponse.profile.uid;
-      setConsultantUid(uid);
-            if (__DEV__) {
-        console.log('✅ Got consultant UID:', uid)
-      };
+      // Fetch consultant services using the user's UID
+      const servicesResponse = await ConsultantService.getConsultantServices(user.uid);
+      
+      if (__DEV__) {
+        console.log('✅ Services response:', servicesResponse)
+      }
 
-            if (__DEV__) {
-        console.log('📡 Fetching services for consultant:', uid)
-      };
-      const servicesResponse = await ConsultantService.getConsultantServices(
-        uid,
-      );
-            if (__DEV__) {
-        console.log(
-        '📊 Services response:',
-        JSON.stringify(servicesResponse, null, 2),
-      )
-      };
-
-      const servicesData = servicesResponse?.services || servicesResponse || [];
-
-      const enrichedServices = await Promise.all(
-        servicesData.map(async (service: any) => {
-          if (
-            (!service.imageUrl || service.imageUrl.trim() === '') &&
-            service.basedOnDefaultService
-          ) {
-            try {
-              const defaultServiceResponse =
-                await ConsultantService.getServiceById(
-                  service.basedOnDefaultService,
-                );
-              const defaultService =
-                defaultServiceResponse?.service || defaultServiceResponse;
-              if (defaultService?.imageUrl) {
-                                if (__DEV__) {
-                  console.log(
-                  `🖼️ [ConsultantServices] Using fallback image for ${service.title} from default service ${service.basedOnDefaultService}`,
-                )
-                };
-                return {
-                  ...service,
-                  imageUrl: defaultService.imageUrl,
-                };
-              }
-            } catch (fallbackError) {
-                            if (__DEV__) {
-                console.warn(
-                `⚠️ [ConsultantServices] Unable to load fallback image for ${service.title}:`,
-                fallbackError,
-              )
-              };
-            }
-          }
-          return service;
-        }),
-      );
-
-      // Debug: Log service data to see imageUrl values
-            if (__DEV__) {
-        console.log(
-        '🔍 [ConsultantServices] Services data:',
-        JSON.stringify(servicesData, null, 2),
-      )
-      };
-      servicesData.forEach((service: any, index: number) => {
-                if (__DEV__) {
-          console.log(`🔍 [ConsultantServices] Service ${index + 1}:`, {
-          title: service.title,
-          imageUrl: service.imageUrl,
-          hasImageUrl: !!service.imageUrl,
-          imageUrlLength: service.imageUrl?.length || 0,
-        })
-        };
-      });
-
-      const activeServices = enrichedServices.filter(service => {
-        const status = service.approvalStatus
-          ? service.approvalStatus.toLowerCase()
-          : 'approved';
-        return status !== 'withdrawn' && status !== 'deleted';
-      });
-
-      setServices(activeServices);
-      setFilteredServices(activeServices);
-
-            if (__DEV__) {
-        console.log(
-        '✅ Loaded',
-        enrichedServices.length,
-        'services for consultant:',
-        uid,
-      )
-      };
-    } catch (err: any) {
-            if (__DEV__) {
-        console.error('❌ Error fetching consultant services:', err)
-      };
-            if (__DEV__) {
-        console.error('❌ Error response:', err.response?.data)
-      };
-            if (__DEV__) {
-        console.error('❌ Error status:', err.response?.status)
-      };
-            if (__DEV__) {
-        console.error('❌ Error message:', err.message)
-      };
-      setError(
-        err.response?.data?.error ||
-          err.message ||
-          'Failed to load services. Please try again.',
-      );
+      setServices(servicesResponse.services || []);
+      setFilteredServices(servicesResponse.services || []);
+      setConsultantUid(user.uid);
+      
+    } catch (fetchError) {
+      console.error('❌ Error fetching consultant services:', fetchError);
+      setError((fetchError as Error).message || 'Failed to fetch services');
       setServices([]);
       setFilteredServices([]);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
+  // Search/filter function
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    
+    if (!query.trim()) {
+      setFilteredServices(services);
+      return;
+    }
+
+    const filtered = services.filter((service: any) =>
+      service.title?.toLowerCase().includes(query.toLowerCase()) ||
+      service.description?.toLowerCase().includes(query.toLowerCase()) ||
+      service.category?.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    setFilteredServices(filtered);
+  }, [services]);
+
+  // Pull to refresh
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchConsultantServices();
+  }, [fetchConsultantServices]);
+
+  // Focus effect to fetch services when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      if (user?.uid) {
-                if (__DEV__) {
-          console.log(
-          '🔄 [ConsultantServices] Screen focused, refreshing services...',
-        )
-        };
-        fetchConsultantServices();
+      if (__DEV__) {
+        console.log('🔄 [ConsultantServices] Screen focused, refreshing services...');
       }
-    }, [user?.uid, fetchConsultantServices]),
+      fetchConsultantServices();
+    }, [fetchConsultantServices])
   );
 
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredServices(services);
-    } else {
-      const filtered = services.filter(
-        service =>
-          service.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          service.description.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-      setFilteredServices(filtered);
-    }
-  }, [searchQuery, services]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchConsultantServices();
-    setIsRefreshing(false);
-  };
-
-  const handleSetAvailability = (service: Service) => {
-        if (__DEV__) {
-      console.log('Set availability for service:', service.title, service.id)
-    };
-    navigation.navigate('ConsultantAvailability', {
-      serviceId: service.id,
-      serviceTitle: service.title,
-      serviceDuration: service.duration,
-    });
-  };
-
+  // Form handlers
   const handleCreateCourse = async () => {
     try {
       // Validate form data
@@ -314,8 +286,8 @@ const ConsultantServices = ({ navigation }: any) => {
       const courseData: CourseInput = {
         ...formData,
         pricingOptions: {
-          monthly: formData.monthlyPrice,
-          yearly: formData.yearlyPrice,
+          monthly: formData.subscriptionType === 'allMonthly' ? formData.allCoursesMonthlyPrice : formData.monthlyPrice,
+          yearly: formData.subscriptionType === 'allYearly' ? formData.allCoursesYearlyPrice : formData.yearlyPrice,
           lifetime: formData.lifetimePrice,
         },
         language: 'English',
@@ -324,18 +296,21 @@ const ConsultantServices = ({ navigation }: any) => {
         // Include new fields with correct names
         thumbnailUrl: formData.imageUrl,
         previewVideoUrl: formData.videoUrl,
-        // Set base price to monthly price for compatibility
-        price: formData.monthlyPrice || 0,
+        // Set base price based on subscription type
+        price: formData.subscriptionType === 'allMonthly' ? formData.allCoursesMonthlyPrice : 
+               formData.subscriptionType === 'allYearly' ? formData.allCoursesYearlyPrice :
+               formData.monthlyPrice || 0,
       };
 
       await courseService.createCourse(courseData);
+      
       Alert.alert('Success', 'Service created successfully!');
       setShowCreateModal(false);
       resetForm();
-      await fetchConsultantServices();
+      fetchConsultantServices();
     } catch (createError) {
-      console.error('Error creating service:', createError);
-      Alert.alert('Error', 'Failed to create service');
+      console.error('Error creating course:', createError);
+      Alert.alert('Error', 'Failed to create service. Please try again.');
     }
   };
 
@@ -354,7 +329,7 @@ const ConsultantServices = ({ navigation }: any) => {
       objectives: [''],
       prerequisites: [''],
       targetAudience: [''],
-      difficultyScore: 5,
+      difficultyScore: 0,
       timeCommitment: '',
       certificateAvailable: true,
       tags: [''],
@@ -365,174 +340,117 @@ const ConsultantServices = ({ navigation }: any) => {
       monthlyPrice: 0,
       yearlyPrice: 0,
       lifetimePrice: 0,
+      allCoursesMonthlyPrice: 0,
+      allCoursesYearlyPrice: 0,
     });
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
-        <ScreenHeader
-          title="My Services"
-          onBackPress={() => navigation.goBack()}
-        />
-        <LoadingState message="Loading your services..." />
-      </SafeAreaView>
+      <View style={styles.centerContainer}>
+        <Text style={styles.loadingText}>Loading services...</Text>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
-        <ScreenHeader
-          title="My Services"
-          onBackPress={() => navigation.goBack()}
-        />
-        <ErrorDisplay
-          error={error}
-          onRetry={fetchConsultantServices}
-          retryLabel="Retry"
-        />
-      </SafeAreaView>
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity onPress={fetchConsultantServices}>
+          <Text style={styles.retryButton}>Retry</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
-      <ScreenHeader
-        title="My Services"
-        onBackPress={() => navigation.goBack()}
+    <SafeAreaView style={screenStyles.container}>
+      <ScreenHeader title="My Services" showBackButton={false} />
+      
+      {/* Search Bar */}
+      <SearchBar
+        value={searchQuery}
+        onChangeText={handleSearch}
+        placeholder="Search services..."
+        style={styles.searchBarContainer}
       />
 
+      {/* Services List */}
       <ScrollView
-        style={screenStyles.scrollViewContainer}
-        contentContainerStyle={screenStyles.scrollViewContent}
-        showsVerticalScrollIndicator={false}
+        style={styles.servicesContainer}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={[COLORS.green]}
-            tintColor={COLORS.green}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-        {/* Header Stats */}
-        <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>
-            {services.length} Service{services.length !== 1 ? 's' : ''} in Your
-            Catalog
-          </Text>
-        </View>
-
-        {/* Search Bar */}
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search your services"
-        />
-
-        {/* Add New Service Button */}
-        <TouchableOpacity
-          style={styles.addServiceButton}
-          onPress={() => setShowCreateModal(true)}
-        >
-          <Text style={styles.addServiceButtonText}>+ Add New Service</Text>
-        </TouchableOpacity>
-
-        {/* Empty State */}
-        {filteredServices.length === 0 && (
+        {filteredServices.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📋</Text>
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? 'No services found' : 'No services yet'}
-            </Text>
+            <Text style={styles.emptyTitle}>No Services Found</Text>
             <Text style={styles.emptySubtitle}>
-              {searchQuery
-                ? 'Try adjusting your search terms'
-                : 'Apply for services or create your own to get started'}
+              {searchQuery ? 'Try adjusting your search terms' : 'Create your first service to get started'}
             </Text>
           </View>
-        )}
-
-        {/* Services Grid (2 per row) */}
-        {filteredServices.length > 0 && (
-          <View style={screenStyles.consultantList}>
-            {filteredServices.map(item => {
-              const imageUri =
-                item.imageUrl && item.imageUrl.trim() !== ''
-                  ? { uri: item.imageUrl }
-                  : undefined;
-                            if (__DEV__) {
-                console.log(`🔍 [ConsultantServices] Rendering ${item.title}:`, {
-                imageUrl: item.imageUrl,
-                imageUri: imageUri,
-                hasImageUri: !!imageUri,
-              })
-              };
-
-              return (
-                <View key={item.id} style={screenStyles.consultantCardWrapper}>
-                  <ConsultantServiceCard
-                    title={item.title}
-                    description={item.description}
-                    imageUri={imageUri}
-                    // VIDEO UPLOAD CODE - COMMENTED OUT: videoUrl={item.videoUrl}
-                    duration={item.duration}
-                    price={item.price}
-                    rating={item.rating}
-                    onSetAvailabilityPress={() => handleSetAvailability(item)}
-                  />
-                </View>
-              );
-            })}
-          </View>
+        ) : (
+          filteredServices.map((service: any) => (
+            <TouchableOpacity
+              key={service.id}
+              onPress={() => navigation.navigate('ServiceDetails', { serviceId: service.id })}
+            >
+              <ConsultantServiceCard
+                title={service.title}
+                description={service.description}
+                imageUri={service.imageUrl}
+                duration={service.duration}
+                price={service.price}
+                rating={service.rating}
+                onSetAvailabilityPress={() => {}}
+              />
+            </TouchableOpacity>
+          ))
         )}
       </ScrollView>
-      
-      {/* Course Creation Modal */}
+
+      {/* Add New Service Button */}
+      <TouchableOpacity
+        style={styles.addServiceButton}
+        onPress={() => setShowCreateModal(true)}
+      >
+        <Text style={styles.addServiceButtonText}>+ Add New Service</Text>
+      </TouchableOpacity>
+
+      {/* Create Service Modal */}
       <Modal
         visible={showCreateModal}
         animationType="slide"
         presentationStyle="pageSheet"
       >
-        <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
-          <ScreenHeader
-            title="Create New Service"
+        <SafeAreaView style={styles.modalContainer}>
+          <ScreenHeader 
+            title="Create New Service" 
+            showBackButton={true}
             onBackPress={() => setShowCreateModal(false)}
           />
           
-          <ScrollView style={styles.modalContainer}>
+          <ScrollView style={styles.modalContent}>
             {/* Basic Information */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Basic Information</Text>
               
-              <Text style={styles.label}>Title *</Text>
+              <Text style={styles.label}>Service Title</Text>
               <TextInput
                 style={styles.input}
                 value={formData.title}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, title: text.trim() }))}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
                 placeholder="Enter service title"
-                placeholderTextColor={COLORS.gray}
               />
               
-              <Text style={styles.label}>Description *</Text>
+              <Text style={styles.label}>Description</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={formData.description}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, description: text.trim() }))}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
                 placeholder="Describe your service"
-                placeholderTextColor={COLORS.gray}
                 multiline
-                numberOfLines={4}
-              />
-              
-              <Text style={styles.label}>Short Description</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.shortDescription}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, shortDescription: text }))}
-                placeholder="Brief description (optional)"
-                placeholderTextColor={COLORS.gray}
               />
             </View>
 
@@ -540,78 +458,80 @@ const ConsultantServices = ({ navigation }: any) => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Media</Text>
               
-              <Text style={styles.label}>Service Image URL</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.imageUrl}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, imageUrl: text }))}
-                placeholder="https://example.com/image.jpg"
-                placeholderTextColor={COLORS.gray}
-              />
-              
-              <Text style={styles.label}>Course Video URL (Preview)</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.videoUrl}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, videoUrl: text }))}
-                placeholder="https://example.com/video.mp4"
-                placeholderTextColor={COLORS.gray}
-              />
-            </View>
-
-            {/* Category and Level */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Category & Level</Text>
-              
-              <Text style={styles.label}>Category</Text>
-              <View style={styles.categoryContainer}>
-                {categories.map((category) => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[
-                      styles.categoryOption,
-                      formData.category === category && styles.selectedCategory,
-                    ]}
-                    onPress={() => setFormData(prev => ({ ...prev, category }))}
-                  >
-                    <Text style={styles.categoryText}>{category}</Text>
-                  </TouchableOpacity>
-                ))}
+              <Text style={styles.label}>Service Image</Text>
+              <View style={styles.mediaContainer}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginRight: 10 }]}
+                  value={formData.imageUrl}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, imageUrl: text }))}
+                  placeholder="Enter image URL or upload from device"
+                />
+                <TouchableOpacity 
+                  style={styles.uploadButton}
+                  onPress={pickImage}
+                >
+                  <Camera size={16} color={COLORS.white} style={styles.uploadIcon} />
+                  <Text style={styles.uploadButtonText}>Upload</Text>
+                </TouchableOpacity>
               </View>
               
-              <Text style={styles.label}>Level</Text>
-              <View style={styles.categoryContainer}>
-                {levels.map((level) => (
-                  <TouchableOpacity
-                    key={level}
-                    style={[
-                      styles.categoryOption,
-                      formData.level === level && styles.selectedCategory,
-                    ]}
-                    onPress={() => setFormData(prev => ({ ...prev, level: level as 'beginner' | 'intermediate' | 'advanced' }))}
-                  >
-                    <Text style={styles.categoryText}>{level}</Text>
-                  </TouchableOpacity>
-                ))}
+              {formData.imageUrl && (
+                <View style={styles.previewContainer}>
+                  <Text style={styles.previewLabel}>Image Preview:</Text>
+                  <Text style={styles.previewText} numberOfLines={1}>
+                    {formData.imageUrl.length > 50 ? formData.imageUrl.substring(0, 50) + '...' : formData.imageUrl}
+                  </Text>
+                </View>
+              )}
+              
+              <Text style={styles.label}>Course Video (Preview)</Text>
+              <View style={styles.mediaContainer}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginRight: 10 }]}
+                  value={formData.videoUrl}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, videoUrl: text }))}
+                  placeholder="Enter video URL or upload from device"
+                />
+                <TouchableOpacity 
+                  style={styles.uploadButton}
+                  onPress={pickVideo}
+                >
+                  <Video size={16} color={COLORS.white} style={styles.uploadIcon} />
+                  <Text style={styles.uploadButtonText}>Upload</Text>
+                </TouchableOpacity>
               </View>
+              
+              {formData.videoUrl && (
+                <View style={styles.previewContainer}>
+                  <Text style={styles.previewLabel}>Video Preview:</Text>
+                  <Text style={styles.previewText} numberOfLines={1}>
+                    {formData.videoUrl.length > 50 ? formData.videoUrl.substring(0, 50) + '...' : formData.videoUrl}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Subscription Pricing */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Subscription Pricing</Text>
               
-              <Text style={styles.label}>Access Type</Text>
               <View style={styles.categoryContainer}>
-                {['monthly', 'yearly', 'lifetime'].map((type) => (
+                {[
+                  { type: 'monthly', label: 'Monthly (Single Course)' },
+                  { type: 'yearly', label: 'Yearly (Single Course)' },
+                  { type: 'lifetime', label: 'Lifetime (Single Course)' },
+                  { type: 'allMonthly', label: 'Monthly (All Courses)' },
+                  { type: 'allYearly', label: 'Yearly (All Courses)' },
+                ].map((option) => (
                   <TouchableOpacity
-                    key={type}
+                    key={option.type}
                     style={[
                       styles.categoryOption,
-                      formData.subscriptionType === type && styles.selectedCategory,
+                      formData.subscriptionType === option.type && styles.selectedCategory,
                     ]}
-                    onPress={() => setFormData(prev => ({ ...prev, subscriptionType: type as 'monthly' | 'yearly' | 'lifetime' }))}
+                    onPress={() => setFormData(prev => ({ ...prev, subscriptionType: option.type as any }))}
                   >
-                    <Text style={styles.categoryText}>{type.charAt(0).toUpperCase() + type.slice(1)}</Text>
+                    <Text style={styles.categoryText}>{option.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -625,87 +545,97 @@ const ConsultantServices = ({ navigation }: any) => {
                     isFree: value, 
                     monthlyPrice: value ? 0 : prev.monthlyPrice,
                     yearlyPrice: value ? 0 : prev.yearlyPrice,
-                    lifetimePrice: value ? 0 : prev.lifetimePrice
+                    lifetimePrice: value ? 0 : prev.lifetimePrice,
+                    allCoursesMonthlyPrice: value ? 0 : prev.allCoursesMonthlyPrice,
+                    allCoursesYearlyPrice: value ? 0 : prev.allCoursesYearlyPrice,
                   }))}
                 />
               </View>
               
               {!formData.isFree && (
                 <>
-                  <Text style={styles.label}>Monthly Price ($)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.monthlyPrice.toString()}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, monthlyPrice: parseFloat(text) || 0 }))}
-                    placeholder="29.99"
-                    placeholderTextColor={COLORS.gray}
-                    keyboardType="numeric"
-                  />
+                  {(formData.subscriptionType === 'monthly' || formData.subscriptionType === 'allMonthly') && (
+                    <>
+                      <Text style={styles.label}>
+                        {formData.subscriptionType === 'allMonthly' ? 'All Courses Monthly Price ($)' : 'Monthly Price ($)'}
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        value={
+                          formData.subscriptionType === 'allMonthly' 
+                            ? formData.allCoursesMonthlyPrice.toString()
+                            : formData.monthlyPrice.toString()
+                        }
+                        onChangeText={(text) => setFormData(prev => ({ 
+                          ...prev, 
+                          ...(formData.subscriptionType === 'allMonthly' 
+                            ? { allCoursesMonthlyPrice: parseFloat(text) || 0 }
+                            : { monthlyPrice: parseFloat(text) || 0 }
+                          )
+                        }))}
+                        placeholder="29.99"
+                        keyboardType="numeric"
+                      />
+                    </>
+                  )}
                   
-                  <Text style={styles.label}>Yearly Price ($)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.yearlyPrice.toString()}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, yearlyPrice: parseFloat(text) || 0 }))}
-                    placeholder="299.99"
-                    placeholderTextColor={COLORS.gray}
-                    keyboardType="numeric"
-                  />
+                  {(formData.subscriptionType === 'yearly' || formData.subscriptionType === 'allYearly') && (
+                    <>
+                      <Text style={styles.label}>
+                        {formData.subscriptionType === 'allYearly' ? 'All Courses Yearly Price ($)' : 'Yearly Price ($)'}
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        value={
+                          formData.subscriptionType === 'allYearly' 
+                            ? formData.allCoursesYearlyPrice.toString()
+                            : formData.yearlyPrice.toString()
+                        }
+                        onChangeText={(text) => setFormData(prev => ({ 
+                          ...prev, 
+                          ...(formData.subscriptionType === 'allYearly' 
+                            ? { allCoursesYearlyPrice: parseFloat(text) || 0 }
+                            : { yearlyPrice: parseFloat(text) || 0 }
+                          )
+                        }))}
+                        placeholder="299.99"
+                        keyboardType="numeric"
+                      />
+                    </>
+                  )}
                   
-                  <Text style={styles.label}>Lifetime Price ($)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lifetimePrice.toString()}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, lifetimePrice: parseFloat(text) || 0 }))}
-                    placeholder="999.99"
-                    placeholderTextColor={COLORS.gray}
-                    keyboardType="numeric"
-                  />
+                  {formData.subscriptionType === 'lifetime' && (
+                    <>
+                      <Text style={styles.label}>Lifetime Price ($)</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={formData.lifetimePrice.toString()}
+                        onChangeText={(text) => setFormData(prev => ({ ...prev, lifetimePrice: parseFloat(text) || 0 }))}
+                        placeholder="999.99"
+                        keyboardType="numeric"
+                      />
+                    </>
+                  )}
                 </>
               )}
             </View>
-
-            {/* Duration */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Duration</Text>
-              
-              <Text style={styles.label}>Duration (minutes)</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.duration.toString()}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, duration: parseInt(text, 10) || 0 }))}
-                placeholder="60"
-                placeholderTextColor={COLORS.gray}
-                keyboardType="numeric"
-              />
-              
-              <Text style={styles.label}>Duration Text</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.durationText}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, durationText: text }))}
-                placeholder="e.g., 1 hour, 30 minutes"
-                placeholderTextColor={COLORS.gray}
-              />
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.cancelButton]}
-                onPress={() => setShowCreateModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.actionButton, styles.createButton]}
-                onPress={handleCreateCourse}
-              >
-                <Text style={styles.createButtonText}>Create Service</Text>
-              </TouchableOpacity>
-            </View>
           </ScrollView>
+
+          {/* Modal Actions */}
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.cancelButton]}
+              onPress={() => setShowCreateModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.createButton]}
+              onPress={handleCreateCourse}
+            >
+              <Text style={styles.createButtonText}>Create Service</Text>
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -736,29 +666,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   retryButton: {
-    fontSize: 16,
-    color: COLORS.green,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
   },
-  statsContainer: {
+  searchBarContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    marginBottom: 16,
+    paddingVertical: 10,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
   },
-  statsText: {
-    fontSize: 14,
-    color: COLORS.gray,
-    fontWeight: '600',
-    textAlign: 'center',
+  servicesContainer: {
+    flex: 1,
+    backgroundColor: COLORS.lightBackground,
   },
   emptyContainer: {
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: 60,
-    // paddingHorizontal: 20,
   },
   emptyIcon: {
     fontSize: 64,
@@ -780,7 +707,6 @@ const styles = StyleSheet.create({
   addServiceButton: {
     backgroundColor: COLORS.green,
     paddingVertical: 14,
-    // paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -790,14 +716,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 6,
+    marginHorizontal: 20,
   },
   addServiceButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
   },
-  // Modal styles
   modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
+  modalContent: {
     flex: 1,
     backgroundColor: COLORS.white,
   },
@@ -859,6 +789,45 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 14,
     color: COLORS.black,
+  },
+  mediaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  uploadButton: {
+    backgroundColor: COLORS.blue,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  uploadButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  uploadIcon: {
+    marginRight: 4,
+  },
+  previewContainer: {
+    backgroundColor: COLORS.lightGray,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  previewLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 5,
+    fontWeight: '600',
+  },
+  previewText: {
+    fontSize: 11,
+    color: COLORS.gray,
+    fontStyle: 'italic',
   },
   switchContainer: {
     flexDirection: 'row',

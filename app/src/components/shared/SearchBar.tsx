@@ -19,14 +19,16 @@ const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   return (
     <View style={[styles.container, style]}>
-      <Search size={20} color={COLORS.gray} style={styles.icon} />
-      <TextInput
-        style={styles.input}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.gray}
-        value={value}
-        onChangeText={onChangeText}
-      />
+      <View style={styles.searchContainer}>
+        <Search size={18} color={COLORS.gray} style={styles.icon} />
+        <TextInput
+          style={styles.input}
+          placeholder={placeholder}
+          placeholderTextColor={COLORS.gray}
+          value={value}
+          onChangeText={onChangeText}
+        />
+      </View>
     </View>
   );
 };
