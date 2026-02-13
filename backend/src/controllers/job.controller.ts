@@ -11,23 +11,38 @@ import { Job, JobCard } from "../models/job.model";
 export const createJob = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    console.log(`🔍 [Job Creation] User:`, user?.uid, `Email:`, user?.email);
+    
     if (!user || !user.uid) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
     const jobData = req.body;
+    console.log(`🔍 [Job Creation] Job data:`, jobData);
 
-    // ENFORCEMENT: Check if job posting payment is required
-    const paymentRequired = await jobServices.checkJobPostingPayment(user.uid);
-    if (paymentRequired.required && !paymentRequired.paid) {
-      return res.status(402).json({
-        error: "Payment required for job posting",
-        paymentAmount: paymentRequired.amount,
-        paymentUrl: paymentRequired.paymentUrl,
-        message: "Please pay the job posting fee to continue"
-      });
+    // Check if payment is already confirmed (bypass payment check)
+    const paymentConfirmed = req.body.paymentConfirmed || req.headers['x-payment-confirmed'] === 'true';
+    
+    if (!paymentConfirmed) {
+      // ENFORCEMENT: Check if job posting payment is required
+      console.log(`🔍 [Job Creation] Checking payment requirement...`);
+      const paymentRequired = await jobServices.checkJobPostingPayment(user.uid);
+      console.log(`🔍 [Job Creation] Payment check result:`, paymentRequired);
+      
+      if (paymentRequired.required && !paymentRequired.paid) {
+        console.log(`🔍 [Job Creation] Payment required - returning 402`);
+        return res.status(402).json({
+          error: "Payment required for job posting",
+          paymentAmount: paymentRequired.amount,
+          paymentUrl: paymentRequired.paymentUrl,
+          message: "Please pay the job posting fee to continue"
+        });
+      }
+    } else {
+      console.log(`🔍 [Job Creation] Payment already confirmed - bypassing payment check`);
     }
 
+    console.log(`🔍 [Job Creation] Creating job...`);
     const job = await jobServices.create(jobData, user.uid);
 
     res.status(201).json({

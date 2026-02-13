@@ -227,13 +227,22 @@ const Account = ({ navigation }: any) => {
   );
 
   const handlePress = async (route: string) => {
+    console.log(`🔍 [Account] Button pressed: ${route}, User role: ${activeRole}, Roles: ${roles}`);
+    
     if (route === 'Logout') {
       showConfirmation(
         'Logout',
         'Are you sure you want to log out?',
         async () => {
-          await logout();
-          navigation.replace('Auth', { screen: 'Login' });
+          try {
+            console.log(`🔍 [Account] Logging out user: ${user?.uid}`);
+            await logout();
+            console.log(`🔍 [Account] Logout successful, navigating to Login`);
+            navigation.replace('Auth', { screen: 'Login' });
+          } catch (error) {
+            console.error(`🔍 [Account] Logout error:`, error);
+            showErrorAlert(error?.message || 'Failed to logout');
+          }
         },
         undefined,
         'Logout',

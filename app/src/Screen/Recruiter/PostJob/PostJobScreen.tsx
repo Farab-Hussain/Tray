@@ -67,9 +67,133 @@ const PostJobScreen = ({ navigation, route }: any) => {
   const [saving, setSaving] = useState(false);
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<any>(null);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [newSkill, setNewSkill] = useState('');
+  const [newPreferredSkill, setNewPreferredSkill] = useState('');
   const [paymentRequired, setPaymentRequired] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentUrl, setPaymentUrl] = useState('');
+
+  // Validation functions
+  const validateField = (field: string, value: any): string => {
+    switch (field) {
+      case 'title':
+        if (!value || value.trim() === '') {
+          return 'Job title is required';
+        }
+        if (value.trim().length < 3) {
+          return 'Job title must be at least 3 characters';
+        }
+        if (value.trim().length > 200) {
+          return 'Job title must be less than 200 characters';
+        }
+        return '';
+      
+      case 'description':
+        if (!value || value.trim() === '') {
+          return 'Job description is required';
+        }
+        if (value.trim().length < 10) {
+          return 'Job description must be at least 10 characters';
+        }
+        if (value.trim().length > 5000) {
+          return 'Job description must be less than 5000 characters';
+        }
+        return '';
+      
+      case 'location':
+        if (!value || value.trim() === '') {
+          return 'Location is required';
+        }
+        if (value.trim().length < 1) {
+          return 'Location must be at least 1 character';
+        }
+        if (value.trim().length > 200) {
+          return 'Location must be less than 200 characters';
+        }
+        return '';
+      
+      case 'company':
+        if (!selectedCompany) {
+          return 'Please select a company';
+        }
+        return '';
+      
+      case 'requiredSkills':
+        if (!value || value.length === 0) {
+          return 'At least one required skill is needed';
+        }
+        if (value.some((skill: string) => skill.trim() === '')) {
+          return 'Skills cannot be empty';
+        }
+        return '';
+      
+      case 'salaryMin':
+        if (value < 0) {
+          return 'Minimum salary cannot be negative';
+        }
+        if (value > 999999) {
+          return 'Minimum salary seems too high';
+        }
+        return '';
+      
+      case 'salaryMax':
+        if (value < 0) {
+          return 'Maximum salary cannot be negative';
+        }
+        if (value > 999999) {
+          return 'Maximum salary seems too high';
+        }
+        if (jobPost.salaryRange.min > 0 && value < jobPost.salaryRange.min) {
+          return 'Maximum salary must be greater than minimum salary';
+        }
+        return '';
+      
+      default:
+        return '';
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: {[key: string]: string} = {};
+    
+    // Validate all fields
+    newErrors.title = validateField('title', jobPost.title);
+    newErrors.description = validateField('description', jobPost.description);
+    newErrors.location = validateField('location', jobPost.location);
+    newErrors.company = validateField('company', selectedCompany);
+    newErrors.requiredSkills = validateField('requiredSkills', jobPost.requiredSkills);
+    newErrors.salaryMin = validateField('salaryMin', jobPost.salaryRange.min);
+    newErrors.salaryMax = validateField('salaryMax', jobPost.salaryRange.max);
+    
+    setErrors(newErrors);
+    
+    // Check if there are any errors
+    return Object.values(newErrors).every(error => error === '');
+  };
+
+  const handleFieldChange = (field: string, value: any) => {
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev: any) => ({ ...prev, [field]: '' }));
+    }
+    
+    // Update job post state
+    if (field.includes('salary')) {
+      if (field === 'salaryMin') {
+        setJobPost({ ...jobPost, salaryRange: { ...jobPost.salaryRange, min: value } });
+      } else {
+        setJobPost({ ...jobPost, salaryRange: { ...jobPost.salaryRange, max: value } });
+      }
+    } else {
+      setJobPost({ ...jobPost, [field]: value });
+    }
+  };
+
+  const handleFieldBlur = (field: string, value: any) => {
+    const error = validateField(field, value);
+    setErrors((prev: any) => ({ ...prev, [field]: error }));
+  };
 
   const [jobPost, setJobPost] = useState<JobPost>({
     title: '',
@@ -97,9 +221,6 @@ const PostJobScreen = ({ navigation, route }: any) => {
     },
     isActive: true,
   });
-
-  const [newSkill, setNewSkill] = useState('');
-  const [newPreferredSkill, setNewPreferredSkill] = useState('');
 
   const jobTypes = [
     { value: 'full-time', label: 'Full Time' },
@@ -162,6 +283,12 @@ const PostJobScreen = ({ navigation, route }: any) => {
   };
 
   const handleSave = async () => {
+    // Validate form before submission
+    if (!validateForm()) {
+      Alert.alert('Validation Error', 'Please fix the errors in the form before submitting.');
+      return;
+    }
+
     // Prepare job data for API outside try-catch to make it accessible in catch block
     const jobDataForAPI = {
       title: jobPost.title.trim(),
@@ -193,37 +320,6 @@ const PostJobScreen = ({ navigation, route }: any) => {
     try {
       setSaving(true);
 
-      // Validation
-      if (!jobPost.title.trim()) {
-        Alert.alert('Error', 'Job title is required');
-        return;
-      }
-
-      if (!jobPost.description.trim()) {
-        Alert.alert('Error', 'Job description is required');
-        return;
-      }
-
-      if (!jobPost.location.trim()) {
-        Alert.alert('Error', 'Location is required');
-        return;
-      }
-
-      if (jobPost.requiredSkills.length === 0) {
-        Alert.alert('Error', 'At least one required skill is required');
-        return;
-      }
-
-      if (jobPost.salaryRange.min >= jobPost.salaryRange.max) {
-        Alert.alert('Error', 'Maximum salary must be greater than minimum salary');
-        return;
-      }
-
-      if (!selectedCompany) {
-        Alert.alert('Error', 'Please select a company');
-        return;
-      }
-
       // Make API call to post job
       await JobService.createJob(jobDataForAPI);
       
@@ -232,6 +328,10 @@ const PostJobScreen = ({ navigation, route }: any) => {
       
     } catch (error: any) {
       console.error('Error posting job:', error);
+      console.log('Error response:', error.response);
+      console.log('Error status:', error.response?.status);
+      console.log('Error data:', error.response?.data);
+      
       if (error.response?.status === 402) {
         // Payment required
         setPaymentRequired(true);

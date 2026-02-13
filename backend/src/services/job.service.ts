@@ -357,10 +357,13 @@ export const jobServices = {
     subscriptionActive?: boolean;
   }> {
     try {
+      console.log(`🔍 [Payment Check] Checking payment for user: ${userId}`);
+      
       // Check if user has active subscription (Phase 2 feature - placeholder)
       const subscriptionActive = false; // TODO: Implement subscription check
 
       // Check if user already paid for this job posting
+      // Note: Each job posting requires separate payment - no bulk payments
       const paymentSnapshot = await db
         .collection("jobPostingPayments")
         .where("userId", "==", userId)
@@ -369,28 +372,35 @@ export const jobServices = {
         .limit(1)
         .get();
 
-      const hasValidPayment = !paymentSnapshot.empty;
+      // For now, always require payment for each job posting
+      // TODO: Implement subscription-based or bulk payment options
+      const hasValidPayment = false; // Force payment requirement for testing
 
       // Job posting fee: $1.00 per post
       const JOB_POSTING_FEE = 100; // $1.00 in cents
 
-      return {
+      const result = {
         required: !subscriptionActive, // Free for subscribers
         paid: hasValidPayment,
         amount: subscriptionActive ? 0 : JOB_POSTING_FEE,
         paymentUrl: hasValidPayment ? undefined : "/payment/job-posting",
         subscriptionActive,
       };
+
+      console.log(`🔍 [Payment Check] Result:`, result);
+      return result;
     } catch (error) {
       console.error("Error checking job posting payment:", error);
       // Default to requiring payment if check fails
-      return {
+      const fallbackResult = {
         required: true,
         paid: false,
         amount: 100,
         paymentUrl: "/payment/job-posting",
         subscriptionActive: false,
       };
+      console.log(`🔍 [Payment Check] Fallback result:`, fallbackResult);
+      return fallbackResult;
     }
   },
 

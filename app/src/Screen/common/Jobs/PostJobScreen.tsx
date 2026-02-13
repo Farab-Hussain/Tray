@@ -37,6 +37,99 @@ const PostJobScreen = ({ navigation }: any) => {
   const [experienceRequired, setExperienceRequired] = useState('');
   const [educationRequired, setEducationRequired] = useState('');
   const [posting, setPosting] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [touched, setTouched] = useState<{[key: string]: boolean}>({});
+
+  // Validation functions
+  const validateField = (field: string, value: any): string => {
+    switch (field) {
+      case 'title':
+        if (!value || value.trim() === '') return 'Job title is required';
+        if (value.trim().length < 3) return 'Job title must be at least 3 characters';
+        if (value.trim().length > 200) return 'Job title must be less than 200 characters';
+        return '';
+      
+      case 'description':
+        if (!value || value.trim() === '') return 'Job description is required';
+        if (value.trim().length < 10) return 'Job description must be at least 10 characters';
+        if (value.trim().length > 5000) return 'Job description must be less than 5000 characters';
+        return '';
+      
+      case 'company':
+        if (!value || value.trim() === '') return 'Company name is required';
+        if (value.trim().length < 1) return 'Company name must be at least 1 character';
+        if (value.trim().length > 200) return 'Company name must be less than 200 characters';
+        return '';
+      
+      case 'location':
+        if (!value || value.trim() === '') return 'Location is required';
+        if (value.trim().length < 1) return 'Location must be at least 1 character';
+        if (value.trim().length > 200) return 'Location must be less than 200 characters';
+        return '';
+      
+      case 'requiredSkills':
+        if (!value || value.length === 0) return 'At least one required skill is needed';
+        return '';
+      
+      case 'minSalary':
+        if (value && (isNaN(value) || parseFloat(value) < 0)) return 'Invalid minimum salary';
+        if (minSalary && maxSalary && parseFloat(value) > parseFloat(maxSalary)) {
+          return 'Minimum salary cannot be greater than maximum';
+        }
+        return '';
+      
+      case 'maxSalary':
+        if (value && (isNaN(value) || parseFloat(value) < 0)) return 'Invalid maximum salary';
+        if (minSalary && value && parseFloat(minSalary) > parseFloat(value)) {
+          return 'Maximum salary must be greater than minimum';
+        }
+        return '';
+      
+      default:
+        return '';
+    }
+  };
+
+  const handleFieldChange = (field: string, value: string) => {
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+    
+    // Mark field as touched
+    setTouched(prev => ({ ...prev, [field]: true }));
+    
+    // Update field value
+    switch (field) {
+      case 'title': setTitle(value); break;
+      case 'description': setDescription(value); break;
+      case 'company': setCompany(value); break;
+      case 'location': setLocation(value); break;
+      case 'minSalary': setMinSalary(value); break;
+      case 'maxSalary': setMaxSalary(value); break;
+    }
+  };
+
+  const handleFieldBlur = (field: string, value: string) => {
+    const error = validateField(field, value);
+    setErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: {[key: string]: string} = {};
+    
+    newErrors.title = validateField('title', title);
+    newErrors.description = validateField('description', description);
+    newErrors.company = validateField('company', company);
+    newErrors.location = validateField('location', location);
+    newErrors.requiredSkills = validateField('requiredSkills', requiredSkills);
+    newErrors.minSalary = validateField('minSalary', minSalary);
+    newErrors.maxSalary = validateField('maxSalary', maxSalary);
+    
+    setErrors(newErrors);
+    
+    return Object.values(newErrors).every(error => error === '');
+  };
 
   const handleAddSkill = () => {
     if (newSkill.trim()) {
@@ -49,30 +142,15 @@ const PostJobScreen = ({ navigation }: any) => {
     setRequiredSkills(requiredSkills.filter((_, i) => i !== index));
   };
 
-  // Only allow numbers in salary inputs
-  const handleSalaryChange = (value: string, setter: (val: string) => void) => {
-    // Remove any non-numeric characters
-    const numericValue = value.replace(/[^0-9]/g, '');
-    setter(numericValue);
-  };
-
+  
   const getSelectedCurrency = () => {
     return getCurrencyByCode(currency) || getCurrencyByCode('USD') || getCurrenciesArray()[0];
   };
 
   const handlePostJob = async () => {
-    if (
-      !title.trim() ||
-      !description.trim() ||
-      !company.trim() ||
-      !location.trim()
-    ) {
-      showError('Please fill in all required fields');
-      return;
-    }
-
-    if (requiredSkills.length === 0) {
-      showError('Please add at least one required skill');
+    // Validate all fields
+    if (!validateForm()) {
+      showError('Please fix the errors in the form');
       return;
     }
 
@@ -161,30 +239,57 @@ const PostJobScreen = ({ navigation }: any) => {
       >
         <Text style={postJobScreenStyles.label}>Job Title *</Text>
         <TextInput
-          style={postJobScreenStyles.input}
-          placeholder="Enter job title"
+          style={[
+            postJobScreenStyles.input,
+            errors.title && postJobScreenStyles.inputError
+          ]}
+          placeholder="Enter job title (minimum 3 characters)"
           placeholderTextColor={COLORS.lightGray}
           value={title}
-          onChangeText={setTitle}
+          onChangeText={(value) => handleFieldChange('title', value)}
+          onBlur={() => handleFieldBlur('title', title)}
+          maxLength={200}
         />
+        <Text style={postJobScreenStyles.characterCount}>
+          {title.length}/200 characters
+        </Text>
+        {errors.title && (
+          <Text style={postJobScreenStyles.errorText}>{errors.title}</Text>
+        )}
 
         <Text style={postJobScreenStyles.label}>Company Name *</Text>
         <TextInput
-          style={postJobScreenStyles.input}
+          style={[
+            postJobScreenStyles.input,
+            errors.company && postJobScreenStyles.inputError
+          ]}
           placeholder="Enter company name"
           placeholderTextColor={COLORS.lightGray}
           value={company}
-          onChangeText={setCompany}
+          onChangeText={(value) => handleFieldChange('company', value)}
+          onBlur={() => handleFieldBlur('company', company)}
+          maxLength={200}
         />
+        {errors.company && (
+          <Text style={postJobScreenStyles.errorText}>{errors.company}</Text>
+        )}
 
         <Text style={postJobScreenStyles.label}>Location *</Text>
         <TextInput
-          style={postJobScreenStyles.input}
+          style={[
+            postJobScreenStyles.input,
+            errors.location && postJobScreenStyles.inputError
+          ]}
           placeholder="Enter location"
           placeholderTextColor={COLORS.lightGray}
           value={location}
-          onChangeText={setLocation}
+          onChangeText={(value) => handleFieldChange('location', value)}
+          onBlur={() => handleFieldBlur('location', location)}
+          maxLength={200}
         />
+        {errors.location && (
+          <Text style={postJobScreenStyles.errorText}>{errors.location}</Text>
+        )}
 
         <Text style={postJobScreenStyles.label}>Job Type *</Text>
         <View style={postJobScreenStyles.jobTypeContainer}>
@@ -212,13 +317,25 @@ const PostJobScreen = ({ navigation }: any) => {
 
         <Text style={postJobScreenStyles.label}>Job Description *</Text>
         <TextInput
-          style={[postJobScreenStyles.input, postJobScreenStyles.textArea]}
-          placeholder="Enter job description"
+          style={[
+            postJobScreenStyles.input, 
+            postJobScreenStyles.textArea,
+            errors.description && postJobScreenStyles.inputError
+          ]}
+          placeholder="Enter job description (minimum 10 characters)"
           placeholderTextColor={COLORS.lightGray}
           value={description}
-          onChangeText={setDescription}
+          onChangeText={(value) => handleFieldChange('description', value)}
+          onBlur={() => handleFieldBlur('description', description)}
           multiline
+          maxLength={5000}
         />
+        <Text style={postJobScreenStyles.characterCount}>
+          {description.length}/5000 characters
+        </Text>
+        {errors.description && (
+          <Text style={postJobScreenStyles.errorText}>{errors.description}</Text>
+        )}
 
         <Text style={postJobScreenStyles.label}>Required Skills *</Text>
         <View style={postJobScreenStyles.addSkillContainer}>
@@ -255,6 +372,9 @@ const PostJobScreen = ({ navigation }: any) => {
             ))}
           </View>
         )}
+        {errors.requiredSkills && (
+          <Text style={postJobScreenStyles.errorText}>{errors.requiredSkills}</Text>
+        )}
 
         <Text style={postJobScreenStyles.label}>Salary Range (optional)</Text>
         <View style={postJobScreenStyles.salaryRowContainer}>
@@ -276,13 +396,18 @@ const PostJobScreen = ({ navigation }: any) => {
               style={[
                 postJobScreenStyles.input,
                 postJobScreenStyles.salaryInput,
+                errors.minSalary && postJobScreenStyles.inputError
               ]}
               placeholder="Enter min salary"
               placeholderTextColor={COLORS.lightGray}
               value={minSalary}
-              onChangeText={value => handleSalaryChange(value, setMinSalary)}
+              onChangeText={(value) => handleFieldChange('minSalary', value)}
+              onBlur={() => handleFieldBlur('minSalary', minSalary)}
               keyboardType="numeric"
             />
+            {errors.minSalary && (
+              <Text style={postJobScreenStyles.errorText}>{errors.minSalary}</Text>
+            )}
           </View>
           <View style={postJobScreenStyles.salaryInputWrapper}>
             <Text style={postJobScreenStyles.currencyPrefix}>
@@ -292,13 +417,18 @@ const PostJobScreen = ({ navigation }: any) => {
               style={[
                 postJobScreenStyles.input,
                 postJobScreenStyles.salaryInput,
+                errors.maxSalary && postJobScreenStyles.inputError
               ]}
               placeholder="Enter max salary"
               placeholderTextColor={COLORS.lightGray}
               value={maxSalary}
-              onChangeText={value => handleSalaryChange(value, setMaxSalary)}
+              onChangeText={(value) => handleFieldChange('maxSalary', value)}
+              onBlur={() => handleFieldBlur('maxSalary', maxSalary)}
               keyboardType="numeric"
             />
+            {errors.maxSalary && (
+              <Text style={postJobScreenStyles.errorText}>{errors.maxSalary}</Text>
+            )}
           </View>
         </View>
 

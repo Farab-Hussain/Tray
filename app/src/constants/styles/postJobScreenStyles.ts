@@ -30,6 +30,16 @@ export const postJobScreenStyles = StyleSheet.create({
     backgroundColor: COLORS.white,
     color: COLORS.black,
   },
+  inputError: {
+    borderColor: COLORS.red,
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: 12,
+    color: COLORS.red,
+    marginBottom: 16,
+    marginTop: -8,
+  },
   textArea: {
     minHeight: 120,
     textAlignVertical: 'top',
@@ -234,6 +244,12 @@ export const postJobScreenStyles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.green,
     fontWeight: 'bold',
+  },
+  characterCount: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 16,
+    textAlign: 'right',
   },
 });
 

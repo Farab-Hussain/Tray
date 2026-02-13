@@ -15,7 +15,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { UserService } from '../../../services/user.service';
-import { Camera, User, Lock, Edit2, Mail, CheckCircle } from 'lucide-react-native';
+import { Camera, User, Lock, Edit2, Mail, CheckCircle, LogOut } from 'lucide-react-native';
 import { showError, showSuccess } from '../../../utils/toast';
 import Loader from '../../../components/ui/Loader';
 import ImageUpload from '../../../components/ui/ImageUpload';
@@ -24,11 +24,36 @@ import { auth } from '../../../lib/firebase';
 import { recruiterProfileStyles } from '../../../constants/styles/recruiterProfileStyles';
 
 const RecruiterProfile = ({ navigation }: any) => {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updatingImage, setUpdatingImage] = useState(false);
   const [imageCacheKey, setImageCacheKey] = useState(0);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to log out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              navigation.replace('Auth', { screen: 'Login' });
+            } catch (error) {
+              showError('Failed to logout');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const fetchProfileData = useCallback(async () => {
     if (!user) {
@@ -235,6 +260,24 @@ const RecruiterProfile = ({ navigation }: any) => {
                 </View>
               </View>
               <Edit2 size={18} color={COLORS.gray} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.sectionContent}>
+            <TouchableOpacity
+              style={styles.infoItem}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <View style={styles.infoItemLeft}>
+                <View style={styles.iconContainer}>
+                  <LogOut size={20} color={COLORS.red} />
+                </View>
+                <View style={styles.infoItemText}>
+                  <Text style={styles.infoLabel}>Logout</Text>
+                  <Text style={styles.infoSubtext}>Sign out of your account</Text>
+                </View>
+              </View>
             </TouchableOpacity>
           </View>
         </View>

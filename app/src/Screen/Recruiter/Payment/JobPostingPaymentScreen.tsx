@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { COLORS } from '../../../constants/core/colors';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import PaymentService from '../../../services/payment.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
+import { Check, Shield, CreditCard, Lock, AlertCircle } from 'lucide-react-native';
 
 interface JobPostingPaymentScreenProps {
   navigation: any;
@@ -35,15 +36,11 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
-  const [jobData, setJobData] = useState(route.params?.jobData || null);
+  const [jobData] = useState(route.params?.jobData || null);
 
   const JOB_POSTING_FEE = 1.00; // $1.00
 
-  useEffect(() => {
-    initializePaymentSheet();
-  }, []);
-
-  const initializePaymentSheet = async () => {
+  const initializePaymentSheet = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -76,7 +73,11 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, initPaymentSheet]);
+
+  useEffect(() => {
+    initializePaymentSheet();
+  }, [initializePaymentSheet]);
 
   const handlePayment = async () => {
     if (!paymentIntent) {
@@ -111,19 +112,41 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
       if (response.success) {
         Alert.alert(
           'Payment Successful',
-          'Your job posting payment has been processed successfully. You can now post your job.',
+          'Your job posting payment has been processed successfully. Posting your job now...',
           [
             {
               text: 'OK',
-              onPress: () => {
-                // Navigate back to job posting screen or proceed with posting
-                if (jobData) {
-                  navigation.navigate('RecruiterPostJob', { 
-                    jobData, 
-                    paymentConfirmed: true 
-                  });
-                } else {
-                  navigation.goBack();
+              onPress: async () => {
+                try {
+                  // If we have job data, post the job directly
+                  if (jobData) {
+                    // Import JobService locally to avoid circular imports
+                    const { JobService } = await import('../../../services/job.service');
+                    
+                    // Post the job with the payment confirmation flag
+                    await JobService.createJob({
+                      ...jobData,
+                      paymentConfirmed: true // Add payment confirmation flag
+                    });
+                    
+                    // Navigate to my jobs or success screen
+                    navigation.replace('RecruiterMyJobs'); // Use replace to prevent going back to payment
+                  } else {
+                    // Fallback: go back if no job data
+                    navigation.goBack();
+                  }
+                } catch (error: any) {
+                  console.error('Error posting job after payment:', error);
+                  Alert.alert(
+                    'Error',
+                    'Payment was successful but there was an error posting your job. Please try again.',
+                    [
+                      {
+                        text: 'OK',
+                        onPress: () => navigation.goBack()
+                      }
+                    ]
+                  );
                 }
               },
             },
@@ -182,88 +205,59 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
       
       <ScrollView style={paymentScreenStyles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={paymentScreenStyles.content}>
-          {/* Payment Summary */}
-          <View style={paymentScreenStyles.summaryCard}>
-            <Text style={paymentScreenStyles.summaryTitle}>
-              Job Posting Fee
-            </Text>
-            <View style={paymentScreenStyles.priceContainer}>
-              <Text style={paymentScreenStyles.currencySymbol}>$</Text>
-              <Text style={paymentScreenStyles.priceAmount}>
-                {JOB_POSTING_FEE.toFixed(2)}
-              </Text>
+          {/* Hero Pricing Card */}
+          <View style={paymentScreenStyles.pricingCard}>
+            <View style={paymentScreenStyles.pricingHeader}>
+              <Text style={paymentScreenStyles.pricingTitle}>Job Posting Fee</Text>
+              <View style={paymentScreenStyles.priceContainer}>
+                <Text style={paymentScreenStyles.currencySymbol}>$</Text>
+                <Text style={paymentScreenStyles.priceAmount}>{JOB_POSTING_FEE.toFixed(2)}</Text>
+              </View>
+              <Text style={paymentScreenStyles.pricingSubtitle}>Fee to post the job</Text>
             </View>
-            <Text style={paymentScreenStyles.summaryDescription}>
-              One-time fee for posting a job on the Tray platform
-            </Text>
-          </View>
-
-          {/* Payment Benefits */}
-          <View style={paymentScreenStyles.benefitsCard}>
-            <Text style={paymentScreenStyles.benefitsTitle}>
-              What you get:
-            </Text>
-            <View style={paymentScreenStyles.benefitItem}>
-              <Text style={paymentScreenStyles.benefitText}>
-                • 30 days of job posting visibility
-              </Text>
+            
+            <View style={paymentScreenStyles.pricingDivider} />
+            <View style={paymentScreenStyles.policyCard}>
+            <View style={paymentScreenStyles.policyHeader}>
+              <AlertCircle size={20} color={COLORS.orange} />
+              <Text style={paymentScreenStyles.policyTitle}>Refund Policy</Text>
             </View>
-            <View style={paymentScreenStyles.benefitItem}>
-              <Text style={paymentScreenStyles.benefitText}>
-                • Access to qualified candidates
-              </Text>
-            </View>
-            <View style={paymentScreenStyles.benefitItem}>
-              <Text style={paymentScreenStyles.benefitText}>
-                • Application management tools
-              </Text>
-            </View>
-            <View style={paymentScreenStyles.benefitItem}>
-              <Text style={paymentScreenStyles.benefitText}>
-                • Candidate matching system
-              </Text>
-            </View>
-          </View>
-
-          {/* Payment Info */}
-          <View style={paymentScreenStyles.infoCard}>
-            <Text style={paymentScreenStyles.infoTitle}>
-              Payment Information
-            </Text>
-            <Text style={paymentScreenStyles.infoText}>
-              Your payment is securely processed by Stripe. We accept all major credit and debit cards.
-            </Text>
-            <View style={paymentScreenStyles.secureBadge}>
-              <Text style={paymentScreenStyles.secureBadgeText}>
-                🔒 Secure Payment
-              </Text>
-            </View>
-          </View>
-
-          {/* Refund Policy */}
-          <View style={paymentScreenStyles.policyCard}>
-            <Text style={paymentScreenStyles.policyTitle}>
-              Refund Policy
-            </Text>
-            <Text style={paymentScreenStyles.policyText}>
-              Job posting fees are non-refundable once the job is posted. However, you can edit or remove your job posting at any time.
+            <Text style={paymentScreenStyles.policyDescription}>
+              Job posting fees are non-refundable once the job is posted. However, you can edit or remove your job posting at any time at no additional cost.
             </Text>
           </View>
         </View>
+            {/* <View style={paymentScreenStyles.pricingFeatures}>
+              <View style={paymentScreenStyles.featureItem}>
+                <Check size={20} color={COLORS.green} />
+                <Text style={paymentScreenStyles.featureText}>30 days visibility</Text>
+              </View>
+              <View style={paymentScreenStyles.featureItem}>
+                <Check size={20} color={COLORS.green} />
+                <Text style={paymentScreenStyles.featureText}>Reach thousands of candidates</Text>
+              </View>
+              <View style={paymentScreenStyles.featureItem}>
+                <Check size={20} color={COLORS.green} />
+                <Text style={paymentScreenStyles.featureText}>Application tracking</Text>
+              </View>
+            </View> */}
+          </View>
+
+        
+
+        
+
+          {/* Refund Policy */}
+          
 
         {/* Action Buttons */}
         <View style={paymentScreenStyles.buttonContainer}>
           <TouchableOpacity
-            style={[
-              paymentScreenStyles.cancelButton,
-              { marginBottom: 12 }
-            ]}
+            style={paymentScreenStyles.cancelButton}
             onPress={handleCancel}
             disabled={processing}
           >
-            <Text style={paymentScreenStyles.cancelButtonText}>
-              Cancel
-            </Text>
+            <Text style={paymentScreenStyles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -277,9 +271,10 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
             {processing ? (
               <ActivityIndicator size="small" color={COLORS.white} />
             ) : (
-              <Text style={paymentScreenStyles.payButtonText}>
-                Pay ${JOB_POSTING_FEE.toFixed(2)}
-              </Text>
+              <>
+                <Lock size={20} color={COLORS.white} />
+                <Text style={paymentScreenStyles.payButtonText}>Pay ${JOB_POSTING_FEE.toFixed(2)}</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>

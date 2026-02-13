@@ -7,15 +7,7 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
  *
  * @type {import('@react-native/metro-config').MetroConfig}
  */
-const config = {
-  server: {
-    // Enable Metro to listen on all network interfaces
-    // This allows physical devices to connect to the bundler
-    enhanceMiddleware: (middleware) => {
-      return middleware;
-    },
-  },
-};
+const config = {};
 
 // Polyfill for toReversed method (Node.js 18 compatibility)
 if (typeof Array.prototype.toReversed === 'undefined') {
