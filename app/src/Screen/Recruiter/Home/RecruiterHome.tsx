@@ -162,10 +162,8 @@ const RecruiterHome = ({ navigation }: any) => {
   }
 
   return (
-    <View style={styles.mainContainer}>
-      <SafeAreaView style={styles.headerSafeArea} edges={['top']}>
-        <HomeHeader />
-      </SafeAreaView>
+    <SafeAreaView style={styles.mainContainer} edges={['top']}>
+      <HomeHeader />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={screenStyles.scrollViewContent}
@@ -352,7 +350,7 @@ const RecruiterHome = ({ navigation }: any) => {
           />
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 

@@ -79,15 +79,9 @@ export const updateCourse = async (req: Request, res: Response) => {
     const course = await courseService.updateCourse(id, user.uid, {
       ...updates,
       availabilitySchedule: updates.availabilitySchedule ? {
-        startDate: updates.availabilitySchedule.startDate 
-          ? Timestamp.fromDate(updates.availabilitySchedule.startDate) 
-          : undefined,
-        endDate: updates.availabilitySchedule.endDate 
-          ? Timestamp.fromDate(updates.availabilitySchedule.endDate) 
-          : undefined,
-        enrollmentDeadline: updates.availabilitySchedule.enrollmentDeadline 
-          ? Timestamp.fromDate(updates.availabilitySchedule.enrollmentDeadline) 
-          : undefined,
+        startDate: updates.availabilitySchedule.startDate,
+        endDate: updates.availabilitySchedule.endDate,
+        enrollmentDeadline: updates.availabilitySchedule.enrollmentDeadline,
         maxEnrollments: updates.availabilitySchedule.maxEnrollments,
       } : undefined,
     } as any);

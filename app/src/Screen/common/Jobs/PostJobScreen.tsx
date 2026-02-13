@@ -76,33 +76,35 @@ const PostJobScreen = ({ navigation }: any) => {
       return;
     }
 
+    // Prepare job data outside try-catch to make it accessible in catch block
+    const jobData: any = {
+      title: title.trim(),
+      description: description.trim(),
+      company: company.trim(),
+      location: location.trim(),
+      jobType,
+      requiredSkills,
+      status: 'active',
+    };
+
+    if (minSalary && maxSalary) {
+      jobData.salaryRange = {
+        min: parseFloat(minSalary),
+        max: parseFloat(maxSalary),
+        currency: currency,
+      };
+    }
+
+    if (experienceRequired) {
+      jobData.experienceRequired = parseInt(experienceRequired, 10);
+    }
+
+    if (educationRequired.trim()) {
+      jobData.educationRequired = educationRequired.trim();
+    }
+
     try {
       setPosting(true);
-      const jobData: any = {
-        title: title.trim(),
-        description: description.trim(),
-        company: company.trim(),
-        location: location.trim(),
-        jobType,
-        requiredSkills,
-        status: 'active',
-      };
-
-      if (minSalary && maxSalary) {
-        jobData.salaryRange = {
-          min: parseFloat(minSalary),
-          max: parseFloat(maxSalary),
-          currency: currency,
-        };
-      }
-
-      if (experienceRequired) {
-        jobData.experienceRequired = parseInt(experienceRequired, 10);
-      }
-
-      if (educationRequired.trim()) {
-        jobData.educationRequired = educationRequired.trim();
-      }
 
       await JobService.createJob(jobData);
       showSuccess('Job posted successfully');

@@ -1,4 +1,5 @@
 import { api } from '../lib/fetcher';
+import { API_URL } from '@env';
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { auth } from '../lib/firebase';
@@ -130,10 +131,12 @@ const uploadWithPlatformSpecificMethod = async (
     }
 
     // Get base URL from api instance
-    const baseURL = api.defaults.baseURL || 'https://tray-ecru.vercel.app';
+    const baseURL = API_URL || api.defaults.baseURL;
     const uploadUrl = `${baseURL}${endpoint}`;
 
     if (__DEV__) {
+      console.log('📤 [UploadService] Using API_URL:', API_URL);
+      console.log('📤 [UploadService] Using baseURL:', baseURL);
       console.log('📤 [UploadService] Upload URL:', uploadUrl);
     }
 

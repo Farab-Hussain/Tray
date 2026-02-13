@@ -12,7 +12,7 @@ import { useStripe } from '@stripe/stripe-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
-import { PaymentService } from '../../../services/payment.service';
+import PaymentService from '../../../services/payment.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
 
 interface JobPostingPaymentScreenProps {
@@ -56,7 +56,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
           merchantDisplayName: 'Tray Platform',
           allowsDelayedPaymentMethods: true,
           defaultBillingDetails: {
-            name: user?.name || '',
+            name: user?.displayName || user?.email || '',
             email: user?.email || '',
           },
         });
@@ -118,7 +118,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
               onPress: () => {
                 // Navigate back to job posting screen or proceed with posting
                 if (jobData) {
-                  navigation.navigate('CreateJob', { 
+                  navigation.navigate('RecruiterPostJob', { 
                     jobData, 
                     paymentConfirmed: true 
                   });

@@ -15,7 +15,7 @@ export const recruiterHomeStyles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.green,
   },
   scrollView: {
     flex: 1,

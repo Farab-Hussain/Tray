@@ -12,8 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
+import AppButton from '../../../components/ui/AppButton';
 import { COLORS } from '../../../constants/core/colors';
 import { screenStyles } from '../../../constants/styles/screenStyles';
+import { JobService } from '../../../services/job.service';
 import { 
   Briefcase, 
   DollarSign, 
@@ -23,7 +25,11 @@ import {
   Check,
   X,
   CreditCard,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  User,
+  GraduationCap,
+  Shield
 } from 'lucide-react-native';
 import CompanyService from '../../../services/company.service';
 
@@ -99,7 +105,6 @@ const PostJobScreen = ({ navigation, route }: any) => {
     { value: 'full-time', label: 'Full Time' },
     { value: 'part-time', label: 'Part Time' },
     { value: 'contract', label: 'Contract' },
-    { value: 'temporary', label: 'Temporary' },
     { value: 'internship', label: 'Internship' },
   ];
 
@@ -157,6 +162,34 @@ const PostJobScreen = ({ navigation, route }: any) => {
   };
 
   const handleSave = async () => {
+    // Prepare job data for API outside try-catch to make it accessible in catch block
+    const jobDataForAPI = {
+      title: jobPost.title.trim(),
+      description: jobPost.description.trim(),
+      company: selectedCompany?.name || '', // Send company name instead of ID
+      location: jobPost.location.trim(),
+      jobType: jobPost.jobType as 'full-time' | 'part-time' | 'contract' | 'internship',
+      requiredSkills: jobPost.requiredSkills.filter(skill => skill.trim() !== ''), // Filter out empty strings
+      salaryRange: {
+        min: jobPost.salaryRange.min,
+        max: jobPost.salaryRange.max,
+        currency: jobPost.salaryRange.currency,
+      },
+      experienceRequired: jobPost.experienceLevel === 'entry' ? 0 : 
+                        jobPost.experienceLevel === 'mid' ? 3 : 
+                        jobPost.experienceLevel === 'senior' ? 5 : 10,
+      educationRequired: jobPost.educationLevel,
+      backgroundCheckRequired: jobPost.backgroundCheckRequired,
+      fairChanceHiring: {
+        banTheBox: jobPost.fairChanceHiring.banTheBoxCompliant,
+        felonyFriendly: jobPost.fairChanceHiring.felonyFriendly,
+        caseByCaseReview: jobPost.fairChanceHiring.caseByCaseReview,
+        noBackgroundCheck: jobPost.fairChanceHiring.noBackgroundCheck,
+        secondChancePolicy: false, // Default value
+      },
+      status: 'active' as const,
+    };
+
     try {
       setSaving(true);
 
@@ -186,32 +219,16 @@ const PostJobScreen = ({ navigation, route }: any) => {
         return;
       }
 
-      // TODO: Implement API call to post job
-      // const response = await jobService.createJob(jobPost);
-      
-      // Check if payment is required
-      if (paymentRequired) {
-        Alert.alert(
-          'Payment Required',
-          `A payment of $${paymentAmount} is required to post this job. Proceed to payment?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Pay Now',
-              onPress: () => {
-                navigation.navigate('JobPostingPayment', { 
-                  paymentUrl,
-                  jobData: jobPost,
-                  companyId: selectedCompany?.id
-                });
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Success', 'Job posted successfully');
-        navigation.goBack();
+      if (!selectedCompany) {
+        Alert.alert('Error', 'Please select a company');
+        return;
       }
+
+      // Make API call to post job
+      await JobService.createJob(jobDataForAPI);
+      
+      Alert.alert('Success', 'Job posted successfully');
+      navigation.goBack();
       
     } catch (error: any) {
       console.error('Error posting job:', error);
@@ -231,7 +248,7 @@ const PostJobScreen = ({ navigation, route }: any) => {
               onPress: () => {
                 navigation.navigate('JobPostingPayment', { 
                   paymentUrl: error.response.data.paymentUrl,
-                  jobData: jobPost,
+                  jobData: jobDataForAPI,
                   companyId: selectedCompany?.id
                 });
               },
@@ -309,143 +326,206 @@ const PostJobScreen = ({ navigation, route }: any) => {
     <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
       <ScreenHeader title="Post Job" onBackPress={() => navigation.goBack()} />
       
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1, backgroundColor: '#FAFAFA' }} showsVerticalScrollIndicator={false}>
         <View style={{ padding: 16 }}>
           {/* Company Selection */}
-          {companies.length > 0 && (
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 16, color: COLORS.black }}>
-                Company
+          <View style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Briefcase size={20} color={COLORS.green} style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.black }}>
+                Select Company
               </Text>
-              
+            </View>
+            
+            {companies.length === 0 ? (
+              <View style={{ alignItems: 'center', padding: 20 }}>
+                <AlertCircle size={40} color={COLORS.gray} style={{ marginBottom: 12 }} />
+                <Text style={{ fontSize: 16, color: COLORS.gray, textAlign: 'center' }}>
+                  No companies found. Please create a company first.
+                </Text>
+              </View>
+            ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {companies.map((company) => (
                   <TouchableOpacity
                     key={company.id}
                     style={{
-                      backgroundColor: selectedCompany?.id === company.id ? COLORS.green : '#F5F5F5',
-                      borderRadius: 8,
-                      padding: 12,
+                      backgroundColor: selectedCompany?.id === company.id ? COLORS.green : '#F8F9FA',
+                      borderRadius: 12,
+                      padding: 16,
                       marginRight: 12,
-                      borderWidth: 1,
-                      borderColor: selectedCompany?.id === company.id ? COLORS.green : COLORS.border,
+                      borderWidth: 2,
+                      borderColor: selectedCompany?.id === company.id ? COLORS.green : '#E9ECEF',
+                      minWidth: 140,
                     }}
                     onPress={() => handleCompanySelect(company)}
                   >
                     <Text style={{ 
                       color: selectedCompany?.id === company.id ? COLORS.white : COLORS.black,
                       fontSize: 14,
-                      fontWeight: '500'
+                      fontWeight: '600',
+                      textAlign: 'center'
                     }}>
                       {company.name}
                     </Text>
-                    {company.verificationStatus === 'verified' && (
+                    {selectedCompany?.id === company.id && (
                       <Text style={{ 
-                        color: selectedCompany?.id === company.id ? 'rgba(255,255,255,0.8)' : COLORS.green,
-                        fontSize: 12,
-                        marginTop: 4
+                        color: 'rgba(255,255,255,0.9)', 
+                        fontSize: 12, 
+                        marginTop: 4,
+                        textAlign: 'center'
                       }}>
-                        ✓ Verified
+                        Selected
                       </Text>
                     )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
-          )}
+            )}
+          </View>
 
-          {/* Basic Information */}
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 16, color: COLORS.black }}>
-              Basic Information
-            </Text>
+          {/* Job Information */}
+          <View style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+              <Users size={20} color={COLORS.green} style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.black }}>
+                Job Information
+              </Text>
+            </View>
             
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8 }}>Job Title *</Text>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8, fontWeight: '500' }}>
+                Job Title *
+              </Text>
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: 8,
-                  padding: 12,
+                  borderColor: '#E9ECEF',
+                  borderRadius: 12,
+                  padding: 16,
                   fontSize: 16,
                   color: COLORS.black,
+                  backgroundColor: '#F8F9FA',
                 }}
                 value={jobPost.title}
                 onChangeText={(text) => setJobPost({ ...jobPost, title: text })}
-                placeholder="e.g., Senior React Developer"
+                placeholder="e.g., Senior Software Engineer"
+                placeholderTextColor={COLORS.gray}
               />
             </View>
 
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8 }}>Description *</Text>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8, fontWeight: '500' }}>
+                Job Description *
+              </Text>
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: COLORS.border,
-                  borderRadius: 8,
-                  padding: 12,
+                  borderColor: '#E9ECEF',
+                  borderRadius: 12,
+                  padding: 16,
                   fontSize: 16,
                   color: COLORS.black,
+                  backgroundColor: '#F8F9FA',
                   height: 120,
-                  textAlignVertical: 'top',
+                  textAlignVertical: 'top'
                 }}
                 value={jobPost.description}
                 onChangeText={(text) => setJobPost({ ...jobPost, description: text })}
                 placeholder="Describe the role, responsibilities, and requirements..."
+                placeholderTextColor={COLORS.gray}
                 multiline
               />
             </View>
 
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8 }}>Location *</Text>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8, fontWeight: '500' }}>
+                Location *
+              </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MapPin size={20} color={COLORS.gray} style={{ marginRight: 8 }} />
+                <MapPin size={20} color={COLORS.green} style={{ marginRight: 8 }} />
                 <TextInput
                   style={{
                     borderWidth: 1,
-                    borderColor: COLORS.border,
-                    borderRadius: 8,
-                    padding: 12,
+                    borderColor: '#E9ECEF',
+                    borderRadius: 12,
+                    padding: 16,
                     fontSize: 16,
                     color: COLORS.black,
+                    backgroundColor: '#F8F9FA',
                     flex: 1,
                   }}
                   value={jobPost.location}
                   onChangeText={(text) => setJobPost({ ...jobPost, location: text })}
                   placeholder="e.g., New York, NY or Remote"
+                  placeholderTextColor={COLORS.gray}
                 />
               </View>
             </View>
           </View>
 
           {/* Job Details */}
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 16, color: COLORS.black }}>
-              Job Details
-            </Text>
+          <View style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+              <Clock size={20} color={COLORS.green} style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.black }}>
+                Job Details
+              </Text>
+            </View>
             
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8 }}>Job Type</Text>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 12, fontWeight: '500' }}>
+                Job Type
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {jobTypes.map((type) => (
                   <TouchableOpacity
                     key={type.value}
                     style={{
-                      backgroundColor: jobPost.jobType === type.value ? COLORS.green : '#F5F5F5',
+                      backgroundColor: jobPost.jobType === type.value ? COLORS.green : '#F8F9FA',
                       borderRadius: 20,
                       paddingHorizontal: 16,
-                      paddingVertical: 8,
+                      paddingVertical: 10,
                       marginRight: 8,
-                      borderWidth: 1,
-                      borderColor: jobPost.jobType === type.value ? COLORS.green : COLORS.border,
+                      borderWidth: 2,
+                      borderColor: jobPost.jobType === type.value ? COLORS.green : '#E9ECEF',
                     }}
                     onPress={() => setJobPost({ ...jobPost, jobType: type.value })}
                   >
                     <Text style={{ 
                       color: jobPost.jobType === type.value ? COLORS.white : COLORS.black,
                       fontSize: 14,
-                      fontWeight: '500'
+                      fontWeight: '600'
                     }}>
                       {type.label}
                     </Text>
@@ -454,27 +534,29 @@ const PostJobScreen = ({ navigation, route }: any) => {
               </ScrollView>
             </View>
 
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8 }}>Shift Type</Text>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 12, fontWeight: '500' }}>
+                Shift Type
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {shiftTypes.map((type) => (
                   <TouchableOpacity
                     key={type.value}
                     style={{
-                      backgroundColor: jobPost.shiftType === type.value ? COLORS.green : '#F5F5F5',
+                      backgroundColor: jobPost.shiftType === type.value ? COLORS.green : '#F8F9FA',
                       borderRadius: 20,
                       paddingHorizontal: 16,
-                      paddingVertical: 8,
+                      paddingVertical: 10,
                       marginRight: 8,
-                      borderWidth: 1,
-                      borderColor: jobPost.shiftType === type.value ? COLORS.green : COLORS.border,
+                      borderWidth: 2,
+                      borderColor: jobPost.shiftType === type.value ? COLORS.green : '#E9ECEF',
                     }}
                     onPress={() => setJobPost({ ...jobPost, shiftType: type.value })}
                   >
                     <Text style={{ 
                       color: jobPost.shiftType === type.value ? COLORS.white : COLORS.black,
                       fontSize: 14,
-                      fontWeight: '500'
+                      fontWeight: '600'
                     }}>
                       {type.label}
                     </Text>
@@ -483,27 +565,29 @@ const PostJobScreen = ({ navigation, route }: any) => {
               </ScrollView>
             </View>
 
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8 }}>Experience Level</Text>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 12, fontWeight: '500' }}>
+                Experience Level
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {experienceLevels.map((level) => (
                   <TouchableOpacity
                     key={level.value}
                     style={{
-                      backgroundColor: jobPost.experienceLevel === level.value ? COLORS.green : '#F5F5F5',
+                      backgroundColor: jobPost.experienceLevel === level.value ? COLORS.green : '#F8F9FA',
                       borderRadius: 20,
                       paddingHorizontal: 16,
-                      paddingVertical: 8,
+                      paddingVertical: 10,
                       marginRight: 8,
-                      borderWidth: 1,
-                      borderColor: jobPost.experienceLevel === level.value ? COLORS.green : COLORS.border,
+                      borderWidth: 2,
+                      borderColor: jobPost.experienceLevel === level.value ? COLORS.green : '#E9ECEF',
                     }}
                     onPress={() => setJobPost({ ...jobPost, experienceLevel: level.value })}
                   >
                     <Text style={{ 
                       color: jobPost.experienceLevel === level.value ? COLORS.white : COLORS.black,
                       fontSize: 14,
-                      fontWeight: '500'
+                      fontWeight: '600'
                     }}>
                       {level.label}
                     </Text>
@@ -512,27 +596,29 @@ const PostJobScreen = ({ navigation, route }: any) => {
               </ScrollView>
             </View>
 
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8 }}>Education Level</Text>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 12, fontWeight: '500' }}>
+                Education Level
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {educationLevels.map((level) => (
                   <TouchableOpacity
                     key={level.value}
                     style={{
-                      backgroundColor: jobPost.educationLevel === level.value ? COLORS.green : '#F5F5F5',
+                      backgroundColor: jobPost.educationLevel === level.value ? COLORS.green : '#F8F9FA',
                       borderRadius: 20,
                       paddingHorizontal: 16,
-                      paddingVertical: 8,
+                      paddingVertical: 10,
                       marginRight: 8,
-                      borderWidth: 1,
-                      borderColor: jobPost.educationLevel === level.value ? COLORS.green : COLORS.border,
+                      borderWidth: 2,
+                      borderColor: jobPost.educationLevel === level.value ? COLORS.green : '#E9ECEF',
                     }}
                     onPress={() => setJobPost({ ...jobPost, educationLevel: level.value })}
                   >
                     <Text style={{ 
                       color: jobPost.educationLevel === level.value ? COLORS.white : COLORS.black,
                       fontSize: 14,
-                      fontWeight: '500'
+                      fontWeight: '600'
                     }}>
                       {level.label}
                     </Text>
@@ -830,39 +916,38 @@ const PostJobScreen = ({ navigation, route }: any) => {
           </View>
 
           {/* Action Button */}
-          <TouchableOpacity
-            style={{
-              backgroundColor: COLORS.green,
-              borderRadius: 8,
-              padding: 16,
-              alignItems: 'center',
-              marginBottom: 32,
-            }}
+          <AppButton
+            title="Post Job"
             onPress={handleSave}
+            loading={saving}
             disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: '600' }}>
-                Post Job
-              </Text>
-            )}
-          </TouchableOpacity>
+            icon={Briefcase}
+            style={{
+              marginBottom: 32,
+              backgroundColor: COLORS.green,
+            }}
+          />
 
           {paymentRequired && (
             <View style={{
               backgroundColor: '#FEF3C7',
-              borderRadius: 8,
-              padding: 12,
+              borderRadius: 12,
+              padding: 16,
               marginBottom: 32,
               flexDirection: 'row',
               alignItems: 'center',
+              borderLeftWidth: 4,
+              borderLeftColor: COLORS.orange,
             }}>
-              <CreditCard size={20} color={COLORS.orange} style={{ marginRight: 12 }} />
-              <Text style={{ fontSize: 14, color: COLORS.black, flex: 1 }}>
-                A payment of ${paymentAmount} is required to post this job. You'll be prompted to complete payment after posting.
-              </Text>
+              <CreditCard size={24} color={COLORS.orange} style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
+                  Payment Required
+                </Text>
+                <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
+                  A payment of ${paymentAmount} is required to post this job. You'll be prompted to complete payment after posting.
+                </Text>
+              </View>
             </View>
           )}
         </View>

@@ -40,7 +40,6 @@ export class CourseService {
   async createCourse(courseData: CourseInput, instructorId: string): Promise<Course> {
     const course: Course = {
       id: '',
-      ...courseData,
       instructorId,
       instructorName: '', // Will be populated from user profile
       status: 'draft',
@@ -55,19 +54,35 @@ export class CourseService {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       
-      // NEW: Initialize enhanced fields with defaults
-      pricingOptions: courseData.pricingOptions || {
-        monthly: courseData.price,
-        yearly: Math.floor(courseData.price * 10), // 10 months for yearly
-        lifetime: Math.floor(courseData.price * 20), // 20 months for lifetime
-      },
+      // Only include fields that are in CourseInput
+      title: courseData.title,
+      description: courseData.description,
+      shortDescription: courseData.shortDescription,
+      category: courseData.category,
+      subcategory: courseData.subcategory,
+      tags: courseData.tags,
+      level: courseData.level,
+      language: courseData.language,
+      price: courseData.price,
+      currency: courseData.currency,
+      isFree: courseData.isFree,
+      thumbnailUrl: courseData.thumbnailUrl,
+      previewVideoUrl: courseData.previewVideoUrl,
+      duration: courseData.duration,
+      durationText: courseData.durationText,
+      lessonsCount: courseData.lessonsCount,
+      objectives: courseData.objectives,
+      prerequisites: courseData.prerequisites,
+      targetAudience: courseData.targetAudience,
+      difficultyScore: courseData.difficultyScore,
+      timeCommitment: courseData.timeCommitment,
+      certificateAvailable: courseData.certificateAvailable,
+      certificateTemplate: courseData.certificateTemplate,
+      pricingOptions: courseData.pricingOptions,
       enrollmentType: courseData.enrollmentType || 'instant',
-      // Skip availabilitySchedule for now to avoid undefined issues
-      accessDuration: courseData.accessDuration || {
-        type: 'lifetime',
-      },
+      accessDuration: courseData.accessDuration || { type: 'lifetime' },
       isLaunched: courseData.isLaunched || false,
-      // Skip launchDate for now to avoid undefined issues
+      launchDate: courseData.launchDate,
     };
 
     const docRef = await this.coursesCollection.add(course);
@@ -733,28 +748,29 @@ export class CourseService {
     }
 
     // Check enrollment deadline
-    if (course.availabilitySchedule.enrollmentDeadline && 
+    if (course.availabilitySchedule?.enrollmentDeadline && 
         course.availabilitySchedule.enrollmentDeadline.toDate() < new Date()) {
       throw new Error('Enrollment period has ended');
     }
 
     // Check max enrollments
-    if (course.availabilitySchedule.maxEnrollments && 
+    if (course.availabilitySchedule?.maxEnrollments && 
+        course.availabilitySchedule.currentEnrollments !== undefined &&
         course.availabilitySchedule.currentEnrollments >= course.availabilitySchedule.maxEnrollments) {
       throw new Error('Course is fully enrolled');
     }
 
     // Calculate price based on option
     let price = 0;
-    if (pricingOption === 'monthly' && course.pricingOptions.monthly) {
+    if (pricingOption === 'monthly' && course.pricingOptions?.monthly) {
       price = course.pricingOptions.monthly;
-    } else if (pricingOption === 'yearly' && course.pricingOptions.yearly) {
+    } else if (pricingOption === 'yearly' && course.pricingOptions?.yearly) {
       price = course.pricingOptions.yearly;
-    } else if (pricingOption === 'lifetime' && course.pricingOptions.lifetime) {
+    } else if (pricingOption === 'lifetime' && course.pricingOptions?.lifetime) {
       price = course.pricingOptions.lifetime;
     } else if (pricingOption === 'custom' && customDuration) {
-      const customOption = course.pricingOptions.custom?.find(
-        option => option.duration === customDuration
+      const customOption = course.pricingOptions?.custom?.find(
+        (option: any) => option.duration === customDuration
       );
       if (!customOption) {
         throw new Error('Invalid custom duration');
@@ -786,7 +802,7 @@ export class CourseService {
       paymentId,
       paymentStatus: 'completed',
       purchasedAt: now,
-      accessStartsAt: course.enrollmentType === 'instant' ? now : course.availabilitySchedule.startDate,
+      accessStartsAt: course.enrollmentType === 'instant' ? now : (course.availabilitySchedule?.startDate || now),
       accessEndsAt,
       isActive: true,
       autoRenew: pricingOption === 'monthly' || pricingOption === 'yearly',
@@ -799,10 +815,15 @@ export class CourseService {
     const createdPurchase = { ...purchase, id: docRef.id };
 
     // Update course enrollment count
-    await this.coursesCollection.doc(courseId).update({
+    const updateData: any = {
       enrollmentCount: course.enrollmentCount + 1,
-      'availabilitySchedule.currentEnrollments': course.availabilitySchedule.currentEnrollments + 1,
-    });
+    };
+    
+    if (course.availabilitySchedule?.currentEnrollments !== undefined) {
+      updateData['availabilitySchedule.currentEnrollments'] = course.availabilitySchedule.currentEnrollments + 1;
+    }
+    
+    await this.coursesCollection.doc(courseId).update(updateData);
 
     // Create enrollment record
     await this.enrollInCourse(courseId, studentId, paymentId);

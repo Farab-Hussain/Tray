@@ -50,37 +50,39 @@ export interface Course {
   certificateTemplate?: string;
   
   // SEO and Marketing
-  slug: string; // URL-friendly identifier
+  slug?: string;
   metaTitle?: string;
   metaDescription?: string;
   featured: boolean;
   trending: boolean;
   bestseller: boolean;
   
-  // NEW: Enhanced pricing and scheduling
-  pricingOptions: {
-    monthly?: number; // Price in cents for monthly access
-    yearly?: number; // Price in cents for yearly access
-    lifetime?: number; // Price in cents for lifetime access
-    custom?: { // Custom duration options
-      duration: string; // e.g., "3 months", "6 months"
-      price: number; // Price in cents
-    }[];
-  };
-  enrollmentType: 'instant' | 'scheduled' | 'subscription'; // How students can access
-  availabilitySchedule: {
-    startDate: Timestamp; // When course becomes available
-    endDate?: Timestamp; // When course ends (optional)
-    enrollmentDeadline?: Timestamp; // Last date to enroll
-    maxEnrollments?: number; // Maximum students allowed
-    currentEnrollments: number; // Currently enrolled students
-  };
+  // Launch and availability management
   accessDuration: {
     type: 'lifetime' | 'custom'; // How long access lasts
     days?: number; // Number of days if custom
   };
   isLaunched: boolean; // Whether course is officially launched
   launchDate?: Timestamp; // When course was launched
+  
+  // Enhanced pricing and enrollment
+  pricingOptions?: {
+    monthly?: number;
+    yearly?: number;
+    lifetime?: number;
+    custom?: {
+      duration: string;
+      price: number;
+    }[];
+  };
+  enrollmentType?: 'instant' | 'scheduled' | 'subscription';
+  availabilitySchedule?: {
+    startDate: Timestamp;
+    endDate?: Timestamp;
+    enrollmentDeadline?: Timestamp;
+    maxEnrollments?: number;
+    currentEnrollments?: number;
+  };
 }
 
 export interface CourseInput {
@@ -107,11 +109,6 @@ export interface CourseInput {
   timeCommitment: string;
   certificateAvailable: boolean;
   certificateTemplate?: string;
-  slug: string;
-  metaTitle?: string;
-  metaDescription?: string;
-  
-  // NEW: Enhanced pricing and scheduling
   pricingOptions?: {
     monthly?: number;
     yearly?: number;
@@ -122,18 +119,40 @@ export interface CourseInput {
     }[];
   };
   enrollmentType?: 'instant' | 'scheduled' | 'subscription';
-  availabilitySchedule?: {
-    startDate: Date;
-    endDate?: Date;
-    enrollmentDeadline?: Date;
-    maxEnrollments?: number;
-  };
   accessDuration?: {
     type: 'lifetime' | 'custom';
     days?: number;
   };
   isLaunched?: boolean;
-  launchDate?: Date;
+  launchDate?: Timestamp;
+  instructorId?: string;
+  instructorName?: string;
+  instructorBio?: string;
+  instructorAvatar?: string;
+  featured?: boolean;
+  trending?: boolean;
+  bestseller?: boolean;
+  approvedBy?: string;
+  approvedAt?: Timestamp;
+  rejectionReason?: string;
+  publishedAt?: Timestamp;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  enrollmentCount?: number;
+  completionCount?: number;
+  averageRating?: number;
+  ratingCount?: number;
+  reviewCount?: number;
+  slug?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  availabilitySchedule?: {
+    startDate: Timestamp;
+    endDate?: Timestamp;
+    enrollmentDeadline?: Timestamp;
+    maxEnrollments?: number;
+    currentEnrollments?: number;
+  };
 }
 
 export interface CourseLesson {

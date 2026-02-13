@@ -68,6 +68,14 @@ const deriveCategory = (type?: string, category?: string): NotificationCategory 
  * Get all notifications for a user
  */
 export const getUserNotifications = async (userId: string, limitCount: number = 50): Promise<AppNotification[]> => {
+  // Early validation to prevent calls during logout
+  if (!userId || userId.trim() === '') {
+        if (__DEV__) {
+      console.warn('⚠️ [NotificationStorage] Invalid userId provided to getUserNotifications, returning empty array')
+    }
+    return [];
+  }
+
   try {
     const notificationsRef = collection(db, 'notifications');
     const q = query(
@@ -267,6 +275,15 @@ export const listenToNotifications = (
   callback: (notifications: AppNotification[]) => void,
   limitCount: number = 50
 ): (() => void) => {
+  // Early validation to prevent calls during logout
+  if (!userId || userId.trim() === '') {
+        if (__DEV__) {
+      console.warn('⚠️ [NotificationStorage] Invalid userId provided to listenToNotifications, skipping setup')
+    }
+    callback([]);
+    return () => {}; // Return empty unsubscribe function
+  }
+
   try {
         if (__DEV__) {
       console.log('📬 [NotificationStorage] Setting up listener for user:', userId)

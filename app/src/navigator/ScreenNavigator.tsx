@@ -8,6 +8,7 @@ import { COLORS } from '../constants/core/colors';
 import { navigationRef } from './navigationRef';
 import BottomTabs from './BottomNavigation';
 import ConsultantBottomTabs from './ConsultantBottomNavigation';
+import { RecruiterBottomTabs } from './RecruiterBottomNavigation';
 import Help from '../Screen/common/Help/Help';
 import Cart from '../Screen/Student/Cart/Cart';
 import AllConsultants from '../Screen/Student/Consultants/AllConsultants';
@@ -96,13 +97,6 @@ const RoleBasedTabs = () => {
   // Use activeRole if available, fallback to role for backward compatibility
   const currentRole = activeRole || role;
   
-  // Debug logging for role changes
-  React.useEffect(() => {
-        if (__DEV__) {
-      console.log('🔄 [RoleBasedTabs] Role changed:', { role, activeRole, currentRole })
-    };
-  }, [role, activeRole, currentRole]);
-  
   // Check if email is verified - redirect to EmailVerification if not
   React.useEffect(() => {
     if (user && !user.emailVerified) {
@@ -127,20 +121,6 @@ const RoleBasedTabs = () => {
       }
     }
   }, [user]);
-  
-  // If email is not verified, show loading while redirecting
-  if (user && !user.emailVerified) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={COLORS.green} />
-          <Text style={{ marginTop: 12, fontSize: 16, color: COLORS.gray }}>
-            Redirecting to email verification...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
   
   // Check if consultant has approved services
   React.useEffect(() => {
@@ -174,9 +154,9 @@ const RoleBasedTabs = () => {
           const approvedServices = applications.filter((app: any) => app.status === 'approved');
           setHasApprovedServices(approvedServices.length > 0);
         } catch (error) {
-                    if (__DEV__) {
-            console.error('Error checking approved services:', error)
-          };
+          if (__DEV__) {
+            console.error('Error checking approved services:', error);
+          }
           setHasApprovedServices(false);
         }
       } else {
@@ -187,6 +167,13 @@ const RoleBasedTabs = () => {
     
     checkApprovedServices();
   }, [currentRole, consultantVerificationStatus, user?.uid]);
+  
+  // Debug logging for role changes
+  React.useEffect(() => {
+    if (__DEV__) {
+      console.log('🔄 [RoleBasedTabs] Role changed:', { role, activeRole, currentRole });
+    }
+  }, [role, activeRole, currentRole]);
   
   // If profile needs to be created, show profile creation screen
   if (needsProfileCreation) {
@@ -225,24 +212,24 @@ const RoleBasedTabs = () => {
     }
     
     // Default fallback - should not reach here, but show pending approval as fallback
-        if (__DEV__) {
-      console.warn('⚠️ [RoleBasedTabs] Unexpected consultant state, showing pending approval')
-    };
+    if (__DEV__) {
+      console.warn('⚠️ [RoleBasedTabs] Unexpected consultant state, showing pending approval');
+    }
     return <PendingApproval />;
   }
   
-  // For recruiters, show student tabs (they use the same navigation structure)
+  // For recruiters, show recruiter-specific screens
   if (currentRole === 'recruiter') {
-        if (__DEV__) {
-      console.log('✅ [RoleBasedTabs] Showing student tabs for recruiter role')
-    };
-    return <BottomTabs />;
+    if (__DEV__) {
+      console.log('✅ [RoleBasedTabs] Showing recruiter tabs for recruiter role')
+    }
+    return <RecruiterBottomTabs />;
   }
   
   // Default: show student tabs (for student role or if role is null/undefined)
-    if (__DEV__) {
-    console.log('✅ [RoleBasedTabs] Showing student tabs for role:', currentRole)
-  };
+  if (__DEV__) {
+    console.log('✅ [RoleBasedTabs] Showing student tabs for role:', currentRole);
+  }
   return <BottomTabs />;
 };
 
@@ -257,8 +244,8 @@ const slideFromRight: StackCardStyleInterpolator = ({ current, layouts }) => {
             outputRange: [layouts.screen.width, 0],
           }),
         },
-      ],
-    },
+      ] as any,
+    } as any,
   };
 };
 
@@ -272,8 +259,8 @@ const slideFromBottom: StackCardStyleInterpolator = ({ current, layouts }) => {
             outputRange: [layouts.screen.height, 0],
           }),
         },
-      ],
-    },
+      ] as any,
+    } as any,
   };
 };
 
@@ -287,9 +274,9 @@ const modalSlideFromBottom: StackCardStyleInterpolator = ({ current, layouts }) 
             outputRange: [layouts.screen.height, 0],
           }),
         },
-      ],
+      ] as any,
       opacity: current.progress,
-    },
+    } as any,
   };
 };
 
@@ -309,9 +296,9 @@ const scaleAndSlide: StackCardStyleInterpolator = ({ current, layouts }) => {
             outputRange: [0.9, 1],
           }),
         },
-      ],
+      ] as any,
       opacity: current.progress,
-    },
+    } as any,
   };
 };
 
