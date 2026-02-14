@@ -17,6 +17,7 @@ import {
   getAvailablePlatformServices,
   getServiceBookings,
 } from "../controllers/consultant.controller";
+import { fixServiceImageUrl } from "../controllers/fixService.controller";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
 
 const router = express.Router();
@@ -41,5 +42,8 @@ router.get("/services/:serviceId", getServiceById);               // GET /consul
 router.get("/:consultantId/services", getConsultantServices);    // GET /consultants/:consultantId/services - Get consultant services
 router.put("/services/:serviceId", authenticateUser(), updateService);    // PUT /consultants/services/:serviceId - Update service
 router.delete("/services/:serviceId", authenticateUser(), deleteService); // DELETE /consultants/services/:serviceId - Delete service
+
+// Temporary fix route
+router.post("/fix-service-image", fixServiceImageUrl); // POST /consultants/fix-service-image - Fix service image URL
 
 export default router;

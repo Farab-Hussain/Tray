@@ -67,13 +67,17 @@ export interface ConsultantApplicationInput {
   customService?: {
     title: string;
     description: string;
-    duration: number;
     price: number;
     imageUrl?: string;
-    // VIDEO UPLOAD CODE - COMMENTED OUT
-    // videoUrl?: string;
     imagePublicId?: string;
-    // videoPublicId?: string;
+    category?: string;
+    accessType: 'one-time' | 'weekly' | 'monthly' | 'yearly' | 'lifetime';
+    pricing?: {
+      weekly?: number;
+      monthly?: number;
+      yearly?: number;
+      lifetime?: number;
+    };
   };
 }
 
@@ -136,10 +140,17 @@ export const updateConsultantApplication = async (
     customService?: {
       title: string;
       description: string;
-      duration: number;
       price: number;
       imageUrl?: string | null;
       imagePublicId?: string | null;
+      category?: string;
+      accessType: 'one-time' | 'weekly' | 'monthly' | 'yearly' | 'lifetime';
+      pricing?: {
+        weekly?: number;
+        monthly?: number;
+        yearly?: number;
+        lifetime?: number;
+      };
     };
   }
 ) => {

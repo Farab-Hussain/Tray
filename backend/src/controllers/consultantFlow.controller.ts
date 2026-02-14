@@ -366,7 +366,6 @@ export const createConsultantApplication = async (req: Request, res: Response) =
   try {
     const { consultantId, type, serviceId, customService } = req.body;
 
-
     if (!consultantId || !type) {
       return res.status(400).json({ error: "Missing required fields: consultantId, type" });
     }
@@ -375,18 +374,8 @@ export const createConsultantApplication = async (req: Request, res: Response) =
       return res.status(400).json({ error: "serviceId is required for existing service type" });
     }
 
-    if (type === "new" && !customService) {
-      return res.status(400).json({ error: "customService is required for new service type" });
-    }
-
-    if (type === "new" && customService) {
-      if (!customService.title || !customService.description || !customService.duration || !customService.price) {
-        return res.status(400).json({ error: "Missing required customService fields" });
-      }
-    }
-
+    // Create the application
     const application = await consultantFlowService.createApplication(req.body);
-
 
     try {
       const consultantProfile = await consultantFlowService.getProfileByUid(consultantId);
@@ -481,7 +470,7 @@ export const updateConsultantApplication = async (req: Request, res: Response) =
         });
       }
 
-      if (!nextCustomService?.title || !nextCustomService?.description || !nextCustomService?.duration || !nextCustomService?.price) {
+      if (!nextCustomService?.title || !nextCustomService?.description || !nextCustomService?.price) {
         return res.status(400).json({ error: "Missing required service fields for update" });
       }
 
@@ -520,7 +509,7 @@ export const updateConsultantApplication = async (req: Request, res: Response) =
     }
 
     if (nextCustomService) {
-      if (!nextCustomService.title || !nextCustomService.description || !nextCustomService.duration || !nextCustomService.price) {
+      if (!nextCustomService.title || !nextCustomService.description || !nextCustomService.price) {
         return res.status(400).json({ error: "Missing required custom service fields" });
       }
 
@@ -627,7 +616,6 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
       const serviceUpdate: any = {
         title: application.customService.title,
         description: application.customService.description || "",
-        duration: application.customService.duration,
         price: application.customService.price,
         approvalStatus: "approved",
         pendingUpdate: null,
@@ -691,7 +679,7 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
         consultantId: application.consultantId,
         title: application.customService.title,
         description: application.customService.description || "",
-        duration: application.customService.duration,
+        duration: application.customService.duration || 60,
         price: application.customService.price,
         isDefault: false,
         fromApplication: id,
@@ -699,11 +687,13 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
         updatedAt: new Date().toISOString(),
         approvalStatus: "approved",
         pendingUpdate: null,
+        category: application.customService.category || "Business & Career",
       };
 
       // Include image and video fields if they exist
       if (application.customService.imageUrl) {
-        serviceData.imageUrl = application.customService.imageUrl;
+        // Fix protocol: replace https:// with https://
+        serviceData.imageUrl = application.customService.imageUrl.replace('https://', 'https://');
       }
       // VIDEO UPLOAD CODE - COMMENTED OUT
       // if (application.customService.videoUrl) {
@@ -736,7 +726,6 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
           consultantId: application.consultantId,
           title: serviceData?.title || "Service",
           description: serviceData?.description || "",
-          duration: serviceData?.duration || 60,
           price: serviceData?.price || 100,
           isDefault: false,
           basedOnDefaultService: application.serviceId,
@@ -745,6 +734,9 @@ export const approveConsultantApplication = async (req: Request, res: Response) 
           updatedAt: new Date().toISOString(),
           approvalStatus: "approved",
           pendingUpdate: null,
+          category: serviceData?.category || "Business & Career",
+          accessType: serviceData?.accessType || "one-time",
+          pricing: serviceData?.pricing || null,
         };
 
         if (serviceData?.imageUrl) {

@@ -10,10 +10,18 @@ export interface ConsultantApplication {
   customService?: {
     title: string;
     description: string;
-    duration: number; // in minutes
+    duration?: number;
     price: number;
     imageUrl?: string;
     imagePublicId?: string;
+    category?: string;
+    accessType: 'one-time' | 'weekly' | 'monthly' | 'yearly' | 'lifetime';
+    pricing?: {
+      weekly?: number;
+      monthly?: number;
+      yearly?: number;
+      lifetime?: number;
+    };
   };
   status: "pending" | "approved" | "rejected";
   submittedAt: Timestamp;
@@ -29,9 +37,17 @@ export interface ConsultantApplicationInput {
   customService?: {
     title: string;
     description: string;
-    duration: number;
+    duration?: number;
     price: number;
     imageUrl?: string;
     imagePublicId?: string;
+    category?: string;
+    accessType: 'one-time' | 'weekly' | 'monthly' | 'yearly' | 'lifetime';
+    pricing?: {
+      weekly?: number;
+      monthly?: number;
+      yearly?: number;
+      lifetime?: number;
+    };
   };
 }

@@ -184,6 +184,7 @@ export const getConsultantServices = async (req: Request, res: Response) => {
         duration: service.duration || 60,
         price: service.price || 100,
         consultantId: service.consultantId,
+        category: service.category || "Business & Career",
         icon: service.icon || 'briefcase',
         tags: service.tags || [],
         rating: service.rating ?? 0,

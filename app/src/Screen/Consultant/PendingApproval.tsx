@@ -822,13 +822,13 @@ export default function PendingApproval() {
                 ) : (
                   <>
                     {/* Browse Platform Services Button */}
-                    <TouchableOpacity
+                    {/* <TouchableOpacity
                       style={pendingApprovalStyles.primaryButton}
                       onPress={handleApplyServices}
                     >
                       <Star size={20} color="#fff" strokeWidth={2.5} />
                       <Text style={pendingApprovalStyles.primaryButtonText}>Browse Platform Services</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
                     
                     {/* Create Custom Service Button */}
                     <TouchableOpacity

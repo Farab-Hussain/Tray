@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -63,6 +63,7 @@ const ConsultantServices = ({ navigation }: any) => {
     description: string;
     shortDescription: string;
     category: string;
+    subcategory?: string;
     level: 'beginner' | 'intermediate' | 'advanced';
     price: number;
     isFree: boolean;
@@ -143,7 +144,7 @@ const ConsultantServices = ({ navigation }: any) => {
             // Store Cloudinary URL
             setFormData(prev => ({ 
               ...prev, 
-              imageUrl: uploadResult.imageUrl || '' 
+              imageUrl: uploadResult.imageUrl ? uploadResult.imageUrl.replace(/([^:])\/+/g, '$1/') : '' 
             }));
             
             Alert.alert('Success', 'Image uploaded successfully!');
@@ -229,6 +230,12 @@ const ConsultantServices = ({ navigation }: any) => {
       setFilteredServices(servicesResponse.services || []);
       setConsultantUid(user.uid);
       
+      if (__DEV__) {
+        console.log('📊 Services set in state:', servicesResponse.services?.length || 0);
+        console.log('📊 Services data:', servicesResponse.services);
+        console.log('📊 Filtered services set:', servicesResponse.services?.length || 0);
+      }
+      
     } catch (fetchError) {
       console.error('❌ Error fetching consultant services:', fetchError);
       setError((fetchError as Error).message || 'Failed to fetch services');
@@ -244,8 +251,16 @@ const ConsultantServices = ({ navigation }: any) => {
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
     
+    if (__DEV__) {
+      console.log('🔍 Search query:', query);
+      console.log('🔍 Total services before filtering:', services.length);
+    }
+    
     if (!query.trim()) {
       setFilteredServices(services);
+      if (__DEV__) {
+        console.log('🔍 No search query, showing all services:', services.length);
+      }
       return;
     }
 
@@ -255,6 +270,11 @@ const ConsultantServices = ({ navigation }: any) => {
       service.category?.toLowerCase().includes(query.toLowerCase())
     );
     
+    if (__DEV__) {
+      console.log('🔍 Services after filtering:', filtered.length);
+      console.log('🔍 Filtered services:', filtered);
+    }
+    
     setFilteredServices(filtered);
   }, [services]);
 
@@ -263,6 +283,17 @@ const ConsultantServices = ({ navigation }: any) => {
     setRefreshing(true);
     fetchConsultantServices();
   }, [fetchConsultantServices]);
+
+  // Debug effect to track component state
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('🎨 Render - filteredServices.length:', filteredServices.length);
+      console.log('🎨 Render - services.length:', services.length);
+      console.log('🎨 Render - searchQuery:', searchQuery);
+      console.log('🎨 Render - loading:', loading);
+      console.log('🎨 Render - error:', error);
+    }
+  }, [filteredServices.length, services.length, searchQuery, loading, error]);
 
   // Focus effect to fetch services when screen comes into focus
   useFocusEffect(
@@ -300,6 +331,8 @@ const ConsultantServices = ({ navigation }: any) => {
         price: formData.subscriptionType === 'allMonthly' ? formData.allCoursesMonthlyPrice : 
                formData.subscriptionType === 'allYearly' ? formData.allCoursesYearlyPrice :
                formData.monthlyPrice || 0,
+        // Filter out undefined subcategory to prevent Firestore error
+        ...(formData.subcategory && { subcategory: formData.subcategory }),
       };
 
       await courseService.createCourse(courseData);

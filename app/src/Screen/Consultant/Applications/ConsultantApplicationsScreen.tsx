@@ -2,14 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
-  Alert,
+  ScrollView,
   ActivityIndicator,
+  Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ChevronLeft, Plus } from 'lucide-react-native';
+import { ChevronLeft, Plus, FileText, X } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
 import { consultantApplicationsScreenStyles as styles } from '../../../constants/styles/consultantApplicationsScreenStyles';
@@ -25,8 +26,8 @@ import {
   getConsultantApplications,
   deleteConsultantApplication,
   updateConsultantApplication,
-  ConsultantApplication,
 } from '../../../services/consultantFlow.service';
+import { launchImageLibrary, MediaType, ImagePickerResponse } from 'react-native-image-picker';
 import { api } from '../../../lib/fetcher';
 import { ConsultantService } from '../../../services/consultant.service';
 import axios from 'axios';
@@ -56,9 +57,11 @@ export default function ConsultantApplicationsScreen() {
   const [editingOriginalValues, setEditingOriginalValues] = useState<{
     title: string;
     description: string;
-    duration: number;
     price: number;
-    imageUrl?: string | null;
+    imageUrl: string | null;
+    accessType?: string;
+    pricing?: any;
+    category?: string;
   } | null>(null);
   const [isLoadingServiceDetails, setIsLoadingServiceDetails] = useState(false);
   const [loadingServiceId, setLoadingServiceId] = useState<string | null>(null);
@@ -91,9 +94,50 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
   // Form state
   const [serviceTitle, setServiceTitle] = useState('');
   const [serviceDescription, setServiceDescription] = useState('');
-  const [serviceDuration, setServiceDuration] = useState('60');
   const [servicePrice, setServicePrice] = useState('150');
   const [serviceImage, setServiceImage] = useState<string | null>(null);
+  const [accessType, setAccessType] = useState<'one-time' | 'weekly' | 'monthly' | 'yearly' | 'lifetime'>('one-time');
+  const [weeklyPrice, setWeeklyPrice] = useState('');
+  const [monthlyPrice, setMonthlyPrice] = useState('');
+  const [yearlyPrice, setYearlyPrice] = useState('');
+  const [lifetimePrice, setLifetimePrice] = useState('');
+  
+  // Video Management State
+  const [serviceVideos, setServiceVideos] = useState<Array<{
+    id: string;
+    uri: string;
+    title: string;
+    description: string;
+    thumbnail?: string;
+  }>>([]);
+  
+  // Service Structure State
+  const [serviceCategory, setServiceCategory] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
+  const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false);
+  const [serviceCurriculum, setServiceCurriculum] = useState<Array<{
+    id: string;
+    title: string;
+    description: string;
+    order: number;
+  }>>([]);
+  
+  // Available categories including custom ones
+  const [availableCategories, setAvailableCategories] = useState([
+    'Business & Career',
+    'Technology & Programming',
+    'Design & Creative',
+    'Marketing & Sales',
+    'Health & Wellness',
+    'Education & Teaching',
+    'Finance & Accounting',
+    'Personal Development'
+  ]);
+  
+  // Certificate Options
+  const [certificateEnabled, setCertificateEnabled] = useState(false);
+  const [certificateTemplate, setCertificateTemplate] = useState('standard');
+  
   // VIDEO UPLOAD CODE - COMMENTED OUT
   // const [serviceVideo, setServiceVideo] = useState<string | null>(null);
   const [serviceImagePublicId, setServiceImagePublicId] = useState<string | null>(null);
@@ -231,12 +275,28 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     if (serviceDescription.trim().length < 20) {
       errors.serviceDescription = 'Description must be at least 20 characters';
     }
-    if (parseInt(serviceDuration, 10) <= 0) {
-      errors.serviceDuration = 'Please enter a valid duration';
+    
+    // Validate based on access type
+    if (accessType === 'one-time') {
+      if (parseFloat(servicePrice) <= 0) {
+        errors.servicePrice = 'Please enter a valid price';
+      }
+    } else {
+      // Validate subscription pricing
+      if (accessType === 'weekly' && parseFloat(weeklyPrice) <= 0) {
+        errors.weeklyPrice = 'Please enter a valid weekly price';
+      }
+      if (accessType === 'monthly' && parseFloat(monthlyPrice) <= 0) {
+        errors.monthlyPrice = 'Please enter a valid monthly price';
+      }
+      if (accessType === 'yearly' && parseFloat(yearlyPrice) <= 0) {
+        errors.yearlyPrice = 'Please enter a valid yearly price';
+      }
+      if (accessType === 'lifetime' && parseFloat(lifetimePrice) <= 0) {
+        errors.lifetimePrice = 'Please enter a valid lifetime price';
+      }
     }
-    if (parseFloat(servicePrice) <= 0) {
-      errors.servicePrice = 'Please enter a valid price';
-    }
+    
     // VIDEO UPLOAD CODE - COMMENTED OUT
     // // Require either an image or a video (not both, but at least one)
     // if (!serviceImage && !serviceVideo) {
@@ -277,7 +337,6 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     // Reset form
     setServiceTitle('');
     setServiceDescription('');
-    setServiceDuration('60');
     setServicePrice('150');
     setServiceImage(null);
     setServiceImagePublicId(null);
@@ -295,15 +354,24 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       return;
     }
 
-    const parsedDuration = parseInt(serviceDuration, 10);
     const parsedPrice = parseFloat(servicePrice);
+
+    // Build pricing object based on access type
+    const pricing = accessType === 'one-time' 
+      ? { price: parsedPrice }
+      : {
+          weekly: parseFloat(weeklyPrice) || 0,
+          monthly: parseFloat(monthlyPrice) || 0,
+          yearly: parseFloat(yearlyPrice) || 0,
+          lifetime: parseFloat(lifetimePrice) || 0,
+        };
 
   const requiresBookingWarning =
     isEditing &&
     editingApplication &&
     editingApplication.status === 'approved' &&
     editingOriginalValues &&
-    (parsedPrice !== editingOriginalValues.price || parsedDuration !== editingOriginalValues.duration) &&
+    parsedPrice !== editingOriginalValues.price &&
     (currentServiceBookingsCount ?? 0) > 0;
 
   if (requiresBookingWarning) {
@@ -340,27 +408,35 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           editingServiceId || editingApplication.linkedServiceId || editingApplication.serviceId || null;
 
         const payload: {
+          consultantId: string;
           type?: 'new' | 'existing' | 'update';
           serviceId?: string;
           customService: {
             title: string;
             description: string;
-            duration: number;
             price: number;
             imageUrl?: string;
             imagePublicId?: string;
+            category?: string;
+            accessType: 'one-time' | 'weekly' | 'monthly' | 'yearly' | 'lifetime';
+            pricing?: {
+              weekly?: number;
+              monthly?: number;
+              yearly?: number;
+              lifetime?: number;
+            };
           };
         } = {
+          consultantId: user?.uid || '',
           customService: {
             title: serviceTitle,
             description: serviceDescription,
-            duration: parsedDuration,
             price: parsedPrice,
             imageUrl: serviceImage ?? undefined,
-            // VIDEO UPLOAD CODE - COMMENTED OUT
-            // videoUrl: serviceVideo ?? undefined,
             imagePublicId: serviceImagePublicId ?? undefined,
-            // videoPublicId: serviceVideoPublicId ?? undefined,
+            category: serviceCategory || undefined,
+            accessType,
+            pricing: accessType !== 'one-time' ? pricing : undefined,
           },
         };
 
@@ -397,13 +473,12 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           customService: {
             title: serviceTitle,
             description: serviceDescription,
-            duration: parsedDuration,
             price: parsedPrice,
             imageUrl: serviceImage ?? undefined,
-            // VIDEO UPLOAD CODE - COMMENTED OUT
-            // videoUrl: serviceVideo ?? undefined,
             imagePublicId: serviceImagePublicId ?? undefined,
-            // videoPublicId: serviceVideoPublicId ?? undefined,
+            category: serviceCategory || undefined,
+            accessType,
+            pricing: accessType !== 'one-time' ? pricing : undefined,
           },
         });
 
@@ -612,22 +687,43 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
 
           setServiceTitle(linkedService.title || '');
           setServiceDescription(linkedService.description || '');
-          setServiceDuration(String(linkedService.duration || 60));
-          setServicePrice(String(linkedService.price || 0));
           setServiceImage(linkedService.imageUrl || null);
-          // VIDEO UPLOAD CODE - COMMENTED OUT
-          // setServiceVideo(linkedService.videoUrl || null);
           setServiceImagePublicId(linkedService.imagePublicId || null);
-          // setServiceVideoPublicId(linkedService.videoPublicId || null);
+          
+          // Set access type and pricing based on service data
+          if (linkedService.accessType) {
+            setAccessType(linkedService.accessType);
+            
+            // Set pricing based on access type
+            if (linkedService.accessType === 'one-time') {
+              setServicePrice(String(linkedService.price || 0));
+            } else if (linkedService.pricing) {
+              setWeeklyPrice(String(linkedService.pricing.weekly || 0));
+              setMonthlyPrice(String(linkedService.pricing.monthly || 0));
+              setYearlyPrice(String(linkedService.pricing.yearly || 0));
+              setLifetimePrice(String(linkedService.pricing.lifetime || 0));
+            }
+          } else {
+            // Fallback for old services without accessType
+            setAccessType('one-time');
+            setServicePrice(String(linkedService.price || 0));
+          }
+          
+          // Set category if available
+          if (linkedService.category) {
+            setServiceCategory(linkedService.category);
+          }
 
           setEditingApplication(app);
           setEditingServiceId(linkedService.id);
           setEditingOriginalValues({
             title: linkedService.title || '',
             description: linkedService.description || '',
-            duration: linkedService.duration || 60,
             price: linkedService.price || 0,
             imageUrl: linkedService.imageUrl || null,
+            accessType: linkedService.accessType || undefined,
+            pricing: linkedService.pricing || undefined,
+            category: linkedService.category || undefined,
           });
           try {
             const bookingsResponse = await ConsultantService.getServiceBookings(linkedService.id);
@@ -657,10 +753,17 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
   const resetForm = () => {
     setServiceTitle('');
     setServiceDescription('');
-    setServiceDuration('60');
     setServicePrice('150');
     setServiceImage(null);
     setServiceImagePublicId(null);
+    setAccessType('one-time');
+    setWeeklyPrice('');
+    setMonthlyPrice('');
+    setYearlyPrice('');
+    setLifetimePrice('');
+    setServiceCategory('');
+    setCustomCategory('');
+    setShowCustomCategoryInput(false);
     setIsEditing(false);
     setEditingApplication(null);
     setEditingServiceId(null);
@@ -668,6 +771,54 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     setIsLoadingServiceDetails(false);
     setLoadingServiceId(null);
     setMutatingApplicationId(null);
+  };
+
+  const handleAddVideo = () => {
+    const options = {
+      mediaType: 'video' as MediaType,
+      videoQuality: 'medium' as any,
+      durationLimit: 300, // 5 minutes max
+    };
+
+    launchImageLibrary(options, (response: ImagePickerResponse) => {
+      if (response.didCancel || response.errorMessage) {
+        return;
+      }
+
+      if (response.assets && response.assets[0]) {
+        const video = response.assets[0];
+        
+        // Create a simple modal for video details
+        Alert.prompt(
+          'Video Details',
+          'Enter a title for your video:',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Add Video',
+              onPress: (title: string) => {
+                if (title && title.trim()) {
+                  const newVideo = {
+                    id: Date.now().toString(),
+                    uri: video.uri || '',
+                    title: title.trim(),
+                    description: '', // Optional: can add description later
+                    thumbnail: (video as any).thumbnail || undefined,
+                  };
+                  
+                  setServiceVideos(prev => [...prev, newVideo]);
+                }
+              },
+            },
+          ],
+          'plain-text',
+          undefined
+        );
+      }
+    });
   };
 
   const pendingCount = applications.filter(a => a.status === 'pending').length;
@@ -694,7 +845,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Applications</Text>
         <TouchableOpacity 
-          onPress={() => navigation.navigate('BrowseServices' as never)} 
+          onPress={() => setShowModal(true)} 
           style={styles.headerButton}
         >
           <Plus size={24} color={COLORS.black} />
@@ -750,40 +901,185 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* New Application Modal */}
-      <ConsultantServiceModal
-        visible={showModal}
-        isEditing={isEditing}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmitApplication}
-        isSubmitting={isSubmitting}
-        submitButtonText={isEditing ? 'Update Service' : 'Submit Application'}
-      >
-        <FormInput
-          label="Service Title"
-          value={serviceTitle}
-          onChangeText={(text) => {
-            setServiceTitle(text);
-            clearFieldError('serviceTitle');
-          }}
-          placeholder="e.g., Career Mentorship Session"
-          error={validationErrors.serviceTitle}
-          required
-        />
+      {/* Service Creation Screen */}
+      {showModal && (
+        <View style={styles.fullScreenOverlay}>
+          <SafeAreaView style={styles.fullScreenContainer}>
+            {/* Header */}
+            <View style={styles.fullScreenHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleCloseModal}
+              >
+                <ChevronLeft size={24} color={COLORS.black} />
+              </TouchableOpacity>
+              <Text style={styles.fullScreenTitle}>
+                {isEditing ? 'Edit Service' : 'Create New Service'}
+              </Text>
+              <View style={styles.headerSpacer} />
+            </View>
 
+            {/* Form Content */}
+            <ScrollView 
+              style={styles.fullScreenContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <FormInput
+                label="Service Title"
+                value={serviceTitle}
+                onChangeText={(text) => {
+                  setServiceTitle(text);
+                  clearFieldError('serviceTitle');
+                }}
+                placeholder="e.g., Career Mentorship Session"
+                error={validationErrors.serviceTitle}
+                required
+              />
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Service Media *</Text>
+                <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+                  Upload an image to showcase your service
+                </Text>
+                <ImageUpload
+                  currentImageUrl={serviceImage}
+                  currentPublicId={serviceImagePublicId}
+                  onImageUploaded={(imageUrl, publicId) => {
+                    setServiceImage(imageUrl);
+                    setServiceImagePublicId(publicId);
+                  }}
+                  onImageDeleted={() => {
+                    setServiceImage(null);
+                    setServiceImagePublicId(null);
+                  }}
+                  uploadType="service"
+                  placeholder="Upload Service Image"
+                />
+              </View>
+
+        {/* Service Category */}
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Service Media *</Text>
+          <Text style={styles.label}>Service Category *</Text>
           <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-            Upload an image to showcase your service
+            Choose the best category for your service
           </Text>
-          <ImageUpload
-            image={serviceImage}
-            setImage={setServiceImage}
-            imagePublicId={serviceImagePublicId}
-            setImagePublicId={setServiceImagePublicId}
-            aspectRatio={16/9}
-            placeholder="Upload Service Image"
-          />
+          
+          <View style={styles.categoryContainer}>
+            {availableCategories.map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryButton,
+                  serviceCategory === category && styles.categoryButtonActive
+                ]}
+                onPress={() => setServiceCategory(category)}
+              >
+                <Text style={[
+                  styles.categoryButtonText,
+                  serviceCategory === category && styles.categoryButtonTextActive
+                ]}>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            
+            <TouchableOpacity
+              style={styles.addCategoryButton}
+              onPress={() => setShowCustomCategoryInput(true)}
+            >
+              <Plus size={16} color={COLORS.green} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Custom Category Input */}
+          {showCustomCategoryInput && (
+            <View style={styles.customCategoryInputContainer}>
+              <FormInput
+                label="Custom Category"
+                value={customCategory}
+                onChangeText={setCustomCategory}
+                placeholder="Enter your custom category"
+                style={styles.customCategoryInput}
+              />
+              <View style={styles.customCategoryButtons}>
+                <TouchableOpacity
+                  style={[styles.customCategoryButton, styles.customCategoryCancelButton]}
+                  onPress={() => {
+                    setShowCustomCategoryInput(false);
+                    setCustomCategory('');
+                  }}
+                >
+                  <Text style={styles.customCategoryCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.customCategoryButton, styles.customCategoryAddButton]}
+                  onPress={() => {
+                    if (customCategory.trim()) {
+                      const newCategory = customCategory.trim();
+                      if (!availableCategories.includes(newCategory)) {
+                        setAvailableCategories(prev => [...prev, newCategory]);
+                        setServiceCategory(newCategory);
+                        setShowCustomCategoryInput(false);
+                        setCustomCategory('');
+                      }
+                    }
+                  }}
+                >
+                  <Text style={styles.customCategoryAddText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Video Management */}
+        <View style={styles.inputContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.label}>Service Videos</Text>
+            <TouchableOpacity
+              style={styles.addVideoButton}
+              onPress={handleAddVideo}
+            >
+              <Plus size={16} color={COLORS.green} />
+              <Text style={styles.addVideoButtonText}>Add Video</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+            Add multiple videos to showcase your service (optional)
+          </Text>
+          
+          {serviceVideos.length > 0 && (
+            <View style={styles.videosList}>
+              {serviceVideos.map((video, index) => (
+                <View key={video.id} style={styles.videoItem}>
+                  <View style={styles.videoThumbnail}>
+                    {video.thumbnail ? (
+                      <Image source={{ uri: video.thumbnail }} style={styles.thumbnailImage} />
+                    ) : (
+                      <View style={styles.placeholderThumbnail}>
+                        <Text style={styles.placeholderText}>📹</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.videoInfo}>
+                    <Text style={styles.videoTitle}>{video.title}</Text>
+                    <Text style={styles.videoDescription} numberOfLines={2}>
+                      {video.description}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.removeVideoButton}
+                    onPress={() => {
+                      setServiceVideos(prev => prev.filter(v => v.id !== video.id));
+                    }}
+                  >
+                    <X size={16} color={COLORS.red} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <FormInput
@@ -800,33 +1096,275 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           required
         />
 
-        <View style={styles.row}>
-          <FormInput
-            label="Duration (mins)"
-            value={serviceDuration}
-            onChangeText={(text) => {
-              setServiceDuration(text);
-              clearFieldError('serviceDuration');
-            }}
-            placeholder="60"
-            keyboardType="numeric"
-            error={validationErrors.serviceDuration}
-            required
-            style={styles.halfWidth}
-          />
-
-          <PriceInput
-            value={servicePrice}
-            onChangeText={(text) => {
-              setServicePrice(text);
-              clearFieldError('servicePrice');
-            }}
-            error={validationErrors.servicePrice}
-            required
-            style={styles.halfWidth}
-          />
+        {/* Access Type Selection */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Access Type *</Text>
+          <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+            Choose how clients can access your service
+          </Text>
+          <View style={styles.accessTypeContainer}>
+            {[
+              { key: 'one-time', label: 'One-time', description: 'Single session' },
+              { key: 'weekly', label: 'Weekly', description: 'Access for 1 week' },
+              { key: 'monthly', label: 'Monthly', description: 'Access for 1 month' },
+              { key: 'yearly', label: 'Yearly', description: 'Access for 1 year' },
+              { key: 'lifetime', label: 'Lifetime', description: 'Forever access' }
+            ].map((type) => (
+              <TouchableOpacity
+                key={type.key}
+                style={[
+                  styles.accessTypeButton,
+                  accessType === type.key && styles.accessTypeButtonActive
+                ]}
+                onPress={() => setAccessType(type.key as any)}
+              >
+                <Text style={[
+                  styles.accessTypeLabel,
+                  accessType === type.key && styles.accessTypeLabelActive
+                ]}>
+                  {type.label}
+                </Text>
+                <Text style={styles.accessTypeDescription}>
+                  {type.description}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </ConsultantServiceModal>
+
+        {/* Curriculum/Outline Section */}
+        <View style={styles.inputContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.label}>Service Curriculum</Text>
+            <TouchableOpacity
+              style={styles.addVideoButton}
+              onPress={() => {
+                const newItem = {
+                  id: Date.now().toString(),
+                  title: '',
+                  description: '',
+                  order: serviceCurriculum.length
+                };
+                setServiceCurriculum(prev => [...prev, newItem]);
+              }}
+            >
+              <Plus size={16} color={COLORS.green} />
+              <Text style={styles.addVideoButtonText}>Add Module</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+            Create a structured outline for your service (optional)
+          </Text>
+          
+          {serviceCurriculum.length > 0 && (
+            <View style={styles.videosList}>
+              {serviceCurriculum.map((item, index) => (
+                <View key={item.id} style={styles.videoItem}>
+                  <View style={styles.videoInfo}>
+                    <FormInput
+                      label={`Module ${index + 1} Title`}
+                      value={item.title}
+                      onChangeText={(text) => {
+                        setServiceCurriculum(prev => 
+                          prev.map(i => i.id === item.id ? { ...i, title: text } : i)
+                        );
+                      }}
+                      placeholder={`Module ${index + 1} title`}
+                      style={styles.curriculumInput}
+                    />
+                    <FormInput
+                      label="Description"
+                      value={item.description}
+                      onChangeText={(text) => {
+                        setServiceCurriculum(prev => 
+                          prev.map(i => i.id === item.id ? { ...i, description: text } : i)
+                        );
+                      }}
+                      placeholder="Module description"
+                      multiline
+                      numberOfLines={2}
+                      style={styles.curriculumInput}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.removeVideoButton}
+                    onPress={() => {
+                      setServiceCurriculum(prev => prev.filter(i => i.id !== item.id));
+                    }}
+                  >
+                    <X size={16} color={COLORS.red} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Certificate Options */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Certificate Options</Text>
+          <Text style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+            Offer certificates to students who complete your service
+          </Text>
+          
+          <TouchableOpacity
+            style={styles.certificateOption}
+            onPress={() => setCertificateEnabled(!certificateEnabled)}
+          >
+            <View style={[
+              styles.checkbox,
+              certificateEnabled && styles.checkboxChecked
+            ]}>
+              {certificateEnabled && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.certificateText}>
+              Enable certificate of completion
+            </Text>
+          </TouchableOpacity>
+          
+          {certificateEnabled && (
+            <View style={styles.certificateTemplates}>
+              <Text style={styles.label}>Certificate Template</Text>
+              <View style={styles.templateContainer}>
+                {[
+                  { id: 'standard', name: 'Standard' },
+                  { id: 'professional', name: 'Professional' },
+                  { id: 'premium', name: 'Premium' }
+                ].map((template) => (
+                  <TouchableOpacity
+                    key={template.id}
+                    style={[
+                      styles.templateButton,
+                      certificateTemplate === template.id && styles.templateButtonActive
+                    ]}
+                    onPress={() => setCertificateTemplate(template.id)}
+                  >
+                    <Text style={[
+                      styles.templateButtonText,
+                      certificateTemplate === template.id && styles.templateButtonTextActive
+                    ]}>
+                      {template.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Dynamic Pricing based on access type */}
+        <View style={styles.pricingContainer}>
+          <Text style={styles.label}>Pricing *</Text>
+          <Text style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+            Set price for {accessType === 'one-time' ? 'single session' : `${accessType} access`}
+          </Text>
+          
+          {accessType === 'one-time' ? (
+            <View style={styles.row}>
+              <PriceInput
+                value={servicePrice}
+                onChangeText={(text) => {
+                  setServicePrice(text);
+                  clearFieldError('servicePrice');
+                }}
+                error={validationErrors.servicePrice}
+                required
+                style={styles.fullWidth}
+                placeholder="0.00"
+              />
+            </View>
+          ) : (
+            <View style={styles.row}>
+              {accessType === 'weekly' && (
+                <FormInput
+                  label="Weekly Price"
+                  value={weeklyPrice}
+                  onChangeText={(text) => {
+                    setWeeklyPrice(text);
+                    clearFieldError('weeklyPrice');
+                  }}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  error={validationErrors.weeklyPrice}
+                  required
+                  style={styles.fullWidth}
+                />
+              )}
+              
+              {accessType === 'monthly' && (
+                <FormInput
+                  label="Monthly Price"
+                  value={monthlyPrice}
+                  onChangeText={(text) => {
+                    setMonthlyPrice(text);
+                    clearFieldError('monthlyPrice');
+                  }}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  error={validationErrors.monthlyPrice}
+                  required
+                  style={styles.fullWidth}
+                />
+              )}
+              
+              {accessType === 'yearly' && (
+                <FormInput
+                  label="Yearly Price"
+                  value={yearlyPrice}
+                  onChangeText={(text) => {
+                    setYearlyPrice(text);
+                    clearFieldError('yearlyPrice');
+                  }}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  error={validationErrors.yearlyPrice}
+                  required
+                  style={styles.fullWidth}
+                />
+              )}
+              
+              {accessType === 'lifetime' && (
+                <FormInput
+                  label="Lifetime Price"
+                  value={lifetimePrice}
+                  onChangeText={(text) => {
+                    setLifetimePrice(text);
+                    clearFieldError('lifetimePrice');
+                  }}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  error={validationErrors.lifetimePrice}
+                  required
+                  style={styles.fullWidth}
+                />
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Curriculum/Outline Section */}
+        <View style={styles.fullScreenSubmitContainer}>
+          <TouchableOpacity
+            style={[
+              styles.fullScreenSubmitButton,
+              isSubmitting && styles.fullScreenSubmitButtonDisabled
+            ]}
+            onPress={handleSubmitApplication}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.fullScreenSubmitButtonText}>
+                {isEditing ? 'Update Service' : 'Create Service'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  </View>
+      )}
     </SafeAreaView>
   );
 }

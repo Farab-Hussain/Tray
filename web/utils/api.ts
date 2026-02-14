@@ -9,23 +9,14 @@ interface ApplicationInput {
   customService?: {
     title: string;
     description: string;
-    duration: number;
     price: number;
   };
-}
-
-interface AvailabilitySchedule {
-  days: string[];
-  startTime: string;
-  endTime: string;
-  timezone: string;
 }
 
 interface ServiceData {
   consultantId: string;
   title: string;
   description: string;
-  duration: number;
   price: number;
   availability?: AvailabilitySchedule;
   imageUrl?: string;

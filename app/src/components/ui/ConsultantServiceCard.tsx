@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -38,8 +38,8 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
   // const [showVideoModal, setShowVideoModal] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
-  const [imageLoadTimeout, setImageLoadTimeout] = useState<number | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
+  const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // VIDEO UPLOAD CODE - COMMENTED OUT
   // const handlePlayVideo = () => {
@@ -59,8 +59,7 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
     imageUri: imageUri,
     hasImageUri: !!imageUri,
     imageUriType: typeof imageUri,
-    imageUriUri: (imageUri as any)?.uri,
-    imageUriUriLength: (imageUri as any)?.uri?.length || 0,
+    imageUriValue: imageUri,
     imageLoadError: imageLoadError
   })
   };
@@ -84,9 +83,15 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
 
   // Set up image load timeout
   useEffect(() => {
+    // Clear existing timeout when dependencies change
+    if (imageLoadTimeoutRef.current) {
+      clearTimeout(imageLoadTimeoutRef.current);
+      imageLoadTimeoutRef.current = null;
+    }
+
     if (imageUri && !imageLoadError) {
             if (__DEV__) {
-        console.log('🔄 [ConsultantServiceCard] Starting image load for:', (imageUri as any)?.uri)
+        console.log('🔄 [ConsultantServiceCard] Starting image load for:', imageUri)
       };
       setImageLoading(true);
       
@@ -97,15 +102,9 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
         };
         setImageLoadError(true);
         setImageLoading(false);
-      }, 10000); // 10 second timeout
+      }, 10000);
       
-      setImageLoadTimeout(timeout);
-      
-      return () => {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-      };
+      imageLoadTimeoutRef.current = timeout;
     }
   }, [imageUri, imageLoadError]);
 
@@ -137,7 +136,7 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
           ) : */ imageUri && !imageLoadError ? (
             <>
               <Image 
-                source={imageUri} 
+                source={typeof imageUri === 'string' ? { uri: imageUri } : imageUri} 
                 style={styles.image}
                 onError={(error) => {
                                     if (__DEV__) {
@@ -162,9 +161,9 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
                   setImageLoadError(false);
                   setImageLoading(false);
                   // Clear timeout since image loaded successfully
-                  if (imageLoadTimeout) {
-                    clearTimeout(imageLoadTimeout);
-                    setImageLoadTimeout(null);
+                  if (imageLoadTimeoutRef.current) {
+                    clearTimeout(imageLoadTimeoutRef.current);
+                    imageLoadTimeoutRef.current = null;
                   }
                 }}
               />
@@ -261,7 +260,7 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
             >
               {/* Service Image */}
               {imageUri ? (
-                <Image source={imageUri} style={styles.modalImage} />
+                <Image source={typeof imageUri === 'string' ? { uri: imageUri } : imageUri} style={styles.modalImage} />
               ) : (
                 <View style={styles.modalPlaceholderImage}>
                   <Text style={styles.placeholderText}>Service Image</Text>

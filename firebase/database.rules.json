@@ -4,18 +4,18 @@
       ".read": "auth != null",
       ".write": "auth != null",
       "$chatId": {
-        ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
-        ".write": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+        ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid))",
+        ".write": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid))",
         "messages": {
-          ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+          ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid))",
           ".write": "auth != null",
           "$messageId": {
-            ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+            ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid))",
             ".write": "auth != null && (!data.exists() || data.child('senderId').val() == auth.uid)"
           }
         },
         "typing": {
-          ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+          ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid))",
           ".write": "auth != null"
         }
       }

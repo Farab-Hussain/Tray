@@ -332,7 +332,10 @@ export const consultantApplicationsScreenStyles = StyleSheet.create({
     gap: 12,
   },
   halfWidth: {
-    flex: 1,
+    width: '48%',
+  },
+  fullWidth: {
+    width: '100%',
   },
   priceInput: {
     position: 'relative',
@@ -377,12 +380,422 @@ export const consultantApplicationsScreenStyles = StyleSheet.create({
     backgroundColor: COLORS.gray,
   },
   submitButtonText: {
-    color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
+    // color: COLORS.white,
   },
   bottomSpacer: {
+    height: 100,
+  },
+  // Access Type Styles
+  accessTypeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  accessTypeButton: {
+    flex: 1,
+    minWidth: 100,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    minHeight: 60,
+  },
+  accessTypeButtonActive: {
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.green + '10',
+  },
+  accessTypeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: 4,
+  },
+  accessTypeLabelActive: {
+    color: COLORS.green,
+  },
+  accessTypeDescription: {
+    fontSize: 11,
+    color: COLORS.gray,
+    textAlign: 'center',
+  },
+  pricingContainer: {
+    marginBottom: 16,
+  },
+  // Category Styles
+  categoryContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  categoryButtonActive: {
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.green + '10',
+  },
+  categoryButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.black,
+  },
+  categoryButtonTextActive: {
+    color: COLORS.green,
+  },
+  // Custom Category Input Styles
+  addCategoryButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: COLORS.green + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.green,
+  },
+  customCategoryInputContainer: {
+    marginTop: 12,
+    padding: 16,
+    backgroundColor: COLORS.lightGray + '10',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.green,
+  },
+  customCategoryInput: {
+    marginBottom: 12,
+  },
+  customCategoryButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  customCategoryButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  customCategoryCancelButton: {
+    backgroundColor: COLORS.lightGray,
+  borderWidth: 1,
+    borderColor: COLORS.gray,
+  },
+  customCategoryAddButton: {
+    backgroundColor: COLORS.green,
+  },
+  customCategoryCancelText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.black,
+  },
+  customCategoryAddText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.white,
+  },
+  // Video Management Styles
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addVideoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 8,
+    backgroundColor: COLORS.green + '10',
+  },
+  addVideoButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.green,
+  },
+  videosList: {
+    gap: 12,
+  },
+  videoItem: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+  },
+  videoThumbnail: {
+    width: 80,
+    height: 60,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
+  },
+  placeholderThumbnail: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  placeholderText: {
+    fontSize: 20,
+  },
+  videoInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  videoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.black,
+    marginBottom: 4,
+  },
+  videoDescription: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 4,
+  },
+  videoDuration: {
+    fontSize: 11,
+    color: COLORS.gray,
+  },
+  removeVideoButton: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: COLORS.red + '10',
+    height: 24,
+    width: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Curriculum Styles
+  curriculumInput: {
+    marginBottom: 8,
+  },
+  // Certificate Styles
+  certificateOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+  },
+  checkbox: {
+    width: 20,
     height: 20,
+    borderWidth: 2,
+    borderColor: COLORS.lightGray,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.green,
+    borderColor: COLORS.green,
+  },
+  checkmark: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  certificateText: {
+    fontSize: 14,
+    color: COLORS.black,
+  },
+  certificateTemplates: {
+    marginTop: 16,
+  },
+  templateContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  templateButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  templateButtonActive: {
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.green + '10',
+  },
+  templateButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.black,
+  },
+  templateButtonTextActive: {
+    color: COLORS.green,
+  },
+  // Modal Styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
+  },
+  addCategoryModalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 28,
+    margin: 20,
+    width: '92%',
+    maxWidth: 420,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  addCategoryModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  addCategoryModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.black,
+    flex: 1,
+  },
+  addCategoryCloseButton: {
+    padding: 10,
+    borderRadius: 24,
+    backgroundColor: COLORS.lightGray + '20',
+    // height: 44,
+    width: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addCategoryInput: {
+    marginBottom: 24,
+  },
+  addCategoryModalButtons: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 12,
+  },
+  addCategoryModalButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  addCategoryCancelButton: {
+    backgroundColor: COLORS.lightGray + '15',
+    borderWidth: 1,
+    borderColor: COLORS.lightGray + '30',
+  },
+  addCategoryAddButton: {
+    backgroundColor: COLORS.green,
+  },
+  addCategoryCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.black,
+  },
+  addCategoryAddText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  // Full Screen Styles
+  fullScreenOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: COLORS.lightBackground,
+    zIndex: 1000,
+  },
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: COLORS.lightBackground,
+  },
+  fullScreenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+    backgroundColor: COLORS.white,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.lightGray + '20',
+  },
+  fullScreenTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.black,
+    marginLeft: 16,
+    flex: 1,
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  fullScreenContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  fullScreenSubmitContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.lightGray,
+    backgroundColor: COLORS.white,
+  },
+  fullScreenSubmitButton: {
+    backgroundColor: COLORS.green,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  fullScreenSubmitButtonDisabled: {
+    backgroundColor: COLORS.gray,
+  },
+  fullScreenSubmitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });
-
