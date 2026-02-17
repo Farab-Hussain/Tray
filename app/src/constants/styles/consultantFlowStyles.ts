@@ -337,6 +337,163 @@ export const consultantFlowStyles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  // Form group styles
+  formGroup: {
+    marginBottom: 20,
+  },
+  helperText: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 12,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  smallButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    minWidth: 60,
+  },
+  disabledButton: {
+    backgroundColor: COLORS.lightGray,
+    opacity: 0.6,
+  },
+
+  // Tag styles (for certifications)
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.green,
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  tagText: {
+    fontSize: 13,
+    color: COLORS.white,
+  },
+  removeTagButton: {
+    fontSize: 16,
+    color: COLORS.white,
+    fontWeight: '600',
+    padding: 2,
+  },
+  removeTagText: {
+    fontSize: 14,
+    color: COLORS.white,
+    fontWeight: '600',
+  },
+
+  // Enhanced certification tag styles
+  certificationTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.green,
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  certificationImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  eyeIcon: {
+    padding: 2,
+  },
+
+  // Certification input styles
+  certificationInputContainer: {
+    flex: 1,
+  },
+  certificationImageContainer: {
+    marginTop: 12,
+  },
+
+  // Modal styles
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 400,
+    padding: 20,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.black,
+  },
+  modalCloseButton: {
+    fontSize: 24,
+    color: COLORS.gray,
+    fontWeight: '600',
+  },
+  modalImageContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 8,
+  },
+  modalCertificateTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.black,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  modalButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  editButton: {
+    backgroundColor: COLORS.green,
+  },
+  deleteButton: {
+    backgroundColor: COLORS.red,
+  },
+
   // Button styles
   submitButton: {
     backgroundColor: COLORS.green,

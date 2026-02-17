@@ -10,7 +10,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Clock, CheckCircle, RefreshCw, Plus, Edit3, Star, Calendar, Users, DollarSign, ArrowRight, FileText } from 'lucide-react-native';
+import {
+  Clock,
+  Edit3,
+  RefreshCw,
+  FileText,
+  Plus,
+} from 'lucide-react-native';
 import {
   getConsultantProfile,
   getConsultantApplications,
@@ -159,6 +165,7 @@ export default function PendingApproval() {
         console.log('PendingApproval - Data load complete')
       };
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, navigation, refreshConsultantStatus, activeRole, switchRole]);
 
   useFocusEffect(
@@ -395,10 +402,10 @@ export default function PendingApproval() {
     navigation.navigate('ConsultantProfileFlow' as never);
   };
 
-  const handleApplyServices = () => {
-    // Navigate to BrowseServicesScreen to apply from existing services
-    navigation.navigate('BrowseServices' as never);
-  };
+  // const handleApplyServices = () => {
+  //   // Navigate to BrowseServicesScreen to apply from existing services
+  //   navigation.navigate('BrowseServices' as never);
+  // };
 
   if (isLoading) {
     return (
@@ -414,8 +421,6 @@ export default function PendingApproval() {
   const getStatusTitle = () => {
     if (!profile) return 'Welcome to Tray Consultant!';
     switch (profile.status) {
-      case 'approved':
-        return 'Profile Approved! 🎉';
       case 'pending':
         return 'Verification Pending';
       case 'rejected':
@@ -425,17 +430,8 @@ export default function PendingApproval() {
     }
   };
 
-  const getStatusMessage = () => {
-    if (!profile) return 'Thank you for registering as a consultant! To get started, you need to create your consultant profile and apply for services. Complete the form below to provide detailed information about your expertise and experience.';
-    switch (profile.status) {
-      case 'approved':
-        // Check if consultant has approved services
-        const approvedServices = applications.filter(a => a.status === 'approved');
-        if (approvedServices.length > 0) {
-          return 'Congratulations! Your profile and services have been approved. You can now access the full consultant applications screen.';
-        } else {
-          return 'Your consultant profile has been approved. You must apply for services to complete your consultant setup and start earning.';
-        }
+  const getStatusMessage = (status: string, _applicationsList: any[]) => {
+    switch (status) {
       case 'pending':
         return 'Your profile is currently under review by our admin team. This usually takes 24-48 hours. We\'ll notify you once the review is complete.';
       case 'rejected':
@@ -445,9 +441,9 @@ export default function PendingApproval() {
     }
   };
 
-  const handleCreateCustomService = () => {
-    navigation.navigate('ConsultantServiceSetup' as never);
-  };
+  // const handleCreateCustomService = () => {
+  //   navigation.navigate('ConsultantTabs' as never);
+  // };
 
   const handleManageApplications = () => {
     navigation.navigate('ConsultantApplications' as never);
@@ -509,7 +505,7 @@ export default function PendingApproval() {
 
       {/* Status Message */}
       <Text style={pendingApprovalStyles.statusMessage}>
-        {getStatusMessage()}
+        {getStatusMessage(profile?.status || 'no_profile', applications)}
       </Text>
 
       {/* Welcome Card for new consultants */}
@@ -535,185 +531,14 @@ export default function PendingApproval() {
         </View>
       )}
 
-      {/* Next Steps Card - Only show if profile is approved and no approved services */}
-      {profile?.status === 'approved' && approvedApplications.length === 0 && (
-        <>
-          {/* Next Steps Section */}
-          <View style={pendingApprovalStyles.card}>
-            <Text style={pendingApprovalStyles.cardTitle}>Next Steps</Text>
-            
-            <View style={{ marginTop: 16, gap: 16 }}>
-              {/* Step 1: Profile Created */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                <View style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  backgroundColor: COLORS.green,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <CheckCircle size={18} color={COLORS.white} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
-                    Profile Created
-                  </Text>
-                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
-                    Your consultant profile is approved
-                  </Text>
-                </View>
-              </View>
-
-              {/* Step 2: Apply for Services */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                <View style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  backgroundColor: '#6B7280',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <Plus size={18} color={COLORS.white} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
-                    Apply for Services
-                  </Text>
-                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
-                    <Text style={{ fontWeight: '600', color: COLORS.red }}>REQUIRED:</Text> Apply for services to complete consultant setup
-                  </Text>
-                </View>
-              </View>
-
-              {/* Step 3: Start Earning */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                <View style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  backgroundColor: '#6B7280',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <ArrowRight size={18} color={COLORS.white} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
-                    Start Earning
-                  </Text>
-                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
-                    Access app after service approval
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Why Apply for Services? Section */}
-          <View style={pendingApprovalStyles.card}>
-            <Text style={pendingApprovalStyles.cardTitle}>Why Apply for Services?</Text>
-            
-            <View style={{ marginTop: 16, gap: 16 }}>
-              {/* Benefit 1: Earn Money */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                <View style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  backgroundColor: '#ECFDF5',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <DollarSign size={20} color={COLORS.green} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
-                    Earn Money
-                  </Text>
-                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
-                    Set your own rates and earn from consultations
-                  </Text>
-                </View>
-              </View>
-
-              {/* Benefit 2: Help Students */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                <View style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  backgroundColor: '#ECFDF5',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <Users size={20} color={COLORS.green} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
-                    Help Students
-                  </Text>
-                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
-                    Share your expertise and mentor the next generation
-                  </Text>
-                </View>
-              </View>
-
-              {/* Benefit 3: Build Reputation */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                <View style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  backgroundColor: '#ECFDF5',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <Star size={20} color={COLORS.green} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
-                    Build Reputation
-                  </Text>
-                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
-                    Gain reviews and build your professional brand
-                  </Text>
-                </View>
-              </View>
-
-              {/* Benefit 4: Flexible Schedule */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                <View style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  backgroundColor: '#ECFDF5',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <Calendar size={20} color={COLORS.green} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 4 }}>
-                    Flexible Schedule
-                  </Text>
-                  <Text style={{ fontSize: 14, color: COLORS.gray, lineHeight: 20 }}>
-                    Work on your own time and availability
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </>
-      )}
+    
 
       {/* Profile Status Card - Only show if profile is pending or rejected */}
       {profile && profile.status !== 'approved' && (
         <StatusCard
           status={profile.status as any}
           title="Profile Status"
-          message={getStatusMessage()}
+          message={getStatusMessage(profile?.status || 'no_profile', applications)}
           profile={{
             fullName: profile.personalInfo.fullName,
             category: profile.professionalInfo.category,
@@ -802,58 +627,6 @@ export default function PendingApproval() {
                 <Edit3 size={20} color="#fff" />
                 <Text style={pendingApprovalStyles.primaryButtonText}>Edit Profile</Text>
               </TouchableOpacity>
-            ) : profile.status === 'approved' ? (
-              <>
-                {/* Check if consultant has approved services - show "Go to App" button */}
-                {approvedApplications.length > 0 ? (
-                  <TouchableOpacity
-                    style={pendingApprovalStyles.primaryButton}
-                    onPress={() => {
-                      // Navigate to consultant home since both profile and services are approved
-                      (navigation as any).reset({
-                        index: 0,
-                        routes: [{ name: 'ConsultantTabs' as never }],
-                      });
-                    }}
-                  >
-                    <CheckCircle size={20} color="#fff" />
-                    <Text style={pendingApprovalStyles.primaryButtonText}>GO TO APP</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <>
-                    {/* Browse Platform Services Button */}
-                    {/* <TouchableOpacity
-                      style={pendingApprovalStyles.primaryButton}
-                      onPress={handleApplyServices}
-                    >
-                      <Star size={20} color="#fff" strokeWidth={2.5} />
-                      <Text style={pendingApprovalStyles.primaryButtonText}>Browse Platform Services</Text>
-                    </TouchableOpacity> */}
-                    
-                    {/* Create Custom Service Button */}
-                    <TouchableOpacity
-                      style={pendingApprovalStyles.secondaryButton}
-                      onPress={handleCreateCustomService}
-                    >
-                      <Plus size={20} color={COLORS.green} />
-                      <Text style={pendingApprovalStyles.secondaryButtonText}>Create Custom Service</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-                
-                {/* Manage Applications Button - Show when there are any applications */}
-                {hasAnyApplications && (
-                  <TouchableOpacity
-                    style={pendingApprovalStyles.secondaryButton}
-                    onPress={handleManageApplications}
-                  >
-                    <FileText size={20} color={COLORS.green} />
-                    <Text style={pendingApprovalStyles.secondaryButtonText}>
-                      Manage Applications ({applications.length})
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </>
             ) : profile.status === 'pending' && hasAnyApplications ? (
               // Show Manage Applications button even when profile is pending
               <TouchableOpacity

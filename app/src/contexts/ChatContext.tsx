@@ -7,8 +7,8 @@ import React, {
   useState,
 } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../lib/firebase.ts';
-import * as ChatService from '../services/chat.Service.ts';
+import { auth } from '../lib/firebase';
+import * as ChatService from '../services/chat.Service';
 import type { Chat } from '../types/chatTypes';
 
 interface ChatContextValue {
@@ -35,6 +35,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const refreshTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshChatsRef = React.useRef<(() => Promise<void>) | null>(null);
   
   const refreshChats = useCallback(async () => {
     if (!userId) {
@@ -69,19 +70,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     }, 300);
   }, [userId]);
 
+  // Update ref whenever refreshChats changes
+  useEffect(() => {
+    refreshChatsRef.current = refreshChats;
+  }, [refreshChats]);
+
   useEffect(() => {
     if (userId) {
             if (__DEV__) {
         console.log('🚀 [ChatContext] User authenticated, starting chat refresh. UserId:', userId)
       };
-      refreshChats();
+      refreshChatsRef.current?.();
     } else {
             if (__DEV__) {
         console.log('⏳ [ChatContext] Waiting for user authentication...')
       };
     }
     // Optionally add a listener for real-time chat list updates (not implemented here)
-  }, [refreshChats, userId]);
+  }, [userId]);
 
   const openChatWith = useCallback(async (otherUid: string) => {
     if (!userId) throw new Error('User not authenticated');

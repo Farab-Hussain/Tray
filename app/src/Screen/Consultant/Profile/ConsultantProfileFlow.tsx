@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  Image,
+  Alert,
+  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Eye, Edit, Trash2 } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
   createConsultantProfile,
@@ -23,6 +26,7 @@ import { StatusBadge } from '../../../components/consultant/StatusComponents';
 import { FormInput, TextArea, CategorySelector, SpecialtyManager } from '../../../components/consultant/FormComponents';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import { consultantFlowStyles } from '../../../constants/styles/consultantFlowStyles';
+import { COLORS } from '../../../constants/core/colors';
 import { showSuccess, showError, handleApiError } from '../../../utils/toast';
 import { UserService } from '../../../services/user.service';
 
@@ -60,8 +64,25 @@ export default function ConsultantProfileFlow() {
   const [customCategory, setCustomCategory] = useState('');
   const [title, setTitle] = useState('');
   const [specialties, setSpecialties] = useState<string[]>([]);
+  const [certifications, setCertifications] = useState<Array<{
+    name: string;
+    imageUrl?: string;
+    imagePublicId?: string;
+  }>>([]);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [profileImagePublicId, setProfileImagePublicId] = useState<string | null>(null);
+  const [newCertification, setNewCertification] = useState('');
+  const [newCertificationImage, setNewCertificationImage] = useState<string | null>(null);
+  const [newCertificationImagePublicId, setNewCertificationImagePublicId] = useState<string | null>(null);
+  
+  // Modal state for certificate viewing
+  const [selectedCertificate, setSelectedCertificate] = useState<{
+    name: string;
+    imageUrl?: string;
+    imagePublicId?: string;
+    index: number;
+  } | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   
   // Validation errors state
   const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({});
@@ -83,6 +104,9 @@ export default function ConsultantProfileFlow() {
       setCustomCategory('');
       setTitle(existingProfile.professionalInfo.title || '');
       setSpecialties(existingProfile.professionalInfo.specialties || []);
+      setCertifications((existingProfile.personalInfo as any)?.qualifications?.map((qual: string) => 
+        typeof qual === 'string' ? { name: qual } : qual
+      ) || []);
       setProfileImage(existingProfile.personalInfo?.profileImage || null);
       setProfileImagePublicId(null); // This field doesn't exist in the type
     } catch {
@@ -142,6 +166,65 @@ export default function ConsultantProfileFlow() {
 
   const removeSpecialty = (item: string) => {
     setSpecialties(specialties.filter(s => s !== item));
+  };
+
+  const addCertification = () => {
+    if (newCertification.trim()) {
+      const certificationObj = {
+        name: newCertification.trim(),
+        imageUrl: newCertificationImage || undefined,
+        imagePublicId: newCertificationImagePublicId || undefined,
+      };
+      setCertifications([...certifications, certificationObj]);
+      setNewCertification('');
+      setNewCertificationImage(null);
+      setNewCertificationImagePublicId(null);
+    }
+  };
+
+  const removeCertification = (index: number) => {
+    setCertifications(certifications.filter((_, i) => i !== index));
+  };
+
+  // Modal functions
+  const openCertificateModal = (certification: any, index: number) => {
+    setSelectedCertificate({ ...certification, index });
+    setIsModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setSelectedCertificate(null);
+    setIsModalVisible(false);
+  };
+
+  const editCertificate = () => {
+    if (selectedCertificate) {
+      setNewCertification(selectedCertificate.name);
+      setNewCertificationImage(selectedCertificate.imageUrl || null);
+      setNewCertificationImagePublicId(selectedCertificate.imagePublicId || null);
+      removeCertification(selectedCertificate.index);
+      closeModal();
+    }
+  };
+
+  const deleteCertificate = () => {
+    if (selectedCertificate) {
+      Alert.alert(
+        'Delete Certificate',
+        'Are you sure you want to delete this certificate?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              removeCertification(selectedCertificate.index);
+              closeModal();
+            },
+          },
+        ]
+      );
+    }
   };
 
   const clearFieldError = (fieldName: string) => {
@@ -258,7 +341,8 @@ export default function ConsultantProfileFlow() {
           experience: parseInt(experience, 10) || 0,
           profileImage: profileImage || undefined,
           profileImagePublicId: profileImagePublicId || undefined,
-        },
+          qualifications: certifications.length > 0 ? certifications.map(c => ({ name: c.name, imageUrl: c.imageUrl, imagePublicId: c.imagePublicId })) : undefined,
+        } as any,
         professionalInfo: {
           category: finalCategory.trim(),
           title: title.trim() || undefined,
@@ -274,13 +358,13 @@ export default function ConsultantProfileFlow() {
         await updateConsultantProfile(user.uid, profileData);
         showSuccess('Profile updated successfully!');
         await refreshConsultantStatus();
-        navigation.navigate('PendingApproval' as never);
+        navigation.navigate('ConsultantTabs' as never);
       } else {
         await createConsultantProfile(profileData);
-        showSuccess('Profile submitted for verification! You will be notified once approved.');
+        showSuccess('Profile created successfully! You can now access the consultant dashboard.');
         await refreshConsultantStatus();
-        // Navigate to pending approval screen
-        navigation.navigate('PendingApproval' as never);
+        // Navigate directly to consultant tabs since profile is auto-approved
+        navigation.navigate('ConsultantTabs' as never);
       }
     } catch (error: any) {
             if (__DEV__) {
@@ -424,9 +508,91 @@ export default function ConsultantProfileFlow() {
               onAddSpecialty={addSpecialty}
               onRemoveSpecialty={removeSpecialty}
             />
+
+            {/* Certifications Section */}
+            <View style={consultantFlowStyles.formGroup}>
+              <Text style={consultantFlowStyles.label}>Certifications</Text>
+              <Text style={consultantFlowStyles.helperText}>
+                Add your professional certifications and qualifications
+              </Text>
+              
+              {/* Certification Input */}
+              <View style={consultantFlowStyles.inputRow}>
+                <View style={consultantFlowStyles.certificationInputContainer}>
+                  <FormInput
+                    label=""
+                    value={newCertification}
+                    onChangeText={setNewCertification}
+                    placeholder="e.g., PMP Certification"
+                  />
+                  
+                  {/* Certification Image Upload */}
+                  <View style={consultantFlowStyles.certificationImageContainer}>
+                    <Text style={consultantFlowStyles.helperText}>
+                      Certificate Image (Optional)
+                    </Text>
+                    <ImageUpload
+                      currentImageUrl={newCertificationImage || undefined}
+                      currentPublicId={newCertificationImagePublicId || undefined}
+                      uploadType="consultant"
+                      onImageUploaded={(imageUrl, publicId) => {
+                        setNewCertificationImage(imageUrl);
+                        setNewCertificationImagePublicId(publicId);
+                      }}
+                      onImageDeleted={() => {
+                        setNewCertificationImage(null);
+                        setNewCertificationImagePublicId(null);
+                      }}
+                      placeholder="Upload certificate image"
+                    />
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    consultantFlowStyles.addButton,
+                    consultantFlowStyles.smallButton,
+                    !newCertification.trim() && consultantFlowStyles.disabledButton
+                  ]}
+                  onPress={addCertification}
+                  disabled={!newCertification.trim()}
+                >
+                  <Text style={consultantFlowStyles.addButtonText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Certifications List */}
+              {certifications.length > 0 && (
+                <View style={consultantFlowStyles.tagsContainer}>
+                  {certifications.map((certification, index) => (
+                    <View key={index} style={consultantFlowStyles.certificationTag}>
+                      {certification.imageUrl && (
+                        <Image
+                          source={{ uri: certification.imageUrl }}
+                          style={consultantFlowStyles.certificationImage}
+                        />
+                      )}
+                      <Text style={consultantFlowStyles.tagText}>{certification.name}</Text>
+                      <TouchableOpacity
+                        style={consultantFlowStyles.eyeIcon}
+                        onPress={() => openCertificateModal(certification, index)}
+                      >
+                        <Eye size={16} color={COLORS.white} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={consultantFlowStyles.removeTagButton}
+                        onPress={() => removeCertification(index)}
+                      >
+                        <Text style={consultantFlowStyles.removeTagText}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
         );
 
+        
       case 2: // Profile Image
         return (
           <View style={consultantFlowStyles.section}>
@@ -489,6 +655,9 @@ export default function ConsultantProfileFlow() {
               <Text style={consultantProfileFlowStyles.summaryText}>Title: {title || 'Not specified'}</Text>
               {specialties.length > 0 && (
                 <Text style={consultantProfileFlowStyles.summaryText}>Specialties: {specialties.join(', ')}</Text>
+              )}
+              {certifications.length > 0 && (
+                <Text style={consultantProfileFlowStyles.summaryText}>Certifications: {certifications.map(c => c.name).join(', ')}</Text>
               )}
             </View>
 
@@ -609,6 +778,60 @@ export default function ConsultantProfileFlow() {
         <View style={consultantFlowStyles.bottomSpacer} />
       </ScrollView>
       </View>
+
+      {/* Certificate Modal */}
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeModal}
+      >
+        <View style={consultantFlowStyles.modalOverlay}>
+          <View style={consultantFlowStyles.modalContent}>
+            {/* Modal Header */}
+            <View style={consultantFlowStyles.modalHeader}>
+              <Text style={consultantFlowStyles.modalTitle}>Certificate Details</Text>
+              <TouchableOpacity onPress={closeModal}>
+                <Text style={consultantFlowStyles.modalCloseButton}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Certificate Image */}
+            {selectedCertificate?.imageUrl && (
+              <View style={consultantFlowStyles.modalImageContainer}>
+                <Image
+                  source={{ uri: selectedCertificate.imageUrl }}
+                  style={consultantFlowStyles.modalImage}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+
+            {/* Certificate Title */}
+            <Text style={consultantFlowStyles.modalCertificateTitle}>
+              {selectedCertificate?.name}
+            </Text>
+
+            {/* Action Buttons */}
+            <View style={consultantFlowStyles.modalActions}>
+              <TouchableOpacity
+                style={[consultantFlowStyles.modalButton, consultantFlowStyles.editButton]}
+                onPress={editCertificate}
+              >
+                <Edit size={16} color={COLORS.white} />
+                <Text style={consultantFlowStyles.modalButtonText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[consultantFlowStyles.modalButton, consultantFlowStyles.deleteButton]}
+                onPress={deleteCertificate}
+              >
+                <Trash2 size={16} color={COLORS.white} />
+                <Text style={consultantFlowStyles.modalButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -23,6 +23,7 @@ interface FormInputProps {
   numberOfLines?: number;
   required?: boolean;
   error?: string;
+  containerStyle?: any;
 }
 
 export const FormInput: React.FC<FormInputProps> = ({
@@ -36,9 +37,10 @@ export const FormInput: React.FC<FormInputProps> = ({
   numberOfLines = 1,
   required = false,
   error,
+  containerStyle,
 }) => {
   return (
-    <View style={consultantFlowStyles.inputContainer}>
+    <View style={[consultantFlowStyles.inputContainer, containerStyle]}>
       <Text style={consultantFlowStyles.label}>
         {label} {required && '*'}
       </Text>

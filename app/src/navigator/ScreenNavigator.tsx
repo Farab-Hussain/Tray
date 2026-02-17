@@ -49,7 +49,6 @@ import ConsultantAvailability from '../Screen/Consultant/Availability/Consultant
 import ConsultantSlots from '../Screen/Consultant/Slots/ConsultantSlots';
 import StudentAvailability from '../Screen/Student/Availability/StudentAvailability';
 import PendingApproval from '../Screen/Consultant/PendingApproval';
-import ConsultantServiceSetupScreen from '../Screen/Consultant/ServiceSetup/ConsultantServiceSetupScreen';
 import ConsultantVerificationFlow from '../Screen/Consultant/Verification/ConsultantVerificationFlow';
 import CreateProfile from '../Screen/common/Profile/CreateProfile';
 import StripePaymentSetup from '../Screen/Consultant/Payment/StripePaymentSetup';
@@ -70,28 +69,15 @@ import ApplicationDetailScreen from '../Screen/Student/Jobs/ApplicationDetailScr
 import RecruiterMyJobsScreen from '../Screen/Recruiter/Jobs/MyJobsScreen';
 import RecruiterJobApplicationsScreen from '../Screen/Recruiter/Jobs/JobApplicationsScreen';
 import RecruiterApplicationReviewScreen from '../Screen/Recruiter/Jobs/ApplicationReviewScreen';
+// Course Management screens
+import CourseCreationScreen from '../Screen/Consultant/CourseManagement/CourseCreationScreen';
 
 const Stack = createStackNavigator();
 
-// Component to handle consultant onboarding flow
-// Shows different screens based on consultant verification status and service approval
-const ConsultantFlowHandler = () => {
-  const { consultantVerificationStatus } = useAuth();
-  
-  // If not approved, show pending approval screen
-  if (consultantVerificationStatus !== 'approved') {
-    return <PendingApproval />;
-  }
-  
-  // If approved, show service setup screen
-  // This screen will handle checking for approved services and redirecting accordingly
-  return <ConsultantServiceSetupScreen />;
-};
 
 // Component to render appropriate bottom tabs based on role
 const RoleBasedTabs = () => {
   const { role, activeRole, needsProfileCreation, consultantVerificationStatus, user } = useAuth();
-  const [hasApprovedServices, setHasApprovedServices] = React.useState<boolean | null>(null);
   const [isChecking, setIsChecking] = React.useState(true);
   
   // Use activeRole if available, fallback to role for backward compatibility
@@ -122,51 +108,10 @@ const RoleBasedTabs = () => {
     }
   }, [user]);
   
-  // Check if consultant has approved services
+  // Set checking to false since we no longer need to check services
   React.useEffect(() => {
-    const checkApprovedServices = async () => {
-      // If not consultant, don't check
-      if (currentRole !== 'consultant') {
-        setHasApprovedServices(null);
-        setIsChecking(false);
-        return;
-      }
-      
-      // If profile is not approved or status is unknown, no need to check services
-      if (consultantVerificationStatus !== 'approved') {
-        setHasApprovedServices(null);
-        setIsChecking(false);
-        return;
-      }
-      
-      // Only check services if profile is approved
-      if (user?.uid) {
-        try {
-          // Add timeout to prevent infinite loading
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout')), 10000)
-          );
-          
-          const { getConsultantApplications } = await import('../services/consultantFlow.service');
-          const applicationsPromise = getConsultantApplications();
-          
-          const applications = await Promise.race([applicationsPromise, timeoutPromise]) as any;
-          const approvedServices = applications.filter((app: any) => app.status === 'approved');
-          setHasApprovedServices(approvedServices.length > 0);
-        } catch (error) {
-          if (__DEV__) {
-            console.error('Error checking approved services:', error);
-          }
-          setHasApprovedServices(false);
-        }
-      } else {
-        setHasApprovedServices(false);
-      }
-      setIsChecking(false);
-    };
-    
-    checkApprovedServices();
-  }, [currentRole, consultantVerificationStatus, user?.uid]);
+    setIsChecking(false);
+  }, []);
   
   // Debug logging for role changes
   React.useEffect(() => {
@@ -180,7 +125,7 @@ const RoleBasedTabs = () => {
     return <CreateProfile />;
   }
   
-  // For consultants, check if both profile and services are approved
+  // For consultants, check if profile is approved (services are no longer required for access)
   if (currentRole === 'consultant') {
     // If still checking, show loading screen
     if (isChecking) {
@@ -196,19 +141,14 @@ const RoleBasedTabs = () => {
       );
     }
     
-    // If profile is not approved, show pending approval
-    if (consultantVerificationStatus !== 'approved') {
-      return <PendingApproval />;
-    }
-    
-    // If profile is approved but no services are approved, show service setup
-    if (hasApprovedServices === false) {
-      return <ConsultantServiceSetupScreen />;
-    }
-    
-    // Only show consultant tabs if both profile AND services are approved
-    if (hasApprovedServices === true) {
+    // If profile is approved, show consultant tabs (no service approval required)
+    if (consultantVerificationStatus === 'approved') {
       return <ConsultantBottomTabs />;
+    }
+    
+    // If profile is not approved or status is null/incomplete, show pending approval
+    if (!consultantVerificationStatus || ['incomplete', 'pending', 'rejected'].includes(consultantVerificationStatus)) {
+      return <PendingApproval />;
     }
     
     // Default fallback - should not reach here, but show pending approval as fallback
@@ -961,15 +901,6 @@ const ScreenNavigator = () => {
       />
 
       <Stack.Screen 
-        name="ConsultantServiceSetup" 
-        component={ConsultantServiceSetupScreen}
-        options={{
-          headerShown: false,
-          cardStyleInterpolator: slideFromRight,
-        }}
-      />
-
-      <Stack.Screen 
         name="ConsultantVerificationFlow" 
         component={ConsultantVerificationFlow}
         options={{
@@ -1027,6 +958,16 @@ const ScreenNavigator = () => {
       <Stack.Screen 
         name="ApplicationDetail" 
         component={ApplicationDetailScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+
+      {/* Course Management Screens */}
+      <Stack.Screen 
+        name="CourseCreation" 
+        component={CourseCreationScreen}
         options={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,

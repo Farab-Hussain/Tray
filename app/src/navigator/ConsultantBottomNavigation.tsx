@@ -13,7 +13,7 @@ import {
 
 // Consultant Screens
 import ConsultantHome from '../Screen/Consultant/Home/ConsultantHome';
-import ConsultantServices from '../Screen/Consultant/Services/ConsultantServices';
+import CourseManagementNavigator from '../navigation/CourseManagementNavigator';
 import ConsultantAvailability from '../Screen/Consultant/Availability/ConsultantAvailability';
 import Messages from '../Screen/common/Messages/Messages';
 // import Notifications from '../Screen/common/Notifications/Notifications';
@@ -44,6 +44,12 @@ const getTabIcon = (routeName: string, color: string, size: number) => {
         </View>
       );
     case 'ConsultantServices':
+      return (
+        <View style={iconStyle}>
+          <BookOpen size={size} color={color} />
+        </View>
+      );
+    case 'CourseManagement':
       return (
         <View style={iconStyle}>
           <BookOpen size={size} color={color} />
@@ -118,10 +124,10 @@ const ConsultantBottomTabs = () => {
       />
       
       <Tab.Screen
-        name="ConsultantServices"
-        component={ConsultantServices}
+        name="CourseManagement"
+        component={CourseManagementNavigator}
         options={{
-          tabBarLabel: 'Services',
+          tabBarLabel: 'Courses',
         }}
       />
       

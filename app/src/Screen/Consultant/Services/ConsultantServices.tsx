@@ -316,6 +316,8 @@ const ConsultantServices = ({ navigation }: any) => {
 
       const courseData: CourseInput = {
         ...formData,
+        instructorId: user?.uid || '',
+        instructorName: user?.displayName || user?.email || 'Consultant',
         pricingOptions: {
           monthly: formData.subscriptionType === 'allMonthly' ? formData.allCoursesMonthlyPrice : formData.monthlyPrice,
           yearly: formData.subscriptionType === 'allYearly' ? formData.allCoursesYearlyPrice : formData.yearlyPrice,
@@ -436,7 +438,7 @@ const ConsultantServices = ({ navigation }: any) => {
                 duration={service.duration}
                 price={service.price}
                 rating={service.rating}
-                onSetAvailabilityPress={() => {}}
+                onSetAvailabilityPress={() => navigation.navigate('ConsultantAvailability', { serviceId: service.id })}
               />
             </TouchableOpacity>
           ))

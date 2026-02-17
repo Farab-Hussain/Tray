@@ -226,7 +226,7 @@ export default function ConsultantVerificationFlow() {
         (navigation as any).navigate('PendingApproval');
         break;
       case 'no_services':
-        (navigation as any).navigate('ConsultantServiceSetup');
+        (navigation as any).navigate('ConsultantDashboard');
         break;
       default:
         break;
