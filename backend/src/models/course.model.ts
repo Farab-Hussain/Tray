@@ -27,6 +27,10 @@ export interface Course {
   approvedBy?: string; // Admin who approved
   approvedAt?: Timestamp;
   rejectionReason?: string;
+  rejectedBy?: string;
+  rejectedAt?: Timestamp;
+  submittedBy?: string;
+  submittedAt?: Timestamp;
   publishedAt?: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -135,6 +139,10 @@ export interface CourseInput {
   approvedBy?: string;
   approvedAt?: Timestamp;
   rejectionReason?: string;
+  rejectedBy?: string;
+  rejectedAt?: Timestamp;
+  submittedBy?: string;
+  submittedAt?: Timestamp;
   publishedAt?: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;

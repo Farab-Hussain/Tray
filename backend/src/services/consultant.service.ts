@@ -13,15 +13,14 @@ export const consultantServices = {
     async getAll() {
         // Optimized: Get all consultants with approved services in a single query
         // First, get all services with approved status grouped by consultantId
-        const servicesSnapshot = await db.collection("services")
-            .where("isDefault", "==", false)
-            .get();
+        const servicesSnapshot = await db.collection("services").get();
         
         // Build a Set of consultantIds that have approved services
         const consultantIdsWithServices = new Set<string>();
         servicesSnapshot.docs.forEach(doc => {
             const serviceData = doc.data();
-            if (serviceData.consultantId) {
+            const isConsultantService = serviceData.isDefault !== true;
+            if (isConsultantService && serviceData.consultantId) {
                 consultantIdsWithServices.add(serviceData.consultantId);
             }
         });

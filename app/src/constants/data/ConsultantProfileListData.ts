@@ -20,6 +20,12 @@ export const ConsultantProfileListData = [
         route: "ConsultantMessages",
     },
     {
+        id: 1.1,
+        icon: LayoutDashboard,
+        text: "My Services",
+        route: "ConsultantServices",
+    },
+    {
         id: 10.5,
         icon: FileText,
         text: "My Jobs",

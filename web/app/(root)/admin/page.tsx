@@ -11,6 +11,7 @@ import MobileHeader from '@/components/shared/MobileHeader';
 import { 
   Users, 
   FileText, 
+  BookOpen,
   Clock, 
   CheckCircle, 
   XCircle, 
@@ -195,6 +196,13 @@ const AdminDashboardPage = () => {
                 color="blue"
                 count={stats.applications?.pending || 0}
                 onClick={() => router.push('/admin/service-applications?status=pending')}
+              />
+              <AdminActionCard
+                title="Review Course Approvals"
+                description="Approve or reject consultant courses submitted for publishing"
+                icon={BookOpen}
+                color="indigo"
+                onClick={() => router.push('/admin/course-approvals')}
               />
               <AdminActionCard
                 title="Platform Analytics"

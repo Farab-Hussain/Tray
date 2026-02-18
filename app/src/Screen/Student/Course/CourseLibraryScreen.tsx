@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Star, Search, Filter, Clock, Users, BookOpen, Award } from 'lucide-react-native';
@@ -72,6 +73,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'featured' | 'trending' | 'bestseller'>('all');
+  const onEndReachedDuringMomentum = useRef(true);
 
   const categories = [
     'All',
@@ -96,17 +98,16 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
     { value: 'popular', label: 'Most Popular' },
   ];
 
-  const loadCourses = useCallback(async (reset: boolean = false) => {
+  const loadCourses = useCallback(async (reset: boolean = false, pageNum: number = 1) => {
     try {
       if (reset) {
-        setCurrentPage(1);
         setCourses([]);
       }
 
       const searchFilters = {
         ...filters,
         search: searchQuery || undefined,
-        page: reset ? 1 : currentPage,
+        page: pageNum,
         limit: 10,
       };
 
@@ -114,55 +115,46 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
       
       if (reset) {
         setCourses(response.courses);
+        setCurrentPage(2);
       } else {
         setCourses(prev => [...prev, ...response.courses]);
+        setCurrentPage(pageNum + 1);
       }
 
       setHasMore(response.hasMore);
-      if (!reset) {
-        setCurrentPage(prev => prev + 1);
-      }
     } catch (error) {
       console.error('Error loading courses:', error);
     }
-  }, [filters, searchQuery, currentPage]);
-
-  const searchCourses = useCallback(async () => {
-    try {
-      setLoading(true);
-      await loadCourses(true);
-    } catch (error) {
-      console.error('Error searching courses:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [loadCourses]);
-
-  const loadInitialData = useCallback(async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        loadFeaturedCourses(),
-        loadTrendingCourses(),
-        loadBestsellerCourses(),
-        loadCourses(),
-      ]);
-    } catch (error) {
-      console.error('Error loading initial data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [loadCourses]);
+  }, [filters, searchQuery]);
 
   useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        setLoading(true);
+        await Promise.all([
+          loadFeaturedCourses(),
+          loadTrendingCourses(),
+          loadBestsellerCourses(),
+        ]);
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadInitialData();
-  }, [loadInitialData]);
+  }, []);
 
   useEffect(() => {
-    if (searchQuery.length > 2 || searchQuery.length === 0) {
-      searchCourses();
-    }
-  }, [searchQuery, searchCourses]);
+    const fetchFilteredCourses = async () => {
+      if (searchQuery.length > 2 || searchQuery.length === 0) {
+        await loadCourses(true, 1);
+      }
+    };
+
+    fetchFilteredCourses();
+  }, [searchQuery, filters, loadCourses]);
 
   const loadFeaturedCourses = async () => {
     try {
@@ -194,7 +186,12 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
   const onRefresh = async () => {
     try {
       setRefreshing(true);
-      await loadInitialData();
+      await Promise.all([
+        loadFeaturedCourses(),
+        loadTrendingCourses(),
+        loadBestsellerCourses(),
+        loadCourses(true, 1),
+      ]);
     } catch (error) {
       console.error('Error refreshing:', error);
     } finally {
@@ -203,11 +200,12 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const loadMoreCourses = async () => {
-    if (!hasMore || loadingMore) return;
+    if (!hasMore || loadingMore || onEndReachedDuringMomentum.current) return;
 
     try {
+      onEndReachedDuringMomentum.current = true;
       setLoadingMore(true);
-      await loadCourses(false);
+      await loadCourses(false, currentPage);
     } catch (error) {
       console.error('Error loading more courses:', error);
     } finally {
@@ -218,13 +216,11 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
   const applyFilters = (newFilters: CourseFilters) => {
     setFilters(newFilters);
     setShowFilters(false);
-    searchCourses();
   };
 
   const clearFilters = () => {
     setFilters({});
     setSearchQuery('');
-    searchCourses();
   };
 
   const renderCourseCard = ({ item }: { item: Course }) => (
@@ -233,7 +229,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
       onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}
     >
       <Image
-        source={item.thumbnailUrl ? { uri: item.thumbnailUrl } : require('../../../assets/images/course-placeholder.png')}
+        source={item.thumbnailUrl ? { uri: item.thumbnailUrl } : require('../../../assets/image/services.png')}
         style={styles.courseImage}
       />
       
@@ -251,7 +247,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
         
         <View style={styles.instructorInfo}>
           <Image
-            source={item.instructorAvatar ? { uri: item.instructorAvatar } : require('../../../assets/images/avatar-placeholder.png')}
+            source={item.instructorAvatar ? { uri: item.instructorAvatar } : require('../../../assets/image/avatar.png')}
             style={styles.instructorAvatar}
           />
           <Text style={styles.instructorName}>{item.instructorName}</Text>
@@ -320,7 +316,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
             onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
           >
             <Image
-              source={course.thumbnailUrl ? { uri: course.thumbnailUrl } : require('../../../assets/images/course-placeholder.png')}
+              source={course.thumbnailUrl ? { uri: course.thumbnailUrl } : require('../../../assets/image/services.png')}
               style={styles.horizontalCourseImage}
             />
             <View style={styles.horizontalCourseContent}>
@@ -477,13 +473,11 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Course Library</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('MyEnrollments')}>
-          <BookOpen size={24} color="#007AFF" />
-        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -531,6 +525,9 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
         }
         onEndReached={activeTab === 'all' ? loadMoreCourses : undefined}
         onEndReachedThreshold={0.1}
+        onMomentumScrollBegin={() => {
+          onEndReachedDuringMomentum.current = false;
+        }}
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.loadingMore}>
@@ -568,11 +565,16 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       )}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
@@ -592,15 +594,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontWeight: '700',
     color: '#333',
   },
   searchContainer: {
@@ -913,7 +915,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    height: '80%',
   },
   filtersModal: {
     flex: 1,

@@ -8,7 +8,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import { Clock, X } from 'lucide-react-native';
+import { Clock, X, Edit, Trash2, Star } from 'lucide-react-native';
 import { COLORS } from '../../constants/core/colors';
 import { consultantServiceCardStyles as styles } from '../../constants/styles/ConsultantServiceCard.styles';
 
@@ -22,6 +22,9 @@ type ConsultantServiceCardProps = {
   price?: number; 
   rating?: number;
   onSetAvailabilityPress?: () => void;
+  onEditPress?: () => void;
+  onDeletePress?: () => void;
+  onReviewPress?: () => void;
 };
 
 const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
@@ -32,11 +35,13 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
   // videoUrl,
   duration,
   onSetAvailabilityPress,
+  onEditPress,
+  onDeletePress,
+  onReviewPress,
 }) => {
   const [showModal, setShowModal] = useState(false);
   // VIDEO UPLOAD CODE - COMMENTED OUT
   // const [showVideoModal, setShowVideoModal] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -109,25 +114,9 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
   }, [imageUri, imageLoadError]);
 
   // Remove ALL height constraints when expanded to allow full content display
-  const cardStyle = isDescriptionExpanded
-    ? [styles.card, { height: undefined, minHeight: undefined, maxHeight: undefined }]
-    : styles.card;
-
-  const contentStyle = isDescriptionExpanded
-    ? [styles.content, { flex: 1, minHeight: undefined }]
-    : styles.content;
-
-  const contentTopStyle = isDescriptionExpanded
-    ? [styles.contentTop, { height: undefined, maxHeight: undefined, flexShrink: 0 }]
-    : styles.contentTop;
-
-  const descriptionContainerStyle = isDescriptionExpanded
-    ? [styles.descriptionContainer, { maxHeight: undefined, flexShrink: 0 }]
-    : styles.descriptionContainer;
-
   return (
     <>
-      <View style={cardStyle}>
+      <View style={styles.card}>
         {/* Service Image/Video Section */}
         <View style={styles.imageContainer}>
           {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
@@ -181,10 +170,10 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
         </View>
 
         {/* Content Section - Flexible Height */}
-        <View style={contentStyle}>
-          <View style={contentTopStyle}>
+        <View style={styles.content}>
+          <View style={styles.contentTop}>
             {/* Title - Adaptive lines based on length */}
-            <Text style={styles.title} numberOfLines={isTitleLong ? 2 : 3}>
+            <Text style={styles.title} numberOfLines={2}>
               {title}
             </Text>
 
@@ -196,28 +185,29 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
               </View>
             )}
 
-            <View style={descriptionContainerStyle}>
+            <View style={styles.descriptionContainer}>
               <Text
                 style={styles.description}
-                numberOfLines={isDescriptionExpanded ? undefined : (needsReadMore ? 5 : undefined)}
-                ellipsizeMode={isDescriptionExpanded ? undefined : "tail"}
+                numberOfLines={4}
+                ellipsizeMode="tail"
                 allowFontScaling={true}
               >
                 {description}
               </Text>
             </View>
-
-            {needsReadMore && (
-              <TouchableOpacity
-                onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                style={styles.readMoreButton}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.readMoreText}>
-                  {isDescriptionExpanded ? 'Read Less' : 'Read More'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.readMoreSlot}>
+              {needsReadMore ? (
+                <TouchableOpacity
+                  onPress={() => setShowModal(true)}
+                  style={styles.readMoreButton}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.readMoreText}>Read More</Text>
+                </TouchableOpacity>
+              ) : (
+                <View />
+              )}
+            </View>
           </View>
 
           <View style={{ marginTop: 'auto' }}>
@@ -227,6 +217,32 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
             >
               <Text style={styles.bookButtonText}>Set Availability</Text>
             </TouchableOpacity>
+
+            {(onEditPress || onDeletePress || onReviewPress) && (
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionIconButton, styles.editAction]}
+                  onPress={onEditPress || (() => {})}
+                  disabled={!onEditPress}
+                >
+                  <Edit size={15} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionIconButton, styles.deleteAction]}
+                  onPress={onDeletePress || (() => {})}
+                  disabled={!onDeletePress}
+                >
+                  <Trash2 size={15} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionIconButton, styles.reviewAction]}
+                  onPress={onReviewPress || (() => {})}
+                  disabled={!onReviewPress}
+                >
+                  <Star size={15} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </View>

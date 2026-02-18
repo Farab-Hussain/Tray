@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {  Clock, DollarSign, MessageCircle, Video, Phone, Star, ArrowLeft } from 'lucide-react-native';
 import { COLORS } from '../../../constants/core/colors';
-// import { BookingService } from '../../../services/booking.service';
+import { BookingService } from '../../../services/booking.service';
 import { createChatIfNotExists } from '../../../services/chat.Service';
 // import { ConsultantService } from '../../../services/consultant.service';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -76,6 +76,19 @@ export default function ServiceDetailsScreen() {
     if (!service) return;
     
     try {
+      const access = await BookingService.checkAccess(service.consultantId);
+      if (!access?.hasAccess) {
+        Alert.alert(
+          'Session Access Required',
+          access?.message || 'Please book an active session with this consultant first.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Book Now', onPress: handleBookService },
+          ],
+        );
+        return;
+      }
+
       await createChatIfNotExists(user?.uid || '', service.consultantId);
       navigation.navigate('Chat', { consultantId: service.consultantId });
     } catch (error) {
@@ -83,13 +96,37 @@ export default function ServiceDetailsScreen() {
     }
   };
 
-  const handleVideoCall = () => {
+  const handleVideoCall = async () => {
     if (!service) return;
+    const access = await BookingService.checkAccess(service.consultantId);
+    if (!access?.hasAccess) {
+      Alert.alert(
+        'Session Access Required',
+        access?.message || 'Please book an active session with this consultant first.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Book Now', onPress: handleBookService },
+        ],
+      );
+      return;
+    }
     navigation.navigate('Call', { consultantId: service.consultantId, callType: 'video' as const });
   };
 
-  const handleAudioCall = () => {
+  const handleAudioCall = async () => {
     if (!service) return;
+    const access = await BookingService.checkAccess(service.consultantId);
+    if (!access?.hasAccess) {
+      Alert.alert(
+        'Session Access Required',
+        access?.message || 'Please book an active session with this consultant first.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Book Now', onPress: handleBookService },
+        ],
+      );
+      return;
+    }
     navigation.navigate('Call', { consultantId: service.consultantId, callType: 'audio' as const });
   };
 

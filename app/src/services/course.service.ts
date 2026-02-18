@@ -1,6 +1,14 @@
 // src/services/course.service.ts
 import { api } from '../lib/fetcher';
 
+export interface CourseVideoMeta {
+  id?: string;
+  title: string;
+  description: string;
+  thumbnailUrl?: string;
+  videoUrl: string;
+}
+
 export interface CourseInput {
   title: string;
   description: string;
@@ -24,7 +32,10 @@ export interface CourseInput {
   difficultyScore: number;
   timeCommitment: string;
   certificateAvailable: boolean;
+  videos?: CourseVideoMeta[];
   slug: string;
+  instructorId: string;
+  instructorName: string;
   pricingOptions?: {
     monthly?: number;
     yearly?: number;
@@ -62,12 +73,21 @@ export interface Course {
   durationText: string;
   lessonsCount: number;
   status: 'draft' | 'pending' | 'approved' | 'published' | 'archived';
+  rejectionReason?: string;
+  submittedBy?: string;
+  submittedAt?: Date | string;
+  approvedBy?: string;
+  approvedAt?: Date | string;
+  rejectedBy?: string;
+  rejectedAt?: Date | string;
+  publishedAt?: Date | string;
   objectives: string[];
   prerequisites: string[];
   targetAudience: string[];
   difficultyScore: number;
   timeCommitment: string;
   certificateAvailable: boolean;
+  videos?: CourseVideoMeta[];
   rating?: number;
   ratingCount?: number;
   enrollmentCount?: number;
@@ -114,6 +134,7 @@ export interface CourseInput {
   difficultyScore: number;
   timeCommitment: string;
   certificateAvailable: boolean;
+  videos?: CourseVideoMeta[];
   tags: string[];
   pricingOptions?: {
     monthly?: number;
@@ -220,6 +241,43 @@ export interface InstructorStats {
 }
 
 class CourseService {
+  private inFlightRequests = new Map<string, Promise<any>>();
+  private responseCache = new Map<string, { expiresAt: number; data: any }>();
+
+  private async dedupeRequest<T>(
+    key: string,
+    requestFactory: () => Promise<T>,
+    ttlMs: number = 0,
+  ): Promise<T> {
+    const now = Date.now();
+    const cached = this.responseCache.get(key);
+    if (cached && cached.expiresAt > now) {
+      return cached.data as T;
+    }
+
+    const existing = this.inFlightRequests.get(key);
+    if (existing) {
+      return existing as Promise<T>;
+    }
+
+    const promise = requestFactory()
+      .then((data: T) => {
+        if (ttlMs > 0) {
+          this.responseCache.set(key, {
+            expiresAt: now + ttlMs,
+            data,
+          });
+        }
+        return data;
+      })
+      .finally(() => {
+        this.inFlightRequests.delete(key);
+      });
+
+    this.inFlightRequests.set(key, promise as Promise<any>);
+    return promise;
+  }
+
   // No need for getAuthHeaders since we use api instance with interceptors
 
   /**
@@ -242,10 +300,67 @@ class CourseService {
         }
       });
       const queryString = queryParts.join('&');
+      const suffix = queryString ? `?${queryString}` : '';
+      const cacheKey = `courses:public:${queryString}`;
 
-      const response = await api.get(`/courses/public?${queryString}`);
+      const normalize = (payload: any): CourseSearchResult => {
+        if (payload?.courses && Array.isArray(payload.courses)) {
+          return payload as CourseSearchResult;
+        }
 
-      return response.data;
+        if (Array.isArray(payload)) {
+          return {
+            courses: payload,
+            total: payload.length,
+            page: Number(filters.page || 1),
+            limit: Number(filters.limit || payload.length || 10),
+            hasMore: false,
+          };
+        }
+
+        if (Array.isArray(payload?.data)) {
+          return {
+            courses: payload.data,
+            total: payload.total || payload.data.length,
+            page: Number(payload.page || filters.page || 1),
+            limit: Number(payload.limit || filters.limit || payload.data.length || 10),
+            hasMore: Boolean(payload.hasMore),
+          };
+        }
+
+        return {
+          courses: [],
+          total: 0,
+          page: Number(filters.page || 1),
+          limit: Number(filters.limit || 10),
+          hasMore: false,
+        };
+      };
+
+      return await this.dedupeRequest<CourseSearchResult>(
+        cacheKey,
+        async () => {
+          try {
+            const response = await api.get(`/courses/public${suffix}`);
+            return normalize(response.data);
+          } catch (error: any) {
+            // If listing endpoint is unavailable in this environment, return empty data
+            // so the UI can still render featured/trending sections without error loops.
+            if (error?.response?.status === 404) {
+              return {
+                courses: [],
+                total: 0,
+                page: Number(filters.page || 1),
+                limit: Number(filters.limit || 10),
+                hasMore: false,
+              };
+            }
+            throw error;
+          }
+        },
+        1500,
+      );
+
     } catch (error: any) {
       console.error('Error searching courses:', error);
       throw new Error(error.response?.data?.error || 'Failed to search courses');
@@ -285,9 +400,14 @@ class CourseService {
    */
   async getFeaturedCourses(limit: number = 10): Promise<{ courses: Course[] }> {
     try {
-      const response = await api.get(`/courses/featured?limit=${limit}`);
-
-      return response.data;
+      return await this.dedupeRequest<{ courses: Course[] }>(
+        `courses:featured:${limit}`,
+        async () => {
+          const response = await api.get(`/courses/featured?limit=${limit}`);
+          return response.data;
+        },
+        10000,
+      );
     } catch (error: any) {
       console.error('Error fetching featured courses:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch featured courses');
@@ -299,9 +419,14 @@ class CourseService {
    */
   async getTrendingCourses(limit: number = 10): Promise<{ courses: Course[] }> {
     try {
-      const response = await api.get(`/courses/trending?limit=${limit}`);
-
-      return response.data;
+      return await this.dedupeRequest<{ courses: Course[] }>(
+        `courses:trending:${limit}`,
+        async () => {
+          const response = await api.get(`/courses/trending?limit=${limit}`);
+          return response.data;
+        },
+        10000,
+      );
     } catch (error: any) {
       console.error('Error fetching trending courses:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch trending courses');
@@ -313,9 +438,14 @@ class CourseService {
    */
   async getBestsellerCourses(limit: number = 10): Promise<{ courses: Course[] }> {
     try {
-      const response = await api.get(`/courses/bestseller?limit=${limit}`);
-
-      return response.data;
+      return await this.dedupeRequest<{ courses: Course[] }>(
+        `courses:bestseller:${limit}`,
+        async () => {
+          const response = await api.get(`/courses/bestseller?limit=${limit}`);
+          return response.data;
+        },
+        10000,
+      );
     } catch (error: any) {
       console.log('Bestseller courses fetch issue:', error);
       throw new Error(error.response?.data?.error || 'Unable to load bestseller courses');
@@ -327,14 +457,38 @@ class CourseService {
    */
   async createCourse(courseData: CourseInput): Promise<Course> {
     try {
-      console.log('🚀 [CourseService] Creating course with timeout: 120000ms');
-      // Set a very high timeout to bypass any React Native caching issues
-      const response = await api.post('/courses', courseData, { timeout: 120000 }); // 2 minutes timeout
+      console.log('🚀 [CourseService] Creating course with timeout: 600000ms (10 minutes)');
+      console.log('📦 [CourseService] Course data:', JSON.stringify(courseData, null, 2));
+      console.log('⏰ [CourseService] Starting API call at:', new Date().toISOString());
+      
+      // Increased timeout to 10 minutes to handle potential network delays
+      const response = await api.post('/courses', courseData, { timeout: 600000 });
+      
       console.log('✅ [CourseService] Course created successfully');
-      return response.data;
+      console.log('📋 [CourseService] Response:', response.data);
+      return response.data?.course || response.data;
     } catch (error: any) {
-      console.log('Course creation issue:', error);
-      throw new Error(error.response?.data?.error || 'Unable to create course');
+      console.error('❌ [CourseService] Course creation failed:', error);
+      
+      // Enhanced error logging
+      if (error.code === 'ECONNABORTED') {
+        console.error('⏰ [CourseService] Request timeout - server took too long to respond');
+        console.error('⏰ [CourseService] This might be due to:');
+        console.error('   - Slow Firestore operations');
+        console.error('   - Network connectivity issues');
+        console.error('   - Server overload');
+        throw new Error('Course creation timed out after 10 minutes. Please try again or contact support if the issue persists.');
+      } else if (error.response) {
+        console.error('🔴 [CourseService] Server responded with error:', error.response.status, error.response.data);
+        throw new Error(error.response.data?.error || `Server error: ${error.response.status}`);
+      } else if (error.request) {
+        console.error('🔴 [CourseService] No response received from server');
+        console.error('🔴 [CourseService] Network error - check connection');
+        throw new Error('No response from server. Please check your internet connection and try again.');
+      } else {
+        console.error('🔴 [CourseService] Unexpected error:', error.message);
+        throw new Error(error.message || 'Unable to create course');
+      }
     }
   }
 
@@ -393,6 +547,41 @@ class CourseService {
   }
 
   /**
+   * Get instructor's courses (using the current authenticated user)
+   */
+  async getInstructorCourses(_instructorId: string, filters: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<Course[]> {
+    try {
+      // Build query string manually
+      const queryParts: string[] = [];
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParts.push(`${key}=${value.toString()}`);
+        }
+      });
+      const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+
+      // Use the /instructor/my endpoint which gets courses for the authenticated user
+      // Increased timeout to 30 seconds to handle slow backend responses
+      const response = await api.get(`/courses/instructor/my${queryString}`, { timeout: 30000 });
+
+      return response.data.courses || [];
+    } catch (error: any) {
+      console.log('Instructor courses fetch issue:', error);
+      
+      // Provide specific error message for timeout
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Request timeout. Please check your internet connection and try again.');
+      }
+      
+      throw new Error(error.response?.data?.error || 'Unable to load instructor courses');
+    }
+  }
+
+  /**
    * Submit course for approval (Consultant only)
    */
   async submitForApproval(courseId: string): Promise<Course> {
@@ -402,7 +591,14 @@ class CourseService {
       return response.data.course;
     } catch (error: any) {
       console.error('Error submitting course for approval:', error);
-      throw new Error(error.response?.data?.error || 'Failed to submit course');
+      const apiError = error?.response?.data;
+      const missingFields = apiError?.details?.missingFields;
+      if (Array.isArray(missingFields) && missingFields.length > 0) {
+        throw new Error(
+          `${apiError?.error || 'Course is not ready for submission'}\n• ${missingFields.join('\n• ')}`,
+        );
+      }
+      throw new Error(apiError?.error || 'Failed to submit course');
     }
   }
 
@@ -560,6 +756,21 @@ class CourseService {
     } catch (error: any) {
       console.error('Error fetching instructor stats:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch stats');
+    }
+  }
+
+  /**
+   * Get instructor statistics (using current authenticated user)
+   */
+  async getInstructorStatsById(_instructorId: string): Promise<InstructorStats> {
+    try {
+      // Use /instructor/stats endpoint which gets stats for authenticated user
+      const response = await api.get('/courses/instructor/stats');
+
+      return response.data.stats;
+    } catch (error: any) {
+      console.error('Error fetching instructor stats by ID:', error);
+      throw new Error(error.response?.data?.error || 'Failed to fetch instructor stats');
     }
   }
 

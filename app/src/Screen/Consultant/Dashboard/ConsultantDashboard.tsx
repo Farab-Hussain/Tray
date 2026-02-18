@@ -6,7 +6,7 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { Profile } from '../../../constants/styles/profile';
 import ProfileList from '../../../components/ui/ProfileList';
 import { COLORS } from '../../../constants/core/colors';
-import { User, Star, Briefcase, Calendar, CreditCard, Wallet, Upload } from 'lucide-react-native';
+import { User, Star, Briefcase, Calendar, CreditCard, Wallet } from 'lucide-react-native';
 
 const ConsultantDashboard = ({ navigation }: any) => {
   const dashboardMenuItems = [
@@ -46,12 +46,6 @@ const ConsultantDashboard = ({ navigation }: any) => {
       text: 'Payment Setup',
       route: 'StripePaymentSetup',
     },
-    {
-      id: 7,
-      icon: Upload,
-      text: 'Create Content',
-      route: 'ConsultantContentPosting',
-    },
   ];
 
   const handlePress = (route: string) => {
@@ -75,9 +69,6 @@ const ConsultantDashboard = ({ navigation }: any) => {
         break;
       case 'StripePaymentSetup':
         navigation.navigate('StripePaymentSetup');
-        break;
-      case 'ConsultantContentPosting':
-        navigation.navigate('ConsultantContentPosting');
         break;
       default:
         navigation.navigate(route);
@@ -111,4 +102,3 @@ const ConsultantDashboard = ({ navigation }: any) => {
 };
 
 export default ConsultantDashboard;
-

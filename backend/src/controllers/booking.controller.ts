@@ -32,6 +32,55 @@ interface BookingRecord {
   transferredAt?: string;
 }
 
+const getBookingDateValue = (dateField: any): Date | null => {
+  if (!dateField) return null;
+  if (typeof dateField === "object" && typeof dateField.toDate === "function") {
+    const converted = dateField.toDate();
+    return Number.isNaN(converted.getTime()) ? null : converted;
+  }
+  const parsed = new Date(dateField);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const parseBookingStartTime = (timeField: string): { hours: number; minutes: number } | null => {
+  if (!timeField || typeof timeField !== "string") return null;
+
+  const rangeMatch = timeField.match(/^(\d{1,2})[:.](\d{2})\s*(AM|PM)/i);
+  if (rangeMatch) {
+    let hours = parseInt(rangeMatch[1], 10);
+    const minutes = parseInt(rangeMatch[2], 10);
+    const period = rangeMatch[3].toUpperCase();
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+
+    if (period === "PM" && hours !== 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+    return { hours, minutes };
+  }
+
+  const simpleMatch = timeField.match(/^(\d{1,2}):(\d{2})/);
+  if (simpleMatch) {
+    const hours = parseInt(simpleMatch[1], 10);
+    const minutes = parseInt(simpleMatch[2], 10);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return { hours, minutes };
+  }
+
+  return null;
+};
+
+const getBookingSessionDateTime = (booking: any): Date | null => {
+  const dateValue = getBookingDateValue(booking?.date);
+  const parsedTime = parseBookingStartTime(booking?.time || "");
+
+  if (!dateValue || !parsedTime) {
+    return null;
+  }
+
+  const sessionDate = new Date(dateValue);
+  sessionDate.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+  return Number.isNaN(sessionDate.getTime()) ? null : sessionDate;
+};
+
 export interface CancelBookingOptions {
   reason?: string;
   initiatedBy?: string;
@@ -551,19 +600,48 @@ export const checkAccess = async (req: Request, res: Response) => {
     const studentId = (req as any).user.uid;
     const { consultantId } = req.params;
 
-    // Check if student has any paid/approved booking with this consultant
+    // Session-based access policy:
+    // - confirmed/accepted/approved: access until 15 minutes after scheduled start
+    // - completed: access for 24 hours after scheduled start (follow-up window)
     const snapshot = await db
       .collection("bookings")
       .where("studentId", "==", studentId)
       .where("consultantId", "==", consultantId)
-      .where("status", "in", ["approved", "completed"])
+      .where("status", "in", ["confirmed", "accepted", "approved", "completed"])
       .where("paymentStatus", "==", "paid")
       .get();
 
-    const hasAccess = !snapshot.empty;
+    const now = new Date();
+    const ACTIVE_GRACE_MINUTES = 15;
+    const COMPLETED_ACCESS_HOURS = 24;
+
+    const hasAccess = snapshot.docs.some((doc) => {
+      const booking = doc.data();
+      const status = (booking?.status || "").toLowerCase();
+      const sessionDateTime = getBookingSessionDateTime(booking);
+
+      if (!sessionDateTime) {
+        return false;
+      }
+
+      if (["confirmed", "accepted", "approved"].includes(status)) {
+        const activeUntil = new Date(sessionDateTime.getTime() + ACTIVE_GRACE_MINUTES * 60 * 1000);
+        return now <= activeUntil;
+      }
+
+      if (status === "completed") {
+        const completedAccessUntil = new Date(sessionDateTime.getTime() + COMPLETED_ACCESS_HOURS * 60 * 60 * 1000);
+        return now <= completedAccessUntil;
+      }
+
+      return false;
+    });
+
     res.status(200).json({ 
       hasAccess,
-      message: hasAccess ? "Access granted" : "No paid booking found"
+      message: hasAccess
+        ? "Access granted"
+        : "No active or recently completed paid session found"
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

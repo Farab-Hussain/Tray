@@ -16,7 +16,9 @@ export const BookingService = {
     paymentStatus: string;
     paymentIntentId?: string;
   }) {
-    const response = await api.post('/bookings', bookingData);
+    const response = await api.post('/bookings', bookingData, {
+      __suppressErrorToast: true,
+    } as any);
     return response.data;
   },
 
@@ -126,4 +128,3 @@ export const BookingService = {
     return response.data;
   },
 };
-

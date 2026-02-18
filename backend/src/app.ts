@@ -45,17 +45,18 @@ app.use(
   })
 );
 
-// Only parse JSON for non-multipart requests
-// Multer will handle multipart/form-data, so we need to skip JSON parsing for those
-app.use((req, res, next) => {
-  if (req.headers['content-type']?.includes('multipart/form-data')) {
-    // Skip JSON parsing for multipart requests - multer will handle it
+// Apply JSON parsing middleware at app level
+app.use(express.json({ limit: '10mb' }));
+
+// Verbose debug logs only outside production.
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    console.log(`🔍 [App Middleware] ${req.method} ${req.path} - Content-Type: ${req.headers['content-type']}`);
+    console.log(`🔍 [App Middleware] ${req.method} ${req.path} - Content-Length: ${req.headers['content-length']}`);
+    console.log(`🔍 [App Middleware] JSON body parsed:`, req.body ? '✅' : '❌');
     next();
-  } else {
-    // Parse JSON for other requests
-    express.json()(req, res, next);
-  }
-});
+  });
+}
 
 app.use(requestLogger); // Auto-log all requests
 

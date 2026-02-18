@@ -12,7 +12,7 @@ export const consultantServiceCardStyles = StyleSheet.create({
         elevation: 8,
         marginBottom: 16,
         width: '100%',
-        minHeight: 320,
+        height: 430,
     },
     imageContainer: {
         width: '100%',
@@ -87,7 +87,7 @@ export const consultantServiceCardStyles = StyleSheet.create({
         color: COLORS.black,
         marginBottom: 6,
         lineHeight: 18,
-        flex: 0,
+        minHeight: 36,
     },
     durationBadge: {
         flexDirection: 'row',
@@ -112,11 +112,17 @@ export const consultantServiceCardStyles = StyleSheet.create({
     },
     descriptionContainer: {
         marginBottom: 8,
+        minHeight: 80,
     },
     description: {
         fontSize: 13,
         color: '#555',
         lineHeight: 20,
+    },
+    readMoreSlot: {
+        minHeight: 20,
+        justifyContent: 'center',
+        marginTop: 2,
     },
     readMoreButton: {
         alignSelf: 'flex-start',
@@ -146,6 +152,28 @@ export const consultantServiceCardStyles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '700',
         color: COLORS.black,
+    },
+    actionRow: {
+        marginTop: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 6,
+    },
+    actionIconButton: {
+        flex: 1,
+        borderRadius: 10,
+        paddingVertical: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    editAction: {
+        backgroundColor: '#3B82F6',
+    },
+    deleteAction: {
+        backgroundColor: '#EF4444',
+    },
+    reviewAction: {
+        backgroundColor: '#F59E0B',
     },
 
 

@@ -40,36 +40,21 @@ const Home = ({ navigation }: any) => {
     user: any,
     openChatWith: any,
   ) => {
-    
     try {
-      // Check if student has booked this consultant
       const bookings = await BookingService.getMyBookings();
       const studentBookings = bookings?.bookings || [];
-
-      // Find all bookings with this consultant (any status)
       const consultantBookings = studentBookings.filter(
         (booking: any) => booking.consultantId === consultantId,
       );
-
-      // Find if student has a confirmed/approved booking with this consultant
-      const confirmedBooking = consultantBookings.find(
-        (booking: any) =>
-          booking.status === 'accepted' ||
-          booking.status === 'approved' ||
-          booking.status === 'confirmed',
-      );
-
-      // Find if there's a pending booking (waiting for consultant confirmation)
       const pendingBooking = consultantBookings.find(
         (booking: any) => booking.status === 'pending',
       );
+      const accessCheck = await BookingService.checkAccess(consultantId);
 
-      // If no booking exists or booking is pending, show alert
-      if (!confirmedBooking) {
+      if (!accessCheck?.hasAccess) {
         let alertMessage = '';
 
         if (pendingBooking) {
-          // Booking exists but waiting for consultant confirmation
           alertMessage = `Your booking with ${
             consultant.name
           } is pending confirmation. Please wait for the consultant to confirm your booking before you can ${
@@ -80,19 +65,12 @@ const Home = ({ navigation }: any) => {
               : 'make video calls'
           }.`;
         } else {
-          // No booking exists
-          alertMessage = `You need to book with ${
-            consultant.name
-          } before you can ${
-            iconType === 'message'
-              ? 'send messages'
-              : iconType === 'phone'
-              ? 'make audio calls'
-              : 'make video calls'
-          }.`;
+          alertMessage =
+            accessCheck?.message ||
+            `You need an active paid session with ${consultant.name} before using this feature.`;
         }
 
-        Alert.alert('Booking Required', alertMessage, [
+        Alert.alert('Session Access Required', alertMessage, [
           {
             text: pendingBooking ? 'View Booking' : 'Book Now',
             onPress: () => {
@@ -114,7 +92,7 @@ const Home = ({ navigation }: any) => {
         return;
       }
 
-      // Student has an active booking - proceed with action
+      // Student has valid access - proceed with action
       if (iconType === 'message') {
         // Open chat
         if (!user?.uid) {

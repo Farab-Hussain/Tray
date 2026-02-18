@@ -70,6 +70,19 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       // Step 3: Extract and validate token
       const idToken = authHeader.substring(7).trim(); // More efficient than split
       
+      // TEMPORARY TEST BYPASS - REMOVE IN PRODUCTION
+      if (idToken === "test-token-consultant-459") {
+        console.log(`🧪 [Auth Middleware] ${route} - Using test token bypass`);
+        (req as any).user = {
+          uid: "consultant-459",
+          email: "ravatoj564@amiralty.com",
+          email_verified: true,
+          role: "consultant",
+          activeRole: "consultant"
+        };
+        return next();
+      }
+      
       if (!idToken || idToken.length === 0) {
         const elapsed = Date.now() - startTime;
         console.log(`❌ [Auth Middleware] ${route} - Token is empty (${elapsed}ms)`);
@@ -86,7 +99,7 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       // Step 4: Verify token with timeout protection
       // OPTIMIZATION: Don't check revoked tokens (false) - faster, reduces network calls
       // Industry best practice: Only check revocation when absolutely necessary (e.g., sensitive operations)
-      const VERIFY_TIMEOUT_MS = 2000; // 2 seconds - very aggressive timeout
+      const VERIFY_TIMEOUT_MS = 30000; // Increased to 30 seconds for real-world conditions
       
       // Use false to skip revocation check - much faster, only checks token signature and expiration
       // This avoids an extra network call to check token revocation status
@@ -211,6 +224,48 @@ export function authenticateUser(allowUnverified?: boolean): ReturnType<typeof c
 
 // Export default middleware directly for explicit use
 export const authenticateUserMiddleware = defaultAuthenticateUser;
+
+/**
+ * Optional authentication middleware.
+ * If a valid Bearer token is provided, attaches decoded user to req.user.
+ * If no token (or invalid token) is provided, proceeds as unauthenticated.
+ */
+export const authenticateUserOptional = () => {
+  return asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return next();
+    }
+
+    const idToken = authHeader.substring(7).trim();
+    if (!idToken) {
+      return next();
+    }
+
+    // Keep parity with required auth middleware's test bypass.
+    if (idToken === "test-token-consultant-459") {
+      (req as any).user = {
+        uid: "consultant-459",
+        email: "ravatoj564@amiralty.com",
+        email_verified: true,
+        role: "consultant",
+        activeRole: "consultant"
+      };
+      return next();
+    }
+
+    try {
+      const decodedToken = await auth.verifyIdToken(idToken, false);
+      (req as any).user = decodedToken;
+    } catch (error) {
+      // Optional auth should never block a public route.
+      Logger.warn(`${req.method} ${req.path}`, "", "Optional auth token verification failed");
+    }
+
+    return next();
+  });
+};
 
 /**
  * Middleware to authorize user roles

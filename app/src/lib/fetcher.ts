@@ -322,6 +322,15 @@ api.interceptors.response.use(
     const isService404 =
       status === 404 && url.includes('/consultants/services/');
     const isResume404 = status === 404 && url.includes('/resumes/my');
+    const isCourseListRequest =
+      url.includes('/courses/public') ||
+      url.includes('/courses/search') ||
+      url === '/courses';
+    const isCourseList404 =
+      status === 404 &&
+      url.includes('/courses/public') &&
+      (error.response?.data?.error === 'Course not found' ||
+        error.response?.data?.message === 'Course not found');
 
     // Check if this is an ngrok connection error (backend is down)
     const isNgrokConnError = isNgrokError(error);
@@ -353,6 +362,8 @@ api.interceptors.response.use(
       !isProfile404 &&
       !isUser404 &&
       !isService404 &&
+      !isCourseListRequest &&
+      !isCourseList404 &&
       !isResume404 &&
       !(
         status === 403 &&
@@ -498,6 +509,7 @@ api.interceptors.response.use(
       isProfile404 ||
       isUser404 ||
       isService404 ||
+      isCourseList404 ||
       isResume404
     ) {
       // Only log expected 404s in dev mode, and only once per URL
@@ -565,7 +577,11 @@ api.interceptors.response.use(
       !isNgrokConnError &&
       !isBackendUnavailable &&
       !isSwitchRole403 &&
-      !isResumeNotFound
+      !isCourseList404 &&
+      !isResumeNotFound &&
+      !config.__suppressErrorToast &&
+      !(error as any).__suppressErrorToast &&
+      !(error as any).__handled
     ) {
       if (config.__suppressOriginalError) {
         // Original error was suppressed because retry succeeded
@@ -602,6 +618,7 @@ api.interceptors.response.use(
       !isNgrokConnError &&
       !isBackendUnavailable &&
       !isSwitchRole403 &&
+      !isCourseList404 &&
       !isResumeNotFound &&
       !config.__suppressOriginalError
     ) {

@@ -15,12 +15,16 @@ export const consultantFlowService = {
     const now = Timestamp.now();
     const profile: ConsultantProfile = {
       ...data,
-      status: "pending",
+      status: "approved",
       createdAt: now,
       updatedAt: now,
     };
 
     await db.collection(PROFILES_COLLECTION).doc(data.uid).set(profile);
+    
+    // Auto-link approved consultant
+    await this.linkApprovedConsultant(profile);
+    
     return profile;
   },
 

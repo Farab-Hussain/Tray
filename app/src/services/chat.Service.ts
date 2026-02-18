@@ -338,43 +338,24 @@ export const fetchUserChats = async (uid: string) => {
             return [];
         }
         
-                if (__DEV__) {
-          console.log('🔍 [ChatService] Fetching chats for user:', uid)
-        };
-                if (__DEV__) {
-          console.log('🔍 [ChatService] Database instance:', db ? 'exists' : 'null')
-        };
+        if (__DEV__) {
+          console.log('🔍 [ChatService] Fetching chats for user:', uid);
+        }
         
         const chatsRef = ref(db, 'chats');
-                if (__DEV__) {
-          console.log('🔍 [ChatService] Database reference path:', chatsRef.toString())
-        };
-        
         const snapshot = await get(chatsRef);
-                if (__DEV__) {
-          console.log('🔍 [ChatService] Snapshot exists:', snapshot.exists())
-        };
-                if (__DEV__) {
-          console.log('🔍 [ChatService] Snapshot hasChildren:', snapshot.hasChildren())
-        };
-                if (__DEV__) {
-          console.log('🔍 [ChatService] Snapshot value keys:', snapshot.exists() ? Object.keys(snapshot.val() || {}) : 'N/A')
-        };
 
         if (!snapshot.exists()) {
-                        if (__DEV__) {
-              console.log('⚠️ [ChatService] No chats found in database')
-            };
+            if (__DEV__) {
+              console.log('ℹ️ [ChatService] No chats found in database');
+            }
             // Try to check if database connection is working by checking root
             try {
                 const rootRef = ref(db, '/');
                 const rootSnapshot = await get(rootRef);
-                                if (__DEV__) {
-                  console.log('🔍 [ChatService] Root snapshot exists:', rootSnapshot.exists())
-                };
-                                if (__DEV__) {
-                  console.log('🔍 [ChatService] Root snapshot keys:', rootSnapshot.exists() ? Object.keys(rootSnapshot.val() || {}) : 'N/A')
-                };
+                if (__DEV__) {
+                  console.log('🔍 [ChatService] Root snapshot exists:', rootSnapshot.exists());
+                }
             } catch (rootError) {
                                 if (__DEV__) {
                   console.error('❌ [ChatService] Error accessing root:', rootError)
@@ -384,31 +365,15 @@ export const fetchUserChats = async (uid: string) => {
         }
 
         const allChats = snapshot.val();
-                if (__DEV__) {
-          console.log('📦 [ChatService] Total chats in database:', Object.keys(allChats).length)
-        };
         const userChats: (Chat & { unreadCount?: number })[] = [];
 
         // Filter chats where user is a participant
         for (const chatId in allChats) {
             const chat = allChats[chatId];
-                        if (__DEV__) {
-              console.log(`🔎 [ChatService] Checking chat ${chatId}, participants:`, chat.participants)
-            };
-                        if (__DEV__) {
-              console.log(`🔍 [ChatService] Current user ID: ${uid}`)
-            };
-            
             // Check if user is in participants (case-sensitive and exact match)
             const isUserParticipant = chat.participants && chat.participants.includes(uid);
-                        if (__DEV__) {
-              console.log(`🔍 [ChatService] Is user in participants?`, isUserParticipant)
-            };
             
             if (isUserParticipant) {
-                                if (__DEV__) {
-                  console.log('✅ [ChatService] User is participant in chat:', chatId)
-                };
                 const chatWithDetails: Chat & { unreadCount?: number } = {
                     id: chatId,
                     participants: chat.participants,
@@ -443,12 +408,6 @@ export const fetchUserChats = async (uid: string) => {
                     }
 
                     chatWithDetails.unreadCount = unreadCount;
-                    if (unreadCount > 0) {
-                                                if (__DEV__) {
-                          console.log(`🔔 [ChatService] Chat ${chatId} has ${unreadCount} unread messages`)
-                        };
-                    }
-
                     if (lastMessage) {
                         chatWithDetails.lastMessage = lastMessage.text || chat.lastMessage || '';
                         chatWithDetails.lastMessageAt = lastMessage.createdAt || chat.lastMessageAt;
@@ -466,27 +425,8 @@ export const fetchUserChats = async (uid: string) => {
             const timeB = b.lastMessageAt || 0;
             return timeB - timeA;
         });
-                if (__DEV__) {
-          console.log(`✅ [ChatService] Found ${sortedChats.length} chats for user ${uid}`)
-        };
-        
-        // Additional debug info if no chats found
-        if (sortedChats.length === 0) {
-                    if (__DEV__) {
-            console.log('💡 [ChatService] No chats found. This could mean:')
-            };
-                    if (__DEV__) {
-            console.log('   1. User has no existing conversations')
-            };
-                    if (__DEV__) {
-            console.log('   2. User ID changed (signed out/in with different account)')
-            };
-                    if (__DEV__) {
-            console.log('   3. Chats exist but user is not a participant')
-            };
-                    if (__DEV__) {
-            console.log('💡 [ChatService] Try creating a new chat to test functionality')
-            };
+        if (__DEV__) {
+          console.log(`✅ [ChatService] Found ${sortedChats.length} chats for user ${uid}`);
         }
         
         return sortedChats;
@@ -513,9 +453,9 @@ export const fetchUserChats = async (uid: string) => {
             return [];
         }
         
-                if (__DEV__) {
-          console.error('❌ [ChatService] Error fetching user chats:', error)
-        };
+        if (__DEV__) {
+          console.error('❌ [ChatService] Error fetching user chats:', error);
+        }
         return [];
     }
 };

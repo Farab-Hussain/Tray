@@ -4,6 +4,7 @@ import {
   PanelRight, 
   Users, 
   FileText, 
+  BookOpen,
   BarChart3, 
   Settings, 
   Shield, 
@@ -64,6 +65,13 @@ const LeftSide = () => {
       label: "Service Applications",
       icon: FileText,
       isActive: pathname.includes("/admin/service-applications"),
+      showWhenCollapsed: true
+    },
+    {
+      href: "/admin/course-approvals",
+      label: "Course Approvals",
+      icon: BookOpen,
+      isActive: pathname.includes("/admin/course-approvals"),
       showWhenCollapsed: true
     },
     {

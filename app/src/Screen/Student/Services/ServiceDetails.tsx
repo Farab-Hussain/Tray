@@ -25,6 +25,7 @@ import {
 import { COLORS } from '../../../constants/core/colors';
 import AppButton from '../../../components/ui/AppButton';
 import { useAuth } from '../../../contexts/AuthContext';
+import { BookingService } from '../../../services/booking.service';
 
 interface ServiceDetailsProps {
   consultantId: string;
@@ -113,11 +114,32 @@ const ServiceDetails = () => {
 
     if (!service) return;
 
-    // Navigate to chat with consultant
-    navigation.navigate('Chat' as never, {
-      consultantId: service.consultantId,
-      consultantName: service.consultantName,
-    });
+    const openChat = async () => {
+      try {
+        const access = await BookingService.checkAccess(service.consultantId);
+        if (!access?.hasAccess) {
+          Alert.alert(
+            'Session Access Required',
+            access?.message ||
+              'Please book an active paid session with this consultant first.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Book Now', onPress: handleBookNow },
+            ],
+          );
+          return;
+        }
+
+        navigation.navigate('Chat' as never, {
+          consultantId: service.consultantId,
+          consultantName: service.consultantName,
+        });
+      } catch (error) {
+        Alert.alert('Error', 'Unable to verify session access');
+      }
+    };
+
+    openChat();
   };
 
   const handleShare = async () => {

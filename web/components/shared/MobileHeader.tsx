@@ -11,6 +11,7 @@ import {
   FileText,
   Shield,
   BarChart3,
+  BookOpen,
   MessageSquare,
   Activity,
   Settings as SettingsIcon
@@ -45,6 +46,12 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ title, onSearch }) => {
       href: '/admin/service-applications',
       icon: FileText,
       current: pathname.startsWith('/admin/service-applications')
+    },
+    {
+      name: 'Course Approvals',
+      href: '/admin/course-approvals',
+      icon: BookOpen,
+      current: pathname.startsWith('/admin/course-approvals')
     },
     {
       name: 'User Management',

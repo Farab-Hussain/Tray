@@ -767,4 +767,3 @@ const ConsultantProfile = ({ navigation }: any) => {
 const styles = studentProfileStyles;
 
 export default ConsultantProfile;
-

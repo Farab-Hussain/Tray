@@ -2,33 +2,61 @@
 import { Request, Response } from "express";
 import { courseService } from "../services/course.service";
 import { CourseInput, CourseFilters } from "../models/course.model";
-import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
-import { Timestamp } from "firebase-admin/firestore";
+
+const respondWithCourseError = (res: Response, error: any, fallbackMessage: string) => {
+  const statusCode = Number(error?.statusCode) || 500;
+  const payload: Record<string, any> = {
+    error: error?.message || fallbackMessage,
+  };
+
+  if (error?.details) {
+    payload.details = error.details;
+  }
+
+  return res.status(statusCode).json(payload);
+};
 
 /**
  * Create a new course (Consultant only)
  */
 export const createCourse = async (req: Request, res: Response) => {
+  console.log('🚀 [Backend CourseController] createCourse called at:', new Date().toISOString());
   try {
+    console.log('🔍 [Backend CourseController] Checking authentication...');
     const user = (req as any).user;
     if (!user || !user.uid) {
+      console.log('❌ [Backend CourseController] No user found');
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    // Verify user is a consultant
-    if (user.role !== 'consultant') {
+    console.log('✅ [Backend CourseController] User authenticated:', user.uid);
+
+    // authorizeRole(['consultant']) stores resolved role on req.userRole
+    // Token custom claims may not include role, so check both.
+    const resolvedRole = (req as any).userRole || user.role;
+    if (resolvedRole !== 'consultant') {
+      console.log('❌ [Backend CourseController] User not consultant:', resolvedRole);
       return res.status(403).json({ error: "Consultant access required" });
     }
 
-    const courseData: CourseInput = req.body;
+    console.log('✅ [Backend CourseController] User role verified as consultant');
+
+    const courseData: any = req.body;
+    console.log('📦 [Backend CourseController] Course data received, calling service...');
+    console.log('⏰ [Backend CourseController] Starting courseService.createCourse at:', new Date().toISOString());
+    
     const course = await courseService.createCourse(courseData, user.uid);
+    
+    console.log('✅ [Backend CourseController] Course created in service, sending response...');
+    console.log('⏰ [Backend CourseController] Response sent at:', new Date().toISOString());
 
     res.status(201).json({
       message: "Course created successfully",
       course,
     });
   } catch (error: any) {
-    console.error("Error creating course:", error);
+    console.error("❌ [Backend CourseController] Error creating course:", error);
+    console.error("❌ [Backend CourseController] Error stack:", error.stack);
     res.status(500).json({ error: error.message || "Failed to create course" });
   }
 };
@@ -40,6 +68,19 @@ export const getCourseById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const course = await courseService.getCourseById(id);
+    const user = (req as any).user;
+
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    const isOwner = Boolean(user?.uid && course.instructorId === user.uid);
+    const isAdmin = user?.role === 'admin';
+    const canAccessUnpublished = isOwner || isAdmin;
+
+    if (course.status !== 'published' && !canAccessUnpublished) {
+      return res.status(404).json({ error: "Course not found" });
+    }
 
     res.status(200).json({ course });
   } catch (error: any) {
@@ -55,6 +96,19 @@ export const getCourseBySlug = async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
     const course = await courseService.getCourseBySlug(slug);
+    const user = (req as any).user;
+
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    const isOwner = Boolean(user?.uid && course.instructorId === user.uid);
+    const isAdmin = user?.role === 'admin';
+    const canAccessUnpublished = isOwner || isAdmin;
+
+    if (course.status !== 'published' && !canAccessUnpublished) {
+      return res.status(404).json({ error: "Course not found" });
+    }
 
     res.status(200).json({ course });
   } catch (error: any) {
@@ -92,7 +146,7 @@ export const updateCourse = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error updating course:", error);
-    res.status(500).json({ error: error.message || "Failed to update course" });
+    return respondWithCourseError(res, error, "Failed to update course");
   }
 };
 
@@ -114,7 +168,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error deleting course:", error);
-    res.status(500).json({ error: error.message || "Failed to delete course" });
+    return respondWithCourseError(res, error, "Failed to delete course");
   }
 };
 
@@ -150,7 +204,11 @@ export const searchCourses = async (req: Request, res: Response) => {
       limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
     };
 
-    const result = await courseService.searchCourses(filters);
+    // Public search should only show published courses.
+    const result = await courseService.searchCourses({
+      ...filters,
+      status: 'published',
+    } as any);
 
     res.status(200).json(result);
   } catch (error: any) {
@@ -180,7 +238,7 @@ export const getMyCourses = async (req: Request, res: Response) => {
 
     console.log(`🔍 [getMyCourses] Filters:`, filters);
 
-    const courses = await courseService.getMyCourses(user.uid);
+    const courses = await courseService.getInstructorCourses(user.uid);
     
     const duration = Date.now() - startTime;
     console.log(`✅ [getMyCourses] Completed in ${duration}ms, found ${courses.length} courses`);
@@ -211,7 +269,7 @@ export const submitForApproval = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error submitting course for approval:", error);
-    res.status(500).json({ error: error.message || "Failed to submit course" });
+    return respondWithCourseError(res, error, "Failed to submit course");
   }
 };
 
@@ -234,7 +292,7 @@ export const approveCourse = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error approving course:", error);
-    res.status(500).json({ error: error.message || "Failed to approve course" });
+    return respondWithCourseError(res, error, "Failed to approve course");
   }
 };
 
@@ -263,7 +321,7 @@ export const rejectCourse = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error rejecting course:", error);
-    res.status(500).json({ error: error.message || "Failed to reject course" });
+    return respondWithCourseError(res, error, "Failed to reject course");
   }
 };
 
@@ -302,7 +360,7 @@ export const enrollInCourse = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error enrolling in course:", error);
-    res.status(500).json({ error: error.message || "Failed to enroll in course" });
+    return respondWithCourseError(res, error, "Failed to enroll in course");
   }
 };
 
@@ -353,7 +411,7 @@ export const getCourseEnrollments = async (req: Request, res: Response) => {
     res.status(200).json({ enrollments });
   } catch (error: any) {
     console.error("Error fetching course enrollments:", error);
-    res.status(500).json({ error: error.message || "Failed to fetch enrollments" });
+    return respondWithCourseError(res, error, "Failed to fetch enrollments");
   }
 };
 
@@ -598,7 +656,7 @@ export const launchCourse = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Error launching course:", error);
-    res.status(400).json({ error: error.message || "Failed to launch course" });
+    return respondWithCourseError(res, error, "Failed to launch course");
   }
 };
 

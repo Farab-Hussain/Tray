@@ -30,6 +30,12 @@ interface AvailabilitySlot {
   timeSlots: string[];
 }
 
+interface AvailabilityWindow {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
 const cloneAvailabilitySlots = (
   slots: AvailabilitySlot[],
 ): AvailabilitySlot[] =>
@@ -236,6 +242,21 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       .padStart(2, '0')} ${period}`;
   }
 
+  const parseSlotLabel = (
+    slotLabel: string,
+  ): { startMinutes: number; endMinutes: number } | null => {
+    const [startLabel, endLabel] = slotLabel.split(' - ').map(label => label?.trim());
+    if (!startLabel || !endLabel) {
+      return null;
+    }
+    const startMinutes = parseTime(startLabel);
+    const endMinutes = parseTime(endLabel);
+    if (endMinutes <= startMinutes) {
+      return null;
+    }
+    return { startMinutes, endMinutes };
+  };
+
   const fetchConsultantServices = useCallback(async () => {
     if (!user?.uid) {
       return;
@@ -311,14 +332,6 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       return;
     }
 
-    if (!slotDuration || slotDuration <= 0) {
-      Alert.alert(
-        'Duration Required',
-        'Please ensure the selected service has a valid duration before adding availability.',
-      );
-      return;
-    }
-
     const startMinutes = parseTime(startTime);
     const endMinutes = parseTime(endTime);
 
@@ -346,32 +359,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       return;
     }
 
-    const totalDuration = endMinutes - startMinutes;
-    if (totalDuration < slotDuration) {
-      Alert.alert(
-        'Error',
-        `Selected range must be at least ${slotDuration} minutes.`,
-      );
-      return;
-    }
-
-    if (totalDuration % slotDuration !== 0) {
-      Alert.alert(
-        'Invalid Duration',
-        `Please choose a time range in ${slotDuration}-minute increments.`,
-      );
-      return;
-    }
-
-    const durationPerSlot = slotDuration;
-    const newSlotLabels: string[] = [];
-    let currentStart = startMinutes;
-    while (currentStart < endMinutes) {
-      const currentEnd = currentStart + durationPerSlot;
-      const slotLabel = `${formatTime(currentStart)} - ${formatTime(currentEnd)}`;
-      newSlotLabels.push(slotLabel);
-      currentStart = currentEnd;
-    }
+    const newRangeLabel = `${formatTime(startMinutes)} - ${formatTime(endMinutes)}`;
 
     // Check for overlapping slots
     let totalSlotsAdded = 0;
@@ -388,14 +376,32 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
         const existingSlot = updatedSlots[existingIndex];
 
         if (existingSlot.timeSlots.length > 0) {
-          const duplicatesForDate = newSlotLabels.filter(slotLabel =>
-            existingSlot.timeSlots.includes(slotLabel),
-          );
-          const uniqueNewSlots = newSlotLabels.filter(
-            slotLabel => !existingSlot.timeSlots.includes(slotLabel),
-          );
+          const requestedRange = { startMinutes, endMinutes };
+          const duplicateRanges: string[] = [];
+          let hasOverlap = false;
 
-          if (duplicatesForDate.length > 0) {
+          existingSlot.timeSlots.forEach(slotLabel => {
+            const parsed = parseSlotLabel(slotLabel);
+            if (!parsed) {
+              return;
+            }
+
+            const exactDuplicate =
+              parsed.startMinutes === requestedRange.startMinutes &&
+              parsed.endMinutes === requestedRange.endMinutes;
+            const overlap =
+              requestedRange.startMinutes < parsed.endMinutes &&
+              requestedRange.endMinutes > parsed.startMinutes;
+
+            if (exactDuplicate) {
+              duplicateRanges.push(slotLabel);
+            }
+            if (overlap) {
+              hasOverlap = true;
+            }
+          });
+
+          if (hasOverlap) {
             const readableDate = new Date(dateString).toLocaleDateString();
             if (!overlappingDates.includes(readableDate)) {
               overlappingDates.push(readableDate);
@@ -403,13 +409,11 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
             overlappingDetails[readableDate] = Array.from(
               new Set([
                 ...(overlappingDetails[readableDate] || []),
-                ...duplicatesForDate,
+                ...(duplicateRanges.length > 0 ? duplicateRanges : [newRangeLabel]),
               ]),
             );
-          }
-
-          if (uniqueNewSlots.length > 0) {
-            const mergedSlots = [...existingSlot.timeSlots, ...uniqueNewSlots].sort(
+          } else {
+            const mergedSlots = [...existingSlot.timeSlots, newRangeLabel].sort(
               (a, b) => getSlotStartMinutes(a) - getSlotStartMinutes(b),
             );
 
@@ -417,23 +421,23 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
               ...existingSlot,
               timeSlots: mergedSlots,
             };
-            totalSlotsAdded += uniqueNewSlots.length;
+            totalSlotsAdded += 1;
             datesWithNewSlots.add(dateString);
           }
         } else {
           updatedSlots[existingIndex] = {
             ...existingSlot,
-            timeSlots: [...newSlotLabels],
+            timeSlots: [newRangeLabel],
           };
-          totalSlotsAdded += newSlotLabels.length;
+          totalSlotsAdded += 1;
           datesWithNewSlots.add(dateString);
         }
       } else {
         updatedSlots.push({
           date: dateString,
-          timeSlots: [...newSlotLabels],
+          timeSlots: [newRangeLabel],
         });
-        totalSlotsAdded += newSlotLabels.length;
+        totalSlotsAdded += 1;
         datesWithNewSlots.add(dateString);
       }
     });
@@ -482,6 +486,83 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     }
   };
 
+  const buildAvailabilityWindowsFromSlots = (
+    slots: AvailabilitySlot[],
+  ): AvailabilityWindow[] =>
+    slots.flatMap(slot =>
+      (slot.timeSlots || [])
+        .map(timeSlot => {
+          const [startTimeLabel, endTimeLabel] = timeSlot
+            .split(' - ')
+            .map(label => label?.trim());
+          if (!startTimeLabel || !endTimeLabel) {
+            return null;
+          }
+          return {
+            date: slot.date,
+            startTime: startTimeLabel,
+            endTime: endTimeLabel,
+          };
+        })
+        .filter((entry): entry is AvailabilityWindow => entry !== null),
+    );
+
+  const previewServiceDurationMinutes =
+    selectedService?.duration && selectedService.duration > 0
+      ? selectedService.duration
+      : slotDuration && slotDuration > 0
+      ? slotDuration
+      : 60;
+
+  const generatedPreviewByDate = useMemo(() => {
+    const sourceDates =
+      selectedDates.length > 0
+        ? selectedDates
+        : draftSlots.map(slot => slot.date).slice(0, 3);
+    const preview: Array<{
+      date: string;
+      generatedSlots: string[];
+      hiddenCount: number;
+    }> = [];
+
+    sourceDates.forEach(dateString => {
+      const windows = getTimeSlotsForDate(dateString, draftSlots);
+      if (windows.length === 0) return;
+
+      const generatedSlots = windows.flatMap(windowLabel => {
+        const parsed = parseSlotLabel(windowLabel);
+        if (!parsed) return [];
+
+        const labels: string[] = [];
+        let cursor = parsed.startMinutes;
+        while (cursor + previewServiceDurationMinutes <= parsed.endMinutes) {
+          labels.push(
+            `${formatTime(cursor)} - ${formatTime(
+              cursor + previewServiceDurationMinutes,
+            )}`,
+          );
+          cursor += previewServiceDurationMinutes;
+        }
+        return labels;
+      });
+
+      if (generatedSlots.length === 0) return;
+      const uniqueGenerated = Array.from(new Set(generatedSlots));
+      preview.push({
+        date: dateString,
+        generatedSlots: uniqueGenerated.slice(0, 6),
+        hiddenCount: Math.max(uniqueGenerated.length - 6, 0),
+      });
+    });
+
+    return preview;
+  }, [
+    selectedDates,
+    draftSlots,
+    previewServiceDurationMinutes,
+    getTimeSlotsForDate,
+  ]);
+
   const saveAvailabilitySlots = async () => {
         if (__DEV__) {
       console.log('🚨🚨🚨 SAVE AVAILABILITY SLOTS FUNCTION CALLED 🚨🚨🚨')
@@ -511,9 +592,11 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       )
       };
 
+      const availabilityWindows = buildAvailabilityWindowsFromSlots(draftSlots);
       const result = await ConsultantService.setAvailabilitySlots(
         user.uid,
         draftSlots,
+        availabilityWindows,
       );
             if (__DEV__) {
         console.log('✅ [ConsultantAvailability] Save result:', result)
@@ -695,6 +778,63 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     [user?.uid, fetchConsultantAvailability],
   );
 
+  const handleDeleteAllSlots = useCallback(() => {
+    if (!user?.uid) {
+      Alert.alert('Error', 'Unable to delete slots. Please log in again.');
+      return;
+    }
+
+    if (availabilitySlots.length === 0) {
+      Alert.alert('No Slots', 'There are no availability slots to delete.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete All Availability',
+      'This will remove all your saved availability slots. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: () => {
+            const clearAll = async () => {
+              try {
+                setSaving(true);
+                await ConsultantService.setAvailabilitySlots(user.uid, [], []);
+                setAvailabilitySlots([]);
+                setDraftSlots([]);
+                setSelectedDates([]);
+                setStartTime('');
+                setEndTime('');
+                setShowStartTimePicker(false);
+                setShowEndTimePicker(false);
+                await fetchConsultantAvailability();
+                Alert.alert('Success', 'All availability slots deleted.');
+              } catch (error: any) {
+                if (__DEV__) {
+                  console.error(
+                    '❌ [ConsultantAvailability] Error deleting all slots:',
+                    error,
+                  );
+                }
+                Alert.alert(
+                  'Error',
+                  'Failed to delete all availability slots. Please try again.',
+                );
+              } finally {
+                setSaving(false);
+              }
+            };
+
+            clearAll();
+          },
+        },
+      ],
+      { cancelable: true },
+    );
+  }, [user?.uid, availabilitySlots.length, fetchConsultantAvailability]);
+
   useEffect(() => {
         if (__DEV__) {
       console.log('🚀 ConsultantAvailability useEffect starting...')
@@ -769,9 +909,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
             {selectedService.title}
           </Text>
           <Text style={cleanStyles.serviceInfoSubtitle}>
-            {slotDuration && slotDuration > 0
-              ? `Time slots use ${slotDuration}-minute duration`
-              : 'Set a duration for this service to create availability slots'}
+            Add your available time windows. Student slot options are generated from each service duration.
           </Text>
         </View>
       )}
@@ -791,7 +929,16 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
           </View>
         ) : (
           <View style={cleanStyles.availabilityList}>
-            <Text style={cleanStyles.sectionTitle}>Upcoming Availability</Text>
+            <View style={cleanStyles.sectionHeader}>
+              <Text style={cleanStyles.sectionTitle}>Upcoming Availability</Text>
+              <TouchableOpacity
+                style={cleanStyles.clearAllButton}
+                onPress={handleDeleteAllSlots}
+                disabled={saving}
+              >
+                <Text style={cleanStyles.clearAllButtonText}>Delete All</Text>
+              </TouchableOpacity>
+            </View>
             {sortedAvailabilitySlots.map(slot => (
               <View key={slot.date} style={cleanStyles.slotCard}>
                 <Text style={cleanStyles.slotDate}>
@@ -846,9 +993,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                 {selectedService.title}
               </Text>
               <Text style={cleanStyles.modalServiceSubtitle}>
-                {slotDuration && slotDuration > 0
-                  ? `Slot duration: ${slotDuration} minutes`
-                  : 'Slot duration unavailable. Update the service settings.'}
+                Set broad availability windows. Booking slots are generated using the selected service duration.
               </Text>
             </View>
           )}
@@ -1045,6 +1190,41 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                   )}{' '}
                   slots
                 </Text>
+              </View>
+            )}
+
+            {generatedPreviewByDate.length > 0 && (
+              <View style={cleanStyles.previewSection}>
+                <Text style={cleanStyles.previewTitle}>
+                  Student Slot Preview ({previewServiceDurationMinutes} min each)
+                </Text>
+                <Text style={cleanStyles.previewSubtitle}>
+                  This is what students will see for this service duration.
+                </Text>
+                {generatedPreviewByDate.map(preview => (
+                  <View key={preview.date} style={cleanStyles.previewDateBlock}>
+                    <Text style={cleanStyles.previewDateTitle}>
+                      {new Date(preview.date).toLocaleDateString()}
+                    </Text>
+                    <View style={cleanStyles.previewChipsWrap}>
+                      {preview.generatedSlots.map(slotLabel => (
+                        <View
+                          key={`${preview.date}-${slotLabel}`}
+                          style={cleanStyles.previewChip}
+                        >
+                          <Text style={cleanStyles.previewChipText}>
+                            {slotLabel}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                    {preview.hiddenCount > 0 && (
+                      <Text style={cleanStyles.previewMoreText}>
+                        +{preview.hiddenCount} more slots
+                      </Text>
+                    )}
+                  </View>
+                ))}
               </View>
             )}
 

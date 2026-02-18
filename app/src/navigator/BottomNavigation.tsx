@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import {
   Home,
   BookOpen,
+  GraduationCap,
   MessageCircle,
   Bell,
   CircleUserRound,
@@ -19,6 +20,7 @@ import {
 
 import HomeStackNavigator from './HomeStackNavigator';
 import ServicesStackNavigator from './ServicesStackNavigator';
+import CourseStackNavigator from './CourseStackNavigator';
 import Messages from '../Screen/common/Messages/Messages';
 import Notifications from '../Screen/common/Notifications/Notifications';
 import Account from '../Screen/common/Account/Account';
@@ -33,7 +35,7 @@ const Tab = createBottomTabNavigator();
 
 const getTabBarVisibility = (route: any) => {
   const routeName = getFocusedRouteNameFromRoute(route);
-  const hideOnScreens = ['BookingSlots', 'Cart', 'Account'];
+  const hideOnScreens = ['BookingSlots', 'Cart', 'Account', 'CourseDetail'];
   return routeName && hideOnScreens.includes(routeName) ? 'none' : 'flex';
 };
 
@@ -46,6 +48,10 @@ const getTabIcon = (routeName: string, color: string, size: number) => {
     case 'Services':
       return (
         <BookOpen size={size} color={color} />
+      );
+    case 'Courses':
+      return (
+        <GraduationCap size={size} color={color} />
       );
     case 'Messages':
       return (
@@ -148,7 +154,7 @@ const BottomTabs = () => {
           },
         })}
         listeners={({ navigation, route }) => ({
-          tabPress: e => {
+          tabPress: _e => {
             const state = navigation.getState();
             const tabRoute = state.routes.find(r => r.key === route.key);
             const stackState = tabRoute?.state as any;
@@ -157,6 +163,18 @@ const BottomTabs = () => {
                 screen: 'ServicesScreen',
               });
             }
+          },
+        })}
+      />
+      <Tab.Screen
+        name="Courses"
+        component={CourseStackNavigator}
+        options={({ route }) => ({
+          tabBarStyle: {
+            backgroundColor: COLORS.green,
+            display: getTabBarVisibility(route),
+            borderTopWidth: 0,
+            elevation: 0,
           },
         })}
       />

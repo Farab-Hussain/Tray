@@ -222,8 +222,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       };
 
       // Create bookings for each cart item (and each booked slot within)
-      const bookingPromises: Promise<any>[] = [];
-      const bookingDetails: Array<{ bookingData: any; item: CartItem }> = [];
+      const bookingRequests: Array<{ bookingData: any; item: CartItem }> = [];
       
       cartItems.forEach((item) => {
         // Check if item has bookedSlots (new format)
@@ -238,13 +237,12 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
               time: slot.startTime,
               amount: item.pricePerSlot || item.price || 100,
               quantity: 1,
-              status: 'confirmed',
+              status: 'pending',
               paymentStatus: 'paid',
               paymentIntentId,
             };
             
-            bookingPromises.push(BookingService.createBooking(bookingData));
-            bookingDetails.push({ bookingData, item });
+            bookingRequests.push({ bookingData, item });
           });
         } else if (item.date && item.startTime) {
           // Legacy format: single booking per item
@@ -256,19 +254,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             time: item.startTime,
             amount: item.price || item.pricePerSlot || 100,
             quantity: 1,
-            status: 'confirmed',
+            status: 'pending',
             paymentStatus: 'paid',
             paymentIntentId,
           };
           
-          bookingPromises.push(BookingService.createBooking(bookingData));
-          bookingDetails.push({ bookingData, item });
+          bookingRequests.push({ bookingData, item });
         }
       });
 
       // Create bookings one by one to handle conflicts properly
       const results = [];
-      const conflicts = [];
+      const conflicts: Array<{ bookingIndex: number; message: string }> = [];
+      const failures: Array<{ bookingIndex: number; message: string }> = [];
       const consultantInfoCache: Record<string, { name: string; avatar: string }> = {};
       const getConsultantInfo = async (consultantId: string, fallbackName?: string) => {
         if (consultantInfoCache[consultantId]) {
@@ -296,17 +294,16 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       const studentName = userAny?.name || user?.email?.split('@')[0] || 'Student';
       const studentAvatar = userAny?.profileImage || '';
 
-      for (let i = 0; i < bookingPromises.length; i++) {
+      for (let i = 0; i < bookingRequests.length; i++) {
         try {
-          const result = await bookingPromises[i];
+          const { bookingData, item } = bookingRequests[i];
+          const result = await BookingService.createBooking(bookingData);
           results.push(result);
                     if (__DEV__) {
-            console.log(`✅ Booking ${i + 1}/${bookingPromises.length} created successfully`)
+            console.log(`✅ Booking ${i + 1}/${bookingRequests.length} created successfully`)
           };
 
-          const detail = bookingDetails[i];
-          if (detail) {
-            const { bookingData, item } = detail;
+          if (bookingData && item) {
             const bookingId = result?.bookingId;
             const consultantInfo = await getConsultantInfo(bookingData.consultantId, item.consultantName);
             const sessionLabel = `${item.serviceTitle || 'a service'}${bookingData.date ? ` • ${bookingData.date}` : ''}${bookingData.time ? ` at ${bookingData.time}` : ''}`;
@@ -314,10 +311,10 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             try {
               await NotificationStorage.createNotification({
                 userId: bookingData.consultantId,
-                type: 'booking_confirmed',
+                type: 'booking',
                 category: 'booking',
                 title: studentName,
-                message: `${studentName} booked ${sessionLabel}`,
+                message: `${studentName} sent a booking request for ${sessionLabel}`,
                 data: {
                   bookingId,
                   consultantId: bookingData.consultantId,
@@ -358,19 +355,26 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           }
         } catch (error: any) {
                     if (__DEV__) {
-            console.error(`❌ Booking ${i + 1}/${bookingPromises.length} failed:`, error)
+            console.error(`❌ Booking ${i + 1}/${bookingRequests.length} failed:`, error)
           };
           
           if (error.response?.status === 409) {
             // Conflict error - slot already booked
             conflicts.push({
               bookingIndex: i,
-              error: error.response.data,
               message: error.response.data.message || 'Time slot is already booked'
             });
           } else {
-            // Other error - fail the entire payment
-            throw error;
+            const validationMessage =
+              error?.response?.data?.details?.[0]?.message ||
+              error?.response?.data?.errors?.[0]?.message ||
+              error?.response?.data?.errors?.[0] ||
+              error?.response?.data?.message;
+
+            failures.push({
+              bookingIndex: i,
+              message: validationMessage || error?.message || 'Booking failed',
+            });
           }
         }
       }
@@ -391,6 +395,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           `The following time slots were already booked by other students:\n\n${conflictMessages}\n\nYour payment has been processed for the available slots.`,
           [{ text: 'OK' }]
         );
+      }
+
+      if (failures.length > 0) {
+        const failureMessages = failures.map(f => f.message).join('\n');
+        Alert.alert(
+          'Some Bookings Failed',
+          `A few sessions could not be created:\n\n${failureMessages}\n\nYour payment was successful. Please contact support if needed.`,
+          [{ text: 'OK' }]
+        );
+      }
+
+      if (results.length === 0) {
+        throw new Error('No bookings were created after successful payment.');
       }
 
       // Clear cart after successful payment
@@ -414,7 +431,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       };
       Alert.alert(
         'Booking Error',
-        'Payment successful but failed to create bookings. Please contact support.',
+        error?.message || 'Payment successful but failed to create bookings. Please contact support.',
         [
           {
             text: 'OK',
@@ -431,13 +448,17 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScreenHeader 
         title="Payment" 
         onBackPress={() => navigation.goBack()} 
       />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Order Summary */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Order Summary</Text>

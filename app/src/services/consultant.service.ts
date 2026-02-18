@@ -58,6 +58,7 @@ export const ConsultantService = {
           available: false,
           availability: {},
           availabilitySlots: [],
+          availabilityWindows: [],
           message: error?.response?.data?.error || 'Consultant availability not found',
         };
       }
@@ -66,7 +67,11 @@ export const ConsultantService = {
   },
 
   // Set consultant availability slots
-  async setAvailabilitySlots(consultantId: string, availabilitySlots: any[]) {
+  async setAvailabilitySlots(
+    consultantId: string,
+    availabilitySlots: any[],
+    availabilityWindows?: Array<{ date: string; startTime: string; endTime: string }>,
+  ) {
     try {
             if (__DEV__) {
         console.log('🔧 [ConsultantService] Setting availability slots...')
@@ -81,9 +86,15 @@ export const ConsultantService = {
         console.log('📅 [ConsultantService] Sample slots:', availabilitySlots.slice(0, 3))
       };
       
-      const response = await api.put(`/consultant-flow/profiles/${consultantId}/availability-slots`, {
-        availabilitySlots
-      });
+      const response = await api.put(
+        `/consultant-flow/profiles/${consultantId}/availability-slots`,
+        {
+          availabilitySlots,
+          ...(Array.isArray(availabilityWindows)
+            ? { availabilityWindows }
+            : {}),
+        },
+      );
       
             if (__DEV__) {
         console.log('✅ [ConsultantService] Success response:', response.data)

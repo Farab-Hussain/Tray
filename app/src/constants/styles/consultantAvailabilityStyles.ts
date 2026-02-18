@@ -65,12 +65,30 @@ export const consultantAvailabilityStyles = StyleSheet.create({
   availabilityList: {
     paddingVertical: 16,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333333',
-    marginBottom: 16,
-    textAlign: 'center',
+    textAlign: 'left',
+  },
+  clearAllButton: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  clearAllButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B91C1C',
   },
   slotCard: {
     backgroundColor: '#FFFFFF',
@@ -453,5 +471,55 @@ export const consultantAvailabilityStyles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 8,
   },
+  previewSection: {
+    backgroundColor: '#F8FBFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E6F0FF',
+    padding: 14,
+    marginBottom: 16,
+  },
+  previewTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F3C88',
+  },
+  previewSubtitle: {
+    marginTop: 4,
+    marginBottom: 10,
+    fontSize: 12,
+    color: '#4A6FA5',
+  },
+  previewDateBlock: {
+    marginTop: 8,
+  },
+  previewDateTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 6,
+  },
+  previewChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  previewChip: {
+    backgroundColor: '#EAF3FF',
+    borderWidth: 1,
+    borderColor: '#CFE2FF',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  previewChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1F3C88',
+  },
+  previewMoreText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#666666',
+  },
 });
-

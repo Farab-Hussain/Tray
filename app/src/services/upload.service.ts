@@ -391,6 +391,12 @@ const UploadService = {
    */
   async uploadServiceVideo(videoFile: any): Promise<UploadResponse> {
     try {
+      // Validate video file before upload
+      const validation = this.validateVideoFile(videoFile);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+
       const fileToUpload = await prepareFileForUpload(videoFile, 'video/mp4', 'video.mp4');
 
       if (__DEV__) {
@@ -406,12 +412,12 @@ const UploadService = {
       const formData = new FormData();
       formData.append('video', fileToUpload as any);
 
-      // For videos, use much longer timeout due to large file sizes and Cloudinary processing
-      // Estimate: ~1 minute per 10MB for slow connections, minimum 20 minutes for videos
+      // For videos, use optimized timeout for 100MB Cloudinary limit
+      // With chunked uploads and 100MB limit, calculate appropriate timeout
       const isVideo = fileToUpload.type?.startsWith('video/');
       const fileSizeMB = (videoFile as any).size ? (videoFile as any).size / (1024 * 1024) : 0;
       const timeout = isVideo 
-        ? Math.max(1200000, Math.ceil(fileSizeMB / 10) * 60000) // At least 20 min, or 1 min per 10MB
+        ? Math.max(900000, Math.ceil(fileSizeMB / 50) * 300000) // At least 15 min, or ~5min per 50MB
         : 120000; // 2 minutes for images
       
       const startTime = Date.now();
@@ -458,6 +464,37 @@ const UploadService = {
   },
 
   /**
+   * Validate video file (React Native compatible)
+   * @param file - File object to validate
+   * @returns Validation result with isValid flag and optional error message
+   */
+  validateVideoFile(file: any): { isValid: boolean; error?: string } {
+    if (!file) {
+      return { isValid: false, error: 'No file provided' };
+    }
+
+    if (!file.uri) {
+      return { isValid: false, error: 'File URI is required' };
+    }
+
+    if (!file.type || !file.type.startsWith('video/')) {
+      return { isValid: false, error: 'Only video files are allowed' };
+    }
+
+    // Check Cloudinary free tier limit (100MB)
+    const maxSize = 100 * 1024 * 1024; // 100MB in bytes
+    if (file.size && file.size > maxSize) {
+      const fileSizeMB = Math.round(file.size / (1024 * 1024));
+      return { 
+        isValid: false, 
+        error: `Video file is too large for current plan. Maximum allowed size is 100MB. Current size: ${fileSizeMB}MB. Please compress your video or upgrade your Cloudinary account for larger file support.` 
+      };
+    }
+
+    return { isValid: true };
+  },
+
+  /**
    * Validate image file (React Native compatible)
    * @param file - File object to validate
    * @returns Validation result with isValid flag and optional error message
@@ -473,6 +510,15 @@ const UploadService = {
 
     if (!file.type || !file.type.startsWith('image/')) {
       return { isValid: false, error: 'Only image files are allowed' };
+    }
+
+    // Check file size (100MB limit for images)
+    const maxSize = 100 * 1024 * 1024; // 100MB in bytes
+    if (file.size && file.size > maxSize) {
+      return { 
+        isValid: false, 
+        error: `Image file is too large. Maximum allowed size is 100MB. Current size: ${Math.round(file.size / (1024 * 1024))}MB` 
+      };
     }
 
     return { isValid: true };

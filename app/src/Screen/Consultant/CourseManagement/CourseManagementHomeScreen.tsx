@@ -31,7 +31,7 @@ export default function CourseManagementHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [editingCourseId, setEditingCourseId] = useState<string>('');
+  const [editingCourseId, _setEditingCourseId] = useState<string>('');
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editCategory, setEditCategory] = useState('');
@@ -69,25 +69,6 @@ export default function CourseManagementHomeScreen() {
     setRefreshing(true);
     await loadCourses();
     setRefreshing(false);
-  };
-
-  const openEditModal = (course: Course) => {
-    const joinList = (value?: string[]) => (value && value.length > 0 ? value.join('\n') : '');
-    setEditingCourseId(course.id);
-    setEditTitle(course.title || '');
-    setEditDescription(course.description || '');
-    setEditCategory(course.category || '');
-    setEditLevel((course.level || 'beginner') as 'beginner' | 'intermediate' | 'advanced');
-    setEditLanguage(course.language || 'en');
-    setEditIsFree(!!course.isFree);
-    setEditPrice(String(course.price ?? 0));
-    setEditDurationMinutes(String(course.duration ?? 0));
-    setEditTimeCommitment(course.timeCommitment || '');
-    setEditObjectivesText(joinList(course.objectives));
-    setEditPrerequisitesText(joinList(course.prerequisites));
-    setEditTargetAudienceText(joinList(course.targetAudience));
-    setEditCertificateAvailable(!!course.certificateAvailable);
-    setIsEditModalVisible(true);
   };
 
   const handleSaveEdit = async () => {
@@ -348,7 +329,14 @@ export default function CourseManagementHomeScreen() {
       ) : (
         <FlatList
           data={courses}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => {
+            const key =
+              item.id ||
+              (item as any)._id ||
+              (item as any).courseId ||
+              (item as any).slug;
+            return key ? String(key) : `course-${index}`;
+          }}
           renderItem={renderCourseCard}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, flexGrow: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

@@ -951,18 +951,21 @@ export const getConsultantAvailability = async (req: Request, res: Response) => 
     // Extract availability from professionalInfo
     const availability = profile?.professionalInfo?.availability;
     const availabilitySlots = profile?.professionalInfo?.availabilitySlots;
+    const availabilityWindows = profile?.professionalInfo?.availabilityWindows;
 
     console.log('🔍 Profile professionalInfo:', profile?.professionalInfo);
     console.log('🔍 Availability (legacy):', availability);
     console.log('🔍 AvailabilitySlots (new):', availabilitySlots);
+    console.log('🔍 AvailabilityWindows (new):', availabilityWindows);
 
-    if (!availability && !availabilitySlots) {
+    if (!availability && !availabilitySlots && !availabilityWindows) {
       console.log('⚠️ No availability data found, returning unavailable');
       return res.status(200).json({
         available: false,
         message: "Consultant has not set their availability yet",
         availability: null,
-        availabilitySlots: null
+        availabilitySlots: null,
+        availabilityWindows: null
       });
     }
 
@@ -973,6 +976,7 @@ export const getConsultantAvailability = async (req: Request, res: Response) => 
       consultantName: profile?.personalInfo?.fullName || "Consultant",
       availability: availability, // Legacy format
       availabilitySlots: availabilitySlots, // New format
+      availabilityWindows: availabilityWindows, // Window-based availability for service-duration slot generation
       message: "Availability retrieved successfully"
     });
 
@@ -992,7 +996,7 @@ export const setAvailabilitySlots = async (req: Request, res: Response) => {
   try {
     const { uid } = req.params;
     const user = (req as any).user;
-    const { availabilitySlots } = req.body;
+    const { availabilitySlots, availabilityWindows } = req.body;
 
     if (!uid) {
       return res.status(400).json({ error: "Consultant UID is required" });
@@ -1005,6 +1009,10 @@ export const setAvailabilitySlots = async (req: Request, res: Response) => {
 
     if (!availabilitySlots || !Array.isArray(availabilitySlots)) {
       return res.status(400).json({ error: "availabilitySlots must be an array" });
+    }
+
+    if (availabilityWindows !== undefined && !Array.isArray(availabilityWindows)) {
+      return res.status(400).json({ error: "availabilityWindows must be an array when provided" });
     }
 
     // Validate availability slots format
@@ -1021,6 +1029,22 @@ export const setAvailabilitySlots = async (req: Request, res: Response) => {
         return res.status(400).json({
           error: "Date must be in YYYY-MM-DD format"
         });
+      }
+    }
+
+    if (Array.isArray(availabilityWindows)) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      for (const windowEntry of availabilityWindows) {
+        if (!windowEntry?.date || !windowEntry?.startTime || !windowEntry?.endTime) {
+          return res.status(400).json({
+            error: "Each availability window must have date, startTime, and endTime",
+          });
+        }
+        if (!dateRegex.test(windowEntry.date)) {
+          return res.status(400).json({
+            error: "Window date must be in YYYY-MM-DD format",
+          });
+        }
       }
     }
 
@@ -1041,6 +1065,9 @@ export const setAvailabilitySlots = async (req: Request, res: Response) => {
     // Update availability slots
     await db.collection("consultantProfiles").doc(uid).update({
       "professionalInfo.availabilitySlots": availabilitySlots,
+      "professionalInfo.availabilityWindows": Array.isArray(availabilityWindows)
+        ? availabilityWindows
+        : profile?.professionalInfo?.availabilityWindows || [],
       updatedAt: new Date().toISOString(),
     });
 
@@ -1049,6 +1076,7 @@ export const setAvailabilitySlots = async (req: Request, res: Response) => {
     res.status(200).json({
       message: "Availability slots updated successfully",
       availabilitySlots: availabilitySlots,
+      availabilityWindows: Array.isArray(availabilityWindows) ? availabilityWindows : [],
       count: availabilitySlots.length
     });
 

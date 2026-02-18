@@ -10,6 +10,23 @@ import {
   cancelBookingInternally,
 } from "./booking.controller";
 
+const ensureApprovedConsultantProfile = async (uid: string) => {
+  const profileDoc = await db.collection("consultantProfiles").doc(uid).get();
+  if (!profileDoc.exists) {
+    return { allowed: false, reason: "Consultant profile not found" } as const;
+  }
+
+  const profile = profileDoc.data();
+  if (profile?.status !== "approved") {
+    return {
+      allowed: false,
+      reason: `Consultant profile is not approved (status: ${profile?.status || "unknown"})`,
+    } as const;
+  }
+
+  return { allowed: true } as const;
+};
+
 // Consultant Management 
 export const getAllConsultants = async (req: Request, res: Response) => {
   try {
@@ -130,30 +147,61 @@ export const addService = async (req: Request, res: Response) => {
   try {
     // VIDEO UPLOAD CODE - COMMENTED OUT
     // const { consultantId, title, description, duration, price, imageUrl, videoUrl, imagePublicId, videoPublicId } = req.body;
-    const { consultantId, title, description, duration, price, imageUrl, imagePublicId } = req.body;
-    if (!consultantId || !title || !price) {
+    const {
+      consultantId: consultantIdFromBody,
+      title,
+      description,
+      details,
+      duration,
+      price,
+      imageUrl,
+      imagePublicId,
+      category,
+      tags,
+      availability,
+      paymentOptions,
+    } = req.body;
+    const user = (req as any).user;
+    const authConsultantId = user?.uid;
+    const consultantId = authConsultantId || consultantIdFromBody;
+    const isAdmin = user?.role === "admin";
+
+    if (!consultantId || !title || price === undefined || price === null) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    if (!isAdmin) {
+      const approvalCheck = await ensureApprovedConsultantProfile(consultantId);
+      if (!approvalCheck.allowed) {
+        return res.status(403).json({ error: approvalCheck.reason });
+      }
+    }
+
     const newServiceRef = db.collection("services").doc();
-    await newServiceRef.set({
+    const createdService = {
       id: newServiceRef.id,
       consultantId,
+      isDefault: false,
       title,
       description,
+      details: details || description || "",
       duration,
       price,
       imageUrl: imageUrl || '',
-      // VIDEO UPLOAD CODE - COMMENTED OUT
-      // videoUrl: videoUrl || '',
       imagePublicId: imagePublicId || null,
+      category: category || "Business & Career",
+      tags: Array.isArray(tags) ? tags : [],
+      availability: availability || null,
+      paymentOptions: paymentOptions || null,
       // videoPublicId: videoPublicId || null,
       createdAt: new Date().toISOString(),
       approvalStatus: "approved",
       pendingUpdate: null,
-    });
+    };
 
-    res.status(201).json({ message: "Service added successfully" });
+    await newServiceRef.set(createdService);
+
+    res.status(201).json({ message: "Service added successfully", service: createdService });
   } catch (error: any) {
     console.error("Add service error:", error);
     res.status(500).json({ error: error.message });
@@ -181,12 +229,15 @@ export const getConsultantServices = async (req: Request, res: Response) => {
         id: service.id,
         title: service.title,
         description: service.description,
+        details: service.details || service.description || "",
         duration: service.duration || 60,
         price: service.price || 100,
         consultantId: service.consultantId,
         category: service.category || "Business & Career",
         icon: service.icon || 'briefcase',
         tags: service.tags || [],
+        availability: service.availability || null,
+        paymentOptions: service.paymentOptions || null,
         rating: service.rating ?? 0,
         isVerified: service.isVerified !== false,
         proposalsCount: service.proposalsCount || '0 reviews',
@@ -232,11 +283,15 @@ export const getServiceById = async (req: Request, res: Response) => {
         id: service?.id,
         title: service?.title,
         description: service?.description,
+        details: service?.details || service?.description || "",
         duration: service?.duration || 60,
         price: service?.price || 100,
         consultantId: service?.consultantId,
+        category: service?.category || "Business & Career",
         icon: service?.icon || 'briefcase',
         tags: service?.tags || [],
+        availability: service?.availability || null,
+        paymentOptions: service?.paymentOptions || null,
         rating: service?.rating ?? 0,
         isVerified: service?.isVerified !== false,
         proposalsCount: service?.proposalsCount || '0 reviews',
@@ -246,9 +301,7 @@ export const getServiceById = async (req: Request, res: Response) => {
         createdAt: service?.createdAt,
         updatedAt: service?.updatedAt,
         imageUrl: service?.imageUrl || '',
-        videoUrl: service?.videoUrl || '',
         imagePublicId: service?.imagePublicId || '',
-        videoPublicId: service?.videoPublicId || '',
       approvalStatus: service?.approvalStatus || 'approved',
       pendingUpdate: service?.pendingUpdate || null,
       }
@@ -322,10 +375,12 @@ export const updateService = async (req: Request, res: Response) => {
       description,
       duration,
       price,
+      details,
+      category,
+      tags,
+      paymentOptions,
       availability,
       imageUrl,
-      // VIDEO UPLOAD CODE - COMMENTED OUT
-      // videoUrl,
       cancelBookings,
       adjustAvailability,
     } = req.body;
@@ -346,6 +401,13 @@ export const updateService = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Unauthorized to update this service" });
     }
 
+    if (!isAdmin) {
+      const approvalCheck = await ensureApprovedConsultantProfile(consultantId);
+      if (!approvalCheck.allowed) {
+        return res.status(403).json({ error: approvalCheck.reason });
+      }
+    }
+
     const updateData: any = {
       updatedAt: new Date().toISOString(),
     };
@@ -354,10 +416,12 @@ export const updateService = async (req: Request, res: Response) => {
     if (description !== undefined) updateData.description = description;
     if (price !== undefined) updateData.price = price;
     if (duration !== undefined) updateData.duration = duration;
+    if (details !== undefined) updateData.details = details;
+    if (category !== undefined) updateData.category = category;
+    if (tags !== undefined) updateData.tags = tags;
+    if (paymentOptions !== undefined) updateData.paymentOptions = paymentOptions;
     if (availability !== undefined) updateData.availability = availability;
     if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-    // VIDEO UPLOAD CODE - COMMENTED OUT
-    // if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
     if (req.body?.imagePublicId !== undefined) {
       updateData.imagePublicId = req.body.imagePublicId;
     }
@@ -413,14 +477,40 @@ export const updateService = async (req: Request, res: Response) => {
         const profileData = profileDoc.data() || {};
         const availabilitySlots =
           profileData?.professionalInfo?.availabilitySlots || [];
+        const availabilityWindows =
+          profileData?.professionalInfo?.availabilityWindows || [];
 
-        const adjustedSlots = adjustAvailabilitySlotDurations(
-          availabilitySlots,
-          duration,
-        );
+        const adjustedSlots = Array.isArray(availabilityWindows) && availabilityWindows.length > 0
+          ? availabilityWindows.map((windowEntry: any) => {
+              const startMinutes = parseTime(windowEntry?.startTime || "");
+              const endMinutes = parseTime(windowEntry?.endTime || "");
+              if (endMinutes <= startMinutes || !duration || duration <= 0) {
+                return null;
+              }
+
+              const timeSlots: string[] = [];
+              let cursor = startMinutes;
+              while (cursor + duration <= endMinutes) {
+                timeSlots.push(
+                  `${formatTime(cursor)} - ${formatTime(cursor + duration)}`,
+                );
+                cursor += duration;
+              }
+
+              return {
+                date: windowEntry.date,
+                timeSlots,
+              };
+            })
+              .filter((entry: any) => entry && entry.date && Array.isArray(entry.timeSlots))
+              .filter((entry: any) => entry.timeSlots.length > 0)
+          : adjustAvailabilitySlotDurations(availabilitySlots, duration);
 
         await profileRef.update({
           "professionalInfo.availabilitySlots": adjustedSlots,
+          "professionalInfo.availabilityWindows": Array.isArray(availabilityWindows)
+            ? availabilityWindows
+            : [],
           updatedAt: new Date().toISOString(),
         });
 
@@ -491,6 +581,13 @@ export const deleteService = async (req: Request, res: Response) => {
 
     if (!isAdmin && user?.uid !== consultantId) {
       return res.status(403).json({ error: "Unauthorized to delete this service" });
+    }
+
+    if (!isAdmin) {
+      const approvalCheck = await ensureApprovedConsultantProfile(consultantId);
+      if (!approvalCheck.allowed) {
+        return res.status(403).json({ error: approvalCheck.reason });
+      }
     }
 
     let cancelledBookings: CancelBookingResult[] = [];
@@ -600,9 +697,9 @@ export const getAllServicesWithConsultants = async (req: Request, res: Response)
     const validatedLimit = Math.min(Math.max(1, limit), maxLimit);
     const validatedPage = Math.max(1, page);
     
-    // Filter approved services directly in the query (more efficient)
-    let query: Query = db.collection("services")
-      .where("isDefault", "==", false);
+    // Do not filter by isDefault in Firestore query because older consultant services
+    // may not have isDefault set. Firestore "== false" excludes missing fields.
+    let query: Query = db.collection("services");
     
     // Only fetch approved services if approvalStatus field exists
     // Note: We'll filter in code for services that have approvalStatus field
@@ -615,7 +712,8 @@ export const getAllServicesWithConsultants = async (req: Request, res: Response)
     // Filter approved services first
     const allApprovedServices = snapshot.docs.filter(doc => {
       const data = doc.data();
-      return !data.approvalStatus || data.approvalStatus === "approved";
+      const isConsultantService = data.isDefault !== true;
+      return isConsultantService && (!data.approvalStatus || data.approvalStatus === "approved");
     });
     
     // Apply pagination
@@ -690,7 +788,6 @@ export const getAllServicesWithConsultants = async (req: Request, res: Response)
         duration: serviceData.duration,
         price: serviceData.price,
         imageUrl: imageUrl || '',
-        videoUrl: serviceData.videoUrl || '',
         isDefault: serviceData.isDefault || false,
         basedOnDefaultService: serviceData.basedOnDefaultService || null,
         consultant: consultant ? {
@@ -785,7 +882,6 @@ export const getAvailablePlatformServices = async (req: Request, res: Response) 
         isDefault: true,
         isPlatformService: true,
         imageUrl: service.imageUrl || '',
-        videoUrl: service.videoUrl || '',
         createdAt: service.createdAt
       };
     });

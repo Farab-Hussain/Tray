@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  UIManager,
 } from 'react-native';
 import Video from 'react-native-video';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ import { launchImageLibrary, MediaType } from 'react-native-image-picker';
 interface FormData {
   title: string;
   description: string;
+  previewVideoUrl: string;
   thumbnailUrl: string;
   thumbnailPublicId: string;
   category: string;
@@ -127,6 +129,7 @@ export default function CourseCreationScreen() {
   const [formData, setFormData] = useState<FormData>({
     title: '',
     description: '',
+    previewVideoUrl: '',
     thumbnailUrl: '',
     thumbnailPublicId: '',
     category: '',
@@ -150,8 +153,13 @@ export default function CourseCreationScreen() {
   const [createdCourseTitle, setCreatedCourseTitle] = useState('');
   const [successVerb, setSuccessVerb] = useState<'created' | 'updated'>('created');
   const [isPrefilling, setIsPrefilling] = useState(false);
+  const [isUploadingIntroVideo, setIsUploadingIntroVideo] = useState(false);
+  const [introVideoFileName, setIntroVideoFileName] = useState('');
   const videoRef = useRef<any>(null);
-
+  const nativeVideoAvailable = useMemo(
+    () => !!UIManager.getViewManagerConfig?.('RCTVideo'),
+    [],
+  );
   useEffect(() => {
     const prefillForEdit = async () => {
       if (!isEditMode || !params.courseId) return;
@@ -178,6 +186,7 @@ export default function CourseCreationScreen() {
           ...prev,
           title: course.title || '',
           description: course.description || '',
+          previewVideoUrl: course.previewVideoUrl || '',
           thumbnailUrl: course.thumbnailUrl || '',
           category: course.category || '',
           level: normalizeLevel(course.level),
@@ -191,6 +200,7 @@ export default function CourseCreationScreen() {
           targetAudienceText: listToText(course.targetAudience),
           certificateAvailable: !!course.certificateAvailable,
         }));
+        setIntroVideoFileName(course.previewVideoUrl ? 'Uploaded intro video' : '');
 
         const existingVideos = (course.videos || [])
           .filter(video => !!video.videoUrl)
@@ -259,6 +269,23 @@ export default function CourseCreationScreen() {
       return next;
     });
     setFormData(prev => ({ ...prev, [key]: value }));
+  };
+
+  const openVideoPreview = (url?: string) => {
+    if (!url) {
+      Alert.alert('Preview unavailable', 'No video URL found for preview.');
+      return;
+    }
+    if (!nativeVideoAvailable) {
+      Alert.alert(
+        'Preview unavailable',
+        'Native video preview is not available in this build. Rebuild the iOS app after installing pods to enable video playback.',
+      );
+      return;
+    }
+    setCurrentVideoUrl(url);
+    setIsVideoPlaying(false);
+    setShowVideoPlayer(true);
   };
 
   const addVideoItem = () => {
@@ -394,6 +421,62 @@ export default function CourseCreationScreen() {
         },
       ]
     );
+  };
+
+  const handleUploadIntroVideo = async () => {
+    try {
+      const response = await new Promise<any>((resolve) => {
+        launchImageLibrary(
+          {
+            mediaType: 'video' as MediaType,
+            selectionLimit: 1,
+            quality: 0.8 as any,
+          },
+          resolve,
+        );
+      });
+
+      if (response?.didCancel) return;
+      if (response?.errorMessage) {
+        Alert.alert('Upload Error', response.errorMessage);
+        return;
+      }
+
+      const asset = response?.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert('Upload Error', 'No video selected.');
+        return;
+      }
+
+      setIsUploadingIntroVideo(true);
+
+      const file = {
+        uri: asset.uri,
+        type: asset.type || 'video/mp4',
+        name: asset.fileName || 'intro-video.mp4',
+        size: asset.fileSize,
+      };
+
+      const result = await UploadService.uploadServiceVideo(file);
+      const videoUrl = result.videoUrl || '';
+      if (!videoUrl) {
+        throw new Error('Video uploaded but no URL returned.');
+      }
+
+      updateFormData('previewVideoUrl', videoUrl);
+      setIntroVideoFileName(asset.fileName || 'Uploaded intro video');
+      Alert.alert('Upload Complete', 'Intro video uploaded successfully.');
+    } catch (error: any) {
+      console.error('❌ [CourseCreation] Intro video upload error:', error);
+      Alert.alert('Upload Error', error?.message || 'Failed to upload intro video.');
+    } finally {
+      setIsUploadingIntroVideo(false);
+    }
+  };
+
+  const handleRemoveIntroVideo = () => {
+    updateFormData('previewVideoUrl', '');
+    setIntroVideoFileName('');
   };
 
   const getValidationErrors = (step: number): FormErrors => {
@@ -589,7 +672,7 @@ export default function CourseCreationScreen() {
         currency: 'USD',
         isFree: formData.isFree,
         thumbnailUrl: formData.thumbnailUrl || '',
-        previewVideoUrl: mappedVideos[0]?.videoUrl || '',
+        previewVideoUrl: formData.previewVideoUrl.trim() || mappedVideos[0]?.videoUrl || '',
         duration: parsedDuration,
         durationText: `${parsedDuration} minutes`,
         lessonsCount: mappedVideos.length,
@@ -698,6 +781,122 @@ export default function CourseCreationScreen() {
           <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 6 }}>
             {errors.description}
           </Text>
+        )}
+      </View>
+
+      <View>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+          Intro Video (Optional)
+        </Text>
+        {formData.previewVideoUrl ? (
+          <View style={{ marginTop: 4 }}>
+            <Text style={{ fontSize: 12, fontWeight: '500', color: COLORS.gray, marginBottom: 6 }}>
+              Video Preview
+            </Text>
+
+            <TouchableOpacity
+              style={{
+                borderWidth: 1,
+                borderColor: COLORS.gray,
+                borderRadius: 8,
+                overflow: 'hidden',
+                backgroundColor: '#000',
+                position: 'relative',
+              }}
+              onPress={() => openVideoPreview(formData.previewVideoUrl)}
+            >
+              <View
+                style={{
+                  width: '100%',
+                  height: 200,
+                  backgroundColor: '#000',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: COLORS.white, fontSize: 20, fontWeight: '700' }}>▶</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 8,
+                marginTop: 8,
+              }}
+            >
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 10,
+                  backgroundColor: COLORS.blue,
+                  borderRadius: 6,
+                }}
+                onPress={handleUploadIntroVideo}
+                disabled={isUploadingIntroVideo}
+              >
+                {isUploadingIntroVideo ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '500' }}>
+                    Replace Video
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 10,
+                  backgroundColor: '#DC2626',
+                  borderRadius: 6,
+                }}
+                onPress={handleRemoveIntroVideo}
+                disabled={isUploadingIntroVideo}
+              >
+                <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '500' }}>
+                  Remove Video
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 10, color: COLORS.gray, marginTop: 4 }}>
+              {introVideoFileName || 'Intro video uploaded'}
+            </Text>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={{
+                borderWidth: 1,
+                borderColor: COLORS.gray,
+                borderRadius: 8,
+                padding: 12,
+                backgroundColor: COLORS.white,
+                marginBottom: 6,
+              }}
+              onPress={handleUploadIntroVideo}
+              disabled={isUploadingIntroVideo}
+            >
+              {isUploadingIntroVideo ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color={COLORS.green} />
+                  <Text style={{ marginLeft: 8, color: COLORS.gray }}>Uploading intro video...</Text>
+                </View>
+              ) : (
+                <Text style={{ color: COLORS.black }}>Tap to upload intro video</Text>
+              )}
+            </TouchableOpacity>
+            <Text style={{ marginTop: 4, fontSize: 12, color: COLORS.gray }}>
+              If not uploaded, first lesson video is used as intro preview.
+            </Text>
+          </>
         )}
       </View>
 
@@ -920,10 +1119,7 @@ export default function CourseCreationScreen() {
                     position: 'relative'
                   }}
                   onPress={() => {
-                    // Open video player modal
-                    setCurrentVideoUrl(video.videoUrl);
-                    setShowVideoPlayer(true);
-                    console.log('🎬 [CourseCreation] Opening video player for:', video.videoUrl);
+                    openVideoPreview(video.videoUrl);
                   }}
                 >
                   <Image
@@ -1390,6 +1586,13 @@ export default function CourseCreationScreen() {
           </View>
 
           <View>
+            <Text style={{ fontSize: 14, color: COLORS.gray }}>Preview video:</Text>
+            <Text style={{ fontSize: 14, color: COLORS.black }}>
+              {formData.previewVideoUrl.trim() ? 'Intro video uploaded' : 'Uses first lesson video'}
+            </Text>
+          </View>
+
+          <View>
             <Text style={{ fontSize: 14, color: COLORS.gray }}>Duration:</Text>
             <Text style={{ fontSize: 14, color: COLORS.black }}>
               {formData.durationMinutes || 0} minutes
@@ -1470,7 +1673,7 @@ export default function CourseCreationScreen() {
         borderBottomWidth: 1,
         borderBottomColor: COLORS.lightGray,
       }}>
-        {STEPS.map((step, index) => (
+        {STEPS.map((step) => (
           <View key={step.id} style={{ flex: 1, alignItems: 'center' }}>
             <View style={{
               width: 32,
@@ -1616,41 +1819,28 @@ export default function CourseCreationScreen() {
       >
         <View style={{ 
           flex: 1, 
-          backgroundColor: 'transparent',
+          backgroundColor: 'rgba(0,0,0,0.7)',
           justifyContent: 'center',
           alignItems: 'center'
         }}>
-          {/* Modal Content */}
           <View style={{
-            width: '90%',
-            maxWidth: 500,
+            width: '92%',
+            maxWidth: 520,
             backgroundColor: '#000',
-            borderRadius: 16,
+            borderRadius: 14,
             overflow: 'hidden',
-            elevation: 10,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.5,
-            shadowRadius: 20
           }}>
-            {/* Header */}
             <View style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              paddingHorizontal: 20,
-              paddingTop: 20,
-              paddingBottom: 15,
-              backgroundColor: 'rgba(0,0,0,0.9)'
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              backgroundColor: '#121212',
             }}>
-              <Text style={{ 
-                color: '#fff', 
-                fontSize: 18, 
-                fontWeight: '600' 
-              }}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
                 Video Preview
               </Text>
-              
               <TouchableOpacity
                 onPress={() => {
                   setShowVideoPlayer(false);
@@ -1658,106 +1848,50 @@ export default function CourseCreationScreen() {
                   setIsVideoPlaying(false);
                 }}
                 style={{
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  borderRadius: 20,
-                  width: 36,
-                  height: 36,
-                  justifyContent: 'center',
-                  alignItems: 'center'
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255,255,255,0.18)',
                 }}
               >
-                <Text style={{ 
-                  color: '#fff', 
-                  fontSize: 18, 
-                  fontWeight: 'bold' 
-                }}>
-                  ×
-                </Text>
+                <Text style={{ color: '#fff', fontWeight: '600' }}>Close</Text>
               </TouchableOpacity>
             </View>
-            
-            {/* Video Player Container */}
-            <View style={{ 
-              aspectRatio: 16/9,
-              backgroundColor: '#000'
-            }}>
-              {/* Actual Video Player */}
-              <Video
-                ref={videoRef}
-                source={{ uri: currentVideoUrl }}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                }}
-                resizeMode="contain"
-                controls={false}
-                paused={!isVideoPlaying}
-                onLoad={() => {
-                  console.log('🎬 [CourseCreation] Video loaded successfully');
-                }}
-                onError={(error: any) => {
-                  console.error('❌ [CourseCreation] Video error:', error);
-                }}
-              />
-              
-              {/* Custom Play/Pause Overlay */}
-              <TouchableOpacity
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  backgroundColor: 'transparent'
-                }}
-                onPress={() => {
-                  if (isVideoPlaying) {
-                    setIsVideoPlaying(false);
-                  } else {
-                    setIsVideoPlaying(true);
-                  }
-                }}
-              >
-                <View style={{
-                  backgroundColor: 'rgba(0,0,0,0.6)',
-                  borderRadius: 50,
-                  width: 60,
-                  height: 60,
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}>
-                  <Text style={{ 
-                    color: '#fff', 
-                    fontSize: 24, 
-                    fontWeight: 'bold' 
-                  }}>
-                    {isVideoPlaying ? '❚❚' : '▶'}
+
+            <View style={{ aspectRatio: 16 / 9, backgroundColor: '#000' }}>
+              {nativeVideoAvailable ? (
+                <Video
+                  ref={videoRef}
+                  source={{ uri: currentVideoUrl }}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode="contain"
+                  controls={true}
+                  paused={!isVideoPlaying}
+                  onLoad={() => setIsVideoPlaying(true)}
+                  onError={(error: any) => {
+                    console.error('❌ [CourseCreation] Video error:', error);
+                    Alert.alert('Preview error', 'Could not play this video.');
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    paddingHorizontal: 16,
+                  }}
+                >
+                  <Text style={{ color: '#fff', textAlign: 'center', fontSize: 14 }}>
+                    Video preview is unavailable in this build.
                   </Text>
                 </View>
-              </TouchableOpacity>
-            </View>
-            
-            {/* Instructions */}
-            <View style={{
-              paddingHorizontal: 20,
-              paddingVertical: 15,
-              backgroundColor: 'rgba(0,0,0,0.9)'
-            }}>
-              <Text style={{ 
-                color: '#fff', 
-                fontSize: 13,
-                opacity: 0.8,
-                textAlign: 'center'
-              }}>
-                Tap the video to play or pause
-              </Text>
+              )}
             </View>
           </View>
         </View>
       </Modal>
-      
+
       {/* Success Modal */}
       <Modal
         visible={showSuccessModal}

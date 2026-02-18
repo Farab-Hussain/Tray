@@ -64,6 +64,44 @@ const calculateEndTime = (
   return result;
 };
 
+const parseTimeToMinutes = (timeStr: string): number => {
+  const timeMatch = (timeStr || '').match(/(\d+)[:.](\d+)\s*(AM|PM)/i);
+  if (!timeMatch) {
+    return -1;
+  }
+
+  let hours = parseInt(timeMatch[1], 10);
+  const minutes = parseInt(timeMatch[2], 10);
+  const period = (timeMatch[3] || '').toUpperCase();
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return -1;
+  }
+
+  if (period === 'PM' && hours !== 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+
+  return hours * 60 + minutes;
+};
+
+const formatTimeFromMinutes = (minutesTotal: number): string => {
+  const total = ((minutesTotal % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const hours24 = Math.floor(total / 60);
+  const minutes = total % 60;
+  const period = hours24 >= 12 ? 'PM' : 'AM';
+  let hours12 = hours24 % 12;
+  if (hours12 === 0) hours12 = 12;
+  return `${String(hours12).padStart(2, '0')}:${String(minutes).padStart(
+    2,
+    '0',
+  )} ${period}`;
+};
+
+const extractStartFromSlot = (slotLabel: string): string => {
+  const [start] = (slotLabel || '').split(' - ');
+  return (start || slotLabel || '').trim();
+};
+
 const BookingSlots = ({ navigation, route }: any) => {
   const { user } = useAuth();
   // Determine user role from navigation state or route params
@@ -163,6 +201,43 @@ const BookingSlots = ({ navigation, route }: any) => {
   // Helper function to get time slots for specific date (new format)
   const getTimeSlotsForSpecificDate = useCallback(
     (dateString: string): string[] => {
+      const serviceDurationMinutes =
+        typeof serviceDuration === 'number' && serviceDuration > 0
+          ? serviceDuration
+          : 60;
+
+      const windows = Array.isArray(consultantAvailability?.availabilityWindows)
+        ? consultantAvailability.availabilityWindows
+        : [];
+
+      if (windows.length > 0) {
+        const generatedSlots = windows
+          .filter((windowEntry: any) => windowEntry?.date === dateString)
+          .flatMap((windowEntry: any) => {
+            const start = parseTimeToMinutes(windowEntry?.startTime || '');
+            const end = parseTimeToMinutes(windowEntry?.endTime || '');
+            if (start < 0 || end < 0 || end <= start) {
+              return [];
+            }
+
+            const labels: string[] = [];
+            let cursor = start;
+            while (cursor + serviceDurationMinutes <= end) {
+              labels.push(
+                `${formatTimeFromMinutes(cursor)} - ${formatTimeFromMinutes(
+                  cursor + serviceDurationMinutes,
+                )}`,
+              );
+              cursor += serviceDurationMinutes;
+            }
+            return labels;
+          });
+
+        if (generatedSlots.length > 0) {
+          return Array.from(new Set(generatedSlots));
+        }
+      }
+
       if (!consultantAvailability?.availabilitySlots) return [];
 
       const slot = consultantAvailability.availabilitySlots.find(
@@ -170,7 +245,7 @@ const BookingSlots = ({ navigation, route }: any) => {
       );
       return slot ? slot.timeSlots : [];
     },
-    [consultantAvailability],
+    [consultantAvailability, serviceDuration],
   );
 
   // Helper function to fetch booked slots for consultant
@@ -215,7 +290,8 @@ const BookingSlots = ({ navigation, route }: any) => {
   const isSlotBooked = useCallback(
     (date: string, time: string): boolean => {
       const slotKey = `${date}_${time}`;
-      return bookedSlots.has(slotKey);
+      const startOnlyKey = `${date}_${extractStartFromSlot(time)}`;
+      return bookedSlots.has(slotKey) || bookedSlots.has(startOnlyKey);
     },
     [bookedSlots],
   );
@@ -488,6 +564,35 @@ const BookingSlots = ({ navigation, route }: any) => {
   const timeSlots =
     availableSlots.length > 0 ? availableSlots : defaultTimeSlots;
 
+  const slotStateStats = useMemo(() => {
+    if (!selectedDate || timeSlots.length === 0) {
+      return { total: 0, bookedByOthers: 0, alreadyAdded: 0, open: 0 };
+    }
+
+    let bookedByOthers = 0;
+    let alreadyAdded = 0;
+
+    timeSlots.forEach(slot => {
+      const slotStart = extractStartFromSlot(slot);
+      const added = selectedSlots.some(
+        s => s.date === selectedDate && s.startTime === slotStart,
+      );
+      const booked = isSlotBooked(selectedDate, slot);
+      if (added) {
+        alreadyAdded += 1;
+      } else if (booked) {
+        bookedByOthers += 1;
+      }
+    });
+
+    return {
+      total: timeSlots.length,
+      bookedByOthers,
+      alreadyAdded,
+      open: Math.max(timeSlots.length - bookedByOthers - alreadyAdded, 0),
+    };
+  }, [selectedDate, timeSlots, selectedSlots, isSlotBooked]);
+
   // Handle time slot selection/deselection
   const handleTimeSlotToggle = (timeSlot: string) => {
     setSelectedTimeSlots(prev => {
@@ -517,7 +622,7 @@ const BookingSlots = ({ navigation, route }: any) => {
       const { startDisplay, endDisplay } = parseSlotTime(slotString);
       return {
         date: selectedDate,
-        startTime: slotString,
+        startTime: startDisplay || extractStartFromSlot(slotString),
         endTime: endDisplay,
         displayStartTime: startDisplay,
         displayEndTime: endDisplay,
@@ -790,14 +895,26 @@ const BookingSlots = ({ navigation, route }: any) => {
                   </View>
                 )}
 
+              <View style={mergedStyles.slotLegendRow}>
+                <Text style={mergedStyles.slotLegendText}>
+                  Open: {slotStateStats.open}
+                </Text>
+                <Text style={mergedStyles.slotLegendText}>
+                  Booked: {slotStateStats.bookedByOthers}
+                </Text>
+                <Text style={mergedStyles.slotLegendText}>
+                  Added: {slotStateStats.alreadyAdded}
+                </Text>
+              </View>
+
               <View style={styles.timeSlotsGrid}>
                 {timeSlots.map((slot, index) => {
+                  const slotStart = extractStartFromSlot(slot);
                   const isAlreadyBooked = selectedSlots.some(
-                    s => s.date === selectedDate && s.startTime === slot,
+                    s => s.date === selectedDate && s.startTime === slotStart,
                   );
                   const isCurrentlySelected = selectedTimeSlots.includes(slot);
                   const isSlotBookedByOthers = isSlotBooked(selectedDate, slot);
-                  const isUnavailable = isAlreadyBooked || isSlotBookedByOthers;
 
                   return (
                     <TouchableOpacity
@@ -808,10 +925,23 @@ const BookingSlots = ({ navigation, route }: any) => {
                         isSlotBookedByOthers && mergedStyles.bookedByOthersSlot,
                         isAlreadyBooked && styles.bookedTimeSlot,
                       ]}
-                      onPress={() =>
-                        !isUnavailable && handleTimeSlotToggle(slot)
-                      }
-                      disabled={isUnavailable}
+                      onPress={() => {
+                        if (isAlreadyBooked) {
+                          Alert.alert(
+                            'Already Added',
+                            'This slot is already in your selected sessions list.',
+                          );
+                          return;
+                        }
+                        if (isSlotBookedByOthers) {
+                          Alert.alert(
+                            'Slot Unavailable',
+                            'This slot has already been booked. Please choose another available slot.',
+                          );
+                          return;
+                        }
+                        handleTimeSlotToggle(slot);
+                      }}
                     >
                       <Text
                         style={[
@@ -1060,6 +1190,21 @@ const additionalStyles = {
     fontSize: 14,
     fontWeight: '500' as const,
     textAlign: 'center' as const,
+  },
+  slotLegendRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    backgroundColor: COLORS.lightBackground,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+    marginHorizontal: 16,
+  },
+  slotLegendText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: COLORS.black,
   },
 };
 

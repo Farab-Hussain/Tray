@@ -13,6 +13,13 @@ interface ApplicationInput {
   };
 }
 
+interface AvailabilitySchedule {
+  dayOfWeek?: string;
+  startTime?: string;
+  endTime?: string;
+  timezone?: string;
+}
+
 interface ServiceData {
   consultantId: string;
   title: string;
@@ -137,6 +144,15 @@ export const consultantFlowAPI = {
   getAnalytics: () => api.get('/consultant-flow/admin/analytics'),
 };
 
+// ========== Course Admin API ==========
+
+export const courseAdminAPI = {
+  getPendingCourses: () => api.get('/courses/admin/pending'),
+  approveCourse: (courseId: string) => api.post(`/courses/${courseId}/approve`),
+  rejectCourse: (courseId: string, reason: string) =>
+    api.post(`/courses/${courseId}/reject`, { reason }),
+};
+
 // ========== Activity API ==========
 
 export const activityAPI = {
@@ -189,4 +205,3 @@ export const reviewAPI = {
 };
 
 export default api;
-

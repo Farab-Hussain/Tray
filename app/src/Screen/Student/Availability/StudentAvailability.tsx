@@ -22,6 +22,36 @@ interface AvailabilitySlot {
   timeSlots: string[];
 }
 
+interface AvailabilityWindow {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+const parseTimeToMinutes = (timeStr: string): number => {
+  const match = (timeStr || '').match(/(\d+)[:.](\d+)\s*(AM|PM)/i);
+  if (!match) return -1;
+
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const period = (match[3] || '').toUpperCase();
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return -1;
+
+  if (period === 'PM' && hours !== 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+};
+
+const formatTimeFromMinutes = (minutesTotal: number): string => {
+  const total = ((minutesTotal % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hours24 = Math.floor(total / 60);
+  const minutes = total % 60;
+  const period = hours24 >= 12 ? 'PM' : 'AM';
+  let hours12 = hours24 % 12;
+  if (hours12 === 0) hours12 = 12;
+  return `${String(hours12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
+};
+
 const StudentAvailability = ({ navigation, route }: any) => {
   const { consultantId } = route.params || {};
   // Multiple date selection support
@@ -30,6 +60,7 @@ const StudentAvailability = ({ navigation, route }: any) => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
   const [availability, setAvailability] = useState<AvailabilitySchedule | null>(null);
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+  const [availabilityWindows, setAvailabilityWindows] = useState<AvailabilityWindow[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
 
@@ -59,9 +90,39 @@ const StudentAvailability = ({ navigation, route }: any) => {
 
   // Helper function to get time slots for specific date (new format)
   const getTimeSlotsForSpecificDate = useCallback((dateString: string): string[] => {
+    if (availabilityWindows.length > 0) {
+      const SLOT_DURATION_MINUTES = 60;
+      const generatedSlots = availabilityWindows
+        .filter(windowEntry => windowEntry?.date === dateString)
+        .flatMap(windowEntry => {
+          const start = parseTimeToMinutes(windowEntry?.startTime || '');
+          const end = parseTimeToMinutes(windowEntry?.endTime || '');
+          if (start < 0 || end < 0 || end <= start) {
+            return [];
+          }
+
+          const labels: string[] = [];
+          let cursor = start;
+          while (cursor + SLOT_DURATION_MINUTES <= end) {
+            labels.push(
+              `${formatTimeFromMinutes(cursor)} - ${formatTimeFromMinutes(
+                cursor + SLOT_DURATION_MINUTES,
+              )}`,
+            );
+            cursor += SLOT_DURATION_MINUTES;
+          }
+
+          return labels;
+        });
+
+      if (generatedSlots.length > 0) {
+        return Array.from(new Set(generatedSlots));
+      }
+    }
+
     const slot = availabilitySlots.find(s => s.date === dateString);
     return slot ? slot.timeSlots : [];
-  }, [availabilitySlots]);
+  }, [availabilitySlots, availabilityWindows]);
 
   // Helper function to generate time slots for a specific day (legacy format)
   const generateTimeSlotsForDay = useCallback((dayName: string): string[] => {
@@ -100,6 +161,12 @@ const StudentAvailability = ({ navigation, route }: any) => {
         };
 
         if (response?.available) {
+          if (Array.isArray(response.availabilityWindows)) {
+            setAvailabilityWindows(response.availabilityWindows);
+          } else {
+            setAvailabilityWindows([]);
+          }
+
           if (response.availabilitySlots && response.availabilitySlots.length > 0) {
             setAvailabilitySlots(response.availabilitySlots);
                         if (__DEV__) {
@@ -119,6 +186,9 @@ const StudentAvailability = ({ navigation, route }: any) => {
                     if (__DEV__) {
             console.log('⚠️ Consultant not available:', response?.message)
           };
+          setAvailabilityWindows([]);
+          setAvailabilitySlots([]);
+          setAvailability(null);
           // Non-blocking info toast instead of alert
         }
       } catch (err: any) {
@@ -128,6 +198,7 @@ const StudentAvailability = ({ navigation, route }: any) => {
             console.log('ℹ️ Availability API returned 404 - treating as no availability.')
           };
           setAvailabilitySlots([]);
+          setAvailabilityWindows([]);
           setAvailability(null);
         } else {
           throw err;
@@ -164,7 +235,7 @@ const StudentAvailability = ({ navigation, route }: any) => {
     const slots = generateTimeSlotsForDay(dayName);
     setAvailableSlots(slots);
     setSelectedTimeSlot(''); // Reset selected time slot when date changes
-  }, [activeDate, availability, availabilitySlots, getTimeSlotsForSpecificDate, generateTimeSlotsForDay]);
+  }, [activeDate, availability, availabilitySlots, availabilityWindows, getTimeSlotsForSpecificDate, generateTimeSlotsForDay]);
 
   const handleBookSlot = () => {
     if (selectedDates.length === 0 || !selectedTimeSlot) {

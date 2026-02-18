@@ -78,12 +78,38 @@ export class CompanyService {
    */
   static async getByUserId(userId: string): Promise<Company[]> {
     try {
-      const snapshot = await db.collection('companies')
-        .where('postedBy', '==', userId)
-        .orderBy('createdAt', 'desc')
-        .get();
+      try {
+        const snapshot = await db.collection('companies')
+          .where('postedBy', '==', userId)
+          .orderBy('createdAt', 'desc')
+          .get();
 
-      return snapshot.docs.map(doc => doc.data() as Company);
+        return snapshot.docs.map(doc => doc.data() as Company);
+      } catch (error: any) {
+        const message = error?.message || '';
+        const code = error?.code || '';
+        const isMissingIndex =
+          code === 9 ||
+          code === '9' ||
+          message.includes('FAILED_PRECONDITION') ||
+          message.toLowerCase().includes('requires an index');
+
+        if (!isMissingIndex) {
+          throw error;
+        }
+
+        Logger.warn('Company', userId, 'Missing index for getByUserId ordered query; using fallback query');
+        const fallbackSnapshot = await db.collection('companies')
+          .where('postedBy', '==', userId)
+          .get();
+        const companies = fallbackSnapshot.docs.map(doc => doc.data() as Company);
+        companies.sort((a, b) => {
+          const aTime = new Date(a?.createdAt || 0).getTime();
+          const bTime = new Date(b?.createdAt || 0).getTime();
+          return bTime - aTime;
+        });
+        return companies;
+      }
     } catch (error: any) {
       Logger.error('Company', userId, `Failed to get companies by user: ${error.message}`, error);
       throw error;

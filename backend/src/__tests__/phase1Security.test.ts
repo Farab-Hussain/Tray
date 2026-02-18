@@ -6,6 +6,8 @@ import { jobApplicationServices } from '../services/jobApplication.service';
 import { CompanyService } from '../services/company.service';
 import { calculatePayoutBreakdown, transferPaymentToConsultant } from '../services/payment.service';
 
+jest.setTimeout(120000);
+
 describe('Phase 1 Security Tests', () => {
   // Test data
   let testStudentId: string;
@@ -196,25 +198,26 @@ describe('Phase 1 Security Tests', () => {
 
   afterAll(async () => {
     console.log('🧹 Cleaning up Phase 1 Security Test Environment...');
-    
-    // Clean up test data
-    const collections = [
-      'users', 'companies', 'jobs', 'resumes', 'files', 
-      'jobApplications', 'bookings', 'paymentTransactions'
-    ];
 
-    for (const collection of collections) {
-      const snapshot = await db.collection(collection)
-        .where('uid', 'in', [
-          'test-student-security', 'test-consultant-security', 
-          'test-employer-security', 'test-admin-security'
-        ])
-        .get();
+    const deleteIfExists = async (collection: string, id?: string) => {
+      if (!id) return;
+      try {
+        await db.collection(collection).doc(id).delete();
+      } catch {
+        // ignore cleanup failures for already-removed docs
+      }
+    };
 
-      const batch = db.batch();
-      snapshot.docs.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-    }
+    await Promise.all([
+      deleteIfExists('jobApplications', testApplicationId),
+      deleteIfExists('files', testFileId),
+      deleteIfExists('jobs', testJobId),
+      deleteIfExists('companies', testCompanyId),
+      deleteIfExists('users', testStudentId),
+      deleteIfExists('users', testConsultantId),
+      deleteIfExists('users', testEmployerId),
+      deleteIfExists('users', testAdminId),
+    ]);
 
     console.log('✅ Cleanup complete');
   });

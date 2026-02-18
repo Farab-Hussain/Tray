@@ -3,11 +3,11 @@
  */
 
 export const adminAuth = async () => {
-  // Return a mock admin token for testing
+  // Test token is intentionally invalid for most route-level tests.
   return 'mock-admin-token';
 };
 
 export const consultantAuth = async () => {
-  // Return a mock consultant token for testing
-  return 'mock-consultant-token';
+  // Matches middleware test bypass for consultant routes.
+  return 'test-token-consultant-459';
 };

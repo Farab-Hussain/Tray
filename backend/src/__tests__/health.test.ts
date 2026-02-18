@@ -9,7 +9,7 @@ describe('Health Check', () => {
     expect(response.body).toHaveProperty('status');
     expect(response.body.status).toBe('healthy');
     expect(response.body).toHaveProperty('timestamp');
-    expect(response.body).toHaveProperty('firebase');
+    expect(response.body).toHaveProperty('services.firebase');
   });
 });
 
@@ -21,4 +21,3 @@ describe('Root Endpoint', () => {
     expect(response.text).toContain('Backend running');
   });
 });
-

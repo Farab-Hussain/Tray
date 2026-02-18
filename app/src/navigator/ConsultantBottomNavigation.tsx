@@ -7,6 +7,7 @@ import {
   Calendar,
   MessageCircle,
   BookOpen,
+  User,
   // Bell,
   // User,
 } from 'lucide-react-native';
@@ -16,6 +17,7 @@ import ConsultantHome from '../Screen/Consultant/Home/ConsultantHome';
 import CourseManagementNavigator from '../navigation/CourseManagementNavigator';
 import ConsultantAvailability from '../Screen/Consultant/Availability/ConsultantAvailability';
 import Messages from '../Screen/common/Messages/Messages';
+import ConsultantServices from '../Screen/Consultant/Services/ConsultantServices';
 // import Notifications from '../Screen/common/Notifications/Notifications';
 import ConsultantAccount from '../Screen/Consultant/Account/ConsultantAccount';
 // import ServiceManagementScreen from '../Screen/Consultant/CourseManagement/ServiceManagementScreen';
@@ -82,7 +84,7 @@ const getTabIcon = (routeName: string, color: string, size: number) => {
     case 'ConsultantAccount':
       return (
         <View style={iconStyle}>
-          <Home size={size} color={color} />
+          <User size={size} color={color} />
         </View>
       );
     default:
@@ -123,6 +125,14 @@ const ConsultantBottomTabs = () => {
         }}
       />
       
+      <Tab.Screen
+        name="ConsultantServices"
+        component={ConsultantServices}
+        options={{
+          tabBarLabel: 'Services',
+        }}
+      />
+
       <Tab.Screen
         name="CourseManagement"
         component={CourseManagementNavigator}

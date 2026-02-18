@@ -14,17 +14,33 @@ cloudinary.config({
 console.log('☁️ Cloudinary configured with cloud name:', process.env.CLOUDINARY_CLOUD_NAME);
 
 // Configure multer for memory storage - VIDEO UPLOAD ENABLED
-const upload = multer({
+const IMAGE_MAX_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
+const VIDEO_MAX_SIZE_BYTES = Number(process.env.MAX_SERVICE_VIDEO_SIZE_MB || 500) * 1024 * 1024; // default 500MB
+
+const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit (images and videos)
+    fileSize: IMAGE_MAX_SIZE_BYTES,
   },
   fileFilter: (req, file, cb) => {
-    // Check file type - allow both images and videos
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+    if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image and video files are allowed!') as any, false);
+      cb(new Error('Only image files are allowed for this endpoint!') as any, false);
+    }
+  },
+});
+
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: VIDEO_MAX_SIZE_BYTES,
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only video files are allowed for this endpoint!') as any, false);
     }
   },
 });
@@ -55,11 +71,17 @@ export const uploadSingle = (req: Request, res: Response, next: any) => {
   console.log('📎 [uploadSingle] Content-Type:', req.headers['content-type']);
   console.log('📎 [uploadSingle] Content-Length:', req.headers['content-length']);
   
-  // Use .any() to accept any field name (image or video)
-  // This is more flexible and handles both field names
-  upload.any()(req, res, (err: any) => {
+  // Use endpoint-specific multer config so videos can have a higher size limit.
+  const isVideoEndpoint = req.path.includes('service-video') || req.originalUrl.includes('service-video');
+  const uploader = isVideoEndpoint ? videoUpload : imageUpload;
+
+  uploader.any()(req, res, (err: any) => {
     if (err) {
       console.error('❌ [uploadSingle] Multer error:', err.message);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        const maxMB = isVideoEndpoint ? Math.round(VIDEO_MAX_SIZE_BYTES / (1024 * 1024)) : Math.round(IMAGE_MAX_SIZE_BYTES / (1024 * 1024));
+        return res.status(400).json({ error: `File too large. Maximum allowed size is ${maxMB}MB.` });
+      }
       return res.status(400).json({ error: err.message || 'File upload error' });
     }
     
@@ -568,7 +590,7 @@ export const getUploadSignature = async (req: Request, res: Response) => {
   }
 };
 
-// Upload service video (NEW FUNCTION)
+// Upload service video (NEW FUNCTION) with Cloudinary limit handling
 export const uploadServiceVideo = async (req: Request, res: Response) => {
   const startTime = Date.now();
   let cloudinaryUploadCompleted = false;
@@ -588,21 +610,52 @@ export const uploadServiceVideo = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Only video files are allowed" });
     }
 
-    console.log('📤 [uploadServiceVideo] Uploading video for user:', userId, 'File size:', file.size, 'bytes');
+    const fileSizeMB = Math.round(file.size / (1024 * 1024));
+    console.log('📤 [uploadServiceVideo] Uploading video for user:', userId, 'File size:', fileSizeMB, 'MB');
 
-    // Set a longer timeout for video uploads (20 minutes for large videos)
-    req.setTimeout(1200000); // 20 minutes
-    res.setTimeout(1200000);
+    // Check Cloudinary free tier limit (100MB) and provide helpful feedback
+    if (file.size > 100 * 1024 * 1024) {
+      console.warn('⚠️ [uploadServiceVideo] File exceeds Cloudinary free tier limit:', fileSizeMB, 'MB');
+      return res.status(413).json({ 
+        error: `Video file is too large for current Cloudinary plan. Maximum allowed size is 100MB. Current size: ${fileSizeMB}MB. Please compress your video or upgrade your Cloudinary account to a paid plan for larger file support.`,
+        requiresUpgrade: true,
+        maxSize: 100,
+        currentSize: fileSizeMB,
+        suggestions: [
+          "Compress the video using a video editor before uploading",
+          "Split the video into smaller segments",
+          "Upgrade Cloudinary account for larger file support"
+        ]
+      });
+    }
 
-    // Upload to Cloudinary with timeout
+    // Set extended timeout for large video uploads (up to 100MB)
+    req.setTimeout(1800000); // 30 minutes for 100MB files
+    res.setTimeout(1800000);
+
+    // Upload to Cloudinary with optimized settings
     const cloudinaryPromise = new Promise((resolve, reject) => {
+      const uploadOptions: any = {
+        resource_type: 'video',
+        folder: 'tray/service-videos',
+        public_id: `${userId}/${randomUUID()}`,
+        timeout: 1800000, // 30 minute timeout
+        // Enable chunked uploads for better performance with large files
+        chunk_size: 10000000, // 10MB chunks for reliable uploads
+        // Optimize video for web delivery
+        format: 'mp4',
+        quality: 'auto:good', // Balanced quality and file size
+        eager_async: true, // Process transformations asynchronously
+      };
+
+      console.log('📤 [uploadServiceVideo] Upload options:', {
+        chunk_size: uploadOptions.chunk_size,
+        quality: uploadOptions.quality,
+        timeout: uploadOptions.timeout
+      });
+
       const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'video',
-          folder: 'tray/service-videos',
-          public_id: `${userId}/${randomUUID()}`,
-          timeout: 1200000, // 20 minute timeout for Cloudinary
-        },
+        uploadOptions,
         (error, result) => {
           if (error) {
             console.error('❌ [uploadServiceVideo] Cloudinary upload error:', error);
@@ -618,14 +671,14 @@ export const uploadServiceVideo = async (req: Request, res: Response) => {
       uploadStream.end(file.buffer);
     });
 
-    // Add timeout wrapper for Cloudinary upload
+    // Add timeout wrapper for Cloudinary upload (30 minutes for 100MB limit)
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
         if (!cloudinaryUploadCompleted) {
-          console.error('❌ [uploadServiceVideo] Cloudinary upload timeout after 20 minutes');
+          console.error('❌ [uploadServiceVideo] Cloudinary upload timeout after 30 minutes');
           reject(new Error('Cloudinary upload timeout'));
         }
-      }, 1200000);
+      }, 1800000); // 30 minutes (Cloudinary limit support)
     });
 
     const result = await Promise.race([cloudinaryPromise, timeoutPromise]);

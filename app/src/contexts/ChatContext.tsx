@@ -26,6 +26,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [userId, setUserId] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
+  const inFlightRefreshRef = React.useRef<Promise<void> | null>(null);
+  const lastRefreshAtRef = React.useRef<number>(0);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, user => {
@@ -34,7 +36,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => unsub();
   }, []);
 
-  const refreshTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshChatsRef = React.useRef<(() => Promise<void>) | null>(null);
   
   const refreshChats = useCallback(async () => {
@@ -44,30 +45,44 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       return;
     }
-    
-    // Debounce: Clear any pending refresh
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current);
+
+    if (inFlightRefreshRef.current) {
+      await inFlightRefreshRef.current;
+      return;
     }
-    
-    // Schedule refresh after 300ms (debounce)
-    refreshTimeoutRef.current = setTimeout(async () => {
-            if (__DEV__) {
+
+    const now = Date.now();
+    // Throttle bursts from multiple contexts/screens calling refresh simultaneously.
+    if (now - lastRefreshAtRef.current < 1500) {
+      return;
+    }
+
+    const task = (async () => {
+      if (__DEV__) {
         console.log('🔄 [ChatContext] Refreshing chats for user:', userId)
-      };
+      }
       try {
         const userChats = await ChatService.fetchUserChats(userId);
-                if (__DEV__) {
+        if (__DEV__) {
           console.log('📥 [ChatContext] Received chats:', userChats.length)
-        };
+        }
         setChats(userChats);
       } catch (error) {
-                if (__DEV__) {
+        if (__DEV__) {
           console.error('❌ [ChatContext] Error refreshing chats:', error)
-        };
+        }
         setChats([]);
+      } finally {
+        lastRefreshAtRef.current = Date.now();
       }
-    }, 300);
+    })();
+
+    inFlightRefreshRef.current = task;
+    try {
+      await task;
+    } finally {
+      inFlightRefreshRef.current = null;
+    }
   }, [userId]);
 
   // Update ref whenever refreshChats changes
