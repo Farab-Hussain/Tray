@@ -1,4 +1,4 @@
-#!/Users/mac/Documents/GitHub/Tray/fastapi-ai-backend/.venv/bin/python
+#!/Users/mac/Documents/Application/new/Tray/fastapi-ai-backend/.venv/bin/python3
 import sys
 from distro.distro import main
 if __name__ == '__main__':

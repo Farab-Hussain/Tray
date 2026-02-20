@@ -1,4 +1,4 @@
-#!/Users/mac/Documents/GitHub/Tray/fastapi-ai-backend/.venv/bin/python
+#!/Users/mac/Documents/Application/new/Tray/fastapi-ai-backend/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
