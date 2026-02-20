@@ -14,6 +14,7 @@ import { COLORS } from '../../../constants/core/colors';
 import PaymentService from '../../../services/payment.service';
 import { CheckCircle, XCircle, Wallet, ExternalLink, AlertCircle } from 'lucide-react-native';
 import { stripePaymentSetupStyles as styles } from '../../../constants/styles/stripePaymentSetupStyles';
+import { logger } from '../../../utils/logger';
 
 const StripePaymentSetup = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
@@ -71,7 +72,7 @@ const StripePaymentSetup = ({ navigation }: any) => {
         }
       } catch (error) {
                 if (__DEV__) {
-          console.error('Error fetching platform fee configuration:', error)
+          logger.error('Error fetching platform fee configuration:', error)
         };
       } finally {
         if (isMounted) {
@@ -93,7 +94,7 @@ const StripePaymentSetup = ({ navigation }: any) => {
       setAccountStatus(status);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error checking account status:', error)
+        logger.error('Error checking account status:', error)
       };
       Alert.alert('Error', error.message || 'Failed to check account status');
     } finally {
@@ -115,7 +116,7 @@ const StripePaymentSetup = ({ navigation }: any) => {
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error creating account:', error)
+        logger.error('Error creating account:', error)
       };
       Alert.alert('Error', error.message || 'Failed to create Stripe account');
     } finally {
@@ -137,7 +138,7 @@ const StripePaymentSetup = ({ navigation }: any) => {
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error opening onboarding:', error)
+        logger.error('Error opening onboarding:', error)
       };
       Alert.alert('Error', 'Failed to open onboarding page');
     }

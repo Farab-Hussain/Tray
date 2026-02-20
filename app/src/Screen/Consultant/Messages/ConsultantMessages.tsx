@@ -9,6 +9,8 @@ import { UserService } from '../../../services/user.service';
 import type { Chat } from '../../../types/chatTypes';
 import { COLORS } from '../../../constants/core/colors';
 import { Trash2 } from 'lucide-react-native';
+import { logger } from '../../../utils/logger';
+import { normalizeAvatarUrl } from '../../../utils/normalize';
 
 const ConsultantMessages = ({ navigation }: any) => {
   const { chats, userId, refreshChats, deleteChat } = useChatContext();
@@ -33,42 +35,27 @@ const ConsultantMessages = ({ navigation }: any) => {
         if (otherUserId && !nameMap.has(otherUserId)) {
           try {
             const userData = await UserService.getUserById(otherUserId);
-                        if (__DEV__) {
-              console.log('📥 [ConsultantMessages] User data for', otherUserId, ':', userData)
-            };
+            logger.debug('📥 [ConsultantMessages] User data loaded for', otherUserId);
             
             if (userData) {
               const userName = userData.name || userData.displayName || 'User';
-                            if (__DEV__) {
-                console.log('✅ [ConsultantMessages] Setting name:', userName)
-              };
-              
-              // Try multiple possible profile image fields
-              const profileImage = 
-                userData.profileImage || 
-                userData.avatarUrl ||
-                userData.avatar ||
-                userData.profile?.profileImage ||
-                userData.profile?.avatarUrl;
-              
-                            if (__DEV__) {
-                console.log('🖼️ [ConsultantMessages] Profile image:', profileImage)
-              };
+              const profileImage =
+                normalizeAvatarUrl(userData) ||
+                normalizeAvatarUrl({
+                  profileImage: userData?.profile?.profileImage,
+                  avatarUrl: userData?.profile?.avatarUrl,
+                });
               
               nameMap.set(otherUserId, {
                 name: userName,
                 avatar: profileImage
               });
             } else {
-                            if (__DEV__) {
-                console.log('⚠️ [ConsultantMessages] No user data for', otherUserId)
-              };
+              logger.debug('⚠️ [ConsultantMessages] No user data for', otherUserId);
               nameMap.set(otherUserId, { name: 'Student' });
             }
           } catch (error) {
-                        if (__DEV__) {
-              console.error('❌ [ConsultantMessages] Error fetching user name:', error)
-            };
+            logger.error('❌ [ConsultantMessages] Error fetching user name:', error);
             nameMap.set(otherUserId, { name: 'Student' });
           }
         }
@@ -96,9 +83,7 @@ const ConsultantMessages = ({ navigation }: any) => {
       setShowDeleteModal(false);
       setSelectedChatId(null);
     } catch (error: any) {
-            if (__DEV__) {
-        console.error('❌ Error deleting chat:', error)
-      };
+      logger.error('❌ Error deleting chat:', error);
       Alert.alert(
         'Error',
         error?.message || 'Failed to delete chat. Please try again.',
@@ -141,7 +126,7 @@ const ConsultantMessages = ({ navigation }: any) => {
               const displayName = userInfo?.name || 'Student';
               const avatar = userInfo?.avatar 
                 ? { uri: userInfo.avatar } 
-                : require('../../../assets/image/avatar.png');
+                : undefined;
               
               return (
                 <TouchableOpacity

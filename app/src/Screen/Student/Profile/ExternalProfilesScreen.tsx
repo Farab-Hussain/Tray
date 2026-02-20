@@ -13,6 +13,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { UserService } from '../../../services/user.service';
+import { logger } from '../../../utils/logger';
 import {
   Linkedin,
   Globe,
@@ -76,12 +77,12 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
         
         setProfiles(loadedProfiles);
         if (__DEV__) {
-          console.log('📥 [ExternalProfilesScreen] Loaded external profiles:', loadedProfiles);
+          logger.debug('📥 [ExternalProfilesScreen] Loaded external profiles:', loadedProfiles);
         }
       }
     } catch (error) {
       if (__DEV__) {
-        console.error('Error loading external profiles:', error);
+        logger.error('Error loading external profiles:', error);
       }
     }
   };
@@ -211,14 +212,14 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
       });
 
       if (__DEV__) {
-        console.log('💾 [ExternalProfilesScreen] Saving external profiles:', externalProfilesData);
+        logger.debug('💾 [ExternalProfilesScreen] Saving external profiles:', externalProfilesData);
       }
       
       await UserService.updateProfile({ externalProfiles: externalProfilesData });
       Alert.alert('Success', 'External profiles saved successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving external profiles:', error);
+      logger.error('Error saving external profiles:', error);
       Alert.alert('Error', 'Failed to save external profiles. Please try again.');
     } finally {
       setLoading(false);

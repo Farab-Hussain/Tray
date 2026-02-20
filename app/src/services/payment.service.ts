@@ -1,4 +1,5 @@
 import { api } from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 export interface PaymentIntentRequest {
   amount: number;
@@ -39,7 +40,7 @@ class PaymentService {
       return response.data;
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error creating payment intent:', error)
+        logger.error('Error creating payment intent:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to create payment intent');
     }
@@ -51,14 +52,14 @@ class PaymentService {
   async confirmPaymentIntent(paymentIntentId: string, paymentMethodId: string) {
     try {
             if (__DEV__) {
-        console.log('Confirming payment intent:', paymentIntentId, 'with method:', paymentMethodId)
+        logger.debug('Confirming payment intent:', paymentIntentId, 'with method:', paymentMethodId)
       };
       
       
       return { success: true, paymentIntentId };
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error confirming payment intent:', error)
+        logger.error('Error confirming payment intent:', error)
       };
       throw new Error('Failed to confirm payment');
     }
@@ -67,13 +68,13 @@ class PaymentService {
   async handlePaymentSuccess(paymentIntentId: string, bookingId: string) {
     try {
             if (__DEV__) {
-        console.log('Payment successful for booking:', bookingId)
+        logger.debug('Payment successful for booking:', bookingId)
       };
       
       return { success: true, bookingId };
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error handling payment success:', error)
+        logger.error('Error handling payment success:', error)
       };
       throw new Error('Failed to process payment success');
     }
@@ -82,14 +83,14 @@ class PaymentService {
   async handlePaymentFailure(paymentIntentId: string, bookingId: string, error: string) {
     try {
             if (__DEV__) {
-        console.log('Payment failed for booking:', bookingId, 'Error:', error)
+        logger.debug('Payment failed for booking:', bookingId, 'Error:', error)
       };
       
       
       return { success: true, bookingId, error };
     } catch (err: any) {
             if (__DEV__) {
-        console.error('Error handling payment failure:', err)
+        logger.error('Error handling payment failure:', err)
       };
       throw new Error('Failed to process payment failure');
     }
@@ -107,7 +108,7 @@ class PaymentService {
       };
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error creating Stripe Connect account:', error)
+        logger.error('Error creating Stripe Connect account:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to create Stripe account');
     }
@@ -142,7 +143,7 @@ class PaymentService {
       return response.data;
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error getting Stripe account status:', error)
+        logger.error('Error getting Stripe account status:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to get account status');
     }
@@ -159,7 +160,7 @@ class PaymentService {
       return response.data;
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching platform fee config:', error)
+        logger.error('Error fetching platform fee config:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to load platform fee configuration');
     }
@@ -171,7 +172,7 @@ class PaymentService {
       return response.data;
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error updating platform fee config:', error)
+        logger.error('Error updating platform fee config:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to update platform fee configuration');
     }
@@ -183,13 +184,13 @@ class PaymentService {
   async createJobPostingPaymentIntent(): Promise<PaymentIntentResponse> {
     try {
       if (__DEV__) {
-        console.log('Creating job posting payment intent...')
+        logger.debug('Creating job posting payment intent...')
       };
 
       const response = await api.post<PaymentIntentResponse>('/payment/job-posting/create-intent');
 
       if (__DEV__) {
-        console.log('Job posting payment intent created:', response.data)
+        logger.debug('Job posting payment intent created:', response.data)
       };
 
       return {
@@ -198,7 +199,7 @@ class PaymentService {
       };
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error creating job posting payment intent:', error)
+        logger.error('Error creating job posting payment intent:', error)
       };
       
       return {
@@ -216,7 +217,7 @@ class PaymentService {
   async confirmJobPostingPayment(paymentIntentId: string): Promise<PaymentIntentResponse> {
     try {
       if (__DEV__) {
-        console.log('Confirming job posting payment:', paymentIntentId)
+        logger.debug('Confirming job posting payment:', paymentIntentId)
       };
 
       const response = await api.post<PaymentIntentResponse>('/payment/job-posting/confirm', {
@@ -224,7 +225,7 @@ class PaymentService {
       });
 
       if (__DEV__) {
-        console.log('Job posting payment confirmed:', response.data)
+        logger.debug('Job posting payment confirmed:', response.data)
       };
 
       return {
@@ -233,7 +234,7 @@ class PaymentService {
       };
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error confirming job posting payment:', error)
+        logger.error('Error confirming job posting payment:', error)
       };
       
       return {

@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Filter, BookOpen, Users, Clock, Star, DollarSign } from 'lucide-react-native';
 import { COLORS } from '../../../constants/core/colors';
 import { courseService, Course } from '../../../services/course.service';
+import { logger } from '../../../utils/logger';
 
 export default function CourseLibraryScreen() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -43,7 +44,7 @@ export default function CourseLibraryScreen() {
       });
       setCourses(result.courses);
     } catch (error) {
-      console.error('Error loading courses:', error);
+      logger.error('Error loading courses:', error);
     } finally {
       setIsLoading(false);
     }

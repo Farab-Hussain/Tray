@@ -1,5 +1,7 @@
 import { View, Text, Image } from 'react-native';
+import { UserRound } from 'lucide-react-native';
 import { message } from '../../constants/styles/message';
+import { COLORS } from '../../constants/core/colors';
 
 type MessageProps = {
   id: string | number;
@@ -21,10 +23,18 @@ const Message = ({ name, avatar, lastMessage, time, unreadCount }: MessageProps)
   return (
     <View style={message.messageContainer}>
       <View style={message.messageHeader}>
-        <Image
-          source={avatar}
-          style={message.messageAvatar}
-        />
+        {avatar ? (
+          <Image source={avatar} style={message.messageAvatar} />
+        ) : (
+          <View
+            style={[
+              message.messageAvatar,
+              { backgroundColor: '#A5AFBD', alignItems: 'center', justifyContent: 'center' },
+            ]}
+          >
+            <UserRound size={18} color={COLORS.gray} />
+          </View>
+        )}
         <View style={message.messageNameContainer}>
           <Text style={message.messageName}>{name}</Text>
           <Text style={message.messageContent}>{lastMessage}</Text>

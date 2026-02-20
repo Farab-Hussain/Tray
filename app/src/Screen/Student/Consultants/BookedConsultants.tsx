@@ -1,16 +1,19 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView, View, Text, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
 import { bookedConsultantsStyles } from '../../../constants/styles/bookedConsultantsStyles';
 import LoadingState from '../../../components/ui/LoadingState';
-import { Calendar, Clock, Phone,  Star } from 'lucide-react-native';
+import { Calendar, Clock, Phone, Star, UserRound } from 'lucide-react-native';
 import { getStatusColor } from '../../../utils/statusUtils';
 import { BookingService } from '../../../services/booking.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { showError } from '../../../utils/toast';
+import { logger } from '../../../utils/logger';
+import { normalizeAvatarUrl, normalizeBookingStatus, normalizeTimestampToIso } from '../../../utils/normalize';
 
 const BookedConsultants = ({ navigation }: any) => {
   const [bookedConsultants, setBookedConsultants] = useState<any[]>([]);
@@ -33,7 +36,7 @@ const BookedConsultants = ({ navigation }: any) => {
     const now = Date.now();
     if (!forceRefresh && now - lastFetchTime < 3000) {
             if (__DEV__) {
-        console.log('🚫 [BookedConsultants] Skipping fetch - too soon since last fetch')
+        logger.debug('🚫 [BookedConsultants] Skipping fetch - too soon since last fetch')
       };
       return;
     }
@@ -46,29 +49,29 @@ const BookedConsultants = ({ navigation }: any) => {
     try {
       setLoading(true);
             if (__DEV__) {
-        console.log('📅 [BookedConsultants] Fetching my booked consultants...')
+        logger.debug('📅 [BookedConsultants] Fetching my booked consultants...')
       };
       const response = await BookingService.getMyConsultants();
             if (__DEV__) {
-        console.log('✅ [BookedConsultants] Booked consultants response:', response)
+        logger.debug('✅ [BookedConsultants] Booked consultants response:', response)
       };
       
       // Extract consultants array from response
       const consultantsData = response?.consultants || response?.bookings || [];
       setBookedConsultants(consultantsData);
             if (__DEV__) {
-        console.log(`✅ [BookedConsultants] Successfully loaded ${consultantsData.length} consultants`)
+        logger.debug(`✅ [BookedConsultants] Successfully loaded ${consultantsData.length} consultants`)
       };
     } catch (error: any) {
       // Mark API as unavailable on 404 to prevent repeated calls
       if (error?.response?.status === 404) {
                 if (__DEV__) {
-          console.log('⚠️ [BookedConsultants] Bookings API not available (404) - showing empty state')
+          logger.debug('⚠️ [BookedConsultants] Bookings API not available (404) - showing empty state')
         };
         setApiUnavailable(true);
       } else {
                 if (__DEV__) {
-          console.error('❌ [BookedConsultants] Error fetching booked consultants:', error?.message || error)
+          logger.error('❌ [BookedConsultants] Error fetching booked consultants:', error?.message || error)
         };
       }
       // Keep empty array on error
@@ -84,14 +87,21 @@ const BookedConsultants = ({ navigation }: any) => {
     fetchBookedConsultants(true);
   }, [fetchBookedConsultants]);
 
+  // Refresh when returning from review/edit-review screens
+  useFocusEffect(
+    useCallback(() => {
+      fetchBookedConsultants(true);
+    }, [fetchBookedConsultants]),
+  );
+
   // const handleDebugBookings = async () => {
   //   try {
-  //     console.log('🧪 Testing booking debug...');
+  //     logger.debug('🧪 Testing booking debug...');
   //     const debugData = await BookingService.debugBookings();
-  //     console.log('🔍 Debug data:', debugData);
+  //     logger.debug('🔍 Debug data:', debugData);
   //     setDebugInfo(debugData);
   //   } catch (error) {
-  //     console.error('❌ Debug error:', error);
+  //     logger.error('❌ Debug error:', error);
   //   }
   // };
 
@@ -129,16 +139,13 @@ const BookedConsultants = ({ navigation }: any) => {
         (booking: any) => booking.consultantId === consultantId,
       );
 
-      const confirmedBooking = consultantBookings.find(
-        (booking: any) =>
-          booking.status === 'accepted' ||
-          booking.status === 'approved' ||
-          booking.status === 'confirmed',
+      const confirmedBooking = consultantBookings.find((booking: any) =>
+        isActiveBookingStatus(booking.status),
       );
 
       if (!confirmedBooking) {
         const pendingBooking = consultantBookings.find(
-          (booking: any) => booking.status === 'pending',
+          (booking: any) => normalizeBookingStatus(booking.status) === 'pending',
         );
 
         let alertMessage = '';
@@ -182,7 +189,7 @@ const BookedConsultants = ({ navigation }: any) => {
       });
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error initiating call:', error);
+        logger.error('Error initiating call:', error);
       }
       showError('Unable to initiate call. Please try again.');
     }
@@ -229,27 +236,46 @@ const BookedConsultants = ({ navigation }: any) => {
           <View style={bookedConsultantsStyles.consultantsList}>
             {bookedConsultants.map((consultant) => {
               // Handle different image field names from backend
-              const imageSource = consultant.profileImage || consultant.avatarUri || consultant.avatar;
+              const imageSource = normalizeAvatarUrl({
+                profileImage: consultant.profileImage,
+                avatarUrl: consultant.avatarUri,
+                avatar: consultant.avatar,
+              });
               const consultantImage = imageSource 
                 ? (typeof imageSource === 'string' 
                     ? { uri: imageSource } 
                     : imageSource)
-                : require('../../../assets/image/avatar.png');
+                : null;
 
               // Map backend status to display status
-              const displayStatus = consultant.lastBookingStatus 
-                ? consultant.lastBookingStatus.charAt(0).toUpperCase() + consultant.lastBookingStatus.slice(1)
+              const normalizedLastBookingStatus = normalizeBookingStatus(consultant.lastBookingStatus);
+              const displayStatus = normalizedLastBookingStatus
+                ? normalizedLastBookingStatus.charAt(0).toUpperCase() + normalizedLastBookingStatus.slice(1)
                 : (consultant.status || 'Confirmed');
 
               return (
                 <View key={consultant.uid || consultant.id || consultant.bookingId} style={bookedConsultantsStyles.consultantCard}>
                   {/* Header with avatar and basic info */}
                   <View style={bookedConsultantsStyles.cardHeader}>
-                    <Image 
-                      source={consultantImage} 
-                      style={bookedConsultantsStyles.avatar}
-                      defaultSource={require('../../../assets/image/avatar.png')}
-                    />
+                    {consultantImage ? (
+                      <Image 
+                        source={consultantImage} 
+                        style={bookedConsultantsStyles.avatar}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          bookedConsultantsStyles.avatar,
+                          {
+                            backgroundColor: '#A5AFBD',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          },
+                        ]}
+                      >
+                        <UserRound size={20} color={COLORS.gray} />
+                      </View>
+                    )}
                     <View style={bookedConsultantsStyles.consultantInfo}>
                       <Text style={bookedConsultantsStyles.consultantName} numberOfLines={1}>
                         {consultant.name || consultant.consultantName || 'Consultant'}
@@ -304,7 +330,7 @@ const BookedConsultants = ({ navigation }: any) => {
                     <View style={bookedConsultantsStyles.detailRow}>
                       <Calendar size={16} color={COLORS.gray} />
                       <Text style={bookedConsultantsStyles.detailText}>
-                        Last Booking: {consultant.lastBookingDate || 'Not scheduled'}
+                        Last Booking: {normalizeTimestampToIso(consultant.lastBookingDate)?.split('T')[0] || consultant.lastBookingDate || 'Not scheduled'}
                       </Text>
                     </View>
                     <View style={bookedConsultantsStyles.detailRow}>
@@ -405,3 +431,7 @@ const BookedConsultants = ({ navigation }: any) => {
 };
 
 export default BookedConsultants;
+  const isActiveBookingStatus = (rawStatus: any) => {
+    const status = normalizeBookingStatus(rawStatus);
+    return ['pending', 'accepted', 'approved', 'confirmed'].includes(status);
+  };

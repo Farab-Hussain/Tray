@@ -91,9 +91,7 @@ const Messages = ({ navigation }: any) => {
       activeUserList.push({
         id: otherUserId,
         name: userInfo?.name || 'User',
-        avatar: userInfo?.avatar
-          ? { uri: userInfo.avatar }
-          : require('../../../assets/image/avatar.png'),
+        avatar: userInfo?.avatar ? { uri: userInfo.avatar } : undefined,
         isOnline: true,
       });
 
@@ -337,9 +335,7 @@ const Messages = ({ navigation }: any) => {
                 chat.participants?.find(p => p !== userId) || '';
               const userInfo = userNames.get(otherUserId);
               const displayName = userInfo?.name || 'User';
-              const avatar = userInfo?.avatar
-                ? { uri: userInfo.avatar }
-                : require('../../../assets/image/avatar.png');
+              const avatar = userInfo?.avatar ? { uri: userInfo.avatar } : undefined;
 
               return (
              <TouchableOpacity

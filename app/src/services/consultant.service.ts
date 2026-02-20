@@ -1,4 +1,5 @@
 import { fetcher, api }  from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 export const ConsultantService = {
   // Fetch top consultant(s)
@@ -73,18 +74,10 @@ export const ConsultantService = {
     availabilityWindows?: Array<{ date: string; startTime: string; endTime: string }>,
   ) {
     try {
-            if (__DEV__) {
-        console.log('🔧 [ConsultantService] Setting availability slots...')
-      };
-            if (__DEV__) {
-        console.log('📋 [ConsultantService] Consultant ID:', consultantId)
-      };
-            if (__DEV__) {
-        console.log('📊 [ConsultantService] Availability slots count:', availabilitySlots.length)
-      };
-            if (__DEV__) {
-        console.log('📅 [ConsultantService] Sample slots:', availabilitySlots.slice(0, 3))
-      };
+      logger.debug('🔧 [ConsultantService] Setting availability slots...');
+      logger.debug('📋 [ConsultantService] Consultant ID:', consultantId);
+      logger.debug('📊 [ConsultantService] Availability slots count:', availabilitySlots.length);
+      logger.debug('📅 [ConsultantService] Sample slots:', availabilitySlots.slice(0, 3));
       
       const response = await api.put(
         `/consultant-flow/profiles/${consultantId}/availability-slots`,
@@ -96,14 +89,10 @@ export const ConsultantService = {
         },
       );
       
-            if (__DEV__) {
-        console.log('✅ [ConsultantService] Success response:', response.data)
-      };
+      logger.debug('✅ [ConsultantService] Success response:', response.data);
       return response.data;
     } catch (error) {
-            if (__DEV__) {
-        console.error('❌ [ConsultantService] Error setting availability slots:', error)
-      };
+      logger.error('❌ [ConsultantService] Error setting availability slots:', error);
       throw error;
     }
   },
@@ -111,18 +100,10 @@ export const ConsultantService = {
   // Delete a specific availability slot
   async deleteAvailabilitySlot(consultantId: string, date: string, timeSlot: string) {
     try {
-            if (__DEV__) {
-        console.log('🗑️ [ConsultantService] Deleting availability slot...')
-      };
-            if (__DEV__) {
-        console.log('📋 [ConsultantService] Consultant ID:', consultantId)
-      };
-            if (__DEV__) {
-        console.log('📅 [ConsultantService] Date:', date)
-      };
-            if (__DEV__) {
-        console.log('⏰ [ConsultantService] Time slot:', timeSlot)
-      };
+      logger.debug('🗑️ [ConsultantService] Deleting availability slot...');
+      logger.debug('📋 [ConsultantService] Consultant ID:', consultantId);
+      logger.debug('📅 [ConsultantService] Date:', date);
+      logger.debug('⏰ [ConsultantService] Time slot:', timeSlot);
       
       // Use axios params option for query parameters in React Native
       const response = await api.delete(`/consultant-flow/profiles/${consultantId}/availability-slots`, {
@@ -132,14 +113,10 @@ export const ConsultantService = {
         }
       });
       
-            if (__DEV__) {
-        console.log('✅ [ConsultantService] Success response:', response.data)
-      };
+      logger.debug('✅ [ConsultantService] Success response:', response.data);
       return response.data;
     } catch (error: any) {
-            if (__DEV__) {
-        console.error('❌ [ConsultantService] Error deleting availability slot:', error)
-      };
+      logger.error('❌ [ConsultantService] Error deleting availability slot:', error);
       // Re-throw the error to let the caller handle it
       throw error;
     }
@@ -157,9 +134,7 @@ export const ConsultantService = {
         return null;
       }
       // Only log unexpected errors
-            if (__DEV__) {
-        console.error('❌ [ConsultantService] Error fetching consultant profile:', error)
-      };
+      logger.error('❌ [ConsultantService] Error fetching consultant profile:', error);
       throw error;
     }
   },

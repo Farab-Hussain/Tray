@@ -20,6 +20,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { Star, Filter, Search, Clock, DollarSign, Award, BookOpen, TrendingUp, Users } from 'lucide-react-native';
 import { courseService } from '../../services/course.service';
+import { logger } from '../../../utils/logger';
 
 type CourseLibraryScreenNavigationProp = StackNavigationProp<any, 'CourseLibrary'>;
 type CourseLibraryScreenRouteProp = RouteProp<any, 'CourseLibrary'>;
@@ -150,7 +151,7 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
       // Load all courses for main view
       await loadCourses();
     } catch (error) {
-      console.error('Error loading initial data:', error);
+      logger.error('Error loading initial data:', error);
       Alert.alert('Error', 'Failed to load courses');
     } finally {
       setLoading(false);
@@ -199,7 +200,7 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
       
       setHasMore(result.hasMore);
     } catch (error) {
-      console.error('Error loading courses:', error);
+      logger.error('Error loading courses:', error);
       Alert.alert('Error', 'Failed to load courses');
     }
   };
@@ -260,7 +261,7 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
             text: 'Purchase', 
             onPress: () => {
               // Call payment service
-              console.log('Processing payment for course:', selectedCourse.id);
+              logger.debug('Processing payment for course:', selectedCourse.id);
               Alert.alert('Success', 'Course purchased successfully!');
               setShowPurchaseModal(false);
             }
@@ -268,7 +269,7 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
         ]
       );
     } catch (error) {
-      console.error('Error purchasing course:', error);
+      logger.error('Error purchasing course:', error);
       Alert.alert('Error', 'Failed to purchase course');
     }
   };

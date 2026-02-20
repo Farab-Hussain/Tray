@@ -1,13 +1,14 @@
 import { Image, Text, View, TouchableOpacity, ImageSourcePropType } from 'react-native';
 import { customCard } from '../../constants/styles/customCard';
 import AppButton from './AppButton';
-import { MessageCircle, Phone, Video, Star } from 'lucide-react-native';
+import { MessageCircle, Phone, Video, Star, UserRound } from 'lucide-react-native';
+import { COLORS } from '../../constants/core/colors';
 
 type TopConsultantCardProps = {
   name: string;
   title: string;
   description: string;
-  avatarUri: ImageSourcePropType;
+  avatarUri?: ImageSourcePropType;
   rating: number;
   consultantId?: string;
   navigation: any;
@@ -32,11 +33,22 @@ const TopConsultantCard: React.FC<TopConsultantCardProps> = ({
     <View style={customCard.card}>
       {/* Left side: Avatar + Info + Button + Contact Icons */}
       <View style={customCard.leftBox}>
-        <Image
-          source={avatarUri}
-          style={customCard.avatar}
-          key={typeof avatarUri === 'object' && 'uri' in avatarUri ? avatarUri.uri : undefined}
-        />
+        {avatarUri ? (
+          <Image
+            source={avatarUri}
+            style={customCard.avatar}
+            key={typeof avatarUri === 'object' && 'uri' in avatarUri ? avatarUri.uri : undefined}
+          />
+        ) : (
+          <View
+            style={[
+              customCard.avatar,
+              { backgroundColor: '#A5AFBD', alignItems: 'center', justifyContent: 'center' },
+            ]}
+          >
+            <UserRound size={22} color={COLORS.gray} />
+          </View>
+        )}
 
         <Text style={customCard.cardTitle}>{name}</Text>
         <Text style={customCard.cardSubtitle}>{title}</Text>

@@ -13,6 +13,7 @@ import { jobListScreenStyles } from '../../../constants/styles/jobListScreenStyl
 import { useRefresh } from '../../../hooks/useRefresh';
 import LoadMoreButton from '../../../components/ui/LoadMoreButton';
 import FitScoreDisplay from '../../../components/ui/FitScoreDisplay';
+import { logger } from '../../../utils/logger';
 
 interface Job {
   id: string;
@@ -66,7 +67,7 @@ const JobListScreen = ({ navigation }: any) => {
       setHasMore(response.pagination?.hasNextPage || false);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching jobs:', error)
+        logger.error('Error fetching jobs:', error)
       };
       showError(error.message || 'Failed to load jobs');
     } finally {

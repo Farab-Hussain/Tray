@@ -23,6 +23,7 @@ import {
 } from '../../../services/chat.Service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserService } from '../../../services/user.service';
+import { logger } from '../../../utils/logger';
 
 export default function ChatScreen() {
   const navigation = useNavigation();
@@ -54,7 +55,7 @@ export default function ChatScreen() {
             setConsultantName(consultantData.name || consultantData.displayName || 'Consultant');
           }
         } catch (error) {
-          console.warn('Failed to fetch consultant info:', error);
+          logger.warn('Failed to fetch consultant info:', error);
         }
       }
 

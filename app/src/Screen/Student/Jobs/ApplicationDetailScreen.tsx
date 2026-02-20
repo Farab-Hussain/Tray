@@ -13,6 +13,7 @@ import { formatDate } from '../../../utils/dateUtils';
 import { useRefresh } from '../../../hooks/useRefresh';
 import RefreshableScrollView from '../../../components/ui/RefreshableScrollView';
 import { getStatusMessage, getStatusColor, getStatusIcon, getStatusDescription } from '../../../utils/applicationStatusUtils';
+import { logger } from '../../../utils/logger';
 
 const ApplicationDetailScreen = ({ navigation, route }: any) => {
   const { applicationId } = route.params;
@@ -26,7 +27,7 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
       const app = response.application;
       // Debug: Log status
       if (__DEV__) {
-        console.log('[ApplicationDetailScreen] Fetched application:', {
+        logger.debug('[ApplicationDetailScreen] Fetched application:', {
           id: app.id,
           jobTitle: app.job?.title,
           status: app.status,
@@ -35,7 +36,7 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
       setApplication(app);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching application:', error)
+        logger.error('Error fetching application:', error)
       };
       showError(error.message || 'Failed to load application');
     } finally {

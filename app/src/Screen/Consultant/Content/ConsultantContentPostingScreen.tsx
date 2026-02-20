@@ -28,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import { ConsultantContentService } from '../../../services/consultantContent.service';
 import { consultantContentStyles } from '../../../constants/styles/consultantContentStyles';
+import { logger } from '../../../utils/logger';
 
 interface ContentData {
   title: string;
@@ -248,7 +249,7 @@ const ConsultantContentPostingScreen = ({ navigation }: any) => {
         ]
       );
     } catch (error: any) {
-      console.error('Error creating content:', error);
+      logger.error('Error creating content:', error);
       Alert.alert('Error', error.message || 'Failed to create content');
     } finally {
       setLoading(false);

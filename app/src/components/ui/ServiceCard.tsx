@@ -15,6 +15,8 @@ type ServiceCardProps = {
   consultantName?: string;
   consultantCategory?: string;
   onBookPress?: () => void;
+  onReadMore?: () => void;
+  onCardPress?: () => void;
 };
 
 const ServiceCard: React.FC<ServiceCardProps> = ({
@@ -28,6 +30,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   consultantName,
   consultantCategory,
   onBookPress,
+  onReadMore,
+  onCardPress,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   // VIDEO UPLOAD CODE - COMMENTED OUT
@@ -51,8 +55,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   // const hasVideo = !!videoUrl;
   const hasImage = !!imageUri;
 
-  return (
-    <View style={styles.card}>
+  const cardBody = (
+    <>
       <View style={styles.imageContainer}>
         {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
         {/* {hasVideo ? (
@@ -118,14 +122,20 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
             {description}
           </Text>
           
-          {description.length > 150 && (
+          {(onReadMore || description.length > 150) && (
             <TouchableOpacity 
-              onPress={() => setIsExpanded(!isExpanded)}
+              onPress={() => {
+                if (onReadMore) {
+                  onReadMore();
+                  return;
+                }
+                setIsExpanded(!isExpanded);
+              }}
               style={styles.readMoreButton}
               activeOpacity={0.7}
             >
               <Text style={styles.readMoreText}>
-                {isExpanded ? 'Read Less' : 'Read More'}
+                {onReadMore ? 'Read More' : isExpanded ? 'Read Less' : 'Read More'}
               </Text>
             </TouchableOpacity>
           )}
@@ -139,17 +149,16 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           textStyle={styles.buttonText}
         />
       </View>
+    </>
+  );
 
-      {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
-      {/* Video Modal */}
-      {/* <Modal
-        visible={showVideoModal}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setShowVideoModal(false)}
-      >
-        ... video modal code ...
-      </Modal> */}
+  return onCardPress ? (
+    <TouchableOpacity style={styles.card} activeOpacity={0.92} onPress={onCardPress}>
+      {cardBody}
+    </TouchableOpacity>
+  ) : (
+    <View style={styles.card}>
+      {cardBody}
     </View>
   );
 };
@@ -157,4 +166,3 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 const styles = serviceCardStyles;
 
 export default ServiceCard;
-

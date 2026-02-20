@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
-import { Star, ThumbsUp, Edit, Trash2 } from 'lucide-react-native';
+import { Star, ThumbsUp, Edit, Trash2, UserRound } from 'lucide-react-native';
 import { COLORS } from '../../constants/core/colors';
 import { reviewCardStyles } from '../../constants/styles/reviewCardStyles';
+import { normalizeAvatarUrl, normalizeTimestampToDate } from '../../utils/normalize';
 
 interface ReviewCardProps {
   review: {
@@ -40,6 +41,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
   const displayImage = mode === 'viewingMyReviews'
     ? review.consultantProfileImage
     : review.studentProfileImage;
+  const normalizedDisplayImage = normalizeAvatarUrl({ profileImage: displayImage });
   
   const displaySubtitle = mode === 'viewingMyReviews'
     ? review.consultantCategory
@@ -55,8 +57,8 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
     ));
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (dateValue: any) => {
+    const date = normalizeTimestampToDate(dateValue) || new Date(0);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -74,14 +76,22 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
       {/* Header with user info and rating */}
       <View style={styles.header}>
         <View style={styles.userInfo}>
-          <Image
-            source={
-              displayImage
-                ? { uri: displayImage }
-                : require('../../assets/image/avatar.png')
-            }
-            style={styles.avatar}
-          />
+          {normalizedDisplayImage ? (
+            <Image source={{ uri: normalizedDisplayImage }} style={styles.avatar} />
+          ) : (
+            <View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: '#A5AFBD',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
+              ]}
+            >
+              <UserRound size={18} color={COLORS.gray} />
+            </View>
+          )}
           <View style={styles.userDetails}>
             <Text style={styles.userName}>{displayName}</Text>
             {displaySubtitle && (
@@ -136,4 +146,3 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 const styles = reviewCardStyles;
 
 export default ReviewCard;
-

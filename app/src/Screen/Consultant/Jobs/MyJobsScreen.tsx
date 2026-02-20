@@ -13,6 +13,7 @@ import { showConfirmation } from '../../../utils/alertUtils';
 import { Plus, Trash2 } from 'lucide-react-native';
 import { consultantMyJobsScreenStyles } from '../../../constants/styles/consultantMyJobsScreenStyles';
 import { getStatusColor } from '../../../utils/statusUtils';
+import { logger } from '../../../utils/logger';
 
 const MyJobsScreen = ({ navigation }: any) => {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -25,7 +26,7 @@ const MyJobsScreen = ({ navigation }: any) => {
       setJobs(response.jobs || []);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching jobs:', error)
+        logger.error('Error fetching jobs:', error)
       };
       showError(error.message || 'Failed to load jobs');
     } finally {

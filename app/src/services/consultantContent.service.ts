@@ -1,4 +1,5 @@
 import { api } from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 export interface ConsultantContentInput {
   title: string;
@@ -63,7 +64,7 @@ class ConsultantContentService {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error creating content:', error);
+        logger.error('Error creating content:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to create content');
     }
@@ -93,7 +94,7 @@ class ConsultantContentService {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error fetching consultant content:', error);
+        logger.error('Error fetching consultant content:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to fetch content');
     }
@@ -125,7 +126,7 @@ class ConsultantContentService {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error fetching published content:', error);
+        logger.error('Error fetching published content:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to fetch content');
     }
@@ -140,7 +141,7 @@ class ConsultantContentService {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error fetching content:', error);
+        logger.error('Error fetching content:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to fetch content');
     }
@@ -155,7 +156,7 @@ class ConsultantContentService {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error updating content:', error);
+        logger.error('Error updating content:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to update content');
     }
@@ -169,7 +170,7 @@ class ConsultantContentService {
       await api.delete(`/consultant-content/${contentId}`);
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error deleting content:', error);
+        logger.error('Error deleting content:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to delete content');
     }
@@ -186,7 +187,7 @@ class ConsultantContentService {
       });
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error adding rating:', error);
+        logger.error('Error adding rating:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to add rating');
     }
@@ -209,7 +210,7 @@ class ConsultantContentService {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error fetching consultant stats:', error);
+        logger.error('Error fetching consultant stats:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to fetch stats');
     }
@@ -224,7 +225,7 @@ class ConsultantContentService {
       return response.data.downloadUrl;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error downloading content:', error);
+        logger.error('Error downloading content:', error);
       }
       throw new Error(error.response?.data?.error || 'Failed to download content');
     }

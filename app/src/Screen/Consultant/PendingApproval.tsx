@@ -28,6 +28,7 @@ import { StatusBadge, StatusCard } from '../../components/consultant/StatusCompo
 import { consultantFlowStyles, pendingApprovalStyles } from '../../constants/styles/consultantFlowStyles';
 import { COLORS } from '../../constants/core/colors';
 import { useAuth } from '../../contexts/AuthContext';
+import { logger } from '../../utils/logger';
 
 export default function PendingApproval() {
   const navigation = useNavigation();
@@ -43,7 +44,7 @@ export default function PendingApproval() {
   useEffect(() => {
     if (user?.uid && user.uid !== lastUserId) {
             if (__DEV__) {
-        console.log('PendingApproval - User changed, clearing applications data')
+        logger.debug('PendingApproval - User changed, clearing applications data')
       };
       setApplications([]);
       setLastUserId(user.uid);
@@ -56,18 +57,18 @@ export default function PendingApproval() {
   const loadData = useCallback(async () => {
     if (!user?.uid) {
             if (__DEV__) {
-        console.log('PendingApproval - No user UID, skipping data load')
+        logger.debug('PendingApproval - No user UID, skipping data load')
       };
       return;
     }
     
         if (__DEV__) {
-      console.log(`PendingApproval - Loading data for user: ${user.uid}`)
+      logger.debug(`PendingApproval - Loading data for user: ${user.uid}`)
     };
     setIsLoading(true);
     try {
             if (__DEV__) {
-        console.log('PendingApproval - Fetching profile and applications...')
+        logger.debug('PendingApproval - Fetching profile and applications...')
       };
       const [profileData, applicationsData] = await Promise.all([
         getConsultantProfile(user.uid),
@@ -75,10 +76,10 @@ export default function PendingApproval() {
       ]);
       
             if (__DEV__) {
-        console.log('PendingApproval - Profile data received:', profileData)
+        logger.debug('PendingApproval - Profile data received:', profileData)
       };
             if (__DEV__) {
-        console.log('PendingApproval - Applications data received:', applicationsData)
+        logger.debug('PendingApproval - Applications data received:', applicationsData)
       };
       
       setProfile(profileData);
@@ -87,18 +88,18 @@ export default function PendingApproval() {
       // Check if profile is approved AND has at least one approved service
       if (profileData.status === 'approved') {
                 if (__DEV__) {
-          console.log('PendingApproval - Profile approved, checking for approved services...')
+          logger.debug('PendingApproval - Profile approved, checking for approved services...')
         };
         
         // Check if consultant has approved services
         const approvedServices = applicationsData.filter(app => app.status === 'approved');
                 if (__DEV__) {
-          console.log('PendingApproval - Approved services count:', approvedServices.length)
+          logger.debug('PendingApproval - Approved services count:', approvedServices.length)
         };
         
         if (approvedServices.length > 0) {
                     if (__DEV__) {
-            console.log('PendingApproval - Profile and services approved, switching to consultant role')
+            logger.debug('PendingApproval - Profile and services approved, switching to consultant role')
           };
           
           // Automatically switch to consultant role if not already
@@ -106,11 +107,11 @@ export default function PendingApproval() {
             try {
               await switchRole('consultant');
                             if (__DEV__) {
-                console.log('PendingApproval - Successfully switched to consultant role')
+                logger.debug('PendingApproval - Successfully switched to consultant role')
               };
             } catch (error: any) {
                             if (__DEV__) {
-                console.error('PendingApproval - Error switching to consultant role:', error)
+                logger.error('PendingApproval - Error switching to consultant role:', error)
               };
               // Continue navigation even if role switch fails
             }
@@ -118,7 +119,7 @@ export default function PendingApproval() {
           
           // Navigate to consultant tabs (home screen) - both profile and services are approved
                     if (__DEV__) {
-            console.log('PendingApproval - Navigating to consultant tabs')
+            logger.debug('PendingApproval - Navigating to consultant tabs')
           };
           (navigation as any).reset({
             index: 0,
@@ -126,7 +127,7 @@ export default function PendingApproval() {
           });
         } else {
                     if (__DEV__) {
-            console.log('PendingApproval - Profile approved but no services approved, staying on PendingApproval screen')
+            logger.debug('PendingApproval - Profile approved but no services approved, staying on PendingApproval screen')
           };
           // Don't navigate - consultant must have at least one approved service
           // The screen will show the appropriate message
@@ -134,10 +135,10 @@ export default function PendingApproval() {
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error('PendingApproval - Error loading consultant data:', error)
+        logger.error('PendingApproval - Error loading consultant data:', error)
       };
             if (__DEV__) {
-        console.error('PendingApproval - Error details:', {
+        logger.error('PendingApproval - Error details:', {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
@@ -148,13 +149,13 @@ export default function PendingApproval() {
       // Handle 404 - profile doesn't exist yet
       if (error.response?.status === 404) {
                 if (__DEV__) {
-          console.log('PendingApproval - 404: No profile found - consultant needs to create profile on the app')
+          logger.debug('PendingApproval - 404: No profile found - consultant needs to create profile on the app')
         };
         setProfile(null); // Set profile to null to show "Create Profile" UI
       } else {
         // For other errors, also set profile to null to show create profile option
                 if (__DEV__) {
-          console.log('PendingApproval - Non-404 error, setting profile to null')
+          logger.debug('PendingApproval - Non-404 error, setting profile to null')
         };
         setProfile(null);
       }
@@ -162,7 +163,7 @@ export default function PendingApproval() {
       setIsLoading(false);
       setIsRefreshing(false);
             if (__DEV__) {
-        console.log('PendingApproval - Data load complete')
+        logger.debug('PendingApproval - Data load complete')
       };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,13 +174,13 @@ export default function PendingApproval() {
       // Prevent multiple simultaneous loads
       if (isLoadingRef.current) {
                 if (__DEV__) {
-          console.log('PendingApproval - Already loading, skipping reload')
+          logger.debug('PendingApproval - Already loading, skipping reload')
         };
         return;
       }
 
             if (__DEV__) {
-        console.log('PendingApproval screen focused - reloading profile data')
+        logger.debug('PendingApproval screen focused - reloading profile data')
       };
       isLoadingRef.current = true;
       setIsLoading(true);
@@ -188,7 +189,7 @@ export default function PendingApproval() {
       const loadDataInline = async () => {
         if (!user?.uid) {
                     if (__DEV__) {
-            console.log('PendingApproval - No user UID, skipping data load')
+            logger.debug('PendingApproval - No user UID, skipping data load')
           };
           isLoadingRef.current = false;
           setIsLoading(false);
@@ -198,64 +199,64 @@ export default function PendingApproval() {
         // Add timeout to prevent infinite loading
         const timeoutId = setTimeout(() => {
                     if (__DEV__) {
-            console.log('PendingApproval - Loading timeout, setting loading to false')
+            logger.debug('PendingApproval - Loading timeout, setting loading to false')
           };
           isLoadingRef.current = false;
           setIsLoading(false);
         }, 10000); // 10 second timeout
         
                 if (__DEV__) {
-          console.log(`PendingApproval - Loading data for user: ${user.uid}`)
+          logger.debug(`PendingApproval - Loading data for user: ${user.uid}`)
         };
         try {
                     if (__DEV__) {
-            console.log('PendingApproval - Fetching profile...')
+            logger.debug('PendingApproval - Fetching profile...')
           };
           const profileData = await getConsultantProfile(user.uid);
           
                     if (__DEV__) {
-            console.log('PendingApproval - Profile data received:', profileData)
+            logger.debug('PendingApproval - Profile data received:', profileData)
           };
           
           setProfile(profileData);
 
           // Always fetch applications to check if services are approved
                     if (__DEV__) {
-            console.log('PendingApproval - Fetching applications...')
+            logger.debug('PendingApproval - Fetching applications...')
           };
           
           const applicationsData = await getConsultantApplications();
                     if (__DEV__) {
-            console.log('PendingApproval - Applications data received:', applicationsData)
+            logger.debug('PendingApproval - Applications data received:', applicationsData)
           };
                     if (__DEV__) {
-            console.log('PendingApproval - Applications count:', applicationsData?.length || 0)
+            logger.debug('PendingApproval - Applications count:', applicationsData?.length || 0)
           };
                     if (__DEV__) {
-            console.log('PendingApproval - Applications details:', JSON.stringify(applicationsData, null, 2))
+            logger.debug('PendingApproval - Applications details:', JSON.stringify(applicationsData, null, 2))
           };
           
           // Frontend safety check: Filter applications to only include current user's applications
           const currentUserId = user?.uid;
           const filteredApplications = applicationsData?.filter(app => app.consultantId === currentUserId) || [];
                     if (__DEV__) {
-            console.log('PendingApproval - Filtered applications for current user:', filteredApplications.length)
+            logger.debug('PendingApproval - Filtered applications for current user:', filteredApplications.length)
           };
                     if (__DEV__) {
-            console.log('PendingApproval - Current user ID:', currentUserId)
+            logger.debug('PendingApproval - Current user ID:', currentUserId)
           };
                     if (__DEV__) {
-            console.log('PendingApproval - Filtered applications:', JSON.stringify(filteredApplications, null, 2))
+            logger.debug('PendingApproval - Filtered applications:', JSON.stringify(filteredApplications, null, 2))
           };
           
           // Warn if backend returned applications for different users
           const otherUsersApplications = applicationsData?.filter(app => app.consultantId !== currentUserId) || [];
           if (otherUsersApplications.length > 0) {
                         if (__DEV__) {
-              console.warn('⚠️ BACKEND ISSUE: Received applications for other users:', otherUsersApplications.length)
+              logger.warn('⚠️ BACKEND ISSUE: Received applications for other users:', otherUsersApplications.length)
             };
                         if (__DEV__) {
-              console.warn('⚠️ Other user IDs:', [...new Set(otherUsersApplications.map(app => app.consultantId))])
+              logger.warn('⚠️ Other user IDs:', [...new Set(otherUsersApplications.map(app => app.consultantId))])
             };
           }
           
@@ -264,18 +265,18 @@ export default function PendingApproval() {
           // Check if profile is approved AND has at least one approved service
           if (profileData.status === 'approved') {
                         if (__DEV__) {
-              console.log('PendingApproval - Profile approved, checking for approved services...')
+              logger.debug('PendingApproval - Profile approved, checking for approved services...')
             };
             
             // Check if consultant has approved services
             const approvedServices = filteredApplications.filter(app => app.status === 'approved');
                         if (__DEV__) {
-              console.log('PendingApproval - Approved services count:', approvedServices.length)
+              logger.debug('PendingApproval - Approved services count:', approvedServices.length)
             };
             
             if (approvedServices.length > 0) {
                             if (__DEV__) {
-                console.log('PendingApproval - Profile and services approved, refreshing auth context and navigating')
+                logger.debug('PendingApproval - Profile and services approved, refreshing auth context and navigating')
               };
               
               // Clear loading state first
@@ -292,7 +293,7 @@ export default function PendingApproval() {
                 await refreshConsultantStatus();
               } catch (error) {
                                 if (__DEV__) {
-                  console.error('PendingApproval - Error refreshing consultant status:', error)
+                  logger.error('PendingApproval - Error refreshing consultant status:', error)
                 };
               }
               
@@ -301,11 +302,11 @@ export default function PendingApproval() {
                 try {
                   await switchRole('consultant');
                                     if (__DEV__) {
-                    console.log('PendingApproval - Successfully switched to consultant role')
+                    logger.debug('PendingApproval - Successfully switched to consultant role')
                   };
                 } catch (error: any) {
                                     if (__DEV__) {
-                    console.error('PendingApproval - Error switching to consultant role:', error)
+                    logger.error('PendingApproval - Error switching to consultant role:', error)
                   };
                   // Continue navigation even if role switch fails
                 }
@@ -313,7 +314,7 @@ export default function PendingApproval() {
               
               // Navigate to consultant tabs (home screen) - both profile and services are approved
                             if (__DEV__) {
-                console.log('PendingApproval - Navigating to consultant tabs')
+                logger.debug('PendingApproval - Navigating to consultant tabs')
               };
               try {
                 (navigation as any).reset({
@@ -322,7 +323,7 @@ export default function PendingApproval() {
                 });
               } catch (navError) {
                                 if (__DEV__) {
-                  console.error('PendingApproval - Navigation error:', navError)
+                  logger.error('PendingApproval - Navigation error:', navError)
                 };
                 // If navigation fails, at least show the screen content
                 setIsLoading(false);
@@ -330,26 +331,26 @@ export default function PendingApproval() {
               return; // Exit early
             } else {
                             if (__DEV__) {
-                console.log('PendingApproval - Profile approved but no services approved, staying on screen')
+                logger.debug('PendingApproval - Profile approved but no services approved, staying on screen')
               };
               // Don't navigate - consultant must have at least one approved service
             }
           }
         } catch (error: any) {
                     if (__DEV__) {
-            console.error('PendingApproval - Error loading consultant data:', error)
+            logger.error('PendingApproval - Error loading consultant data:', error)
           };
           
           // Handle 404 - profile doesn't exist yet
           if (error.response?.status === 404) {
                         if (__DEV__) {
-              console.log('PendingApproval - 404: No profile found - consultant needs to create profile')
+              logger.debug('PendingApproval - 404: No profile found - consultant needs to create profile')
             };
             showInfo('No profile found. Please create your consultant profile to get started.');
             setProfile(null);
           } else {
                         if (__DEV__) {
-              console.log('PendingApproval - Non-404 error, setting profile to null')
+              logger.debug('PendingApproval - Non-404 error, setting profile to null')
             };
             // Don't show toast for network errors as they're handled by the fetcher
             if (error.response?.status >= 500) {
@@ -363,7 +364,7 @@ export default function PendingApproval() {
           setIsLoading(false);
           setIsRefreshing(false);
                     if (__DEV__) {
-            console.log('PendingApproval - Data load complete')
+            logger.debug('PendingApproval - Data load complete')
           };
         }
       };
@@ -373,7 +374,7 @@ export default function PendingApproval() {
       // Cleanup function to ensure loading state is reset if component unmounts
       return () => {
                 if (__DEV__) {
-          console.log('PendingApproval - useFocusEffect cleanup')
+          logger.debug('PendingApproval - useFocusEffect cleanup')
         };
         isLoadingRef.current = false;
         setIsLoading(false);
@@ -455,7 +456,7 @@ export default function PendingApproval() {
   
   // Debug logging
     if (__DEV__) {
-    console.log('PendingApproval - Applications state:', {
+    logger.debug('PendingApproval - Applications state:', {
     total: applications.length,
     approved: approvedApplications.length,
     pending: pendingApplications.length,

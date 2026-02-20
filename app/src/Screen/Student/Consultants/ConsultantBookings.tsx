@@ -28,6 +28,8 @@ import CancelBookingModal from '../../../components/ui/CancelBookingModal';
 import { showSuccess, showError } from '../../../utils/toast';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { logger } from '../../../utils/logger';
+import { normalizeBookingStatus } from '../../../utils/normalize';
 
 interface Booking {
   id: string;
@@ -42,6 +44,13 @@ interface Booking {
   paymentStatus: string;
   createdAt: string;
 }
+
+const normalizeUIBookingStatus = (status: string): string => {
+  const normalized = normalizeBookingStatus(status);
+  if (normalized === 'approved') return 'accepted';
+  if (normalized === 'rejected') return 'declined';
+  return normalized;
+};
 
 interface ConsultantBookingsProps {
   navigation: {
@@ -77,11 +86,7 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
       // Prevent rapid successive calls (debounce)
       const now = Date.now();
       if (!forceRefresh && now - lastFetchTime < 3000) {
-                if (__DEV__) {
-          console.log(
-          '🚫 [ConsultantBookings] Skipping fetch - too soon since last fetch',
-        )
-        };
+        logger.debug('🚫 [ConsultantBookings] Skipping fetch - too soon since last fetch');
         return;
       }
 
@@ -90,13 +95,9 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
 
       try {
         setLoading(true);
-                if (__DEV__) {
-          console.log('📅 [ConsultantBookings] Fetching all bookings...')
-        };
+        logger.debug('📅 [ConsultantBookings] Fetching all bookings...');
         const response = await BookingService.getMyBookings();
-                if (__DEV__) {
-          console.log('✅ [ConsultantBookings] Bookings response:', response)
-        };
+        logger.debug('✅ [ConsultantBookings] Bookings response received');
 
         // Filter bookings for this consultant
         const allBookings = response?.bookings || [];
@@ -104,11 +105,9 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
           (booking: Booking) => booking.consultantId === consultantId,
         );
 
-                if (__DEV__) {
-          console.log(
+        logger.debug(
           `📊 [ConsultantBookings] Found ${consultantBookings.length} bookings for consultant ${consultantId}`,
-        )
-        };
+        );
 
         // Batch fetch service details to reduce API calls
         const serviceIds = [
@@ -131,11 +130,7 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
               }
             }
           } catch {
-                        if (__DEV__) {
-              console.log(
-              `⚠️ [ConsultantBookings] Could not fetch service details for ${serviceId}`,
-            )
-            };
+            logger.debug(`⚠️ [ConsultantBookings] Could not fetch service details for ${serviceId}`);
           }
         });
 
@@ -146,6 +141,7 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
         const bookingsWithServiceDetails = consultantBookings.map(
           (booking: Booking) => ({
             ...booking,
+            status: normalizeUIBookingStatus(booking.status),
             serviceTitle:
               serviceDetailsMap.get(booking.serviceId) ||
               'Consultation Service',
@@ -160,18 +156,11 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
         });
 
         setBookings(bookingsWithServiceDetails);
-                if (__DEV__) {
-          console.log(
+        logger.debug(
           `✅ [ConsultantBookings] Successfully loaded ${bookingsWithServiceDetails.length} bookings`,
-        )
-        };
+        );
       } catch (error: unknown) {
-                if (__DEV__) {
-          console.error(
-          '❌ [ConsultantBookings] Error fetching bookings:',
-          error,
-        )
-        };
+        logger.error('❌ [ConsultantBookings] Error fetching bookings:', error);
         showError('Failed to load bookings');
         setBookings([]);
       } finally {
@@ -237,16 +226,12 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
     if (!selectedBooking) return;
 
     try {
-            if (__DEV__) {
-        console.log('🚫 Cancelling booking:', selectedBooking.id)
-      };
+      logger.debug('🚫 Cancelling booking:', selectedBooking.id);
       const response = await BookingService.cancelBooking(
         selectedBooking.id,
         reason,
       );
-            if (__DEV__) {
-        console.log('✅ Cancellation response:', response)
-      };
+      logger.debug('✅ Cancellation response received');
 
       const refundAmount =
         typeof response.refundAmount === 'number'
@@ -273,9 +258,7 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
       setCancelModalVisible(false);
       setSelectedBooking(null);
     } catch (error: unknown) {
-            if (__DEV__) {
-        console.error('❌ Error cancelling booking:', error)
-      };
+      logger.error('❌ Error cancelling booking:', error);
       let errorMessage = 'Failed to cancel booking';
 
       if (error && typeof error === 'object') {
@@ -367,14 +350,12 @@ const ConsultantBookings = ({ navigation, route }: ConsultantBookingsProps) => {
         consultant: {
           name: booking.consultantName || consultantName || 'Consultant',
           title: 'Consultant',
-          avatar: require('../../../assets/image/avatar.png'),
+          avatar: undefined,
           isOnline: true,
         },
       });
     } catch (error) {
-            if (__DEV__) {
-        console.error('❌ Error opening chat:', error)
-      };
+      logger.error('❌ Error opening chat:', error);
       showError('Failed to open chat');
     }
   };

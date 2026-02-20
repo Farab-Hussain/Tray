@@ -23,6 +23,7 @@ import UploadService from '../../../services/upload.service';
 import { useFocusEffect } from '@react-navigation/native';
 import { RefreshControl } from 'react-native';
 import { useAuth } from '../../../contexts/AuthContext';
+import { logger } from '../../../utils/logger';
 // import ErrorDisplay from '../../../components/ui/ErrorDisplay';
 // import LoadingState from '../../../components/ui/LoadingState';
 
@@ -128,14 +129,14 @@ const ConsultantServices = ({ navigation }: any) => {
             
             Alert.alert('Success', 'Image uploaded successfully!');
           } catch (uploadError) {
-            console.error('Image upload error:', uploadError);
+            logger.error('Image upload error:', uploadError);
             Alert.alert('Error', 'Failed to upload image. Please try again.');
           }
         }
       });
     } catch (pickError) {
       Alert.alert('Error', 'Failed to pick image');
-      console.error('Image picker error:', pickError);
+      logger.error('Image picker error:', pickError);
     }
   };
 
@@ -147,7 +148,7 @@ const ConsultantServices = ({ navigation }: any) => {
 
       // Get consultant's profile to get their UID
             if (__DEV__) {
-        console.log('📡 Fetching consultant status...')
+        logger.debug('📡 Fetching consultant status...')
       };
       
       // Get user from auth context instead of calling non-existent function
@@ -156,7 +157,7 @@ const ConsultantServices = ({ navigation }: any) => {
       }
       
       if (__DEV__) {
-        console.log('📊 User authenticated:', user.uid)
+        logger.debug('📊 User authenticated:', user.uid)
       }
 
       // Fetch consultant services using the user's UID
@@ -168,7 +169,7 @@ const ConsultantServices = ({ navigation }: any) => {
         : [];
       
       if (__DEV__) {
-        console.log('✅ Services response:', servicesResponse)
+        logger.debug('✅ Services response:', servicesResponse)
       }
 
       setServices(normalizedServices);
@@ -176,13 +177,13 @@ const ConsultantServices = ({ navigation }: any) => {
       setConsultantUid(user.uid);
       
       if (__DEV__) {
-        console.log('📊 Services set in state:', normalizedServices.length);
-        console.log('📊 Services data:', normalizedServices);
-        console.log('📊 Filtered services set:', normalizedServices.length);
+        logger.debug('📊 Services set in state:', normalizedServices.length);
+        logger.debug('📊 Services data:', normalizedServices);
+        logger.debug('📊 Filtered services set:', normalizedServices.length);
       }
       
     } catch (fetchError) {
-      console.error('❌ Error fetching consultant services:', fetchError);
+      logger.error('❌ Error fetching consultant services:', fetchError);
       setError((fetchError as Error).message || 'Failed to fetch services');
       setServices([]);
       setFilteredServices([]);
@@ -197,14 +198,14 @@ const ConsultantServices = ({ navigation }: any) => {
     setSearchQuery(query);
     
     if (__DEV__) {
-      console.log('🔍 Search query:', query);
-      console.log('🔍 Total services before filtering:', services.length);
+      logger.debug('🔍 Search query:', query);
+      logger.debug('🔍 Total services before filtering:', services.length);
     }
     
     if (!query.trim()) {
       setFilteredServices(services);
       if (__DEV__) {
-        console.log('🔍 No search query, showing all services:', services.length);
+        logger.debug('🔍 No search query, showing all services:', services.length);
       }
       return;
     }
@@ -216,8 +217,8 @@ const ConsultantServices = ({ navigation }: any) => {
     );
     
     if (__DEV__) {
-      console.log('🔍 Services after filtering:', filtered.length);
-      console.log('🔍 Filtered services:', filtered);
+      logger.debug('🔍 Services after filtering:', filtered.length);
+      logger.debug('🔍 Filtered services:', filtered);
     }
     
     setFilteredServices(filtered);
@@ -232,11 +233,11 @@ const ConsultantServices = ({ navigation }: any) => {
   // Debug effect to track component state
   useEffect(() => {
     if (__DEV__) {
-      console.log('🎨 Render - filteredServices.length:', filteredServices.length);
-      console.log('🎨 Render - services.length:', services.length);
-      console.log('🎨 Render - searchQuery:', searchQuery);
-      console.log('🎨 Render - loading:', loading);
-      console.log('🎨 Render - error:', error);
+      logger.debug('🎨 Render - filteredServices.length:', filteredServices.length);
+      logger.debug('🎨 Render - services.length:', services.length);
+      logger.debug('🎨 Render - searchQuery:', searchQuery);
+      logger.debug('🎨 Render - loading:', loading);
+      logger.debug('🎨 Render - error:', error);
     }
   }, [filteredServices.length, services.length, searchQuery, loading, error]);
 
@@ -244,7 +245,7 @@ const ConsultantServices = ({ navigation }: any) => {
   useFocusEffect(
     useCallback(() => {
       if (__DEV__) {
-        console.log('🔄 [ConsultantServices] Screen focused, refreshing services...');
+        logger.debug('🔄 [ConsultantServices] Screen focused, refreshing services...');
       }
       fetchConsultantServices();
     }, [fetchConsultantServices])
@@ -330,7 +331,7 @@ const ConsultantServices = ({ navigation }: any) => {
               );
               Alert.alert('Deleted', 'Service deleted successfully.');
             } catch (error) {
-              console.error('Delete service error:', error);
+              logger.error('Delete service error:', error);
               Alert.alert('Error', 'Failed to delete service. Please try again.');
             }
           },
@@ -425,7 +426,7 @@ const ConsultantServices = ({ navigation }: any) => {
       closeServiceModal();
       await fetchConsultantServices();
     } catch (createError) {
-      console.error('Error creating service:', createError);
+      logger.error('Error creating service:', createError);
       Alert.alert(
         'Error',
         editingService

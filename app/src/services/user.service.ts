@@ -1,19 +1,32 @@
 import { fetcher, api } from '../lib/fetcher';
+import { normalizeAvatarUrl, normalizeTimestampToIso } from '../utils/normalize';
+import { logger } from '../utils/logger';
+
+const normalizeUserPayload = (userData: any) => {
+  if (!userData || typeof userData !== 'object') return userData;
+  return {
+    ...userData,
+    profileImage: normalizeAvatarUrl(userData) || null,
+    createdAt: normalizeTimestampToIso(userData.createdAt) || userData.createdAt,
+    updatedAt: normalizeTimestampToIso(userData.updatedAt) || userData.updatedAt,
+  };
+};
 
 export const UserService = {
   // Get user profile from backend (uses /auth/me endpoint)
   async getUserProfile() {
-    return await fetcher('/auth/me');
+    const data = await fetcher('/auth/me');
+    return normalizeUserPayload(data);
   },
 
   // Alias for getUserProfile for consistency
   async getProfile() {
     if (__DEV__) {
-      console.log('📥 [UserService] Fetching user profile...');
+      logger.debug('📥 [UserService] Fetching user profile...');
     }
     const result = await this.getUserProfile();
     if (__DEV__) {
-      console.log('✅ [UserService] Profile data received:', result);
+      logger.debug('✅ [UserService] Profile data received:', result);
     }
     return result;
   },
@@ -52,16 +65,16 @@ export const UserService = {
     delete backendData.avatarUrl; // Remove frontend field
     
     if (__DEV__) {
-      console.log('💾 [UserService] Updating profile with data:', backendData);
+      logger.debug('💾 [UserService] Updating profile with data:', backendData);
     }
     
     const response = await api.put('/auth/profile', backendData);
     
     if (__DEV__) {
-      console.log('✅ [UserService] Profile update response:', response.data);
+      logger.debug('✅ [UserService] Profile update response:', response.data);
     }
     
-    return response.data;
+    return normalizeUserPayload(response.data);
   },
 
   // Upload avatar image (backend handles this in profile update)
@@ -86,21 +99,21 @@ export const UserService = {
       // fetcher already returns response.data, so we get the user object directly
       const userData = await fetcher(`/auth/users/${userId}`);
       if (__DEV__) {
-        console.log('📥 [UserService] Fetched user data:', userData);
+        logger.debug('📥 [UserService] Fetched user data:', userData);
       }
-      return userData;
+      return normalizeUserPayload(userData);
     } catch (error: any) {
       // 404 is expected if user doesn't exist - don't log as error
       if (error?.response?.status === 404) {
         if (__DEV__) {
-          console.log('ℹ️ [UserService] User not found:', userId);
+          logger.debug('ℹ️ [UserService] User not found:', userId);
         }
       } else {
         // Only log non-404 errors
         if (__DEV__) {
-          console.error('❌ [UserService] Error fetching user by ID:', error);
+          logger.error('❌ [UserService] Error fetching user by ID:', error);
         } else {
-          console.error('❌ [UserService] Failed to fetch user:', userId);
+          logger.error('❌ [UserService] Failed to fetch user:', userId);
         }
       }
       return null;

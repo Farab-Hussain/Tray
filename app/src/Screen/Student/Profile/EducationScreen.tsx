@@ -12,6 +12,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { ResumeService } from '../../../services/resume.service';
+import { logger } from '../../../utils/logger';
 import {
   GraduationCap,
   Plus,
@@ -52,15 +53,15 @@ const EducationScreen = ({ navigation }: any) => {
       if (response.resume && response.resume.education) {
         setEducationList(response.resume.education);
         if (__DEV__) {
-          console.log('📥 [EducationScreen] Loaded education:', response.resume.education);
+          logger.debug('📥 [EducationScreen] Loaded education:', response.resume.education);
         }
       }
     } catch (error: any) {
       if (error?.response?.status === 404) {
-        console.log('No existing education found, starting with defaults');
+        logger.debug('No existing education found, starting with defaults');
       } else {
         if (__DEV__) {
-          console.error('Error loading education:', error);
+          logger.error('Error loading education:', error);
         }
       }
     }
@@ -112,7 +113,7 @@ const EducationScreen = ({ navigation }: any) => {
     
     try {
       if (__DEV__) {
-        console.log('💾 [EducationScreen] Saving education:', educationList);
+        logger.debug('💾 [EducationScreen] Saving education:', educationList);
       }
       
       // Use existing updateResume endpoint instead of specific education endpoint
@@ -120,7 +121,7 @@ const EducationScreen = ({ navigation }: any) => {
       Alert.alert('Success', 'Education information saved successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving education:', error);
+      logger.error('Error saving education:', error);
       Alert.alert('Error', 'Failed to save education information. Please try again.');
     } finally {
       setLoading(false);

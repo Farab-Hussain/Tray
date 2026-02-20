@@ -1,11 +1,14 @@
 import { View, Text, Image } from 'react-native';
+import { UserRound } from 'lucide-react-native';
 import { consultantStyles, consultantHome } from '../../constants/styles/consultantStyles';
 import AppButton from './AppButton';
+import { COLORS } from '../../constants/core/colors';
+import { logger } from '../../utils/logger';
 
 type LeadCardProps = {
   clientName: string;
   serviceNeeded: string;
-  avatarUri: any;
+  avatarUri?: any;
   onAccept: () => void;
   onDecline: () => void;
 };
@@ -17,23 +20,36 @@ const LeadCard = ({
   onAccept, 
   onDecline 
 }: LeadCardProps) => {
-    if (__DEV__) {
-    console.log(`🖼️ [LeadCard] Rendering card for client: ${clientName}, service: ${serviceNeeded}, avatarUri:`, avatarUri)
-  };
+  logger.debug(
+    `🖼️ [LeadCard] Rendering card for client: ${clientName}, service: ${serviceNeeded}, avatarUri:`,
+    avatarUri,
+  );
   
   return (
     <View style={[consultantStyles.leadCard, consultantHome.leadCardWrapper]}>
       <View style={consultantStyles.leadCardHeader}>
-        <Image
-          source={avatarUri}
-          style={consultantStyles.leadProfileImage}
-          onError={(error) => {
-                        if (__DEV__) {
-              console.log(`❌ [LeadCard] Failed to load image for ${clientName}:`, error)
-            };
-          }}
-          defaultSource={require('../../assets/image/avatar.png')}
-        />
+        {avatarUri ? (
+          <Image
+            source={avatarUri}
+            style={consultantStyles.leadProfileImage}
+            onError={(error) => {
+              logger.warn(`❌ [LeadCard] Failed to load image for ${clientName}:`, error);
+            }}
+          />
+        ) : (
+          <View
+            style={[
+              consultantStyles.leadProfileImage,
+              {
+                backgroundColor: '#A5AFBD',
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+            ]}
+          >
+            <UserRound size={20} color={COLORS.gray} />
+          </View>
+        )}
         <Text style={consultantStyles.HeaderTitle}>Matched</Text>
       </View>
       <View style={consultantStyles.leadCardContent}>

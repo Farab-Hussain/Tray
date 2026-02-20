@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { api } from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 const FCM_TOKEN_KEY = 'fcm_token';
 
@@ -40,7 +41,7 @@ try {
   console.warn = originalWarn;
   
   if (__DEV__) {
-    console.log('✅ [FCM] Firebase Messaging module loaded successfully');
+    logger.debug('✅ [FCM] Firebase Messaging module loaded successfully');
   }
 } catch (error: any) {
   // Restore warnings if error occurred (originalWarn is in outer scope)
@@ -53,11 +54,11 @@ try {
     if (!errorMsg.includes('not installed natively') && 
         !errorMsg.includes('not installed on your project')) {
             if (__DEV__) {
-        console.log('ℹ️ [FCM] React Native Firebase Messaging not available:', errorMsg || 'Unknown error')
+        logger.debug('ℹ️ [FCM] React Native Firebase Messaging not available:', errorMsg || 'Unknown error')
       };
     }
         if (__DEV__) {
-      console.log('ℹ️ [FCM] Push notifications will be disabled until native module is properly linked')
+      logger.debug('ℹ️ [FCM] Push notifications will be disabled until native module is properly linked')
     };
   }
   messaging = null;
@@ -96,7 +97,7 @@ const restoreConsoleWarn = (originalWarn: typeof console.warn) => {
 export const requestNotificationPermission = async (): Promise<boolean> => {
   if (!isMessagingAvailable()) {
     if (__DEV__) {
-      console.log('ℹ️ [FCM] Messaging not available, skipping permission request');
+      logger.debug('ℹ️ [FCM] Messaging not available, skipping permission request');
     }
     return false;
   }
@@ -114,9 +115,9 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
       if (errorMsg.includes('not installed natively') || errorMsg.includes('not installed on your project')) {
         if (__DEV__) {
           // Use console.log instead of console.error since this is expected behavior until rebuild
-          console.log('ℹ️ [FCM] Native module not installed. The app was built but the native module needs to be linked.');
+          logger.debug('ℹ️ [FCM] Native module not installed. The app was built but the native module needs to be linked.');
                     if (__DEV__) {
-            console.log('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device')
+            logger.debug('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device')
           };
         }
         restoreConsoleWarn(originalWarn);
@@ -133,17 +134,17 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
 
     if (enabled) {
       if (__DEV__) {
-        console.log('✅ [FCM] Notification permissions granted');
+        logger.debug('✅ [FCM] Notification permissions granted');
       }
       return true;
     } else {
       if (__DEV__) {
-        console.log('ℹ️ [FCM] Notification permissions denied or not determined');
+        logger.debug('ℹ️ [FCM] Notification permissions denied or not determined');
       }
       return false;
     }
   } catch (error: any) {
-    console.error('❌ [FCM] Error requesting notification permission:', error.message || error);
+    logger.error('❌ [FCM] Error requesting notification permission:', error.message || error);
     return false;
   }
 };
@@ -154,7 +155,7 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
 export const getFCMToken = async (): Promise<string | null> => {
   if (!isMessagingAvailable()) {
     if (__DEV__) {
-      console.log('ℹ️ [FCM] Messaging not available, cannot get token');
+      logger.debug('ℹ️ [FCM] Messaging not available, cannot get token');
     }
     return null;
   }
@@ -164,13 +165,13 @@ export const getFCMToken = async (): Promise<string | null> => {
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
       if (__DEV__) {
-        console.log('ℹ️ [FCM] Notification permission denied');
+        logger.debug('ℹ️ [FCM] Notification permission denied');
       }
       return null;
     }
 
     if (__DEV__) {
-      console.log('📱 [FCM] Getting token from Firebase...');
+      logger.debug('📱 [FCM] Getting token from Firebase...');
     }
     // Always get a fresh token from Firebase (it handles caching internally)
     const originalWarn = suppressDeprecationWarnings();
@@ -185,9 +186,9 @@ export const getFCMToken = async (): Promise<string | null> => {
       if (errorMsg.includes('not installed natively') || errorMsg.includes('not installed on your project')) {
         if (__DEV__) {
           // Use console.log instead of console.error since this is expected behavior until rebuild
-          console.log('ℹ️ [FCM] Native module not installed. The app was built but the native module needs to be linked.');
+          logger.debug('ℹ️ [FCM] Native module not installed. The app was built but the native module needs to be linked.');
                     if (__DEV__) {
-            console.log('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device')
+            logger.debug('ℹ️ [FCM] Try: cd ios && pod install && cd .. && npx react-native run-ios --device')
           };
         }
         restoreConsoleWarn(originalWarn);
@@ -201,25 +202,25 @@ export const getFCMToken = async (): Promise<string | null> => {
     if (Platform.OS === 'ios') {
       try {
         if (__DEV__) {
-          console.log('📱 [FCM] Registering iOS device for remote messages (APNS)...');
+          logger.debug('📱 [FCM] Registering iOS device for remote messages (APNS)...');
         }
         await messagingInstance.registerDeviceForRemoteMessages();
         // Wait for APNS token to be obtained (iOS needs time to register with APNS)
         await new Promise<void>(resolve => setTimeout(() => resolve(), 3000));
         if (__DEV__) {
-          console.log('✅ [FCM] iOS device registered for remote messages');
+          logger.debug('✅ [FCM] iOS device registered for remote messages');
         }
       } catch (registerError: any) {
         const errorMsg = registerError?.message || '';
         if (errorMsg.includes('already registered')) {
           if (__DEV__) {
-            console.log('ℹ️ [FCM] Device already registered for remote messages');
+            logger.debug('ℹ️ [FCM] Device already registered for remote messages');
           }
           // Still wait a bit to ensure APNS token is ready
           await new Promise<void>(resolve => setTimeout(() => resolve(), 1000));
         } else {
           if (__DEV__) {
-            console.warn('⚠️ [FCM] Error registering for remote messages:', registerError.message || 'Unknown');
+            logger.warn('⚠️ [FCM] Error registering for remote messages:', registerError.message || 'Unknown');
           }
           // Continue anyway - might still work
         }
@@ -243,7 +244,7 @@ export const getFCMToken = async (): Promise<string | null> => {
             (errorMessage.includes('APNS token') || errorMessage.includes('No APNS token'))) {
           if (retries > 1) {
             if (__DEV__) {
-              console.log(`ℹ️ [FCM] APNS token not ready, waiting... (${retries - 1} retries left)`);
+              logger.debug(`ℹ️ [FCM] APNS token not ready, waiting... (${retries - 1} retries left)`);
             }
             // Wait longer for APNS token to be ready
             await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
@@ -252,7 +253,7 @@ export const getFCMToken = async (): Promise<string | null> => {
           } else {
             // Last retry failed
             if (__DEV__) {
-              console.warn('⚠️ [FCM] APNS token not available after retries');
+              logger.warn('⚠️ [FCM] APNS token not available after retries');
             }
             restoreConsoleWarn(originalWarn);
             return null;
@@ -273,14 +274,14 @@ export const getFCMToken = async (): Promise<string | null> => {
           
           if (retries > 1) {
             if (__DEV__) {
-              console.log(`ℹ️ [FCM] Device not registered, retrying... (${retries - 1} retries left)`);
+              logger.debug(`ℹ️ [FCM] Device not registered, retrying... (${retries - 1} retries left)`);
             }
             await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
             retries--;
             continue;
           } else {
             if (__DEV__) {
-              console.warn('⚠️ [FCM] Failed to get token after all retries');
+              logger.warn('⚠️ [FCM] Failed to get token after all retries');
             }
             restoreConsoleWarn(originalWarn);
             return null;
@@ -294,30 +295,30 @@ export const getFCMToken = async (): Promise<string | null> => {
     restoreConsoleWarn(originalWarn);
     if (token) {
       if (__DEV__) {
-        console.log('✅ [FCM] Token obtained successfully');
+        logger.debug('✅ [FCM] Token obtained successfully');
       }
       // Save token to AsyncStorage for quick access
       await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
       if (__DEV__) {
-        console.log('✅ [FCM] Token saved successfully');
+        logger.debug('✅ [FCM] Token saved successfully');
       }
       return token;
     }
 
     if (__DEV__) {
-    console.warn('⚠️ [FCM] No token returned from Firebase');
+    logger.warn('⚠️ [FCM] No token returned from Firebase');
     }
     return null;
   } catch (error: any) {
     // Only log detailed errors in development
     if (__DEV__) {
-    console.error('❌ [FCM] Error getting token:', error.message || error);
-    console.error('❌ [FCM] Error code:', error.code);
-    console.error('❌ [FCM] Error stack:', error.stack);
+    logger.error('❌ [FCM] Error getting token:', error.message || error);
+    logger.error('❌ [FCM] Error code:', error.code);
+    logger.error('❌ [FCM] Error stack:', error.stack);
     } else {
       // In production, only log minimal error info
             if (__DEV__) {
-        console.error('❌ [FCM] Failed to get token:', error.code || 'unknown')
+        logger.error('❌ [FCM] Failed to get token:', error.code || 'unknown')
       };
     }
     return null;
@@ -335,10 +336,10 @@ export const registerFCMToken = async (fcmToken: string): Promise<void> => {
       deviceType,
     });
     if (__DEV__) {
-      console.log('✅ FCM token registered with backend');
+      logger.debug('✅ FCM token registered with backend');
     }
   } catch (error: any) {
-    console.error('❌ Error registering FCM token:', error.response?.data || error.message);
+    logger.error('❌ Error registering FCM token:', error.response?.data || error.message);
     // Don't throw - allow app to continue if token registration fails
   }
 };
@@ -352,12 +353,12 @@ export const deleteFCMToken = async (fcmToken?: string): Promise<void> => {
       data: fcmToken ? { fcmToken } : {},
     });
     if (__DEV__) {
-      console.log('✅ FCM token deleted from backend');
+      logger.debug('✅ FCM token deleted from backend');
     }
     // Also remove from local storage
     await AsyncStorage.removeItem(FCM_TOKEN_KEY);
   } catch (error: any) {
-    console.error('❌ Error deleting FCM token:', error.response?.data || error.message);
+    logger.error('❌ Error deleting FCM token:', error.response?.data || error.message);
     // Don't throw - allow app to continue if token deletion fails
   }
 };
@@ -378,7 +379,7 @@ export const refreshFCMToken = async (): Promise<string | null> => {
     return newToken;
   } catch (error) {
         if (__DEV__) {
-      console.error('Error refreshing FCM token:', error)
+      logger.error('Error refreshing FCM token:', error)
     };
     return null;
   }
@@ -390,7 +391,7 @@ export const refreshFCMToken = async (): Promise<string | null> => {
 export const setupTokenRefreshListener = () => {
   if (!isMessagingAvailable()) {
         if (__DEV__) {
-      console.warn('⚠️ [FCM] Messaging not available, skipping token refresh listener')
+      logger.warn('⚠️ [FCM] Messaging not available, skipping token refresh listener')
     };
     return () => { }; // Return empty cleanup function
   }
@@ -398,7 +399,7 @@ export const setupTokenRefreshListener = () => {
   const originalWarn = suppressDeprecationWarnings();
   const unsubscribe = messaging().onTokenRefresh(async (token: string) => {
     if (__DEV__) {
-      console.log('🔄 FCM token refreshed');
+      logger.debug('🔄 FCM token refreshed');
     }
     await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
     await registerFCMToken(token);
@@ -410,7 +411,7 @@ export const setupTokenRefreshListener = () => {
 export const setupForegroundMessageHandler = () => {
   if (!isMessagingAvailable()) {
         if (__DEV__) {
-      console.warn('⚠️ [FCM] Messaging not available, skipping foreground handler')
+      logger.warn('⚠️ [FCM] Messaging not available, skipping foreground handler')
     };
     return () => { }; // Return empty cleanup function
   }
@@ -418,7 +419,7 @@ export const setupForegroundMessageHandler = () => {
   const originalWarn = suppressDeprecationWarnings();
   const unsubscribe = messaging().onMessage(async (remoteMessage: any) => {
     if (__DEV__) {
-      console.log('📨 [Foreground] Message received while app is open:', remoteMessage);
+      logger.debug('📨 [Foreground] Message received while app is open:', remoteMessage);
     }
     
     // Extract message data and notification
@@ -433,7 +434,7 @@ export const setupForegroundMessageHandler = () => {
       const receiverId = messageData.receiverId || messageData.userId;
       
             if (__DEV__) {
-        console.log('📞 [Foreground] Incoming call notification received:', { 
+        logger.debug('📞 [Foreground] Incoming call notification received:', { 
         callId, 
         callType, 
         callerId, 
@@ -448,24 +449,24 @@ export const setupForegroundMessageHandler = () => {
         const callDoc = await getCallOnce(callId);
         if (!callDoc.exists()) {
                     if (__DEV__) {
-            console.warn('⚠️ [Foreground] Call document not found:', callId)
+            logger.warn('⚠️ [Foreground] Call document not found:', callId)
           };
           // Still try to navigate - call might be created after notification
         } else {
           const callData = callDoc.data();
                     if (__DEV__) {
-            console.log('📞 [Foreground] Call document found:', callData)
+            logger.debug('📞 [Foreground] Call document found:', callData)
           };
           if (callData?.status !== 'ringing') {
                         if (__DEV__) {
-              console.warn('⚠️ [Foreground] Call is not ringing anymore:', callData?.status)
+              logger.warn('⚠️ [Foreground] Call is not ringing anymore:', callData?.status)
             };
             return;
           }
         }
       } catch (error: any) {
                 if (__DEV__) {
-          console.warn('⚠️ [Foreground] Error checking call document:', error)
+          logger.warn('⚠️ [Foreground] Error checking call document:', error)
         };
         // Continue anyway - navigate to call screen
       }
@@ -478,7 +479,7 @@ export const setupForegroundMessageHandler = () => {
         const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
         
                 if (__DEV__) {
-          console.log('📞 [Foreground] Navigating to calling screen:', screenName, 'with callId:', callId)
+          logger.debug('📞 [Foreground] Navigating to calling screen:', screenName, 'with callId:', callId)
         };
         
         // Small delay to ensure navigation is ready
@@ -495,11 +496,11 @@ export const setupForegroundMessageHandler = () => {
             });
             
                         if (__DEV__) {
-              console.log('✅ [Foreground] Navigated to calling screen:', screenName)
+              logger.debug('✅ [Foreground] Navigated to calling screen:', screenName)
             };
           } catch (navError: any) {
                         if (__DEV__) {
-              console.error('❌ [Foreground] Error navigating:', navError)
+              logger.error('❌ [Foreground] Error navigating:', navError)
             };
             // Retry navigation
             setTimeout(() => {
@@ -515,11 +516,11 @@ export const setupForegroundMessageHandler = () => {
                   },
                 });
                                 if (__DEV__) {
-                  console.log('✅ [Foreground] Retry navigation successful')
+                  logger.debug('✅ [Foreground] Retry navigation successful')
                 };
               } catch (retryError: any) {
                                 if (__DEV__) {
-                  console.error('❌ [Foreground] Retry navigation failed:', retryError)
+                  logger.error('❌ [Foreground] Retry navigation failed:', retryError)
                 };
               }
             }, 1000);
@@ -527,7 +528,7 @@ export const setupForegroundMessageHandler = () => {
         }, 200);
       } catch (error: any) {
                 if (__DEV__) {
-          console.error('❌ [Foreground] Error setting up navigation:', error.message || error)
+          logger.error('❌ [Foreground] Error setting up navigation:', error.message || error)
         };
       }
       
@@ -541,13 +542,13 @@ export const setupForegroundMessageHandler = () => {
     
     if (messageData.chatId) {
             if (__DEV__) {
-        console.log('💬 [Foreground] Chat message received for chat:', messageData.chatId)
+        logger.debug('💬 [Foreground] Chat message received for chat:', messageData.chatId)
       };
             if (__DEV__) {
-        console.log('💬 [Foreground] Message from:', messageData.senderId)
+        logger.debug('💬 [Foreground] Message from:', messageData.senderId)
       };
             if (__DEV__) {
-        console.log('💬 [Foreground] Message text:', messageData.messageText || notification.body)
+        logger.debug('💬 [Foreground] Message text:', messageData.messageText || notification.body)
       };
       
       // The chat context will handle refreshing chats when messages arrive
@@ -566,7 +567,7 @@ export const setupBackgroundMessageHandler = () => {
   // Background handler is registered in index.js
   // This function exists for API compatibility but does nothing
   if (__DEV__) {
-    console.log('ℹ️ [FCM] Background handler is registered in index.js');
+    logger.debug('ℹ️ [FCM] Background handler is registered in index.js');
   }
 };
 
@@ -574,7 +575,7 @@ export const setupBackgroundMessageHandler = () => {
 export const setupNotificationOpenedHandler = (callback: (data: any) => void) => {
   if (!isMessagingAvailable()) {
         if (__DEV__) {
-      console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler')
+      logger.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler')
     };
     return () => { }; // Return empty cleanup function
   }
@@ -587,7 +588,7 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
     .then((remoteMessage: any) => {
       if (remoteMessage) {
         if (__DEV__) {
-        console.log('📨 App opened from notification:', remoteMessage);
+        logger.debug('📨 App opened from notification:', remoteMessage);
         }
         
         const messageData = remoteMessage.data || {};
@@ -605,23 +606,23 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
   // Listen for when a notification causes the app to open from background state
   const unsubscribe = messaging().onNotificationOpenedApp((remoteMessage: any) => {
     if (__DEV__) {
-      console.log('📨 [Notification Opened] Notification caused app to open:', remoteMessage);
+      logger.debug('📨 [Notification Opened] Notification caused app to open:', remoteMessage);
     }
     
     const messageData = remoteMessage.data || {};
     const notification = remoteMessage.notification || {};
     
         if (__DEV__) {
-      console.log('📨 [Notification Opened] Message data:', messageData)
+      logger.debug('📨 [Notification Opened] Message data:', messageData)
     };
         if (__DEV__) {
-      console.log('📨 [Notification Opened] Notification:', notification)
+      logger.debug('📨 [Notification Opened] Notification:', notification)
     };
     
     // Handle incoming call notifications
     if (messageData.type === 'call' || messageData.callId) {
             if (__DEV__) {
-        console.log('📞 [Notification Opened] Handling incoming call notification...')
+        logger.debug('📞 [Notification Opened] Handling incoming call notification...')
       };
       handleIncomingCallNotification(messageData);
       return;
@@ -642,7 +643,7 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
 export const setupNotificationOpenedHandlerWithNavigation = (navigation: any) => {
   if (!isMessagingAvailable()) {
         if (__DEV__) {
-      console.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler')
+      logger.warn('⚠️ [FCM] Messaging not available, skipping notification opened handler')
     };
     return () => { };
   }
@@ -655,7 +656,7 @@ export const setupNotificationOpenedHandlerWithNavigation = (navigation: any) =>
     .then((remoteMessage: any) => {
       if (remoteMessage) {
                 if (__DEV__) {
-          console.log('📱 [Notification Opened] App opened from notification:', remoteMessage)
+          logger.debug('📱 [Notification Opened] App opened from notification:', remoteMessage)
         };
         handleNotificationAction(remoteMessage, navigation);
       }
@@ -664,7 +665,7 @@ export const setupNotificationOpenedHandlerWithNavigation = (navigation: any) =>
   // Handle notification that opened app from background
   const unsubscribe = messaging().onNotificationOpenedApp((remoteMessage: any) => {
         if (__DEV__) {
-      console.log('📱 [Notification Opened] App opened from background notification:', remoteMessage)
+      logger.debug('📱 [Notification Opened] App opened from background notification:', remoteMessage)
     };
     handleNotificationAction(remoteMessage, navigation);
   });
@@ -681,7 +682,7 @@ const handleNotificationAction = (remoteMessage: any, navigation: any) => {
   const action = messageData.action || remoteMessage.action; // Action from notification button
   
     if (__DEV__) {
-    console.log('🔔 [Notification Action] Action:', action, 'Data:', messageData)
+    logger.debug('🔔 [Notification Action] Action:', action, 'Data:', messageData)
   };
   
   // Handle call notification actions
@@ -781,12 +782,12 @@ const handleIncomingCallNotification = (data: any) => {
   const receiverId = data.receiverId || data.userId;
   
   if (__DEV__) {
-    console.log('📞 [Call Notification] Handling incoming call:', { callId, callType, callerId, receiverId });
+    logger.debug('📞 [Call Notification] Handling incoming call:', { callId, callType, callerId, receiverId });
   }
   
   if (!callId || !callerId || !receiverId) {
     if (__DEV__) {
-      console.warn('⚠️ [Call Notification] Missing call parameters');
+      logger.warn('⚠️ [Call Notification] Missing call parameters');
     }
     return;
   }
@@ -813,11 +814,11 @@ const handleIncomingCallNotification = (data: any) => {
         });
         
         if (__DEV__) {
-          console.log('✅ [Call Notification] Navigated to calling screen:', screenName);
+          logger.debug('✅ [Call Notification] Navigated to calling screen:', screenName);
         }
       } catch (error: any) {
         if (__DEV__) {
-          console.error('❌ [Call Notification] Error navigating:', error.message || error);
+          logger.error('❌ [Call Notification] Error navigating:', error.message || error);
         }
         // Retry after a short delay
         setTimeout(navigateToCall, 500);
@@ -828,7 +829,7 @@ const handleIncomingCallNotification = (data: any) => {
     navigateToCall();
   } catch (error: any) {
         if (__DEV__) {
-      console.error('❌ [Call Notification] Error setting up navigation:', error.message || error)
+      logger.error('❌ [Call Notification] Error setting up navigation:', error.message || error)
     };
   }
 };
@@ -853,7 +854,7 @@ export const setBadgeCount = async (count: number): Promise<void> => {
     await messaging().setBadge(count);
   } catch (error) {
         if (__DEV__) {
-      console.error('Error setting badge count:', error)
+      logger.error('Error setting badge count:', error)
     };
   }
 };

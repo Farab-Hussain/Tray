@@ -13,6 +13,7 @@ import { formatDate } from '../../../utils/dateUtils';
 import { useRefresh } from '../../../hooks/useRefresh';
 import RefreshableScrollView from '../../../components/ui/RefreshableScrollView';
 import { getStatusMessage, getStatusColor, getStatusIcon } from '../../../utils/applicationStatusUtils';
+import { logger } from '../../../utils/logger';
 
 const MyApplicationsScreen = ({ navigation }: any) => {
   const [applications, setApplications] = useState<any[]>([]);
@@ -25,7 +26,7 @@ const MyApplicationsScreen = ({ navigation }: any) => {
       const apps = response.applications || [];
       // Debug: Log status for each application
       if (__DEV__) {
-        console.log('[MyApplicationsScreen] Fetched applications:', apps.map((app: any) => ({
+        logger.debug('[MyApplicationsScreen] Fetched applications:', apps.map((app: any) => ({
           id: app.id,
           jobTitle: app.job?.title,
           status: app.status,
@@ -34,7 +35,7 @@ const MyApplicationsScreen = ({ navigation }: any) => {
       setApplications(apps);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching applications:', error)
+        logger.error('Error fetching applications:', error)
       };
       showError(error.message || 'Failed to load applications');
     } finally {

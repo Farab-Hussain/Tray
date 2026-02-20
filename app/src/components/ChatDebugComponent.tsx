@@ -32,44 +32,44 @@ export const ChatDebugComponent: React.FC = () => {
     }
   };
 
-  return (
-    <View style={{ padding: 20, backgroundColor: '#f0f0f0', margin: 10, borderRadius: 8 }}>
-      <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 10 }}>
-        Chat Debug Info
-      </Text>
+  // return (
+  //   <View style={{ padding: 20, backgroundColor: '#f0f0f0', margin: 10, borderRadius: 8 }}>
+  //     <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 10 }}>
+  //       Chat Debug Info
+  //     </Text>
       
-      <Text style={{ marginBottom: 5 }}>
-        Current User ID: {userId || 'Not authenticated'}
-      </Text>
+  //     <Text style={{ marginBottom: 5 }}>
+  //       Current User ID: {userId || 'Not authenticated'}
+  //     </Text>
       
-      <Text style={{ marginBottom: 10 }}>
-        Total Chats: {chats.length}
-      </Text>
+  //     <Text style={{ marginBottom: 10 }}>
+  //       Total Chats: {chats.length}
+  //     </Text>
 
-      <Button
-        title="Create Test Chat"
-        onPress={handleCreateTestChat}
-        disabled={!userId}
-      />
+  //     <Button
+  //       title="Create Test Chat"
+  //       onPress={handleCreateTestChat}
+  //       disabled={!userId}
+  //     />
       
-      <View style={{ height: 10 }} />
+  //     <View style={{ height: 10 }} />
       
-      <Button
-        title="Refresh Chats"
-        onPress={handleRefreshChats}
-        disabled={!userId}
-      />
+  //     <Button
+  //       title="Refresh Chats"
+  //       onPress={handleRefreshChats}
+  //       disabled={!userId}
+  //     />
 
-      {chats.length > 0 && (
-        <View style={{ marginTop: 10 }}>
-          <Text style={{ fontWeight: 'bold' }}>Chat IDs:</Text>
-          {chats.map((chat, index) => (
-            <Text key={chat.id} style={{ fontSize: 12 }}>
-              {index + 1}. {chat.id}
-            </Text>
-          ))}
-        </View>
-      )}
-    </View>
-  );
+  //     {chats.length > 0 && (
+  //       <View style={{ marginTop: 10 }}>
+  //         <Text style={{ fontWeight: 'bold' }}>Chat IDs:</Text>
+  //         {chats.map((chat, index) => (
+  //           <Text key={chat.id} style={{ fontSize: 12 }}>
+  //             {index + 1}. {chat.id}
+  //           </Text>
+  //         ))}
+  //       </View>
+  //     )}
+  //   </View>
+  // );
 };

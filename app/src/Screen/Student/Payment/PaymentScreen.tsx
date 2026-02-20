@@ -18,6 +18,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import * as NotificationStorage from '../../../services/notification-storage.service';
 import { UserService } from '../../../services/user.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
+import { logger } from '../../../utils/logger';
+import { normalizeAvatarUrl } from '../../../utils/normalize';
 
 interface BookedSlot {
   date: string;
@@ -81,7 +83,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
         }
       } catch (error: any) {
                 if (__DEV__) {
-          console.error('❌ Failed to load platform fee configuration:', error)
+          logger.error('❌ Failed to load platform fee configuration:', error)
         };
         if (isMounted) {
           setPlatformFeeError(error.message || 'Unable to load platform fee. Using default amount.');
@@ -139,7 +141,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       };
 
             if (__DEV__) {
-        console.log('💳 Creating payment intent for cart:', paymentData)
+        logger.debug('💳 Creating payment intent for cart:', paymentData)
       };
 
       // Step 1: Create payment intent on your backend
@@ -154,11 +156,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           throw new Error('No client secret returned from backend');
         }
                 if (__DEV__) {
-          console.log('✅ Payment intent created successfully')
+          logger.debug('✅ Payment intent created successfully')
         };
       } catch (error: any) {
                 if (__DEV__) {
-          console.error('❌ Error creating payment intent:', error)
+          logger.error('❌ Error creating payment intent:', error)
         };
         Alert.alert('Payment Error', error?.message || 'Failed to initialize payment. Please try again.');
         setPaymentLoading(false);
@@ -178,7 +180,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
       if (initError) {
                 if (__DEV__) {
-          console.error('❌ Error initializing payment sheet:', initError)
+          logger.error('❌ Error initializing payment sheet:', initError)
         };
         Alert.alert('Payment Error', initError.message || 'Failed to initialize payment form');
         setPaymentLoading(false);
@@ -186,7 +188,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       }
 
             if (__DEV__) {
-        console.log('✅ Payment sheet initialized successfully')
+        logger.debug('✅ Payment sheet initialized successfully')
       };
 
       // Step 3: Present payment sheet
@@ -194,7 +196,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
       if (paymentError) {
                 if (__DEV__) {
-          console.error('Payment failed:', paymentError)
+          logger.error('Payment failed:', paymentError)
         };
         if (paymentError.code !== 'Canceled') {
           Alert.alert('Payment Failed', paymentError.message || 'Payment could not be processed');
@@ -208,7 +210,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Payment error:', error)
+        logger.error('Payment error:', error)
       };
       Alert.alert('Payment Error', error.message || 'An unexpected error occurred');
       setPaymentLoading(false);
@@ -218,7 +220,16 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const handlePaymentSuccess = async (paymentIntentId: string) => {
     try {
             if (__DEV__) {
-        console.log('✅ Payment successful, creating bookings...')
+        logger.debug('✅ Payment successful, creating bookings...')
+      };
+
+      const buildBookingTimeValue = (slot: BookedSlot): string => {
+        const start = slot?.startTime?.trim();
+        const end = slot?.endTime?.trim();
+        if (start && end) {
+          return `${start} - ${end}`;
+        }
+        return start || end || '';
       };
 
       // Create bookings for each cart item (and each booked slot within)
@@ -234,7 +245,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
               studentId: user?.uid!,
               serviceId: item.serviceId,
               date: slot.date,
-              time: slot.startTime,
+              time: buildBookingTimeValue(slot),
               amount: item.pricePerSlot || item.price || 100,
               quantity: 1,
               status: 'pending',
@@ -276,7 +287,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           const consultantData = await UserService.getUserById(consultantId);
           const info = {
             name: consultantData?.name || consultantData?.displayName || fallbackName || 'Consultant',
-            avatar: consultantData?.profileImage || consultantData?.avatarUrl || consultantData?.avatar || '',
+            avatar: normalizeAvatarUrl(consultantData),
           };
           consultantInfoCache[consultantId] = info;
           return info;
@@ -292,7 +303,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
       const userAny = user as any;
       const studentName = userAny?.name || user?.email?.split('@')[0] || 'Student';
-      const studentAvatar = userAny?.profileImage || '';
+      const studentAvatar = normalizeAvatarUrl(userAny);
 
       for (let i = 0; i < bookingRequests.length; i++) {
         try {
@@ -300,7 +311,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           const result = await BookingService.createBooking(bookingData);
           results.push(result);
                     if (__DEV__) {
-            console.log(`✅ Booking ${i + 1}/${bookingRequests.length} created successfully`)
+            logger.debug(`✅ Booking ${i + 1}/${bookingRequests.length} created successfully`)
           };
 
           if (bookingData && item) {
@@ -327,7 +338,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
               });
             } catch (consultantNotifError) {
                             if (__DEV__) {
-                console.warn('⚠️ Failed to create consultant booking notification:', consultantNotifError)
+                logger.warn('⚠️ Failed to create consultant booking notification:', consultantNotifError)
               };
             }
 
@@ -349,13 +360,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
               });
             } catch (studentNotifError) {
                             if (__DEV__) {
-                console.warn('⚠️ Failed to create payment notification for student:', studentNotifError)
+                logger.warn('⚠️ Failed to create payment notification for student:', studentNotifError)
               };
             }
           }
         } catch (error: any) {
                     if (__DEV__) {
-            console.error(`❌ Booking ${i + 1}/${bookingRequests.length} failed:`, error)
+            logger.error(`❌ Booking ${i + 1}/${bookingRequests.length} failed:`, error)
           };
           
           if (error.response?.status === 409) {
@@ -380,12 +391,12 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       }
       
             if (__DEV__) {
-        console.log(`✅ ${results.length} bookings created successfully`)
+        logger.debug(`✅ ${results.length} bookings created successfully`)
       };
       
-      if (conflicts.length > 0) {
+      if (conflicts.length > 0 && results.length > 0) {
                 if (__DEV__) {
-          console.log(`⚠️ ${conflicts.length} booking conflicts detected:`, conflicts)
+          logger.debug(`⚠️ ${conflicts.length} booking conflicts detected:`, conflicts)
         };
         
         // Show conflict alert but don't fail the payment
@@ -397,7 +408,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
         );
       }
 
-      if (failures.length > 0) {
+      if (failures.length > 0 && results.length > 0) {
         const failureMessages = failures.map(f => f.message).join('\n');
         Alert.alert(
           'Some Bookings Failed',
@@ -407,7 +418,22 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       }
 
       if (results.length === 0) {
-        throw new Error('No bookings were created after successful payment.');
+        Alert.alert(
+          'Booking Error',
+          'No bookings were created after successful payment. Please contact support.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' as never }],
+                });
+              },
+            },
+          ],
+        );
+        return;
       }
 
       // Clear cart after successful payment
@@ -427,7 +453,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error creating bookings after payment:', error)
+        logger.error('Error creating bookings after payment:', error)
       };
       Alert.alert(
         'Booking Error',

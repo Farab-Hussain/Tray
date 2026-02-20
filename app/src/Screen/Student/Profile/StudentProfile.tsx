@@ -42,6 +42,7 @@ import { useRefresh } from '../../../hooks/useRefresh';
 import Loader from '../../../components/ui/Loader';
 import { UserService } from '../../../services/user.service';
 import { ResumeService } from '../../../services/resume.service';
+import { logger } from '../../../utils/logger';
 
 const StudentProfile = ({ navigation }: any) => {
   const { user } = useAuth();
@@ -73,7 +74,7 @@ const StudentProfile = ({ navigation }: any) => {
           setResume(resumeResponse.resume);
           resumeData = resumeResponse.resume;
           if (__DEV__) {
-            console.log('✅ [StudentProfile] Resume data loaded:', {
+            logger.debug('✅ [StudentProfile] Resume data loaded:', {
               careerInterests: resumeData.careerInterests,
               targetIndustries: resumeData.targetIndustries,
               salaryExpectation: resumeData.salaryExpectation
@@ -84,7 +85,7 @@ const StudentProfile = ({ navigation }: any) => {
         // Resume not found is okay - this is expected for new users
         if (error?.response?.status !== 404) {
           if (__DEV__) {
-            console.log('Error fetching resume:', error)
+            logger.debug('Error fetching resume:', error)
           };
         }
         setResume(null);
@@ -122,13 +123,13 @@ const StudentProfile = ({ navigation }: any) => {
           if (resumeData.careerInterests && resumeData.careerInterests.length > 0) {
             careerGoalsCompletion += 8;
             if (__DEV__) {
-              console.log('✅ [ProfileCompletion] Career interests found:', resumeData.careerInterests.length);
+              logger.debug('✅ [ProfileCompletion] Career interests found:', resumeData.careerInterests.length);
             }
           }
           if (resumeData.targetIndustries && resumeData.targetIndustries.length > 0) {
             careerGoalsCompletion += 7;
             if (__DEV__) {
-              console.log('✅ [ProfileCompletion] Target industries found:', resumeData.targetIndustries.length);
+              logger.debug('✅ [ProfileCompletion] Target industries found:', resumeData.targetIndustries.length);
             }
           }
           
@@ -139,7 +140,7 @@ const StudentProfile = ({ navigation }: any) => {
             if (hasValidSalary) {
               careerGoalsCompletion = 5; // Partial credit for salary only
               if (__DEV__) {
-                console.log('✅ [ProfileCompletion] Salary expectation found, partial credit given');
+                logger.debug('✅ [ProfileCompletion] Salary expectation found, partial credit given');
               }
             }
           }
@@ -147,7 +148,7 @@ const StudentProfile = ({ navigation }: any) => {
           completion += careerGoalsCompletion;
           
           if (__DEV__) {
-            console.log('📊 [ProfileCompletion] Career goals data:', {
+            logger.debug('📊 [ProfileCompletion] Career goals data:', {
               hasCareerInterests: !!(resumeData.careerInterests && resumeData.careerInterests.length > 0),
               hasTargetIndustries: !!(resumeData.targetIndustries && resumeData.targetIndustries.length > 0),
               hasSalaryExpectation: !!(resumeData.salaryExpectation),
@@ -191,7 +192,7 @@ const StudentProfile = ({ navigation }: any) => {
       const completionData = calculateProfileCompletion(profileResponse, resumeData);
       
       if (__DEV__) {
-        console.log('🎯 [StudentProfile] Final completion data:', {
+        logger.debug('🎯 [StudentProfile] Final completion data:', {
           overallCompletion: completionData.overallCompletion,
           careerGoals: completionData.careerGoals,
           hasResume: completionData.hasResume,
@@ -202,7 +203,7 @@ const StudentProfile = ({ navigation }: any) => {
       setProfileCompletion(completionData);
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error fetching profile data:', error)
+        logger.error('Error fetching profile data:', error)
       };
       // Set fallback profile from Firebase
       setBackendProfile({
@@ -274,7 +275,7 @@ const StudentProfile = ({ navigation }: any) => {
   //       });
   //     } catch  {
   //       if (__DEV__) {
-  //         console.log('Backend update failed, but Firebase updated')
+  //         logger.debug('Backend update failed, but Firebase updated')
   //       };
   //     }
 
@@ -284,7 +285,7 @@ const StudentProfile = ({ navigation }: any) => {
   //     fetchProfileData();
   //   } catch (error: any) {
   //     if (__DEV__) {
-  //       console.error('Error updating profile image:', error)
+  //       logger.error('Error updating profile image:', error)
   //     };
   //     showError(error.message || 'Failed to update profile image');
   //   } finally {

@@ -7,6 +7,8 @@ import { UserService } from '../../services/user.service';
 import { getConsultantProfile } from '../../services/consultantFlow.service';
 import { User } from 'lucide-react-native';
 import { homeHeaderStyles } from '../../constants/styles/homeHeaderStyles';
+import { normalizeAvatarUrl } from '../../utils/normalize';
+import { logger } from '../../utils/logger';
 
 interface HomeHeaderProps {
   name?: string;
@@ -31,134 +33,64 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({
     if (user?.uid && !avatarUri) {
       try {
         setLoading(true);
-        if (__DEV__) {
-          console.log('🔍 [HomeHeader] Fetching profile image for role:', role);
-        }
+        logger.debug('🔍 [HomeHeader] Fetching profile image for role:', role);
 
         if (role === 'consultant') {
           // Fetch consultant profile image using the same service as ConsultantAccount
           const profile = await getConsultantProfile(user.uid);
-          if (__DEV__) {
-            console.log(
-              '🔍 [HomeHeader] Consultant profile:',
-              JSON.stringify(
-                {
-                  uid: profile.uid,
-                  hasPersonalInfo: !!profile.personalInfo,
-                  hasProfileImage: !!profile.personalInfo?.profileImage,
-                  profileImage: profile.personalInfo?.profileImage
-                    ? 'present'
-                    : 'missing',
-                },
-                null,
-                2,
-              ),
-            );
-          }
+          logger.debug('🔍 [HomeHeader] Consultant profile loaded for:', profile?.uid);
 
-          const consultantImage = profile?.personalInfo?.profileImage;
-          if (__DEV__) {
-            console.log(
-              '🔍 [HomeHeader] Consultant profileImage:',
-              consultantImage,
-            );
-          }
+          const consultantImage = normalizeAvatarUrl({
+            profileImage: profile?.personalInfo?.profileImage,
+          });
 
           if (consultantImage && consultantImage.trim() !== '') {
-            if (__DEV__) {
-              console.log(
-                '✅ [HomeHeader] Found consultant profile image:',
-                consultantImage,
-              );
-            }
+            logger.debug('✅ [HomeHeader] Found consultant profile image');
             setProfileImage(consultantImage.trim());
           } else {
-            if (__DEV__) {
-              console.log(
-                'ℹ️ [HomeHeader] No consultant profile image found, will use fallback',
-              );
-            }
+            logger.debug('ℹ️ [HomeHeader] No consultant profile image found, will use fallback');
             setProfileImage(null);
           }
         } else if (role === 'student') {
           // Fetch student profile image
           const response = await UserService.getUserProfile();
-          if (__DEV__) {
-            console.log(
-              '🔍 [HomeHeader] Student response:',
-              JSON.stringify(response, null, 2),
-            );
-          }
 
-          let studentImage = response?.profileImage;
-          if (__DEV__) {
-            console.log('🔍 [HomeHeader] Student profileImage:', studentImage);
-          }
+          let studentImage = normalizeAvatarUrl(response);
 
           // If student profile has no image, check consultant profile as fallback (if user has consultant role)
           if (!studentImage && response?.roles?.includes('consultant')) {
             try {
-              if (__DEV__) {
-                console.log(
-                  '🔄 [HomeHeader] Student profile has no image, checking consultant profile as fallback...',
-                );
-              }
+              logger.debug('🔄 [HomeHeader] Student profile has no image, checking consultant profile as fallback...');
               const consultantProfile = await getConsultantProfile(user.uid);
-              const consultantImage =
-                consultantProfile?.personalInfo?.profileImage;
+              const consultantImage = normalizeAvatarUrl({
+                profileImage: consultantProfile?.personalInfo?.profileImage,
+              });
 
               if (consultantImage && consultantImage.trim() !== '') {
-                if (__DEV__) {
-                  console.log(
-                    '✅ [HomeHeader] Found consultant profile image as fallback:',
-                    consultantImage,
-                  );
-                }
+                logger.debug('✅ [HomeHeader] Found consultant profile image as fallback');
                 studentImage = consultantImage.trim();
               } else {
-                if (__DEV__) {
-                  console.log(
-                    'ℹ️ [HomeHeader] No consultant profile image found either',
-                  );
-                }
+                logger.debug('ℹ️ [HomeHeader] No consultant profile image found either');
               }
             } catch (consultantError) {
               // If consultant profile fetch fails, continue with student profile
-              if (__DEV__) {
-                console.warn(
-                  '⚠️ [HomeHeader] Failed to fetch consultant profile as fallback:',
-                  consultantError,
-                );
-              }
+              logger.warn('⚠️ [HomeHeader] Failed to fetch consultant profile as fallback:', consultantError);
             }
           }
 
           if (studentImage) {
-            if (__DEV__) {
-              console.log(
-                '✅ [HomeHeader] Found student profile image:',
-                studentImage,
-              );
-            }
+            logger.debug('✅ [HomeHeader] Found student profile image');
             setProfileImage(studentImage);
           } else {
-            if (__DEV__) {
-              console.log('ℹ️ [HomeHeader] No student profile image found');
-            }
+            logger.debug('ℹ️ [HomeHeader] No student profile image found');
             setProfileImage(null);
           }
         }
       } catch (error: any) {
-        if (__DEV__) {
-          console.log('⚠️ [HomeHeader] Could not fetch profile image:', error);
-        }
-        if (__DEV__) {
-          console.log('⚠️ [HomeHeader] Error details:', {
-            message: error?.message,
-            status: error?.response?.status,
-            data: error?.response?.data,
-          });
-        }
+        logger.warn('⚠️ [HomeHeader] Could not fetch profile image:', {
+          message: error?.message,
+          status: error?.response?.status,
+        });
         // Don't show error to user, just fall back to default
         setProfileImage(null);
       } finally {
@@ -174,11 +106,7 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({
   // Reload when user.photoURL changes (from AuthContext refreshUser)
   useEffect(() => {
     if (user?.photoURL) {
-      if (__DEV__) {
-        console.log(
-          '🔄 [HomeHeader] user.photoURL changed, updating cache key',
-        );
-      }
+      logger.debug('🔄 [HomeHeader] user.photoURL changed, updating cache key');
       setImageCacheKey(prev => prev + 1);
     }
   }, [user?.photoURL]);
@@ -213,9 +141,7 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({
           style={styles.avatar}
           key={`${userAvatarUri}-${imageCacheKey}`}
           onError={() => {
-            if (__DEV__) {
-              console.log('⚠️ [HomeHeader] Failed to load profile image');
-            }
+            logger.warn('⚠️ [HomeHeader] Failed to load profile image');
           }}
         />
       ) : (

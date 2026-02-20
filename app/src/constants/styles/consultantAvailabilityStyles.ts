@@ -520,6 +520,7 @@ export const consultantAvailabilityStyles = StyleSheet.create({
   previewMoreText: {
     marginTop: 4,
     fontSize: 12,
-    color: '#666666',
+    color: '#1F3C88',
+    fontWeight: '600',
   },
 });

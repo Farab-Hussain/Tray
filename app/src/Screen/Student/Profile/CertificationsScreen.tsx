@@ -12,6 +12,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { ResumeService } from '../../../services/resume.service';
+import { logger } from '../../../utils/logger';
 import {
   Award,
   Plus,
@@ -51,15 +52,15 @@ const CertificationsScreen = ({ navigation }: any) => {
       if (response.resume && response.resume.certifications) {
         setCertificationList(response.resume.certifications);
         if (__DEV__) {
-          console.log('📥 [CertificationsScreen] Loaded certifications:', response.resume.certifications);
+          logger.debug('📥 [CertificationsScreen] Loaded certifications:', response.resume.certifications);
         }
       }
     } catch (error: any) {
       if (error?.response?.status === 404) {
-        console.log('No existing certifications found, starting with defaults');
+        logger.debug('No existing certifications found, starting with defaults');
       } else {
         if (__DEV__) {
-          console.error('Error loading certifications:', error);
+          logger.error('Error loading certifications:', error);
         }
       }
     }
@@ -137,7 +138,7 @@ const CertificationsScreen = ({ navigation }: any) => {
     
     try {
       if (__DEV__) {
-        console.log('💾 [CertificationsScreen] Saving certifications:', certificationList);
+        logger.debug('💾 [CertificationsScreen] Saving certifications:', certificationList);
       }
       
       // Use existing updateResume endpoint instead of specific certifications endpoint
@@ -145,7 +146,7 @@ const CertificationsScreen = ({ navigation }: any) => {
       Alert.alert('Success', 'Certifications saved successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving certifications:', error);
+      logger.error('Error saving certifications:', error);
       Alert.alert('Error', 'Failed to save certifications. Please try again.');
     } finally {
       setLoading(false);

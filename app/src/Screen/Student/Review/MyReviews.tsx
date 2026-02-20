@@ -9,6 +9,7 @@ import { ReviewService } from '../../../services/review.service';
 import { COLORS } from '../../../constants/core/colors';
 import { useRefresh } from '../../../hooks/useRefresh';
 import LoadingState from '../../../components/ui/LoadingState';
+import { logger } from '../../../utils/logger';
 
 const MyReviews = ({ navigation }: any) => {
   const [reviews, setReviews] = useState<any[]>([]);
@@ -17,11 +18,11 @@ const MyReviews = ({ navigation }: any) => {
   const fetchMyReviews = async () => {
     try {
             if (__DEV__) {
-        console.log('📋 Fetching my reviews...')
+        logger.debug('📋 Fetching my reviews...')
       };
       const response = await ReviewService.getMyReviews();
             if (__DEV__) {
-        console.log('✅ My reviews response:', response)
+        logger.debug('✅ My reviews response:', response)
       };
       
       const reviewsData = response?.reviews || [];
@@ -29,11 +30,11 @@ const MyReviews = ({ navigation }: any) => {
       setReviews(reviewsData);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('❌ Error fetching my reviews:', error)
+        logger.error('❌ Error fetching my reviews:', error)
       };
       if (error?.response?.status === 404) {
                 if (__DEV__) {
-          console.log('⚠️ My reviews API not available (404)')
+          logger.debug('⚠️ My reviews API not available (404)')
         };
       }
       setReviews([]);
@@ -78,11 +79,11 @@ const MyReviews = ({ navigation }: any) => {
           onPress: async () => {
             try {
                             if (__DEV__) {
-                console.log('🗑️ Deleting review:', reviewId)
+                logger.debug('🗑️ Deleting review:', reviewId)
               };
               await ReviewService.deleteReview(reviewId);
                             if (__DEV__) {
-                console.log('✅ Review deleted successfully')
+                logger.debug('✅ Review deleted successfully')
               };
               
               // Remove from local state
@@ -91,7 +92,7 @@ const MyReviews = ({ navigation }: any) => {
               Alert.alert('Success', 'Review deleted successfully');
             } catch (error: any) {
                             if (__DEV__) {
-                console.error('❌ Error deleting review:', error)
+                logger.error('❌ Error deleting review:', error)
               };
               Alert.alert(
                 'Error',

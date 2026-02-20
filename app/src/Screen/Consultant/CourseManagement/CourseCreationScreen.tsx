@@ -10,6 +10,7 @@ import {
   Image,
   Modal,
   UIManager,
+  Linking,
 } from 'react-native';
 import Video from 'react-native-video';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +22,7 @@ import { courseService, CourseInput, Course } from '../../../services/course.ser
 import ImageUpload from '../../../components/ui/ImageUpload';
 import UploadService from '../../../services/upload.service';
 import { launchImageLibrary, MediaType } from 'react-native-image-picker';
+import { logger } from '../../../utils/logger';
 
 interface FormData {
   title: string;
@@ -247,7 +249,7 @@ export default function CourseCreationScreen() {
           setCourseVideos(generated);
         }
       } catch (error) {
-        console.error('Error loading course for edit:', error);
+        logger.error('Error loading course for edit:', error);
         Alert.alert('Error', 'Failed to load course details for editing.');
       } finally {
         setIsPrefilling(false);
@@ -278,8 +280,19 @@ export default function CourseCreationScreen() {
     }
     if (!nativeVideoAvailable) {
       Alert.alert(
-        'Preview unavailable',
-        'Native video preview is not available in this build. Rebuild the iOS app after installing pods to enable video playback.',
+        'Preview unavailable in app',
+        'Native video module is not linked in this build. Open preview in browser instead?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open in Browser',
+            onPress: () => {
+              Linking.openURL(url).catch(() => {
+                Alert.alert('Error', 'Unable to open video URL.');
+              });
+            },
+          },
+        ],
       );
       return;
     }
@@ -367,7 +380,7 @@ export default function CourseCreationScreen() {
 
       // Show file size info to user
       const fileSizeMB = Math.round((asset.fileSize || 0) / (1024 * 1024));
-      console.log(`📤 [CourseCreation] Uploading video: ${fileSizeMB}MB`);
+      logger.debug(`📤 [CourseCreation] Uploading video: ${fileSizeMB}MB`);
 
       const result = await UploadService.uploadServiceVideo(file);
       const videoUrl = result.videoUrl || '';
@@ -386,7 +399,7 @@ export default function CourseCreationScreen() {
         [{ text: 'OK' }]
       );
     } catch (error: any) {
-      console.error('❌ [CourseCreation] Video upload error:', error);
+      logger.error('❌ [CourseCreation] Video upload error:', error);
       Alert.alert('Upload Error', error?.message || 'Failed to upload video.');
     } finally {
       updateVideoItem(videoId, 'isUploadingVideo', false);
@@ -467,7 +480,7 @@ export default function CourseCreationScreen() {
       setIntroVideoFileName(asset.fileName || 'Uploaded intro video');
       Alert.alert('Upload Complete', 'Intro video uploaded successfully.');
     } catch (error: any) {
-      console.error('❌ [CourseCreation] Intro video upload error:', error);
+      logger.error('❌ [CourseCreation] Intro video upload error:', error);
       Alert.alert('Upload Error', error?.message || 'Failed to upload intro video.');
     } finally {
       setIsUploadingIntroVideo(false);
@@ -700,7 +713,7 @@ export default function CourseCreationScreen() {
       // Show custom success modal instead of native alert
       setShowSuccessModal(true);
     } catch (error) {
-      console.error(isEditMode ? 'Error updating course:' : 'Error creating course:', error);
+      logger.error(isEditMode ? 'Error updating course:' : 'Error creating course:', error);
       Alert.alert('Error', isEditMode ? 'Failed to update course. Please try again.' : 'Failed to create course. Please try again.');
     } finally {
       setIsLoading(false);
@@ -1869,7 +1882,7 @@ export default function CourseCreationScreen() {
                   paused={!isVideoPlaying}
                   onLoad={() => setIsVideoPlaying(true)}
                   onError={(error: any) => {
-                    console.error('❌ [CourseCreation] Video error:', error);
+                    logger.error('❌ [CourseCreation] Video error:', error);
                     Alert.alert('Preview error', 'Could not play this video.');
                   }}
                 />
@@ -1879,12 +1892,30 @@ export default function CourseCreationScreen() {
                     flex: 1,
                     justifyContent: 'center',
                     alignItems: 'center',
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 18,
                   }}
                 >
-                  <Text style={{ color: '#fff', textAlign: 'center', fontSize: 14 }}>
-                    Video preview is unavailable in this build.
+                  <Text style={{ color: '#fff', textAlign: 'center', marginBottom: 12 }}>
+                    Native video preview is unavailable in this build.
                   </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (!currentVideoUrl) return;
+                      Linking.openURL(currentVideoUrl).catch(() => {
+                        Alert.alert('Error', 'Unable to open video URL.');
+                      });
+                    }}
+                    style={{
+                      backgroundColor: COLORS.blue,
+                      paddingVertical: 10,
+                      paddingHorizontal: 14,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ color: COLORS.white, fontWeight: '600' }}>
+                      Open in Browser
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>

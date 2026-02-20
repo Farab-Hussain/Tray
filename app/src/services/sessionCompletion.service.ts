@@ -1,4 +1,5 @@
 import { fetcher, api } from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 export interface SessionRating {
   consultantRating: number; // 1-5 stars
@@ -56,7 +57,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error completing session:', error)
+        logger.error('Error completing session:', error)
       };
       throw error;
     }
@@ -72,7 +73,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error rating consultant:', error)
+        logger.error('Error rating consultant:', error)
       };
       throw error;
     }
@@ -88,7 +89,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error rating service:', error)
+        logger.error('Error rating service:', error)
       };
       throw error;
     }
@@ -101,7 +102,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error fetching session completion:', error)
+        logger.error('Error fetching session completion:', error)
       };
       throw error;
     }
@@ -114,7 +115,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error fetching student session completions:', error)
+        logger.error('Error fetching student session completions:', error)
       };
       throw error;
     }
@@ -127,7 +128,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error fetching consultant session completions:', error)
+        logger.error('Error fetching consultant session completions:', error)
       };
       throw error;
     }
@@ -143,7 +144,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error requesting refund:', error)
+        logger.error('Error requesting refund:', error)
       };
       throw error;
     }
@@ -158,7 +159,7 @@ export const SessionCompletionService = {
       return apiResponse.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error responding to refund request:', error)
+        logger.error('Error responding to refund request:', error)
       };
       throw error;
     }
@@ -174,7 +175,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error reviewing refund request:', error)
+        logger.error('Error reviewing refund request:', error)
       };
       throw error;
     }
@@ -187,7 +188,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error fetching refund requests:', error)
+        logger.error('Error fetching refund requests:', error)
       };
       throw error;
     }
@@ -200,7 +201,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error fetching consultant refund requests:', error)
+        logger.error('Error fetching consultant refund requests:', error)
       };
       throw error;
     }
@@ -213,7 +214,7 @@ export const SessionCompletionService = {
       return response.data;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error fetching student refund requests:', error)
+        logger.error('Error fetching student refund requests:', error)
       };
       throw error;
     }

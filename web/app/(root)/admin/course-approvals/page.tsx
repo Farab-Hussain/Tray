@@ -118,6 +118,34 @@ export default function AdminCourseApprovalsPage() {
     return `${course.currency || 'USD'} ${course.price}`;
   };
 
+  const formatDuration = (course: AdminCourse) => {
+    if (course.durationText && course.durationText.trim().length > 0) {
+      return course.durationText;
+    }
+
+    const totalMinutes = Number(course.duration || 0);
+    if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) return '0 mins';
+
+    if (totalMinutes < 60) return `${Math.floor(totalMinutes)} mins`;
+
+    const totalHours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (totalHours < 24) {
+      return minutes > 0 ? `${totalHours}h ${minutes}m` : `${totalHours}h`;
+    }
+
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    if (days < 30) {
+      return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+    }
+
+    const months = Math.floor(days / 30);
+    const remDays = days % 30;
+    return remDays > 0 ? `${months}mo ${remDays}d` : `${months}mo`;
+  };
+
   const parseTimestamp = (timestamp: FirestoreTimestamp | undefined): Date | null => {
     if (!timestamp) return null;
 
@@ -195,10 +223,10 @@ export default function AdminCourseApprovalsPage() {
             const isProcessing = processingCourseId === course.id;
             return (
               <div key={course.id} className="border border-gray-200 bg-white rounded-xl p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 break-words">{course.title}</h3>
+                    <p className="text-sm text-gray-600 mt-1 break-words whitespace-pre-wrap">
                       {course.shortDescription || course.description}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -212,7 +240,7 @@ export default function AdminCourseApprovalsPage() {
                         {formatPrice(course)}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-3">
+                    <p className="text-xs text-gray-500 mt-3 break-all">
                       Instructor: {course.instructorName || course.instructorId || 'Unknown'}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
@@ -221,7 +249,7 @@ export default function AdminCourseApprovalsPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col gap-2 w-40">
+                  <div className="flex flex-col gap-2 w-full lg:w-44 shrink-0">
                     <button
                       disabled={isProcessing}
                       onClick={() =>
@@ -252,29 +280,31 @@ export default function AdminCourseApprovalsPage() {
                 </div>
 
                 {expandedCourseId === course.id && (
-                  <div className="mt-4 border-t border-gray-200 pt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="lg:col-span-2 space-y-4">
+                  <div className="mt-4 border-t border-gray-200 pt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    <div className="lg:col-span-8 space-y-4 min-w-0">
                       <div>
                         <p className="text-sm font-medium text-gray-800">Full Description</p>
-                        <p className="text-sm text-gray-600 mt-1">{course.description}</p>
+                        <p className="text-sm text-gray-600 mt-1 break-words whitespace-pre-wrap">
+                          {course.description}
+                        </p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-lg bg-gray-50 p-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-lg bg-gray-50 p-3 min-w-0">
                           <p className="text-gray-500">Language</p>
-                          <p className="text-gray-800 font-medium">{course.language || 'N/A'}</p>
+                          <p className="text-gray-800 font-medium break-words">{course.language || 'N/A'}</p>
                         </div>
-                        <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="rounded-lg bg-gray-50 p-3 min-w-0">
                           <p className="text-gray-500">Lessons</p>
                           <p className="text-gray-800 font-medium">{course.lessonsCount || 0}</p>
                         </div>
-                        <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="rounded-lg bg-gray-50 p-3 min-w-0">
                           <p className="text-gray-500">Duration</p>
                           <p className="text-gray-800 font-medium">
-                            {course.durationText || `${course.duration || 0} mins`}
+                            {formatDuration(course)}
                           </p>
                         </div>
-                        <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="rounded-lg bg-gray-50 p-3 min-w-0">
                           <p className="text-gray-500">Price Type</p>
                           <p className="text-gray-800 font-medium">{course.isFree ? 'Free' : 'Paid'}</p>
                         </div>
@@ -295,10 +325,10 @@ export default function AdminCourseApprovalsPage() {
                       )}
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                        <div className="rounded-lg border border-gray-200 p-3">
+                        <div className="rounded-lg border border-gray-200 p-3 min-w-0">
                           <p className="font-medium text-gray-800 mb-2">Objectives</p>
                           {(course.objectives || []).length > 0 ? (
-                            <ul className="list-disc pl-5 text-gray-600 space-y-1">
+                            <ul className="list-disc pl-5 text-gray-600 space-y-1 break-words max-h-52 overflow-auto">
                               {(course.objectives || []).map((item, index) => (
                                 <li key={`${course.id}-objective-${index}`}>{item}</li>
                               ))}
@@ -307,10 +337,10 @@ export default function AdminCourseApprovalsPage() {
                             <p className="text-gray-500">None provided</p>
                           )}
                         </div>
-                        <div className="rounded-lg border border-gray-200 p-3">
+                        <div className="rounded-lg border border-gray-200 p-3 min-w-0">
                           <p className="font-medium text-gray-800 mb-2">Prerequisites</p>
                           {(course.prerequisites || []).length > 0 ? (
-                            <ul className="list-disc pl-5 text-gray-600 space-y-1">
+                            <ul className="list-disc pl-5 text-gray-600 space-y-1 break-words max-h-52 overflow-auto">
                               {(course.prerequisites || []).map((item, index) => (
                                 <li key={`${course.id}-prerequisite-${index}`}>{item}</li>
                               ))}
@@ -319,10 +349,10 @@ export default function AdminCourseApprovalsPage() {
                             <p className="text-gray-500">None provided</p>
                           )}
                         </div>
-                        <div className="rounded-lg border border-gray-200 p-3">
+                        <div className="rounded-lg border border-gray-200 p-3 min-w-0">
                           <p className="font-medium text-gray-800 mb-2">Target Audience</p>
                           {(course.targetAudience || []).length > 0 ? (
-                            <ul className="list-disc pl-5 text-gray-600 space-y-1">
+                            <ul className="list-disc pl-5 text-gray-600 space-y-1 break-words max-h-52 overflow-auto">
                               {(course.targetAudience || []).map((item, index) => (
                                 <li key={`${course.id}-audience-${index}`}>{item}</li>
                               ))}
@@ -350,14 +380,14 @@ export default function AdminCourseApprovalsPage() {
                       )}
                     </div>
 
-                    <div className="rounded-lg border border-gray-200 p-3 h-fit">
+                    <div className="lg:col-span-4 rounded-lg border border-gray-200 p-3 h-fit min-w-0 lg:sticky lg:top-4 bg-white">
                       <p className="text-sm font-semibold text-gray-900 mb-3">Readiness Checklist</p>
                       <div className="space-y-2">
                         {getReadinessChecks(course).map((item) => (
-                          <div key={`${course.id}-${item.label}`} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-700">{item.label}</span>
+                          <div key={`${course.id}-${item.label}`} className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-gray-700 break-words">{item.label}</span>
                             <span
-                              className={`px-2 py-0.5 rounded text-xs ${
+                              className={`px-2 py-0.5 rounded text-xs shrink-0 ${
                                 item.pass
                                   ? 'bg-green-100 text-green-700'
                                   : 'bg-red-100 text-red-700'

@@ -25,6 +25,7 @@ import { api } from '../../../lib/fetcher';
 import { COLORS } from '../../../constants/core/colors';
 import { showSuccess, showToast, handleApiError } from '../../../utils/toast';
 import { ConsultantService } from '../../../services/consultant.service';
+import { logger } from '../../../utils/logger';
 
 interface PlatformService {
   id: string;
@@ -116,7 +117,7 @@ export default function BrowseServicesScreen() {
 
           // Debug logging for each service
                     if (__DEV__) {
-            console.log(`Service ${service.title}:`, {
+            logger.debug(`Service ${service.title}:`, {
             serviceId: service.id,
             hasApplication: !!application,
             applicationStatus: application?.status || 'no application',
@@ -131,7 +132,7 @@ export default function BrowseServicesScreen() {
 
       if (servicesWithStatus.length === 0) {
                 if (__DEV__) {
-          console.log(
+          logger.debug(
           'No platform services available. Loading top consultant services as fallback.',
         )
         };
@@ -151,7 +152,7 @@ export default function BrowseServicesScreen() {
             );
 
                         if (__DEV__) {
-              console.log(
+              logger.debug(
               'Using top consultant services fallback:',
               selectedTopConsultant?.name,
             )
@@ -185,12 +186,12 @@ export default function BrowseServicesScreen() {
             });
           } else {
                         if (__DEV__) {
-              console.log('Top consultants response empty. No fallback services.')
+              logger.debug('Top consultants response empty. No fallback services.')
             };
           }
         } catch (fallbackError) {
                     if (__DEV__) {
-            console.error(
+            logger.error(
             'Failed to load top consultant services fallback:',
             fallbackError,
           )
@@ -199,15 +200,15 @@ export default function BrowseServicesScreen() {
       }
 
             if (__DEV__) {
-        console.log('Services with application status:', servicesWithStatus)
+        logger.debug('Services with application status:', servicesWithStatus)
       };
             if (__DEV__) {
-        console.log('My applications:', myApplications)
+        logger.debug('My applications:', myApplications)
       };
       setServices(servicesWithStatus);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error loading services:', error)
+        logger.error('Error loading services:', error)
       };
       handleApiError(error);
     } finally {
@@ -257,7 +258,7 @@ export default function BrowseServicesScreen() {
               await loadServicesWithApplications();
             } catch (error: any) {
                             if (__DEV__) {
-                console.error('Error applying for service:', error)
+                logger.error('Error applying for service:', error)
               };
               handleApiError(error);
             } finally {
@@ -281,7 +282,7 @@ export default function BrowseServicesScreen() {
 
     // Debug logging
         if (__DEV__) {
-      console.log(`Button for ${service.title}:`, {
+      logger.debug(`Button for ${service.title}:`, {
       applicationStatus: service.applicationStatus,
       hasApplication,
       isApplying,
@@ -424,7 +425,7 @@ export default function BrowseServicesScreen() {
                   resizeMode="cover"
                   onError={() => {
                                         if (__DEV__) {
-                      console.log(
+                      logger.debug(
                       `Failed to load image for service: ${service.title}`,
                     )
                     };

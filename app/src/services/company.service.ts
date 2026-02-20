@@ -1,5 +1,6 @@
 // src/services/company.service.ts
 import api from '../lib/api';
+import { logger } from '../utils/logger';
 
 export interface CompanyProfile {
   id?: string;
@@ -78,7 +79,7 @@ class CompanyService {
       const response = await api.get('/companies/my');
       return response.data;
     } catch (error: any) {
-      console.error('Error getting companies:', error);
+      logger.error('Error getting companies:', error);
       throw error;
     }
   }
@@ -91,7 +92,7 @@ class CompanyService {
       const response = await api.post('/companies', companyData);
       return response.data;
     } catch (error: any) {
-      console.error('Error creating company:', error);
+      logger.error('Error creating company:', error);
       throw error;
     }
   }
@@ -104,7 +105,7 @@ class CompanyService {
       const response = await api.put(`/companies/${companyId}`, updates);
       return response.data;
     } catch (error: any) {
-      console.error('Error updating company:', error);
+      logger.error('Error updating company:', error);
       throw error;
     }
   }
@@ -117,7 +118,7 @@ class CompanyService {
       const response = await api.get(`/companies/${companyId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error getting company:', error);
+      logger.error('Error getting company:', error);
       throw error;
     }
   }
@@ -130,7 +131,7 @@ class CompanyService {
       const response = await api.post(`/companies/${companyId}/verification`, verificationData);
       return response.data;
     } catch (error: any) {
-      console.error('Error submitting for verification:', error);
+      logger.error('Error submitting for verification:', error);
       throw error;
     }
   }
@@ -146,7 +147,7 @@ class CompanyService {
       const response = await api.get(`/companies/${companyId}/verification`);
       return response.data;
     } catch (error: any) {
-      console.error('Error getting verification status:', error);
+      logger.error('Error getting verification status:', error);
       throw error;
     }
   }
@@ -161,7 +162,7 @@ class CompanyService {
       const response = await api.put(`/companies/${companyId}/fair-chance`, fairChanceSettings);
       return response.data;
     } catch (error: any) {
-      console.error('Error updating fair chance settings:', error);
+      logger.error('Error updating fair chance settings:', error);
       throw error;
     }
   }
@@ -174,7 +175,7 @@ class CompanyService {
       const response = await api.get(`/companies/${companyId}/stats`);
       return response.data;
     } catch (error: any) {
-      console.error('Error getting company stats:', error);
+      logger.error('Error getting company stats:', error);
       throw error;
     }
   }
@@ -187,7 +188,7 @@ class CompanyService {
       const response = await api.get('/companies/industries');
       return response.data;
     } catch (error: any) {
-      console.error('Error getting industries:', error);
+      logger.error('Error getting industries:', error);
       throw error;
     }
   }
@@ -217,7 +218,7 @@ class CompanyService {
       const response = await api.get(`/companies/search?${params}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error searching companies:', error);
+      logger.error('Error searching companies:', error);
       throw error;
     }
   }
@@ -230,7 +231,7 @@ class CompanyService {
       const response = await api.delete(`/companies/${companyId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error deactivating company:', error);
+      logger.error('Error deactivating company:', error);
       throw error;
     }
   }

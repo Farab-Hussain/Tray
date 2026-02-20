@@ -10,6 +10,7 @@ import {
 import { EmailService } from '../../../services/email.service';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { sessionCompletionStyles } from '../../../constants/styles/sessionCompletionStyles';
+import { logger } from '../../../utils/logger';
 
 interface ConsultantSessionCompletionProps {
   route: {
@@ -48,7 +49,7 @@ const ConsultantSessionCompletion: React.FC<
         setSessionCompletion(completion);
       } catch (error) {
                 if (__DEV__) {
-          console.error('Error fetching session completion:', error)
+          logger.error('Error fetching session completion:', error)
         };
         Alert.alert('Error', 'Failed to load session details');
       }
@@ -96,7 +97,7 @@ const ConsultantSessionCompletion: React.FC<
               );
             } catch (error) {
                             if (__DEV__) {
-                console.error('Error ending session:', error)
+                logger.error('Error ending session:', error)
               };
               Alert.alert('Error', 'Failed to end session');
             } finally {
@@ -150,7 +151,7 @@ const ConsultantSessionCompletion: React.FC<
               );
             } catch (error) {
                             if (__DEV__) {
-                console.error('Error submitting response:', error)
+                logger.error('Error submitting response:', error)
               };
               Alert.alert('Error', 'Failed to submit response');
             }

@@ -24,6 +24,14 @@
         {"fieldPath": "status", "order": "ASCENDING"},
         {"fieldPath": "expiresAt", "order": "ASCENDING"}
       ]
+    },
+    {
+      "collectionGroup": "courseReviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "courseId", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
     }
   ],
   "fieldOverrides": []

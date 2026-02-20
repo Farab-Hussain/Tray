@@ -1,4 +1,5 @@
 import { api } from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 // Types
 export interface ConsultantProfile {
@@ -84,7 +85,7 @@ export interface ConsultantApplicationInput {
 
 export const setDemoToken = async () => {
     if (__DEV__) {
-    console.log('Using Firebase authentication tokens')
+    logger.debug('Using Firebase authentication tokens')
   };
 };
 

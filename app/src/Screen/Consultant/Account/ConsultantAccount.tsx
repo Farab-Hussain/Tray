@@ -13,6 +13,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { Camera } from 'lucide-react-native';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { UserService } from '../../../services/user.service';
+import { logger } from '../../../utils/logger';
 
 const ConsultantAccount = ({ navigation }: any) => {
   const { user, logout } = useAuth();
@@ -33,23 +34,23 @@ const ConsultantAccount = ({ navigation }: any) => {
     try {
       isLoadingRef.current = true;
             if (__DEV__) {
-        console.log('👤 Fetching consultant profile from backend...')
+        logger.debug('👤 Fetching consultant profile from backend...')
       };
       const response = await getConsultantProfile(currentUser.uid);
             if (__DEV__) {
-        console.log('✅ Consultant profile response:', response)
+        logger.debug('✅ Consultant profile response:', response)
       };
       setConsultantProfile(response);
     } catch (error: any) {
       // Only log once and mark API as unavailable to prevent repeated calls
       if (error?.response?.status === 404) {
                 if (__DEV__) {
-          console.log('⚠️ Consultant profile API not available (404) - will not retry')
+          logger.debug('⚠️ Consultant profile API not available (404) - will not retry')
         };
         setApiUnavailable(true);
       } else {
                 if (__DEV__) {
-          console.log('⚠️ Consultant profile error:', error?.message || error)
+          logger.debug('⚠️ Consultant profile error:', error?.message || error)
         };
       }
     } finally {
@@ -66,7 +67,7 @@ const ConsultantAccount = ({ navigation }: any) => {
       isLoadingRef.current = true;
       const response = await UserService.getUserProfile();
             if (__DEV__) {
-        console.log('✅ User profile response:', response)
+        logger.debug('✅ User profile response:', response)
       };
       // Always update backendProfile - this is the source of truth for profileImage
       // If response has profileImage, use it; otherwise keep existing if it exists
@@ -74,14 +75,14 @@ const ConsultantAccount = ({ navigation }: any) => {
         // If new response has profileImage, always use it (it's the most recent)
         if (response?.profileImage) {
                     if (__DEV__) {
-            console.log('✅ Updating backendProfile with new profileImage:', response.profileImage)
+            logger.debug('✅ Updating backendProfile with new profileImage:', response.profileImage)
           };
           return response;
         }
         // If new response doesn't have profileImage but prev does, keep prev (don't clear it)
         if (prev?.profileImage && !response?.profileImage) {
                     if (__DEV__) {
-            console.log('⚠️ New response has no profileImage, keeping existing:', prev.profileImage)
+            logger.debug('⚠️ New response has no profileImage, keeping existing:', prev.profileImage)
           };
           return { ...response, profileImage: prev.profileImage };
         }
@@ -90,7 +91,7 @@ const ConsultantAccount = ({ navigation }: any) => {
       });
     } catch (error: any) {
             if (__DEV__) {
-        console.log('⚠️ User profile error:', error?.message || error)
+        logger.debug('⚠️ User profile error:', error?.message || error)
       };
     } finally {
       isLoadingRef.current = false;
@@ -111,7 +112,7 @@ const ConsultantAccount = ({ navigation }: any) => {
   useEffect(() => {
     if (user?.photoURL && hasLoadedRef.current) {
             if (__DEV__) {
-        console.log('🔄 [ConsultantAccount] user.photoURL changed, reloading profiles')
+        logger.debug('🔄 [ConsultantAccount] user.photoURL changed, reloading profiles')
       };
       const now = Date.now();
       // Only reload if it's been more than 500ms since last load (prevent rapid reloads)
@@ -138,7 +139,7 @@ const ConsultantAccount = ({ navigation }: any) => {
         hasLoadedRef.current = true;
         lastLoadTimeRef.current = now;
                 if (__DEV__) {
-          console.log('🔄 [ConsultantAccount] Screen focused, reloading profiles')
+          logger.debug('🔄 [ConsultantAccount] Screen focused, reloading profiles')
         };
         fetchConsultantProfile();
         fetchUserProfile();
@@ -154,7 +155,7 @@ const ConsultantAccount = ({ navigation }: any) => {
     // backendProfile.profileImage is always the most up-to-date since it's updated first
     const imageUrl = backendProfile?.profileImage || user?.photoURL || consultantProfile?.personalInfo?.profileImage || '';
         if (__DEV__) {
-      console.log('🖼️ [ConsultantAccount] Profile image URL computed:', {
+      logger.debug('🖼️ [ConsultantAccount] Profile image URL computed:', {
       backendProfile: backendProfile?.profileImage ? 'has' : 'none',
       userPhotoURL: user?.photoURL ? 'has' : 'none',
       consultantProfile: consultantProfile?.personalInfo?.profileImage ? 'has' : 'none',

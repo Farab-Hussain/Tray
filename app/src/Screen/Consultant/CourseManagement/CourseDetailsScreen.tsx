@@ -10,7 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { RouteProp } from '@react-navigation/native';
 import RNVideo from 'react-native-video';
 import {
   ArrowLeft,
@@ -27,13 +27,18 @@ import {
   Play,
 } from 'lucide-react-native';
 import { COLORS } from '../../../constants/core/colors';
-import { courseService, Course } from '../../../services/course.service';
+import { courseService, Course, CourseReview } from '../../../services/course.service';
+import { logger } from '../../../utils/logger';
 
 type RootStackParamList = {
   CourseDetails: { courseId: string };
 };
 
 type CourseDetailsRouteProp = RouteProp<RootStackParamList, 'CourseDetails'>;
+type CourseDetailsProps = {
+  navigation: any;
+  route: CourseDetailsRouteProp;
+};
 
 type EnrollmentLite = {
   id: string;
@@ -45,19 +50,17 @@ type EnrollmentLite = {
   certificateIssued?: boolean;
 };
 
-export default function CourseDetailsScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<CourseDetailsRouteProp>();
-
+export default function CourseDetailsScreen({ navigation, route }: CourseDetailsProps) {
   const [course, setCourse] = useState<Course | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentLite[]>([]);
+  const [courseReviews, setCourseReviews] = useState<CourseReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'students' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'students' | 'analytics' | 'reviews'>('overview');
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const [currentVideoTitle, setCurrentVideoTitle] = useState('');
 
-  const { courseId } = route.params;
+  const { courseId } = route.params || ({} as { courseId: string });
 
   const loadCourseDetails = useCallback(async () => {
     try {
@@ -68,8 +71,10 @@ export default function CourseDetailsScreen() {
       ]);
       setCourse(courseData);
       setEnrollments(enrollmentsData?.enrollments || []);
+      const reviewsResponse = await courseService.getCourseReviews(courseId, { page: 1, limit: 100 }).catch(() => ({ reviews: [] }));
+      setCourseReviews(reviewsResponse?.reviews || []);
     } catch (error) {
-      console.error('Error loading course details:', error);
+      logger.error('Error loading course details:', error);
       Alert.alert('Error', 'Failed to load course details');
     } finally {
       setIsLoading(false);
@@ -110,11 +115,20 @@ export default function CourseDetailsScreen() {
   };
 
   const formatDuration = (minutesOrSeconds: number): string => {
-    if (!minutesOrSeconds || minutesOrSeconds <= 0) return '0m';
-    const hours = Math.floor(minutesOrSeconds / 60);
-    const minutes = minutesOrSeconds % 60;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    const totalMinutes = Number(minutesOrSeconds || 0);
+    if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) return '0m';
+
+    if (totalMinutes < 60) return `${Math.floor(totalMinutes)}m`;
+
+    const totalHours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (totalHours < 24) {
+      return minutes > 0 ? `${totalHours}h ${minutes}m` : `${totalHours}h`;
+    }
+
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
   };
 
   const formatCurrency = (amount: number, currency = 'USD'): string => {
@@ -128,15 +142,25 @@ export default function CourseDetailsScreen() {
     }
   };
 
-  const formatLifecycleDate = (value?: Date | string): string => {
+  const formatLifecycleDate = (value?: Date | string | { _seconds?: number; seconds?: number; _nanoseconds?: number; nanoseconds?: number; toDate?: () => Date }): string => {
     if (!value) return 'N/A';
     const asAny = value as any;
-    const parsed =
-      asAny?.toDate instanceof Function
-        ? asAny.toDate()
-        : value instanceof Date
-          ? value
-          : new Date(value);
+    let parsed: Date;
+
+    if (asAny?.toDate instanceof Function) {
+      parsed = asAny.toDate();
+    } else if (typeof asAny?._seconds === 'number') {
+      const millis = asAny._seconds * 1000 + Math.floor((asAny._nanoseconds || 0) / 1_000_000);
+      parsed = new Date(millis);
+    } else if (typeof asAny?.seconds === 'number') {
+      const millis = asAny.seconds * 1000 + Math.floor((asAny.nanoseconds || 0) / 1_000_000);
+      parsed = new Date(millis);
+    } else if (value instanceof Date) {
+      parsed = value;
+    } else {
+      parsed = new Date(value);
+    }
+
     if (!(parsed instanceof Date) || Number.isNaN(parsed.getTime())) {
       return 'N/A';
     }
@@ -260,9 +284,9 @@ export default function CourseDetailsScreen() {
             Status History
           </Text>
 
-          {!!course?.submittedAt && (
+          {!!(course?.submittedAt || (course as any)?.createdAt) && (
             <Text style={{ fontSize: 13, color: COLORS.gray, marginBottom: 4 }}>
-              Submitted: {formatLifecycleDate(course.submittedAt)}
+              Submitted: {formatLifecycleDate(course?.submittedAt || (course as any)?.createdAt)}
             </Text>
           )}
 
@@ -598,6 +622,72 @@ export default function CourseDetailsScreen() {
     </View>
   );
 
+  const renderReviews = () => (
+    <View
+      style={{
+        backgroundColor: COLORS.white,
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      }}
+    >
+      <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+        Course Reviews
+      </Text>
+      <Text style={{ fontSize: 13, color: COLORS.gray, marginBottom: 14 }}>
+        {courseReviews.length} review{courseReviews.length === 1 ? '' : 's'} from enrolled students
+      </Text>
+
+      {courseReviews.length === 0 ? (
+        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+          <Star size={40} color={COLORS.lightGray} />
+          <Text style={{ fontSize: 14, color: COLORS.gray, marginTop: 10 }}>No course reviews yet.</Text>
+        </View>
+      ) : (
+        courseReviews.map((review, index) => (
+          <View
+            key={review.id || `review-${index + 1}`}
+            style={{
+              borderWidth: 1,
+              borderColor: COLORS.lightGray,
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 10,
+              backgroundColor: '#FAFBFD',
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.black, flex: 1 }}>
+                {review.studentName || review.studentId || 'Student'}
+              </Text>
+              <Text style={{ fontSize: 12, color: COLORS.gray, marginLeft: 8 }}>
+                {formatLifecycleDate(review.createdAt as unknown as Date | string)}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+              <Star size={14} color={COLORS.orange} fill={COLORS.orange} />
+              <Text style={{ fontSize: 13, color: COLORS.black, fontWeight: '600', marginLeft: 4 }}>
+                {Number(review.rating || 0).toFixed(1)}
+              </Text>
+            </View>
+
+            {!!review.comment && (
+              <Text style={{ fontSize: 13, color: COLORS.gray, marginTop: 8, lineHeight: 19 }}>
+                {review.comment}
+              </Text>
+            )}
+          </View>
+        ))
+      )}
+    </View>
+  );
+
   if (isLoading) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -667,6 +757,7 @@ export default function CourseDetailsScreen() {
           { key: 'content', label: 'Content' },
           { key: 'students', label: 'Students' },
           { key: 'analytics', label: 'Analytics' },
+          { key: 'reviews', label: 'Reviews' },
         ].map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -676,7 +767,7 @@ export default function CourseDetailsScreen() {
               borderBottomWidth: 2,
               borderBottomColor: activeTab === tab.key ? COLORS.green : 'transparent',
             }}
-            onPress={() => setActiveTab(tab.key as 'overview' | 'content' | 'students' | 'analytics')}
+            onPress={() => setActiveTab(tab.key as 'overview' | 'content' | 'students' | 'analytics' | 'reviews')}
           >
             <Text
               style={{
@@ -697,6 +788,7 @@ export default function CourseDetailsScreen() {
         {activeTab === 'content' && renderContent()}
         {activeTab === 'students' && renderStudents()}
         {activeTab === 'analytics' && renderAnalytics()}
+        {activeTab === 'reviews' && renderReviews()}
       </ScrollView>
 
       <Modal

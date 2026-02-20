@@ -16,6 +16,7 @@ import { showError } from '../../../utils/toast';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { allApplicationsScreenStyles } from '../../../constants/styles/allApplicationsScreenStyles';
 import { getStatusColor } from '../../../utils/statusUtils';
+import { logger } from '../../../utils/logger';
 
 type SortOption = 'date' | 'status' | 'jobTitle' | 'matchRating' | 'matchScore';
 type SortOrder = 'asc' | 'desc';
@@ -59,7 +60,7 @@ const AllApplicationsScreen = ({ navigation }: any) => {
           });
         } catch (error: any) {
                     if (__DEV__) {
-            console.error(`Error fetching applications for job ${job.id}:`, error)
+            logger.error(`Error fetching applications for job ${job.id}:`, error)
           };
         }
       }
@@ -67,7 +68,7 @@ const AllApplicationsScreen = ({ navigation }: any) => {
       setApplications(allApplications);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching applications:', error)
+        logger.error('Error fetching applications:', error)
       };
       showError(error.message || 'Failed to load applications');
     } finally {

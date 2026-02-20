@@ -1,12 +1,13 @@
 import { Image, Text, View, TouchableOpacity, ImageSourcePropType } from 'react-native';
 import AppButton from './AppButton';
-import { MessageCircle, Phone, Video, Star } from 'lucide-react-native';
+import { MessageCircle, Phone, Video, Star, UserRound } from 'lucide-react-native';
 import { consultantCard } from '../../constants/styles/consultantCard';
+import { COLORS } from '../../constants/core/colors';
 
 type ConsultantCardProps = {
   name: string;
   title: string;
-  avatarUri: ImageSourcePropType;
+  avatarUri?: ImageSourcePropType;
   rating: number;
   onBookPress?: () => void;
   onChatPress?: () => void;
@@ -28,11 +29,22 @@ const ConsultantCard: React.FC<ConsultantCardProps> = ({
       <View style={consultantCard.card}>
         {/* Left side: Avatar + Info + Button + Contact Icons */}
         <View style={consultantCard.leftBox}>
-          <Image
-            source={avatarUri}
-            style={consultantCard.avatar}
-            key={typeof avatarUri === 'object' && 'uri' in avatarUri ? avatarUri.uri : undefined}
-          />
+          {avatarUri ? (
+            <Image
+              source={avatarUri}
+              style={consultantCard.avatar}
+              key={typeof avatarUri === 'object' && 'uri' in avatarUri ? avatarUri.uri : undefined}
+            />
+          ) : (
+            <View
+              style={[
+                consultantCard.avatar,
+                { backgroundColor: '#A5AFBD', alignItems: 'center', justifyContent: 'center' },
+              ]}
+            >
+              <UserRound size={22} color={COLORS.gray} />
+            </View>
+          )}
 
           <Text 
             style={consultantCard.cardTitle}

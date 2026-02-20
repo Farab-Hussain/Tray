@@ -14,6 +14,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { Star } from 'lucide-react-native';
 import { useRefresh } from '../../../hooks/useRefresh';
 import LoadMoreButton from '../../../components/ui/LoadMoreButton';
+import { logger } from '../../../utils/logger';
 
 const Services = ({ navigation, route }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,13 +51,13 @@ const Services = ({ navigation, route }: any) => {
   const consultantCategory = currentConsultantCategory ?? paramsConsultantCategory;
 
     if (__DEV__) {
-    console.log('🔍 Services Screen - Route Params:', routeParams)
+    logger.debug('🔍 Services Screen - Route Params:', routeParams)
   };
     if (__DEV__) {
-    console.log('📋 Current Consultant ID:', consultantId)
+    logger.debug('📋 Current Consultant ID:', consultantId)
   };
     if (__DEV__) {
-    console.log('👤 Current Consultant Name:', consultantName)
+    logger.debug('👤 Current Consultant Name:', consultantName)
   };
 
   // Fetch services function
@@ -110,7 +111,7 @@ const Services = ({ navigation, route }: any) => {
         cache[defaultServiceId] = fallbackImageUrl ?? null;
         if (fallbackImageUrl) {
                     if (__DEV__) {
-            console.log(
+            logger.debug(
             `🖼️ Applied fallback image for service ${service.title} from default service ${defaultServiceId}`,
           )
           };
@@ -118,7 +119,7 @@ const Services = ({ navigation, route }: any) => {
         return fallbackImageUrl;
       } catch (fallbackError) {
                 if (__DEV__) {
-          console.warn(
+          logger.warn(
           `⚠️ Unable to load fallback image for service ${service.title} (default: ${defaultServiceId})`,
           fallbackError,
         )
@@ -145,41 +146,41 @@ const Services = ({ navigation, route }: any) => {
       if (targetConsultantId) {
         // Fetch specific consultant's services (no pagination for single consultant)
                 if (__DEV__) {
-          console.log('🚀 Fetching services for consultant:', targetConsultantId)
+          logger.debug('🚀 Fetching services for consultant:', targetConsultantId)
         };
         const response = await ConsultantService.getConsultantServices(targetConsultantId);
                 if (__DEV__) {
-          console.log('✅ Services Response:', response)
+          logger.debug('✅ Services Response:', response)
         };
         servicesData = response?.services || [];
       } else {
         // Fetch all services (from Services tab) with pagination
                 if (__DEV__) {
-          console.log('🚀 Fetching all services from all consultants')
+          logger.debug('🚀 Fetching all services from all consultants')
         };
         try {
           const response = await ConsultantService.getAllServices(pageNum, 20);
                     if (__DEV__) {
-            console.log('✅ All Services Response:', response)
+            logger.debug('✅ All Services Response:', response)
           };
                     if (__DEV__) {
-            console.log('📊 Total services found:', response?.services?.length || 0)
+            logger.debug('📊 Total services found:', response?.services?.length || 0)
           };
           if (response?.services && response.services.length > 0) {
                         if (__DEV__) {
-              console.log('📋 Sample service:', response.services[0])
+              logger.debug('📋 Sample service:', response.services[0])
             };
                         if (__DEV__) {
-              console.log('🖼️ Sample service imageUrl:', response.services[0].imageUrl)
+              logger.debug('🖼️ Sample service imageUrl:', response.services[0].imageUrl)
             };
                         if (__DEV__) {
-              console.log('🖼️ Sample service image:', response.services[0].image)
+              logger.debug('🖼️ Sample service image:', response.services[0].image)
             };
                         if (__DEV__) {
-              console.log('🖼️ Sample service imageUri:', response.services[0].imageUri)
+              logger.debug('🖼️ Sample service imageUri:', response.services[0].imageUri)
             };
                         if (__DEV__) {
-              console.log('🔍 All service keys:', Object.keys(response.services[0]))
+              logger.debug('🔍 All service keys:', Object.keys(response.services[0]))
             };
           }
           servicesData = response?.services || [];
@@ -193,10 +194,10 @@ const Services = ({ navigation, route }: any) => {
           }
         } catch (error: any) {
                     if (__DEV__) {
-            console.log('⚠️ All services endpoint error:', error?.message)
+            logger.debug('⚠️ All services endpoint error:', error?.message)
           };
                     if (__DEV__) {
-            console.log('❌ Error details:', error?.response?.status, error?.response?.data)
+            logger.debug('❌ Error details:', error?.response?.status, error?.response?.data)
           };
           // If endpoint doesn't exist, show empty array
           servicesData = [];
@@ -224,7 +225,7 @@ const Services = ({ navigation, route }: any) => {
       }
     } catch (err) {
             if (__DEV__) {
-        console.error('❌ Error fetching services:', err)
+        logger.error('❌ Error fetching services:', err)
       };
     } finally {
       setLoading(false);
@@ -263,7 +264,7 @@ const Services = ({ navigation, route }: any) => {
       }
 
             if (__DEV__) {
-        console.log('🧭 Services tab pressed - clearing consultant context')
+        logger.debug('🧭 Services tab pressed - clearing consultant context')
       };
       hasHandledRouteParamsRef.current = false;
       setCurrentConsultantId(undefined);
@@ -282,15 +283,15 @@ const Services = ({ navigation, route }: any) => {
       const hasRouteConsultant = !!paramsConsultantId;
 
             if (__DEV__) {
-        console.log('🔄 Services screen focused - Route params:', route?.params)
+        logger.debug('🔄 Services screen focused - Route params:', route?.params)
       };
             if (__DEV__) {
-        console.log('📋 Derived consultant ID from params:', paramsConsultantId)
+        logger.debug('📋 Derived consultant ID from params:', paramsConsultantId)
       };
 
       if (hasRouteConsultant) {
                 if (__DEV__) {
-          console.log('📋 Handling consultant params from navigation')
+          logger.debug('📋 Handling consultant params from navigation')
         };
         setCurrentConsultantId(paramsConsultantId);
         setCurrentConsultantName(paramsConsultantName);
@@ -311,7 +312,7 @@ const Services = ({ navigation, route }: any) => {
 
       if (hasHandledRouteParamsRef.current) {
                 if (__DEV__) {
-          console.log('⏭️ Skipping reset after clearing handled params')
+          logger.debug('⏭️ Skipping reset after clearing handled params')
         };
         hasHandledRouteParamsRef.current = false;
         return;
@@ -319,14 +320,14 @@ const Services = ({ navigation, route }: any) => {
 
       if (currentConsultantId) {
                 if (__DEV__) {
-          console.log('📋 No consultant params but existing consultant state detected - refreshing consultant services')
+          logger.debug('📋 No consultant params but existing consultant state detected - refreshing consultant services')
         };
         fetchServices(currentConsultantId);
         return;
       }
 
             if (__DEV__) {
-        console.log('📋 No consultant params present - showing all services')
+        logger.debug('📋 No consultant params present - showing all services')
       };
       setCurrentConsultantId(undefined);
       setCurrentConsultantName(undefined);
@@ -357,11 +358,11 @@ const Services = ({ navigation, route }: any) => {
     
     try {
             if (__DEV__) {
-        console.log('⭐ Fetching reviews for consultant:', consultantId)
+        logger.debug('⭐ Fetching reviews for consultant:', consultantId)
       };
       const response = await ReviewService.getConsultantReviews(consultantId, pageNum, 20);
             if (__DEV__) {
-        console.log('✅ Reviews Response:', response)
+        logger.debug('✅ Reviews Response:', response)
       };
       
       const reviewsData = response?.reviews || [];
@@ -381,12 +382,12 @@ const Services = ({ navigation, route }: any) => {
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error('❌ Error fetching reviews:', error)
+        logger.error('❌ Error fetching reviews:', error)
       };
       if (error?.response?.status !== 404) {
         // Only log non-404 errors
                 if (__DEV__) {
-          console.log('⚠️ Reviews API error:', error?.message)
+          logger.debug('⚠️ Reviews API error:', error?.message)
         };
       }
       if (!append) {
@@ -451,16 +452,16 @@ const Services = ({ navigation, route }: any) => {
             <View style={styles.servicesGrid}>
               {filteredServices.map(item => {
                                 if (__DEV__) {
-                  console.log('🖼️ Rendering service:', item.title)
+                  logger.debug('🖼️ Rendering service:', item.title)
                 };
                                 if (__DEV__) {
-                  console.log('🖼️ Service imageUrl:', item.imageUrl)
+                  logger.debug('🖼️ Service imageUrl:', item.imageUrl)
                 };
                                 if (__DEV__) {
-                  console.log('🖼️ Service image:', item.image)
+                  logger.debug('🖼️ Service image:', item.image)
                 };
                                 if (__DEV__) {
-                  console.log('🖼️ Service imageUri:', item.imageUri)
+                  logger.debug('🖼️ Service imageUri:', item.imageUri)
                 };
 
                 const rawPrice = item.price ?? item.cost ?? item.fee;
@@ -477,18 +478,18 @@ const Services = ({ navigation, route }: any) => {
                   // Use the actual service image from database
                   imageUri = { uri: item.imageUrl };
                                     if (__DEV__) {
-                    console.log('✅ Using real service image:', item.imageUrl)
+                    logger.debug('✅ Using real service image:', item.imageUrl)
                   };
                 } else {
                   // Use default placeholder
                   imageUri = require('../../../assets/image/services.png');
                                     if (__DEV__) {
-                    console.log('⚠️ No image URL, using default placeholder')
+                    logger.debug('⚠️ No image URL, using default placeholder')
                   };
                 }
                 
                                 if (__DEV__) {
-                  console.log('🖼️ Final imageUri:', imageUri)
+                  logger.debug('🖼️ Final imageUri:', imageUri)
                 };
                 
                 return (
@@ -502,6 +503,38 @@ const Services = ({ navigation, route }: any) => {
                     // VIDEO UPLOAD CODE - COMMENTED OUT: videoUrl={item.videoUrl}
                     consultantName={!consultantId && item.consultant?.name ? item.consultant.name : undefined}
                     consultantCategory={!consultantId && item.consultant?.category ? item.consultant.category : undefined}
+                    onCardPress={() => {
+                      const targetConsultantId =
+                        consultantId || item.consultantId || item.consultant?.uid;
+                      const targetConsultantName =
+                        consultantName || item.consultant?.name || 'Consultant';
+                      const targetConsultantCategory =
+                        consultantCategory ||
+                        item.consultant?.category ||
+                        'Consultation';
+
+                      if (!targetConsultantId) {
+                        Alert.alert(
+                          'Consultant Not Available',
+                          'This service does not have an associated consultant. Please try another service.',
+                          [{ text: 'OK' }],
+                        );
+                        return;
+                      }
+
+                      navigation.navigate('ServiceDetails', {
+                        serviceId: item.id,
+                        consultantId: targetConsultantId,
+                        consultantName: targetConsultantName,
+                        consultantCategory: targetConsultantCategory,
+                        serviceTitle: item.title,
+                        serviceDescription: item.description,
+                        serviceImageUrl: item.imageUrl,
+                        servicePrice:
+                          Number.isFinite(priceValue) ? priceValue : undefined,
+                        serviceDuration: item.duration || 60,
+                      });
+                    }}
                   onBookPress={() => {
                     // Use consultant from route params or from service data
                     const targetConsultantId = consultantId || item.consultantId || item.consultant?.uid;
@@ -530,6 +563,38 @@ const Services = ({ navigation, route }: any) => {
                       serviceDuration: item.duration || 60 // Default 60 minutes if not provided
                     });
                 }}
+                  onReadMore={() => {
+                    const targetConsultantId =
+                      consultantId || item.consultantId || item.consultant?.uid;
+                    const targetConsultantName =
+                      consultantName || item.consultant?.name || 'Consultant';
+                    const targetConsultantCategory =
+                      consultantCategory ||
+                      item.consultant?.category ||
+                      'Consultation';
+
+                    if (!targetConsultantId) {
+                      Alert.alert(
+                        'Consultant Not Available',
+                        'This service does not have an associated consultant. Please try another service.',
+                        [{ text: 'OK' }],
+                      );
+                      return;
+                    }
+
+                    navigation.navigate('ServiceDetails', {
+                      serviceId: item.id,
+                      consultantId: targetConsultantId,
+                      consultantName: targetConsultantName,
+                      consultantCategory: targetConsultantCategory,
+                      serviceTitle: item.title,
+                      serviceDescription: item.description,
+                      serviceImageUrl: item.imageUrl,
+                      servicePrice:
+                        Number.isFinite(priceValue) ? priceValue : undefined,
+                      serviceDuration: item.duration || 60,
+                    });
+                  }}
               />
                 );
               })}

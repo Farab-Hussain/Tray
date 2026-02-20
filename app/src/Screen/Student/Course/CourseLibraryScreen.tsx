@@ -14,8 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { Star, Search, Filter, Clock, Users, BookOpen, Award } from 'lucide-react-native';
+import { Star, Search, Filter, Clock, Users, BookOpen, Award, UserRound } from 'lucide-react-native';
 import { courseService } from '../../../services/course.service';
+import { logger } from '../../../utils/logger';
 
 type CourseLibraryScreenNavigationProp = StackNavigationProp<any, 'CourseLibrary'>;
 type CourseLibraryScreenRouteProp = RouteProp<any, 'CourseLibrary'>;
@@ -123,7 +124,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
 
       setHasMore(response.hasMore);
     } catch (error) {
-      console.error('Error loading courses:', error);
+      logger.error('Error loading courses:', error);
     }
   }, [filters, searchQuery]);
 
@@ -137,7 +138,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
           loadBestsellerCourses(),
         ]);
       } catch (error) {
-        console.error('Error loading initial data:', error);
+        logger.error('Error loading initial data:', error);
       } finally {
         setLoading(false);
       }
@@ -161,7 +162,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
       const response = await courseService.getFeaturedCourses(5);
       setFeaturedCourses(response.courses);
     } catch (error) {
-      console.error('Error loading featured courses:', error);
+      logger.error('Error loading featured courses:', error);
     }
   };
 
@@ -170,7 +171,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
       const response = await courseService.getTrendingCourses(5);
       setTrendingCourses(response.courses);
     } catch (error) {
-      console.error('Error loading trending courses:', error);
+      logger.error('Error loading trending courses:', error);
     }
   };
 
@@ -179,7 +180,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
       const response = await courseService.getBestsellerCourses(5);
       setBestsellerCourses(response.courses);
     } catch (error) {
-      console.error('Error loading bestseller courses:', error);
+      logger.error('Error loading bestseller courses:', error);
     }
   };
 
@@ -193,7 +194,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
         loadCourses(true, 1),
       ]);
     } catch (error) {
-      console.error('Error refreshing:', error);
+      logger.error('Error refreshing:', error);
     } finally {
       setRefreshing(false);
     }
@@ -207,7 +208,7 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
       setLoadingMore(true);
       await loadCourses(false, currentPage);
     } catch (error) {
-      console.error('Error loading more courses:', error);
+      logger.error('Error loading more courses:', error);
     } finally {
       setLoadingMore(false);
     }
@@ -246,10 +247,25 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.courseDescription} numberOfLines={2}>{item.shortDescription}</Text>
         
         <View style={styles.instructorInfo}>
-          <Image
-            source={item.instructorAvatar ? { uri: item.instructorAvatar } : require('../../../assets/image/avatar.png')}
-            style={styles.instructorAvatar}
-          />
+          {item.instructorAvatar ? (
+            <Image
+              source={{ uri: item.instructorAvatar }}
+              style={styles.instructorAvatar}
+            />
+          ) : (
+            <View
+              style={[
+                styles.instructorAvatar,
+                {
+                  backgroundColor: '#A5AFBD',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
+              ]}
+            >
+              <UserRound size={14} color="#666" />
+            </View>
+          )}
           <Text style={styles.instructorName}>{item.instructorName}</Text>
         </View>
 

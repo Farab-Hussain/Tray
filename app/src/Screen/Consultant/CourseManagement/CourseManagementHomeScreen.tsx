@@ -18,6 +18,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Plus, Eye, Pencil, Trash2, Send } from 'lucide-react-native';
 import { COLORS } from '../../../constants/core/colors';
 import { Course, courseService } from '../../../services/course.service';
+import { logger } from '../../../utils/logger';
 
 const formatPrice = (course: Course) => {
   if (course.isFree || course.price === 0) return 'Free';
@@ -51,7 +52,7 @@ export default function CourseManagementHomeScreen() {
       const response = await courseService.getMyCourses();
       setCourses(response?.courses || []);
     } catch (error) {
-      console.log('Course list load issue:', error);
+      logger.debug('Course list load issue:', error);
       setCourses([]);
     } finally {
       setLoading(false);

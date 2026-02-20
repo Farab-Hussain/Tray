@@ -22,11 +22,12 @@ try {
   DocumentPicker = require('react-native-document-picker');
 } catch (e) {
   if (__DEV__) {
-    console.warn('react-native-document-picker not available:', e);
+    logger.warn('react-native-document-picker not available:', e);
   }
 }
 import UploadService from '../../../services/upload.service';
 import { Linking } from 'react-native';
+import { logger } from '../../../utils/logger';
 
 interface Experience {
   title: string;
@@ -220,7 +221,7 @@ const ResumeScreen = ({ navigation }: any) => {
       // Silently handle 404 - resume not found is expected for new users
       if (error.response?.status !== 404) {
                 if (__DEV__) {
-          console.error('Error loading resume:', error)
+          logger.error('Error loading resume:', error)
         };
       }
       // Initialize with current user data if no resume found
@@ -707,7 +708,7 @@ const ResumeScreen = ({ navigation }: any) => {
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error saving resume:', error)
+        logger.error('Error saving resume:', error)
       };
       showError(error.message || 'Failed to save resume');
     } finally {
@@ -736,7 +737,7 @@ const ResumeScreen = ({ navigation }: any) => {
         const file = result[0];
         
         if (__DEV__) {
-          console.log('Selected file:', file);
+          logger.debug('Selected file:', file);
         }
 
         // Upload file
@@ -800,7 +801,7 @@ const ResumeScreen = ({ navigation }: any) => {
         return;
       }
       if (__DEV__) {
-        console.error('Error uploading resume file:', error);
+        logger.error('Error uploading resume file:', error);
       }
       showError(error.message || 'Failed to upload resume file');
     } finally {
@@ -837,7 +838,7 @@ const ResumeScreen = ({ navigation }: any) => {
         }
       } catch (error: any) {
         if (__DEV__) {
-          console.error('Error opening resume file:', error);
+          logger.error('Error opening resume file:', error);
         }
         showError('Failed to open resume file');
       }
@@ -873,7 +874,7 @@ const ResumeScreen = ({ navigation }: any) => {
       showSuccess('Resume exported successfully');
     } catch (error: any) {
       if (__DEV__) {
-        console.error('Error exporting resume:', error);
+        logger.error('Error exporting resume:', error);
       }
       // Don't show error if user cancelled
       if (!error.message?.includes('cancel') && !error.message?.includes('dismiss')) {
@@ -1001,7 +1002,7 @@ const ResumeScreen = ({ navigation }: any) => {
               } catch (error) {
                 // If save fails, don't navigate back
                 if (__DEV__) {
-                  console.error('Save failed, staying on screen:', error);
+                  logger.error('Save failed, staying on screen:', error);
                 }
               }
             },

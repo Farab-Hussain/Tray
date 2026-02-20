@@ -10,6 +10,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import * as ChatService from '../services/chat.Service';
 import type { Chat } from '../types/chatTypes';
+import { logger } from '../utils/logger';
 
 interface ChatContextValue {
   userId: string | null;
@@ -40,9 +41,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   
   const refreshChats = useCallback(async () => {
     if (!userId) {
-            if (__DEV__) {
-        console.log('⚠️ [ChatContext] No userId, skipping chat refresh')
-      };
+      logger.debug('⚠️ [ChatContext] No userId, skipping chat refresh');
       return;
     }
 
@@ -58,19 +57,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const task = (async () => {
-      if (__DEV__) {
-        console.log('🔄 [ChatContext] Refreshing chats for user:', userId)
-      }
+      logger.debug('🔄 [ChatContext] Refreshing chats for user:', userId);
       try {
         const userChats = await ChatService.fetchUserChats(userId);
-        if (__DEV__) {
-          console.log('📥 [ChatContext] Received chats:', userChats.length)
-        }
+        logger.debug('📥 [ChatContext] Received chats:', userChats.length);
         setChats(userChats);
       } catch (error) {
-        if (__DEV__) {
-          console.error('❌ [ChatContext] Error refreshing chats:', error)
-        }
+        logger.error('❌ [ChatContext] Error refreshing chats:', error);
         setChats([]);
       } finally {
         lastRefreshAtRef.current = Date.now();
@@ -92,14 +85,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     if (userId) {
-            if (__DEV__) {
-        console.log('🚀 [ChatContext] User authenticated, starting chat refresh. UserId:', userId)
-      };
+      logger.debug('🚀 [ChatContext] User authenticated, starting chat refresh. UserId:', userId);
       refreshChatsRef.current?.();
     } else {
-            if (__DEV__) {
-        console.log('⏳ [ChatContext] Waiting for user authentication...')
-      };
+      logger.debug('⏳ [ChatContext] Waiting for user authentication...');
     }
     // Optionally add a listener for real-time chat list updates (not implemented here)
   }, [userId]);

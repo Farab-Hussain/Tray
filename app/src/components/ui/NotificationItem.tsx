@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { UserRound } from 'lucide-react-native';
 import { notification } from '../../constants/styles/notification';
 import { COLORS } from '../../constants/core/colors';
 import type { AppNotification } from '../../services/notification-storage.service';
 import { notificationItemStyles } from '../../constants/styles/notificationItemStyles';
+import { normalizeAvatarUrl, normalizeTimestampToDate } from '../../utils/normalize';
 
 type NotificationItemProps = {
   notification: AppNotification;
@@ -11,7 +13,8 @@ type NotificationItemProps = {
 };
 
 const NotificationItem = ({ notification: notif, onPress }: NotificationItemProps) => {
-  const formatTime = (date: Date) => {
+  const formatTime = (dateValue: any) => {
+    const date = normalizeTimestampToDate(dateValue) || new Date();
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
@@ -46,9 +49,8 @@ const NotificationItem = ({ notification: notif, onPress }: NotificationItemProp
     }
   };
 
-  const avatarSource = notif.senderAvatar
-    ? { uri: notif.senderAvatar }
-    : require('../../assets/image/avatar.png');
+  const senderAvatar = normalizeAvatarUrl({ profileImage: notif.senderAvatar });
+  const avatarSource = senderAvatar ? { uri: senderAvatar } : null;
 
   return (
     <TouchableOpacity
@@ -63,10 +65,22 @@ const NotificationItem = ({ notification: notif, onPress }: NotificationItemProp
       {!notif.read && <View style={styles.unreadIndicator} />}
       
       <View style={styles.avatarContainer}>
-        <Image
-          source={avatarSource}
-          style={notification.avatar}
-        />
+        {avatarSource ? (
+          <Image source={avatarSource} style={notification.avatar} />
+        ) : (
+          <View
+            style={[
+              notification.avatar,
+              {
+                backgroundColor: '#A5AFBD',
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+            ]}
+          >
+            <UserRound size={20} color={COLORS.gray} />
+          </View>
+        )}
         <Text style={styles.iconBadge}>{getNotificationIcon()}</Text>
           {/* Unread badge on avatar */}
         {!notif.read && <View style={styles.avatarUnreadBadge} />}

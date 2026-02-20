@@ -27,6 +27,7 @@ import {
   BookOpen
 } from 'lucide-react-native';
 import { courseService, Course, CourseInput } from '../../../services/course.service';
+import { logger } from '../../../utils/logger';
 
 type ServiceManagementNavigationProp = StackNavigationProp<any, 'ServiceManagement'>;
 
@@ -117,7 +118,7 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
       const response = await courseService.getMyCourses();
       setServices(response.courses || []);
     } catch (error) {
-      console.error('Error loading services:', error);
+      logger.error('Error loading services:', error);
       setServices([]);
     } finally {
       setLoading(false);
@@ -131,19 +132,19 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
   };
 
   const handleCreateService = async () => {
-    console.log('🚀 [ServiceManagement] Create service button clicked');
+    logger.debug('🚀 [ServiceManagement] Create service button clicked');
     try {
       // Validate form data
       if (!formData.title?.trim() || !formData.description?.trim()) {
-        console.log('⚠️ [ServiceManagement] Validation failed: missing title or description');
-        console.log('📝 [ServiceManagement] Title:', formData.title);
-        console.log('📝 [ServiceManagement] Description:', formData.description);
+        logger.debug('⚠️ [ServiceManagement] Validation failed: missing title or description');
+        logger.debug('📝 [ServiceManagement] Title:', formData.title);
+        logger.debug('📝 [ServiceManagement] Description:', formData.description);
         Alert.alert('Error', 'Title and description are required');
         return;
       }
 
-      console.log('📝 [ServiceManagement] Form data:', formData);
-      console.log('💰 [ServiceManagement] Pricing options:', pricingOptions);
+      logger.debug('📝 [ServiceManagement] Form data:', formData);
+      logger.debug('💰 [ServiceManagement] Pricing options:', pricingOptions);
 
       const courseData: CourseInput = {
         ...formData,
@@ -153,15 +154,15 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
         slug: formData.title.toLowerCase().replace(/\s+/g, '-'),
       };
 
-      console.log('📤 [ServiceManagement] Calling courseService.createService...');
+      logger.debug('📤 [ServiceManagement] Calling courseService.createService...');
       await courseService.createCourse(courseData);
-      console.log('✅ [ServiceManagement] Service created successfully');
+      logger.debug('✅ [ServiceManagement] Service created successfully');
       Alert.alert('Success', 'Service created successfully!');
       setShowCreateModal(false);
       resetForm();
       await loadServices();
     } catch (error: any) {
-      console.log('❌ [ServiceManagement] Service creation issue:', error);
+      logger.debug('❌ [ServiceManagement] Service creation issue:', error);
       Alert.alert('Unable to create service', error.message || 'Please try again');
     }
   };
@@ -185,7 +186,7 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
       setSelectedService(null);
       await loadServices();
     } catch (error: any) {
-      console.log('❌ [ServiceManagement] Service update issue:', error);
+      logger.debug('❌ [ServiceManagement] Service update issue:', error);
       Alert.alert('Unable to update service', error.message || 'Please try again');
     }
   };
@@ -205,7 +206,7 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
               Alert.alert('Success', 'Service deleted successfully');
               await loadServices();
             } catch (error: any) {
-              console.log('❌ [ServiceManagement] Service deletion issue:', error);
+              logger.debug('❌ [ServiceManagement] Service deletion issue:', error);
               Alert.alert('Unable to delete service', error.message || 'Please try again');
             }
           },

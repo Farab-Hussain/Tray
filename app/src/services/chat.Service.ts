@@ -6,6 +6,8 @@ import * as NotificationStorage from './notification-storage.service';
 import { UserService } from './user.service';
 import * as OfflineQueue from './offline-message-queue.service';
 import type { Message, Chat } from '../types/chatTypes';
+import { normalizeAvatarUrl } from '../utils/normalize';
+import { logger } from '../utils/logger';
 
 // @ts-ignore
 const db = database;
@@ -27,7 +29,7 @@ export const setTypingStatus = async (chatId: string, userId: string, isTyping: 
         }
     } catch (error) {
                 if (__DEV__) {
-          console.error('❌ [ChatService] Error setting typing status:', error)
+          logger.error('❌ [ChatService] Error setting typing status:', error)
         };
     }
 };
@@ -74,13 +76,13 @@ export const createChatIfNotExists = async (uidA: string, uidB: string) => {
 
     try {
                 if (__DEV__) {
-          console.log('🔨 [ChatService] Creating/checking chat:', chatId, 'between', uidA, 'and', uidB)
+          logger.debug('🔨 [ChatService] Creating/checking chat:', chatId, 'between', uidA, 'and', uidB)
         };
         const snapshot = await get(chatRef);
         
         if (!snapshot.exists()) {
                         if (__DEV__) {
-              console.log('📝 [ChatService] Chat does not exist, creating new chat')
+              logger.debug('📝 [ChatService] Chat does not exist, creating new chat')
             };
             const chatData: Chat = {
                 id: chatId,
@@ -90,16 +92,16 @@ export const createChatIfNotExists = async (uidA: string, uidB: string) => {
             };
             await set(chatRef, chatData);
                         if (__DEV__) {
-              console.log('✅ [ChatService] Chat created successfully:', chatId)
+              logger.debug('✅ [ChatService] Chat created successfully:', chatId)
             };
         } else {
                         if (__DEV__) {
-              console.log('✅ [ChatService] Chat already exists:', chatId)
+              logger.debug('✅ [ChatService] Chat already exists:', chatId)
             };
         }
     } catch (error) {
                 if (__DEV__) {
-          console.error('❌ [ChatService] Error creating chat:', error)
+          logger.error('❌ [ChatService] Error creating chat:', error)
         };
         throw error;
     }
@@ -144,7 +146,7 @@ export const sendMessage = async (
                 
                 if (recipientId) {
                                         if (__DEV__) {
-                      console.log('📤 Preparing to send notification...', {
+                      logger.debug('📤 Preparing to send notification...', {
                         chatId,
                         senderId: message.senderId,
                         recipientId,
@@ -159,11 +161,11 @@ export const sendMessage = async (
                         const senderData = await UserService.getUserById(message.senderId);
                         if (senderData) {
                             senderName = senderData.name || senderData.displayName || 'Someone';
-                            senderAvatar = senderData.profileImage || senderData.avatarUrl || senderData.avatar || '';
+                            senderAvatar = normalizeAvatarUrl(senderData);
                         }
                     } catch (error) {
                                                 if (__DEV__) {
-                          console.warn('⚠️ Could not fetch sender info:', error)
+                          logger.warn('⚠️ Could not fetch sender info:', error)
                         };
                     }
 
@@ -180,7 +182,7 @@ export const sendMessage = async (
                         senderAvatar,
                     }).catch((err) => {
                                                 if (__DEV__) {
-                          console.warn('⚠️ Failed to create app notification:', err)
+                          logger.warn('⚠️ Failed to create app notification:', err)
                         };
                     });
 
@@ -193,27 +195,27 @@ export const sendMessage = async (
                     })
                     .then((response) => {
                                                 if (__DEV__) {
-                          console.log('✅ Push notification sent successfully:', response.data)
+                          logger.debug('✅ Push notification sent successfully:', response.data)
                         };
                     })
                     .catch((err) => {
                                                 if (__DEV__) {
-                          console.warn('⚠️ Failed to send push notification (non-critical):', err.response?.data || err.message)
+                          logger.warn('⚠️ Failed to send push notification (non-critical):', err.response?.data || err.message)
                         };
                     });
                 } else {
                                         if (__DEV__) {
-                      console.warn('⚠️ No recipient found for notification')
+                      logger.warn('⚠️ No recipient found for notification')
                     };
                 }
             } else {
                                 if (__DEV__) {
-                  console.warn('⚠️ Chat not found, skipping notification')
+                  logger.warn('⚠️ Chat not found, skipping notification')
                 };
             }
         } catch (notifError) {
                         if (__DEV__) {
-              console.warn('⚠️ Error sending notification (non-critical):', notifError)
+              logger.warn('⚠️ Error sending notification (non-critical):', notifError)
             };
         }
 
@@ -229,7 +231,7 @@ export const sendMessage = async (
         if (isNetworkError) {
             // Queue the message for offline sending
             if (__DEV__) {
-                console.log('📦 [ChatService] Network error detected, queueing message for offline sending');
+                logger.debug('📦 [ChatService] Network error detected, queueing message for offline sending');
             }
             
             try {
@@ -238,14 +240,14 @@ export const sendMessage = async (
                 return queueId;
             } catch (queueError) {
                                 if (__DEV__) {
-                  console.error('❌ [ChatService] Error queueing message:', queueError)
+                  logger.error('❌ [ChatService] Error queueing message:', queueError)
                 };
                 throw new Error('Failed to send message. Please check your internet connection.');
             }
         }
         
                 if (__DEV__) {
-          console.error('Error sending message:', error)
+          logger.error('Error sending message:', error)
         };
         throw error;
     }
@@ -275,7 +277,7 @@ export const listenMessages = (
                 // Log seenBy status for debugging
                 messages.forEach(msg => {
                     if (msg.seenBy && msg.seenBy.length > 0) {
-                        console.log(`📬 [listenMessages] Message ${msg.id} seenBy:`, msg.seenBy);
+                        logger.debug(`📬 [listenMessages] Message ${msg.id} seenBy:`, msg.seenBy);
                     }
                 });
             }
@@ -326,20 +328,20 @@ export const fetchUserChats = async (uid: string) => {
         const currentUser = auth.currentUser;
         if (!currentUser) {
             if (__DEV__) {
-                console.warn('⚠️ [ChatService] User not authenticated, cannot fetch chats');
+                logger.warn('⚠️ [ChatService] User not authenticated, cannot fetch chats');
             }
             return [];
         }
         
         if (currentUser.uid !== uid) {
             if (__DEV__) {
-                console.warn('⚠️ [ChatService] User ID mismatch. Current user:', currentUser.uid, 'Requested:', uid);
+                logger.warn('⚠️ [ChatService] User ID mismatch. Current user:', currentUser.uid, 'Requested:', uid);
             }
             return [];
         }
         
         if (__DEV__) {
-          console.log('🔍 [ChatService] Fetching chats for user:', uid);
+          logger.debug('🔍 [ChatService] Fetching chats for user:', uid);
         }
         
         const chatsRef = ref(db, 'chats');
@@ -347,18 +349,18 @@ export const fetchUserChats = async (uid: string) => {
 
         if (!snapshot.exists()) {
             if (__DEV__) {
-              console.log('ℹ️ [ChatService] No chats found in database');
+              logger.debug('ℹ️ [ChatService] No chats found in database');
             }
             // Try to check if database connection is working by checking root
             try {
                 const rootRef = ref(db, '/');
                 const rootSnapshot = await get(rootRef);
                 if (__DEV__) {
-                  console.log('🔍 [ChatService] Root snapshot exists:', rootSnapshot.exists());
+                  logger.debug('🔍 [ChatService] Root snapshot exists:', rootSnapshot.exists());
                 }
             } catch (rootError) {
                                 if (__DEV__) {
-                  console.error('❌ [ChatService] Error accessing root:', rootError)
+                  logger.error('❌ [ChatService] Error accessing root:', rootError)
                 };
             }
             return [];
@@ -426,7 +428,7 @@ export const fetchUserChats = async (uid: string) => {
             return timeB - timeA;
         });
         if (__DEV__) {
-          console.log(`✅ [ChatService] Found ${sortedChats.length} chats for user ${uid}`);
+          logger.debug(`✅ [ChatService] Found ${sortedChats.length} chats for user ${uid}`);
         }
         
         return sortedChats;
@@ -434,11 +436,11 @@ export const fetchUserChats = async (uid: string) => {
         // Check if it's a permission error
         if (error?.code === 'PERMISSION_DENIED' || error?.message?.includes('Permission denied')) {
             if (__DEV__) {
-                console.error('❌ [ChatService] Permission denied. This usually means:');
-                console.error('   1. User is not authenticated (check auth.currentUser)');
-                console.error('   2. Realtime Database security rules are blocking access');
-                console.error('   Please configure Realtime Database rules in Firebase Console to allow authenticated users to read chats.');
-                console.error('❌ [ChatService] Error details:', error);
+                logger.error('❌ [ChatService] Permission denied. This usually means:');
+                logger.error('   1. User is not authenticated (check auth.currentUser)');
+                logger.error('   2. Realtime Database security rules are blocking access');
+                logger.error('   Please configure Realtime Database rules in Firebase Console to allow authenticated users to read chats.');
+                logger.error('❌ [ChatService] Error details:', error);
             }
             // Return empty array instead of throwing to prevent app crash
             return [];
@@ -448,13 +450,13 @@ export const fetchUserChats = async (uid: string) => {
         const currentUser = auth.currentUser;
         if (!currentUser) {
             if (__DEV__) {
-                console.error('❌ [ChatService] User not authenticated when error occurred');
+                logger.error('❌ [ChatService] User not authenticated when error occurred');
             }
             return [];
         }
         
         if (__DEV__) {
-          console.error('❌ [ChatService] Error fetching user chats:', error);
+          logger.error('❌ [ChatService] Error fetching user chats:', error);
         }
         return [];
     }
@@ -464,7 +466,7 @@ export const fetchUserChats = async (uid: string) => {
 export const markMessagesSeen = async (chatId: string, userId: string) => {
     try {
         if (__DEV__) {
-            console.log('👁️ [markMessagesSeen] Marking messages as seen:', { chatId, userId });
+            logger.debug('👁️ [markMessagesSeen] Marking messages as seen:', { chatId, userId });
         }
         
         const messagesRef = ref(db, `chats/${chatId}/messages`);
@@ -472,7 +474,7 @@ export const markMessagesSeen = async (chatId: string, userId: string) => {
 
         if (!snapshot.exists()) {
             if (__DEV__) {
-                console.log('⚠️ [markMessagesSeen] No messages found in chat');
+                logger.debug('⚠️ [markMessagesSeen] No messages found in chat');
             }
             return;
         }
@@ -491,7 +493,7 @@ export const markMessagesSeen = async (chatId: string, userId: string) => {
                     updates[`chats/${chatId}/messages/${msgId}/seenBy`] = seenBy;
                     
                     if (__DEV__) {
-                        console.log(`✅ [markMessagesSeen] Marking message ${msgId} as seen by ${userId}`, {
+                        logger.debug(`✅ [markMessagesSeen] Marking message ${msgId} as seen by ${userId}`, {
                             messageSenderId: msg.senderId,
                             currentUserId: userId,
                             seenByBefore: msg.seenBy || [],
@@ -500,12 +502,12 @@ export const markMessagesSeen = async (chatId: string, userId: string) => {
                     }
                 } else {
                     if (__DEV__) {
-                        console.log(`ℹ️ [markMessagesSeen] Message ${msgId} already marked as seen by ${userId}`);
+                        logger.debug(`ℹ️ [markMessagesSeen] Message ${msgId} already marked as seen by ${userId}`);
                     }
                 }
             } else {
                 if (__DEV__) {
-                    console.log(`⏭️ [markMessagesSeen] Skipping message ${msgId} - sent by current user`);
+                    logger.debug(`⏭️ [markMessagesSeen] Skipping message ${msgId} - sent by current user`);
                 }
             }
         }
@@ -513,15 +515,15 @@ export const markMessagesSeen = async (chatId: string, userId: string) => {
         if (Object.keys(updates).length > 0) {
             await update(ref(db), updates);
             if (__DEV__) {
-                console.log(`✅ [markMessagesSeen] Updated ${Object.keys(updates).length} messages as seen`);
+                logger.debug(`✅ [markMessagesSeen] Updated ${Object.keys(updates).length} messages as seen`);
             }
         } else {
             if (__DEV__) {
-                console.log('ℹ️ [markMessagesSeen] No messages to update (all already seen or no messages from others)');
+                logger.debug('ℹ️ [markMessagesSeen] No messages to update (all already seen or no messages from others)');
             }
         }
     } catch (error) {
-        console.error('❌ [markMessagesSeen] Error marking messages as seen:', error);
+        logger.error('❌ [markMessagesSeen] Error marking messages as seen:', error);
         throw error;
     }
 };
@@ -558,12 +560,12 @@ export const deleteMessage = async (
         await updateChatLastMessage(chatId);
 
                 if (__DEV__) {
-          console.log('✅ [ChatService] Message deleted successfully:', messageId)
+          logger.debug('✅ [ChatService] Message deleted successfully:', messageId)
         };
         return true;
     } catch (error) {
                 if (__DEV__) {
-          console.error('❌ [ChatService] Error deleting message:', error)
+          logger.error('❌ [ChatService] Error deleting message:', error)
         };
         throw error;
     }
@@ -593,7 +595,7 @@ export const deleteMessages = async (
 
             if (!snapshot.exists()) {
                                 if (__DEV__) {
-                  console.warn(`⚠️ [ChatService] Message ${messageId} not found, skipping`)
+                  logger.warn(`⚠️ [ChatService] Message ${messageId} not found, skipping`)
                 };
                 continue;
             }
@@ -617,7 +619,7 @@ export const deleteMessages = async (
             await updateChatLastMessage(chatId);
 
                         if (__DEV__) {
-              console.log(`✅ [ChatService] ${Object.keys(updates).length} messages deleted successfully`)
+              logger.debug(`✅ [ChatService] ${Object.keys(updates).length} messages deleted successfully`)
             };
             return true;
         }
@@ -625,7 +627,7 @@ export const deleteMessages = async (
         return false;
     } catch (error) {
                 if (__DEV__) {
-          console.error('❌ [ChatService] Error deleting messages:', error)
+          logger.error('❌ [ChatService] Error deleting messages:', error)
         };
         throw error;
     }
@@ -657,12 +659,12 @@ export const deleteChat = async (chatId: string, userId: string) => {
         await set(chatRef, null);
 
                 if (__DEV__) {
-          console.log('✅ [ChatService] Chat deleted successfully:', chatId)
+          logger.debug('✅ [ChatService] Chat deleted successfully:', chatId)
         };
         return true;
     } catch (error) {
                 if (__DEV__) {
-          console.error('❌ [ChatService] Error deleting chat:', error)
+          logger.error('❌ [ChatService] Error deleting chat:', error)
         };
         throw error;
     }
@@ -676,19 +678,19 @@ export const deleteChat = async (chatId: string, userId: string) => {
 export const createTestChat = async (currentUserId: string, testUserId: string = 'test_user_12345') => {
     try {
         if (__DEV__) {
-            console.log('🧪 [ChatService] Creating test chat for user:', currentUserId, 'with test user:', testUserId);
+            logger.debug('🧪 [ChatService] Creating test chat for user:', currentUserId, 'with test user:', testUserId);
         }
         
         const chatId = await createChatIfNotExists(currentUserId, testUserId);
         
         if (__DEV__) {
-            console.log('✅ [ChatService] Test chat created successfully:', chatId);
+            logger.debug('✅ [ChatService] Test chat created successfully:', chatId);
         }
         
         return chatId;
     } catch (error) {
         if (__DEV__) {
-            console.error('❌ [ChatService] Error creating test chat:', error);
+            logger.error('❌ [ChatService] Error creating test chat:', error);
         }
         throw error;
     }
@@ -742,7 +744,7 @@ const updateChatLastMessage = async (chatId: string) => {
         }
     } catch (error) {
                 if (__DEV__) {
-          console.error('⚠️ [ChatService] Error updating chat last message:', error)
+          logger.error('⚠️ [ChatService] Error updating chat last message:', error)
         };
         // Non-critical error, don't throw
     }

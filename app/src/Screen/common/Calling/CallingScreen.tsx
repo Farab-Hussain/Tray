@@ -14,7 +14,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Phone, Mic, MicOff } from 'lucide-react-native';
+import { Phone, PhoneOff, Mic, MicOff, UserRound } from 'lucide-react-native';
 // Safely import InCallManager - may not be available until native module is linked
 let InCallManager: any = null;
 try {
@@ -42,6 +42,7 @@ import {
   type CallDocument,
 } from '../../../services/call.service';
 import { UserService } from '../../../services/user.service';
+import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import * as NotificationStorage from '../../../services/notification-storage.service';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -60,6 +61,7 @@ const CallingScreen = ({ navigation, route }: any) => {
     name: string;
     profileImage?: string;
   } | null>(null);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -96,10 +98,33 @@ const CallingScreen = ({ navigation, route }: any) => {
       try {
         const otherUserId = isCaller ? receiverId : callerId;
         const userData = await UserService.getUserById(otherUserId);
+        let consultantProfileImage: string | undefined;
+        let consultantProfileName: string | undefined;
+
+        try {
+          const consultantProfile = await getConsultantProfile(otherUserId);
+          consultantProfileImage =
+            consultantProfile?.personalInfo?.profileImage || undefined;
+          consultantProfileName =
+            consultantProfile?.personalInfo?.fullName || undefined;
+        } catch {
+          // Not a consultant profile or unavailable; ignore.
+        }
+
         if (userData) {
           setOtherUser({
-            name: userData.name || 'Unknown',
-            profileImage: userData.profileImage || userData.avatarUrl,
+            name: userData.name || consultantProfileName || 'Unknown',
+            profileImage:
+              userData.profileImage ||
+              userData.avatarUrl ||
+              userData.photoURL ||
+              userData.avatar ||
+              consultantProfileImage,
+          });
+        } else if (consultantProfileName || consultantProfileImage) {
+          setOtherUser({
+            name: consultantProfileName || 'Unknown',
+            profileImage: consultantProfileImage,
           });
         }
       } catch (error) {
@@ -114,6 +139,10 @@ const CallingScreen = ({ navigation, route }: any) => {
       fetchOtherUser();
     }
   }, [callId, callerId, receiverId, isCaller]);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [otherUser?.profileImage]);
 
   useEffect(() => {
     let unsubCall: any, unsubCand: any;
@@ -1071,13 +1100,15 @@ const CallingScreen = ({ navigation, route }: any) => {
 
   const handleHangup = async () => {
     if (callId) {
-      if (isCaller) {
-        // Caller cancels call
-        await endCall(callId, 'ended').catch(() => {});
-      } else {
-        // Receiver declines call
-        await endCall(callId, 'missed').catch(() => {});
-      }
+      // If call is active, hanging up should always end the call for both sides.
+      // Use 'missed' only when receiver declines during ringing.
+      const nextStatus =
+        !isCaller && statusRef.current === 'ringing' ? 'missed' : 'ended';
+      await endCall(callId, nextStatus, user?.uid).catch(error => {
+        if (__DEV__) {
+          console.warn('⚠️ [handleHangup] Failed to update call status:', error);
+        }
+      });
     }
 
     // Use reset to prevent showing verification screen again
@@ -2329,13 +2360,26 @@ const CallingScreen = ({ navigation, route }: any) => {
           <ActivityIndicator size="large" color={COLORS.white} />
         ) : (
           <>
-            <Image
-              source={{
-                uri:
-                  otherUser?.profileImage || 'https://via.placeholder.com/150',
-              }}
-              style={callingStyles.profileImage}
-            />
+            {!!otherUser?.profileImage && !avatarLoadFailed ? (
+              <Image
+                source={{ uri: otherUser.profileImage }}
+                style={callingStyles.profileImage}
+                onError={() => setAvatarLoadFailed(true)}
+              />
+            ) : (
+              <View
+                style={[
+                  callingStyles.profileImage,
+                  {
+                    backgroundColor: '#A5AFBD',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                ]}
+              >
+                <UserRound size={54} color={COLORS.gray} />
+              </View>
+            )}
             <Text style={callingStyles.name}>
               {otherUser?.name || 'Unknown'}
             </Text>
@@ -2369,11 +2413,7 @@ const CallingScreen = ({ navigation, route }: any) => {
               style={[callingStyles.controlButton, callingStyles.videoDeclineButton]}
               onPress={handleHangup}
             >
-              <Phone
-                size={28}
-                color={COLORS.white}
-                style={{ transform: [{ rotate: '135deg' }] }}
-              />
+              <PhoneOff size={28} color={COLORS.white} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[callingStyles.controlButton, callingStyles.videoAcceptButton]}
@@ -2392,11 +2432,7 @@ const CallingScreen = ({ navigation, route }: any) => {
               ]}
               onPress={handleHangup}
             >
-              <Phone
-                size={24}
-                color={COLORS.white}
-                style={{ transform: [{ rotate: '135deg' }] }}
-              />
+              <PhoneOff size={24} color={COLORS.white} />
             </TouchableOpacity>
             {status === 'active' && (
               <TouchableOpacity

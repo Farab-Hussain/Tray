@@ -1,6 +1,12 @@
 import { fetcher, api } from '../lib/fetcher';
 import * as NotificationStorage from './notification-storage.service';
 import { UserService } from './user.service';
+import {
+  normalizeAvatarUrl,
+  normalizeBookingStatus,
+  normalizeTimestampToIso,
+} from '../utils/normalize';
+import { logger } from '../utils/logger';
 
 export interface BookingRequest {
   id: string;
@@ -22,16 +28,37 @@ export interface BookingRequest {
   updatedAt: string;
 }
 
+const normalizeBookingRequestStatus = (status: any): BookingRequest['status'] => {
+  const raw = normalizeBookingStatus(status);
+  if (raw === 'confirmed' || raw === 'approved') return 'accepted';
+  if (raw === 'rejected') return 'declined';
+  if (raw === 'canceled') return 'cancelled';
+  if (['pending', 'accepted', 'declined', 'completed', 'cancelled'].includes(raw)) {
+    return raw as BookingRequest['status'];
+  }
+  return 'pending';
+};
+
+const normalizeBookingRequest = (item: any): BookingRequest => ({
+  ...item,
+  status: normalizeBookingRequestStatus(item?.status),
+  studentProfileImage: normalizeAvatarUrl({
+    profileImage: item?.studentProfileImage,
+    avatarUrl: item?.studentAvatarUrl,
+    avatar: item?.studentAvatar,
+  }) || null,
+  createdAt: normalizeTimestampToIso(item?.createdAt) || '',
+  updatedAt: normalizeTimestampToIso(item?.updatedAt) || '',
+});
+
 export const BookingRequestService = {
   // Get all booking requests for a consultant
   async getConsultantBookingRequests(consultantId: string): Promise<BookingRequest[]> {
     try {
       const response = await fetcher(`/booking-requests/consultant/${consultantId}`);
-      return response.data;
+      return (Array.isArray(response.data) ? response.data : []).map(normalizeBookingRequest);
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error fetching consultant booking requests:', error)
-      };
+      logger.error('Error fetching consultant booking requests:', error);
       throw error;
     }
   },
@@ -40,11 +67,9 @@ export const BookingRequestService = {
   async getStudentBookingRequests(studentId: string): Promise<BookingRequest[]> {
     try {
       const response = await fetcher(`/booking-requests/student/${studentId}`);
-      return response.data;
+      return (Array.isArray(response.data) ? response.data : []).map(normalizeBookingRequest);
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error fetching student booking requests:', error)
-      };
+      logger.error('Error fetching student booking requests:', error);
       throw error;
     }
   },
@@ -61,13 +86,13 @@ export const BookingRequestService = {
   }): Promise<BookingRequest> {
     try {
       const response = await api.post('/booking-requests', bookingData);
-      const bookingRequest = response.data;
+      const bookingRequest = normalizeBookingRequest(response.data);
       
       // Create notification for consultant about new booking request
       try {
         const studentData = await UserService.getUserById(bookingData.studentId);
         const studentName = studentData?.name || studentData?.displayName || 'A student';
-        const studentAvatar = studentData?.profileImage || studentData?.avatarUrl || '';
+        const studentAvatar = normalizeAvatarUrl(studentData);
         
         await NotificationStorage.createNotification({
           userId: bookingData.consultantId,
@@ -85,16 +110,12 @@ export const BookingRequestService = {
           senderAvatar: studentAvatar,
         });
       } catch (notifError) {
-                if (__DEV__) {
-          console.warn('⚠️ Failed to create booking notification:', notifError)
-        };
+        logger.warn('⚠️ Failed to create booking notification:', notifError);
       }
       
       return bookingRequest;
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error creating booking request:', error)
-      };
+      logger.error('Error creating booking request:', error);
       throw error;
     }
   },
@@ -103,13 +124,13 @@ export const BookingRequestService = {
   async acceptBookingRequest(requestId: string): Promise<BookingRequest> {
     try {
       const response = await api.put(`/booking-requests/${requestId}/accept`);
-      const bookingRequest = response.data;
+      const bookingRequest = normalizeBookingRequest(response.data);
       
       // Create notification for student about booking confirmation
       try {
         const consultantData = await UserService.getUserById(bookingRequest.consultantId);
         const consultantName = consultantData?.name || consultantData?.displayName || 'Consultant';
-        const consultantAvatar = consultantData?.profileImage || consultantData?.avatarUrl || '';
+        const consultantAvatar = normalizeAvatarUrl(consultantData);
         
         await NotificationStorage.createNotification({
           userId: bookingRequest.studentId,
@@ -127,16 +148,12 @@ export const BookingRequestService = {
           senderAvatar: consultantAvatar,
         });
       } catch (notifError) {
-                if (__DEV__) {
-          console.warn('⚠️ Failed to create booking confirmation notification:', notifError)
-        };
+        logger.warn('⚠️ Failed to create booking confirmation notification:', notifError);
       }
       
       return bookingRequest;
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error accepting booking request:', error)
-      };
+      logger.error('Error accepting booking request:', error);
       throw error;
     }
   },
@@ -150,13 +167,13 @@ export const BookingRequestService = {
       const response = await api.put(`/booking-requests/${requestId}/decline`, {
         reason
       });
-      const declinedRequest = response.data;
+      const declinedRequest = normalizeBookingRequest(response.data);
       
       // Create notification for student about booking decline
       try {
         const consultantData = await UserService.getUserById(bookingRequest.consultantId);
         const consultantName = consultantData?.name || consultantData?.displayName || 'Consultant';
-        const consultantAvatar = consultantData?.profileImage || consultantData?.avatarUrl || '';
+        const consultantAvatar = normalizeAvatarUrl(consultantData);
         
         await NotificationStorage.createNotification({
           userId: bookingRequest.studentId,
@@ -174,16 +191,12 @@ export const BookingRequestService = {
           senderAvatar: consultantAvatar,
         });
       } catch (notifError) {
-                if (__DEV__) {
-          console.warn('⚠️ Failed to create booking decline notification:', notifError)
-        };
+        logger.warn('⚠️ Failed to create booking decline notification:', notifError);
       }
       
       return declinedRequest;
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error declining booking request:', error)
-      };
+      logger.error('Error declining booking request:', error);
       throw error;
     }
   },
@@ -197,7 +210,7 @@ export const BookingRequestService = {
       const response = await api.put(`/booking-requests/${requestId}/cancel`, {
         reason
       });
-      const cancelledRequest = response.data;
+      const cancelledRequest = normalizeBookingRequest(response.data);
       
       // Create notifications for both parties
       try {
@@ -206,8 +219,8 @@ export const BookingRequestService = {
         
         const studentName = studentData?.name || studentData?.displayName || 'Student';
         const consultantName = consultantData?.name || consultantData?.displayName || 'Consultant';
-        const studentAvatar = studentData?.profileImage || studentData?.avatarUrl || '';
-        const consultantAvatar = consultantData?.profileImage || consultantData?.avatarUrl || '';
+        const studentAvatar = normalizeAvatarUrl(studentData);
+        const consultantAvatar = normalizeAvatarUrl(consultantData);
         
         // Notify consultant
         await NotificationStorage.createNotification({
@@ -243,16 +256,12 @@ export const BookingRequestService = {
           senderAvatar: consultantAvatar,
         });
       } catch (notifError) {
-                if (__DEV__) {
-          console.warn('⚠️ Failed to create booking cancellation notifications:', notifError)
-        };
+        logger.warn('⚠️ Failed to create booking cancellation notifications:', notifError);
       }
       
       return cancelledRequest;
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error cancelling booking request:', error)
-      };
+      logger.error('Error cancelling booking request:', error);
       throw error;
     }
   },
@@ -261,11 +270,9 @@ export const BookingRequestService = {
   async getBookingRequest(requestId: string): Promise<BookingRequest> {
     try {
       const response = await fetcher(`/booking-requests/${requestId}`);
-      return response.data;
+      return normalizeBookingRequest(response.data);
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error fetching booking request:', error)
-      };
+      logger.error('Error fetching booking request:', error);
       throw error;
     }
   }

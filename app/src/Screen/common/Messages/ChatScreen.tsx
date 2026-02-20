@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
 import { chatStyles } from '../../../constants/styles/chatStyles';
-import { ChevronLeft, Phone, Video, Send, Trash2, X, Check, CheckCheck, Clock } from 'lucide-react-native';
+import { ChevronLeft, Phone, Video, Send, Trash2, X, Check, CheckCheck, Clock, UserRound } from 'lucide-react-native';
 import { useChat } from '../../../hooks/useChat';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useNotificationContext } from '../../../contexts/NotificationContext';
@@ -31,7 +31,7 @@ const ChatScreen = ({ navigation, route }: any) => {
   const [inputKey, setInputKey] = useState(0); // Key to force TextInput re-render
   const isSendingRef = useRef(false); // Ref-based lock to prevent race conditions
   const [otherUserName, setOtherUserName] = useState<string>('');
-  const [otherUserAvatar, setOtherUserAvatar] = useState<any>(require('../../../assets/image/avatar.png'));
+  const [otherUserAvatar, setOtherUserAvatar] = useState<any>(null);
   const [otherUserTitle, setOtherUserTitle] = useState<string>('User');
   const flatListRef = useRef<FlatList>(null);
   const textInputRef = useRef<TextInput>(null);
@@ -303,7 +303,7 @@ const ChatScreen = ({ navigation, route }: any) => {
             setOtherUserAvatar(
               consultantData.personalInfo.profileImage
                 ? { uri: consultantData.personalInfo.profileImage }
-                : consultantFromParams?.avatar || require('../../../assets/image/avatar.png')
+                : consultantFromParams?.avatar || null
             );
             setOtherUserTitle(consultantData.professionalInfo?.title || consultantFromParams?.title || 'Consultant');
           } else {
@@ -317,7 +317,7 @@ const ChatScreen = ({ navigation, route }: any) => {
               setOtherUserAvatar(
                 userData.profileImage || userData.avatarUrl 
                   ? { uri: userData.profileImage || userData.avatarUrl }
-                  : consultantFromParams?.avatar || require('../../../assets/image/avatar.png')
+                  : consultantFromParams?.avatar || null
               );
               setOtherUserTitle(userData.role || consultantFromParams?.title || 'User');
             } else if (consultantFromParams) {
@@ -353,7 +353,7 @@ const ChatScreen = ({ navigation, route }: any) => {
   const consultant = {
     name: otherUserName || consultantFromParams?.name || 'User',
     title: otherUserTitle || consultantFromParams?.title || 'User',
-    avatar: otherUserAvatar || consultantFromParams?.avatar || require('../../../assets/image/avatar.png'),
+    avatar: otherUserAvatar || consultantFromParams?.avatar || null,
     isOnline: consultantFromParams?.isOnline || true
   };
 
@@ -603,7 +603,22 @@ const ChatScreen = ({ navigation, route }: any) => {
           
           <View style={chatStyles.contactInfo}>
             <View style={chatStyles.avatarContainer}>
-              <Image source={consultant.avatar} style={chatStyles.avatar} />
+              {consultant.avatar ? (
+                <Image source={consultant.avatar} style={chatStyles.avatar} />
+              ) : (
+                <View
+                  style={[
+                    chatStyles.avatar,
+                    {
+                      backgroundColor: '#A5AFBD',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    },
+                  ]}
+                >
+                  <UserRound size={18} color={COLORS.gray} />
+                </View>
+              )}
               {consultant.isOnline && <View style={chatStyles.onlineIndicator} />}
             </View>
             <View style={chatStyles.contactDetails}>

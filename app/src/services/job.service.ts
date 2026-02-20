@@ -1,4 +1,5 @@
 import { api, fetcher } from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 export const JobService = {
   /**
@@ -120,7 +121,7 @@ export const JobService = {
     if (!applicationData || !applicationData.resumeId) {
       const error = new Error('Resume ID is required');
       if (__DEV__) {
-        console.error('[JobService] Missing resumeId:', {
+        logger.error('[JobService] Missing resumeId:', {
           applicationData,
           resumeId: applicationData?.resumeId,
         });
@@ -131,7 +132,7 @@ export const JobService = {
     if (typeof applicationData.resumeId !== 'string') {
       const error = new Error('Resume ID must be a string');
       if (__DEV__) {
-        console.error('[JobService] Invalid resumeId type:', {
+        logger.error('[JobService] Invalid resumeId type:', {
           type: typeof applicationData.resumeId,
           value: applicationData.resumeId,
         });
@@ -148,7 +149,7 @@ export const JobService = {
     if (!cleanData.resumeId) {
       const error = new Error('Resume ID cannot be empty');
       if (__DEV__) {
-        console.error('[JobService] Empty resumeId after cleaning');
+        logger.error('[JobService] Empty resumeId after cleaning');
       }
       throw error;
     }
@@ -159,7 +160,7 @@ export const JobService = {
     }
     
     if (__DEV__) {
-      console.log('[JobService] Applying for job:', {
+      logger.debug('[JobService] Applying for job:', {
         jobId,
         resumeId: cleanData.resumeId,
         resumeIdLength: cleanData.resumeId.length,
@@ -177,7 +178,7 @@ export const JobService = {
       });
       
       if (__DEV__) {
-        console.log('[JobService] Application successful:', {
+        logger.debug('[JobService] Application successful:', {
           status: response.status,
           hasApplication: !!response.data?.application,
         });
@@ -186,7 +187,7 @@ export const JobService = {
       return response.data;
     } catch (error: any) {
       if (__DEV__) {
-        console.error('[JobService] Application failed:', {
+        logger.error('[JobService] Application failed:', {
           error: error.message,
           status: error.response?.status,
           statusText: error.response?.statusText,

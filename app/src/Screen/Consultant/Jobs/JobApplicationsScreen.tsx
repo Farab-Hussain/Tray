@@ -11,6 +11,7 @@ import { useRefresh } from '../../../hooks/useRefresh';
 import { consultantJobApplicationsScreenStyles } from '../../../constants/styles/consultantJobApplicationsScreenStyles';
 import { getStatusColor } from '../../../utils/statusUtils';
 import SummaryCard from '../../../components/ui/SummaryCard';
+import { logger } from '../../../utils/logger';
 
 const JobApplicationsScreen = ({ navigation, route }: any) => {
   const { jobId } = route.params;
@@ -26,7 +27,7 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       setSummary(response.summary || null);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching applications:', error)
+        logger.error('Error fetching applications:', error)
       };
       showError(error.message || 'Failed to load applications');
     } finally {

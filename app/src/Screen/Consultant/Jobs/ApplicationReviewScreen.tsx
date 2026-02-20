@@ -9,6 +9,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { showError, showSuccess } from '../../../utils/toast';
 import { FileText } from 'lucide-react-native';
 import { consultantApplicationReviewScreenStyles } from '../../../constants/styles/applicationReviewScreenStyles';
+import { logger } from '../../../utils/logger';
 
 const ApplicationReviewScreen = ({ navigation, route }: any) => {
   const { applicationId } = route.params;
@@ -23,7 +24,7 @@ const ApplicationReviewScreen = ({ navigation, route }: any) => {
       setApplication(response.application);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching application:', error)
+        logger.error('Error fetching application:', error)
       };
       showError(error.message || 'Failed to load application');
     } finally {

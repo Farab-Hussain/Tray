@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -19,6 +20,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { courseService, Course } from '../../../services/course.service';
 import PaymentService from '../../../services/payment.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import { logger } from '../../../utils/logger';
 
 interface RouteParams {
   courseId: string;
@@ -48,6 +50,15 @@ export default function CoursePlayerScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [progressBarWidth, setProgressBarWidth] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [displayRating, setDisplayRating] = useState(0);
+  const [displayRatingCount, setDisplayRatingCount] = useState(0);
+  const videoRef = React.useRef<any>(null);
 
   const videoItems = React.useMemo<PlayerVideoItem[]>(() => {
     if (!course) return [];
@@ -100,12 +111,29 @@ export default function CoursePlayerScreen() {
           courseService.getMyEnrollments({ page: 1, limit: 100 }),
         ]);
         setCourse(courseData);
+        setDisplayRating(courseData.averageRating || courseData.rating || 0);
+        setDisplayRatingCount(courseData.ratingCount || 0);
         const enrolled = (enrollmentData?.enrollments || []).some(
           enrollment => enrollment.courseId === courseId && enrollment.status === 'active',
         );
         setIsEnrolled(enrolled);
+
+        if (user?.uid) {
+          try {
+            const reviewsRes = await courseService.getCourseReviews(courseId, { page: 1, limit: 100 });
+            const myReview = (reviewsRes?.reviews || []).find((review: any) => review.studentId === user.uid);
+            if (myReview) {
+              setSelectedRating(Number(myReview.rating) || 0);
+              setRatingComment(myReview.comment || '');
+            }
+          } catch (reviewErr) {
+            if (__DEV__) {
+              logger.debug('Could not fetch course reviews for current user', reviewErr);
+            }
+          }
+        }
       } catch (error) {
-        console.error('Error loading course:', error);
+        logger.error('Error loading course:', error);
         Alert.alert('Error', 'Failed to load course');
       } finally {
         setIsLoading(false);
@@ -223,6 +251,98 @@ export default function CoursePlayerScreen() {
     }
   };
 
+  const clampTime = React.useCallback(
+    (time: number) => Math.max(0, Math.min(time, videoDuration || 0)),
+    [videoDuration],
+  );
+
+  const seekToTime = React.useCallback(
+    (nextTime: number) => {
+      if (!currentVideo || !videoRef.current || !Number.isFinite(nextTime)) return;
+      const clampedTime = clampTime(nextTime);
+      try {
+        videoRef.current.seek(clampedTime);
+        setVideoCurrentTime(clampedTime);
+      } catch (error) {
+        if (__DEV__) {
+          logger.error('Seek error:', error);
+        }
+      }
+    },
+    [clampTime, currentVideo],
+  );
+
+  const seekRelative = React.useCallback(
+    (deltaSeconds: number) => {
+      seekToTime(videoCurrentTime + deltaSeconds);
+    },
+    [seekToTime, videoCurrentTime],
+  );
+
+  const seekFromBarTouch = React.useCallback(
+    (locationX: number) => {
+      if (!videoDuration || progressBarWidth <= 0) return;
+      const ratio = Math.max(0, Math.min(locationX / progressBarWidth, 1));
+      const targetTime = ratio * videoDuration;
+      seekToTime(targetTime);
+    },
+    [progressBarWidth, seekToTime, videoDuration],
+  );
+
+  const handleOpenRating = () => {
+    if (!isEnrolled) {
+      Alert.alert('Enrollment Required', 'Please enroll in this course before rating.');
+      return;
+    }
+    setShowRatingModal(true);
+  };
+
+  const handleSubmitRating = async () => {
+    if (!course) return;
+    if (selectedRating < 1 || selectedRating > 5) {
+      Alert.alert('Rating Required', 'Please choose a rating from 1 to 5 stars.');
+      return;
+    }
+
+    setIsSubmittingRating(true);
+    try {
+      await courseService.addCourseReview(course.id, {
+        rating: selectedRating,
+        comment: ratingComment.trim() || 'Great course',
+      });
+
+      const latestReviews = await courseService.getCourseReviews(course.id, { page: 1, limit: 200 });
+      const allReviews = latestReviews?.reviews || [];
+      const count = allReviews.length;
+      const avg =
+        count > 0
+          ? Math.round(
+              (allReviews.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0) / count) * 10,
+            ) / 10
+          : 0;
+
+      setDisplayRating(avg);
+      setDisplayRatingCount(count);
+      setCourse(prev =>
+        prev
+          ? {
+              ...prev,
+              rating: avg,
+              averageRating: avg,
+              ratingCount: count,
+            }
+          : prev,
+      );
+
+      setShowRatingModal(false);
+      Alert.alert('Success', 'Your rating has been submitted.');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to submit rating');
+    } finally {
+      setIsSubmittingRating(false);
+    }
+  };
+
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -298,6 +418,7 @@ export default function CoursePlayerScreen() {
         {currentVideo ? (
           <>
             <RNVideo
+              ref={videoRef}
               source={{ uri: currentVideo.videoUrl }}
               style={{
                 position: 'absolute',
@@ -311,7 +432,9 @@ export default function CoursePlayerScreen() {
                 setVideoDuration(data.duration || 0);
               }}
               onProgress={(data) => {
-                setVideoCurrentTime(data.currentTime || 0);
+                if (!isSeeking) {
+                  setVideoCurrentTime(data.currentTime || 0);
+                }
               }}
               onError={() => {
                 setIsPlaying(false);
@@ -360,7 +483,6 @@ export default function CoursePlayerScreen() {
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         padding: 16,
         backgroundColor: '#1a1a1a',
       }}>
@@ -376,26 +498,82 @@ export default function CoursePlayerScreen() {
             <Play size={24} color={COLORS.white} />
           )}
         </TouchableOpacity>
-        
-        <View style={{ flex: 1, marginHorizontal: 16 }}>
-          <View style={{
-            height: 4,
-            backgroundColor: COLORS.gray,
-            borderRadius: 2,
-          }}>
-            <View style={{
-              height: '100%',
-              width: `${videoDuration > 0 ? Math.min(100, (videoCurrentTime / videoDuration) * 100) : 0}%`,
-              backgroundColor: COLORS.green,
-              borderRadius: 2,
-            }} />
+
+        <TouchableOpacity
+          onPress={() => seekRelative(-10)}
+          disabled={!currentVideo}
+          style={{ marginLeft: 14, marginRight: 6 }}
+        >
+          <Text style={{ color: COLORS.white, fontSize: 13, fontWeight: '700' }}>-10s</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => seekRelative(10)}
+          disabled={!currentVideo}
+          style={{ marginHorizontal: 6 }}
+        >
+          <Text style={{ color: COLORS.white, fontSize: 13, fontWeight: '700' }}>+10s</Text>
+        </TouchableOpacity>
+
+        <View style={{ flex: 1, marginLeft: 10, marginRight: 12 }}>
+          <View
+            style={{
+              height: 24,
+              justifyContent: 'center',
+            }}
+            onLayout={event => {
+              setProgressBarWidth(event.nativeEvent.layout.width);
+            }}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={event => {
+              setIsSeeking(true);
+              seekFromBarTouch(event.nativeEvent.locationX);
+            }}
+            onResponderMove={event => {
+              seekFromBarTouch(event.nativeEvent.locationX);
+            }}
+            onResponderRelease={event => {
+              seekFromBarTouch(event.nativeEvent.locationX);
+              setIsSeeking(false);
+            }}
+            onResponderTerminate={() => {
+              setIsSeeking(false);
+            }}
+          >
+            <View
+              style={{
+                height: 4,
+                backgroundColor: COLORS.gray,
+                borderRadius: 2,
+              }}
+            >
+              <View
+                style={{
+                  height: '100%',
+                  width: `${videoDuration > 0 ? Math.min(100, (videoCurrentTime / videoDuration) * 100) : 0}%`,
+                  backgroundColor: COLORS.green,
+                  borderRadius: 2,
+                }}
+              />
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: `${videoDuration > 0 ? Math.min(100, (videoCurrentTime / videoDuration) * 100) : 0}%`,
+                marginLeft: -7,
+                top: 5,
+                width: 14,
+                height: 14,
+                borderRadius: 7,
+                backgroundColor: COLORS.green,
+              }}
+            />
           </View>
         </View>
-        
-        <Text style={{
-          color: COLORS.white,
-          fontSize: 12,
-        }}>
+
+        <Text style={{ color: COLORS.white, fontSize: 12, minWidth: 86, textAlign: 'right' }}>
           {formatPlayerTime(videoCurrentTime)} / {formatPlayerTime(videoDuration)}
         </Text>
       </View>
@@ -449,16 +627,21 @@ export default function CoursePlayerScreen() {
               </Text>
             </View>
             
-            <View style={{ alignItems: 'center' }}>
+            <TouchableOpacity style={{ alignItems: 'center' }} onPress={handleOpenRating}>
               <Star size={20} color={COLORS.orange} />
-              <Text style={{
-                fontSize: 14,
-                color: COLORS.gray,
-                marginTop: 4,
-              }}>
-                {course.rating && course.rating > 0 ? course.rating.toFixed(1) : '0.0'}
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: COLORS.gray,
+                  marginTop: 4,
+                }}
+              >
+                {displayRating > 0 ? displayRating.toFixed(1) : '0.0'}
               </Text>
-            </View>
+              <Text style={{ fontSize: 11, color: COLORS.gray }}>
+                ({displayRatingCount || 0})
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Description */}
@@ -712,6 +895,91 @@ export default function CoursePlayerScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Rating Modal */}
+      <Modal
+        visible={showRatingModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRatingModal(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+          onPress={() => setShowRatingModal(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: COLORS.white,
+              borderRadius: 12,
+              padding: 16,
+            }}
+            onPress={e => e.stopPropagation()}
+          >
+            <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.black, marginBottom: 12 }}>
+              Rate this course
+            </Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 14 }}>
+              {[1, 2, 3, 4, 5].map(value => (
+                <TouchableOpacity key={value} onPress={() => setSelectedRating(value)} style={{ marginHorizontal: 6 }}>
+                  <Star
+                    size={30}
+                    color={value <= selectedRating ? COLORS.orange : COLORS.lightGray}
+                    fill={value <= selectedRating ? COLORS.orange : 'transparent'}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              placeholder="Write a short comment (optional)"
+              value={ratingComment}
+              onChangeText={setRatingComment}
+              multiline
+              style={{
+                borderWidth: 1,
+                borderColor: COLORS.lightGray,
+                borderRadius: 10,
+                minHeight: 90,
+                padding: 12,
+                color: COLORS.black,
+                textAlignVertical: 'top',
+                marginBottom: 14,
+              }}
+            />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+              <TouchableOpacity
+                onPress={() => setShowRatingModal(false)}
+                style={{ paddingVertical: 10, paddingHorizontal: 14, marginRight: 8 }}
+              >
+                <Text style={{ color: COLORS.gray, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleSubmitRating}
+                disabled={isSubmittingRating}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  borderRadius: 8,
+                  backgroundColor: COLORS.green,
+                  opacity: isSubmittingRating ? 0.7 : 1,
+                }}
+              >
+                <Text style={{ color: COLORS.white, fontWeight: '700' }}>
+                  {isSubmittingRating ? 'Submitting...' : 'Submit'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );

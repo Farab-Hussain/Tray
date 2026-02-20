@@ -3,6 +3,7 @@ import { API_URL } from '@env';
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { auth } from '../lib/firebase';
+import { logger } from '../utils/logger';
 
 export interface UploadResponse {
   message: string;
@@ -47,9 +48,9 @@ const prepareFileForUpload = async (file: any, defaultMimeType: string = 'image/
     }
     
     if (__DEV__) {
-      console.log('📤 [UploadService] Android detected - using original URI format');
-      console.log('📤 [UploadService] Original URI:', fileUri);
-      console.log('📤 [UploadService] File path for verification:', filePath);
+      logger.debug('📤 [UploadService] Android detected - using original URI format');
+      logger.debug('📤 [UploadService] Original URI:', fileUri);
+      logger.debug('📤 [UploadService] File path for verification:', filePath);
     }
 
     // Verify file exists
@@ -79,7 +80,7 @@ const prepareFileForUpload = async (file: any, defaultMimeType: string = 'image/
     };
 
     if (__DEV__) {
-      console.log('📤 [UploadService] Android file object prepared:', {
+      logger.debug('📤 [UploadService] Android file object prepared:', {
         uri: fileToUpload.uri,
         type: fileToUpload.type,
         name: fileToUpload.name,
@@ -116,7 +117,7 @@ const uploadWithPlatformSpecificMethod = async (
   if (Platform.OS === 'android') {
     // Android: Use fetch API (handles FormData correctly)
     if (__DEV__) {
-      console.log('📤 [UploadService] Using fetch API for Android upload');
+      logger.debug('📤 [UploadService] Using fetch API for Android upload');
     }
 
     // Get Firebase token for authentication
@@ -135,9 +136,9 @@ const uploadWithPlatformSpecificMethod = async (
     const uploadUrl = `${baseURL}${endpoint}`;
 
     if (__DEV__) {
-      console.log('📤 [UploadService] Using API_URL:', API_URL);
-      console.log('📤 [UploadService] Using baseURL:', baseURL);
-      console.log('📤 [UploadService] Upload URL:', uploadUrl);
+      logger.debug('📤 [UploadService] Using API_URL:', API_URL);
+      logger.debug('📤 [UploadService] Using baseURL:', baseURL);
+      logger.debug('📤 [UploadService] Upload URL:', uploadUrl);
     }
 
     // Create AbortController for timeout
@@ -193,7 +194,7 @@ const UploadService = {
       const fileToUpload = await prepareFileForUpload(imageFile);
 
       if (__DEV__) {
-        console.log('📤 [UploadService] Uploading profile image:', {
+        logger.debug('📤 [UploadService] Uploading profile image:', {
           uri: fileToUpload.uri,
           type: fileToUpload.type,
           name: fileToUpload.name,
@@ -207,7 +208,7 @@ const UploadService = {
       formData.append('image', fileToUpload as any);
 
       if (__DEV__) {
-        console.log('📦 [UploadService] FormData created:', {
+        logger.debug('📦 [UploadService] FormData created:', {
           hasImage: true,
           fileUri: fileToUpload.uri,
           fileType: fileToUpload.type,
@@ -224,13 +225,13 @@ const UploadService = {
       const duration = Date.now() - startTime;
       
       if (__DEV__) {
-        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
-        console.log('✅ [UploadService] Profile image uploaded successfully:', data);
+        logger.debug(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        logger.debug('✅ [UploadService] Profile image uploaded successfully:', data);
       }
 
       return data;
     } catch (error: any) {
-      console.error('❌ [UploadService] Error uploading profile image:', {
+      logger.error('❌ [UploadService] Error uploading profile image:', {
         message: error.message,
         code: error.code,
         status: error.status || error.response?.status,
@@ -252,7 +253,7 @@ const UploadService = {
       const fileToUpload = await prepareFileForUpload(imageFile);
 
       if (__DEV__) {
-        console.log('📤 [UploadService] Uploading consultant image:', {
+        logger.debug('📤 [UploadService] Uploading consultant image:', {
           uri: fileToUpload.uri,
           type: fileToUpload.type,
           name: fileToUpload.name,
@@ -270,13 +271,13 @@ const UploadService = {
       const duration = Date.now() - startTime;
 
       if (__DEV__) {
-        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
-        console.log('✅ [UploadService] Consultant image uploaded successfully:', data);
+        logger.debug(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        logger.debug('✅ [UploadService] Consultant image uploaded successfully:', data);
       }
 
       return data;
     } catch (error: any) {
-      console.error('❌ [UploadService] Error uploading consultant image:', {
+      logger.error('❌ [UploadService] Error uploading consultant image:', {
         message: error.message,
         code: error.code,
         status: error.status || error.response?.status,
@@ -302,7 +303,7 @@ const UploadService = {
       return response.data;
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error deleting profile image:', error)
+        logger.error('Error deleting profile image:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to delete image');
     }
@@ -317,7 +318,7 @@ const UploadService = {
       return response.data;
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error deleting consultant image:', error)
+        logger.error('Error deleting consultant image:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to delete image');
     }
@@ -333,7 +334,7 @@ const UploadService = {
       const fileToUpload = await prepareFileForUpload(imageFile);
 
       if (__DEV__) {
-        console.log('📤 [UploadService] Uploading service image:', {
+        logger.debug('📤 [UploadService] Uploading service image:', {
           uri: fileToUpload.uri,
           type: fileToUpload.type,
           name: fileToUpload.name,
@@ -366,13 +367,13 @@ const UploadService = {
       const duration = Date.now() - startTime;
 
       if (__DEV__) {
-        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
-        console.log('✅ [UploadService] Service image uploaded successfully:', data);
+        logger.debug(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        logger.debug('✅ [UploadService] Service image uploaded successfully:', data);
       }
 
       return data;
     } catch (error: any) {
-      console.error('❌ [UploadService] Error uploading service image:', {
+      logger.error('❌ [UploadService] Error uploading service image:', {
         message: error.message,
         code: error.code,
         status: error.status || error.response?.status,
@@ -400,7 +401,7 @@ const UploadService = {
       const fileToUpload = await prepareFileForUpload(videoFile, 'video/mp4', 'video.mp4');
 
       if (__DEV__) {
-        console.log('📤 [UploadService] Uploading service video:', {
+        logger.debug('📤 [UploadService] Uploading service video:', {
           uri: fileToUpload.uri,
           type: fileToUpload.type,
           name: fileToUpload.name,
@@ -425,13 +426,13 @@ const UploadService = {
       const duration = Date.now() - startTime;
 
       if (__DEV__) {
-        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
-        console.log('✅ [UploadService] Service video uploaded successfully:', data);
+        logger.debug(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        logger.debug('✅ [UploadService] Service video uploaded successfully:', data);
       }
 
       return data;
     } catch (error: any) {
-      console.error('❌ [UploadService] Error uploading service video:', {
+      logger.error('❌ [UploadService] Error uploading service video:', {
         message: error.message,
         code: error.code,
         status: error.status || error.response?.status,
@@ -457,7 +458,7 @@ const UploadService = {
       return response.data;
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error getting upload signature:', error)
+        logger.error('Error getting upload signature:', error)
       };
       throw new Error(error.response?.data?.error || 'Failed to get upload signature');
     }
@@ -535,7 +536,7 @@ const UploadService = {
       const fileToUpload = await prepareFileForUpload(file, 'application/pdf', 'resume.pdf');
 
       if (__DEV__) {
-        console.log('📤 [UploadService] Uploading file:', {
+        logger.debug('📤 [UploadService] Uploading file:', {
           uri: fileToUpload.uri,
           type: fileToUpload.type,
           name: fileToUpload.name,
@@ -556,13 +557,13 @@ const UploadService = {
       const duration = Date.now() - startTime;
 
       if (__DEV__) {
-        console.log(`⏱️ [UploadService] Upload completed in ${duration}ms`);
-        console.log('✅ [UploadService] File uploaded successfully:', data);
+        logger.debug(`⏱️ [UploadService] Upload completed in ${duration}ms`);
+        logger.debug('✅ [UploadService] File uploaded successfully:', data);
       }
 
       return data;
     } catch (error: any) {
-      console.error('❌ [UploadService] Error uploading file:', {
+      logger.error('❌ [UploadService] Error uploading file:', {
         message: error.message,
         code: error.code,
         status: error.status || error.response?.status,

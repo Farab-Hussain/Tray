@@ -29,6 +29,7 @@ import { consultantFlowStyles } from '../../../constants/styles/consultantFlowSt
 import { COLORS } from '../../../constants/core/colors';
 import { showSuccess, showError, handleApiError } from '../../../utils/toast';
 import { UserService } from '../../../services/user.service';
+import { logger } from '../../../utils/logger';
 
 const CONSULTANT_CATEGORIES = [
   'Career Consulting',
@@ -124,7 +125,7 @@ export default function ConsultantProfileFlow() {
       if (user.photoURL) {
         setProfileImage(user.photoURL);
                 if (__DEV__) {
-          console.log('Pre-filled profile image from Firebase photoURL:', user.photoURL)
+          logger.debug('Pre-filled profile image from Firebase photoURL:', user.photoURL)
         };
       } else {
         // Try to get from backend user profile
@@ -133,19 +134,19 @@ export default function ConsultantProfileFlow() {
           if (backendProfile?.profileImage) {
             setProfileImage(backendProfile.profileImage);
                         if (__DEV__) {
-              console.log('Pre-filled profile image from backend profile:', backendProfile.profileImage)
+              logger.debug('Pre-filled profile image from backend profile:', backendProfile.profileImage)
             };
           }
         } catch (error) {
                     if (__DEV__) {
-            console.log('Could not fetch backend profile for image:', error)
+            logger.debug('Could not fetch backend profile for image:', error)
           };
           // Silently fail - image is optional
         }
       }
       
             if (__DEV__) {
-        console.log('No existing profile, starting fresh')
+        logger.debug('No existing profile, starting fresh')
       };
     } finally {
       setIsLoading(false);
@@ -351,7 +352,7 @@ export default function ConsultantProfileFlow() {
       };
 
             if (__DEV__) {
-        console.log('Sending profile data:', JSON.stringify(profileData, null, 2))
+        logger.debug('Sending profile data:', JSON.stringify(profileData, null, 2))
       };
 
       if (profile) {
@@ -368,7 +369,7 @@ export default function ConsultantProfileFlow() {
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error saving profile:', error)
+        logger.error('Error saving profile:', error)
       };
       handleApiError(error);
     } finally {

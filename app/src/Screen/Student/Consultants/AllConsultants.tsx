@@ -13,6 +13,8 @@ import { showError } from '../../../utils/toast';
 import { COLORS } from '../../../constants/core/colors';
 import { useRefresh } from '../../../hooks/useRefresh';
 import LoadMoreButton from '../../../components/ui/LoadMoreButton';
+import { logger } from '../../../utils/logger';
+import { normalizeAvatarUrl } from '../../../utils/normalize';
 
 const AllConsultants = ({ navigation }: any) => {
   const [consultants, setConsultants] = useState<any[]>([]);
@@ -43,6 +45,7 @@ const AllConsultants = ({ navigation }: any) => {
       // Find if student has a confirmed/approved booking with this consultant
       const confirmedBooking = consultantBookings.find(
         (booking: any) =>
+          booking.status === 'pending' ||
           booking.status === 'accepted' || 
           booking.status === 'approved' || 
           booking.status === 'confirmed'
@@ -109,14 +112,12 @@ const AllConsultants = ({ navigation }: any) => {
               title: consultant.category || 'Consultant',
               avatar: consultant.profileImage
                 ? { uri: consultant.profileImage }
-                : require('../../../assets/image/avatar.png'),
+                : undefined,
               isOnline: true,
             },
           });
         } catch (error) {
-                    if (__DEV__) {
-            console.error('Error opening chat:', error)
-          };
+          logger.error('Error opening chat:', error);
           showError('Failed to open chat');
         }
       } else if (iconType === 'phone') {
@@ -155,9 +156,7 @@ const AllConsultants = ({ navigation }: any) => {
         });
       }
     } catch (error) {
-            if (__DEV__) {
-        console.error('Error checking booking access:', error)
-      };
+      logger.error('Error checking booking access:', error);
       showError('Unable to verify booking status');
     }
   };
@@ -193,9 +192,7 @@ const AllConsultants = ({ navigation }: any) => {
         setHasMore(allConsultantsData.length >= 20);
       }
     } catch (err) {
-            if (__DEV__) {
-        console.error('Error fetching all consultants:', err)
-      };
+      logger.error('Error fetching all consultants:', err);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -252,24 +249,17 @@ const AllConsultants = ({ navigation }: any) => {
                   name={item.name}
                   title={item.category || 'Consultant'}
                   avatarUri={
-                    item.profileImage
-                      ? { uri: `${item.profileImage}?t=${imageCacheKey}&uid=${item.uid}` }
-                      : require('../../../assets/image/avatar.png')
+                    normalizeAvatarUrl(item)
+                      ? { uri: `${normalizeAvatarUrl(item)}?t=${imageCacheKey}&uid=${item.uid}` }
+                      : undefined
                   }
                   rating={item.rating ?? 0}
                   onBookPress={() => {
-                                        if (__DEV__) {
-                      console.log('📍 Book Now Clicked - AllConsultants Screen')
-                    };
-                                        if (__DEV__) {
-                      console.log('🆔 Consultant UID:', item.uid)
-                    };
-                                        if (__DEV__) {
-                      console.log('👤 Consultant Name:', item.name)
-                    };
-                                        if (__DEV__) {
-                      console.log('📂 Consultant Category:', item.category)
-                    };
+                    logger.debug('📍 Book Now Clicked - AllConsultants Screen', {
+                      uid: item.uid,
+                      name: item.name,
+                      category: item.category,
+                    });
                     navigation.navigate('MainTabs', {
                       screen: 'Services',
                       params: {
@@ -305,4 +295,3 @@ const AllConsultants = ({ navigation }: any) => {
 };
 
 export default AllConsultants;
-

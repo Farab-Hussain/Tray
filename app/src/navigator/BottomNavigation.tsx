@@ -7,7 +7,6 @@ import {
   BookOpen,
   GraduationCap,
   MessageCircle,
-  Bell,
   CircleUserRound,
 } from 'lucide-react-native';
 
@@ -22,7 +21,6 @@ import HomeStackNavigator from './HomeStackNavigator';
 import ServicesStackNavigator from './ServicesStackNavigator';
 import CourseStackNavigator from './CourseStackNavigator';
 import Messages from '../Screen/common/Messages/Messages';
-import Notifications from '../Screen/common/Notifications/Notifications';
 import Account from '../Screen/common/Account/Account';
 
 
@@ -57,10 +55,6 @@ const getTabIcon = (routeName: string, color: string, size: number) => {
       return (
         <MessageCircle size={size} color={color} />
       );
-    case 'Notifications':
-      return (
-        <Bell size={size} color={color} />
-      );
     case 'Account':
       return (
         <CircleUserRound size={size} color={color} />
@@ -74,10 +68,7 @@ const getTabIcon = (routeName: string, color: string, size: number) => {
 
 const BottomTabs = () => {
   const { chats } = useChatContext();
-  const {
-    unreadCount: notificationUnreadCount,
-    notifications,
-  } = useNotificationContext();
+  const { notifications } = useNotificationContext();
 
   const hasUnreadMessages = useMemo(() => {
     const chatUnreadViaChats =
@@ -95,9 +86,8 @@ const BottomTabs = () => {
   const badgeMap = useMemo(
     () => ({
       Messages: hasUnreadMessages,
-      Notifications: (notificationUnreadCount || 0) > 0,
     }),
-    [hasUnreadMessages, notificationUnreadCount],
+    [hasUnreadMessages],
   );
 
   const renderIconWithBadge = useCallback(
@@ -181,17 +171,6 @@ const BottomTabs = () => {
       <Tab.Screen
         name="Messages"
         component={Messages}
-        options={{
-          tabBarStyle: {
-            backgroundColor: COLORS.green,
-            borderTopWidth: 0,
-            elevation: 0,
-          },
-        }}
-      />
-      <Tab.Screen
-        name="Notifications"
-        component={Notifications}
         options={{
           tabBarStyle: {
             backgroundColor: COLORS.green,

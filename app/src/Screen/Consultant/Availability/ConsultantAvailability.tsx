@@ -17,6 +17,7 @@ import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { ConsultantService } from '../../../services/consultant.service';
 import { Plus, X, Trash2 } from 'lucide-react-native';
 import { consultantAvailabilityStyles as cleanStyles } from '../../../constants/styles/consultantAvailabilityStyles';
+import { logger } from '../../../utils/logger';
 
 interface AvailabilitySchedule {
   days: string[];
@@ -65,6 +66,9 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  const [expandedPreviewDates, setExpandedPreviewDates] = useState<string[]>(
+    [],
+  );
   const [slotDuration, setSlotDuration] = useState<number | null>(
     initialServiceDuration ?? null,
   );
@@ -109,12 +113,14 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
   const handleOpenAvailabilityModal = useCallback(() => {
     resetAvailabilityForm(availabilitySlots);
+    setExpandedPreviewDates([]);
     setShowAvailabilityModal(true);
   }, [availabilitySlots, resetAvailabilityForm]);
 
   const handleCloseAvailabilityModal = useCallback(
     (baseSlots?: AvailabilitySlot[]) => {
       resetAvailabilityForm(baseSlots);
+      setExpandedPreviewDates([]);
       setShowAvailabilityModal(false);
     },
     [resetAvailabilityForm],
@@ -264,7 +270,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
     try {
             if (__DEV__) {
-        console.log(
+        logger.debug(
         '📦 [ConsultantAvailability] Fetching consultant services for slot duration...',
       )
       };
@@ -274,7 +280,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
       if (fetchedServices.length === 0) {
                 if (__DEV__) {
-          console.log(
+          logger.debug(
           'ℹ️ [ConsultantAvailability] No services found for consultant; using default slot duration',
         )
         };
@@ -310,7 +316,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       }
     } catch (error) {
             if (__DEV__) {
-        console.error(
+        logger.error(
         '❌ [ConsultantAvailability] Error fetching consultant services:',
         error,
       )
@@ -344,7 +350,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     const validDates = selectedDates.filter(dateString => {
       if (isPastDate(dateString)) {
                 if (__DEV__) {
-          console.warn(`⚠️ Skipping past date: ${dateString}`)
+          logger.warn(`⚠️ Skipping past date: ${dateString}`)
         };
         return false;
       }
@@ -522,6 +528,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     const preview: Array<{
       date: string;
       generatedSlots: string[];
+      allGeneratedSlots: string[];
       hiddenCount: number;
     }> = [];
 
@@ -551,6 +558,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       preview.push({
         date: dateString,
         generatedSlots: uniqueGenerated.slice(0, 6),
+        allGeneratedSlots: uniqueGenerated,
         hiddenCount: Math.max(uniqueGenerated.length - 6, 0),
       });
     });
@@ -563,14 +571,22 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     getTimeSlotsForDate,
   ]);
 
+  const togglePreviewExpansion = useCallback((dateString: string) => {
+    setExpandedPreviewDates(prev =>
+      prev.includes(dateString)
+        ? prev.filter(date => date !== dateString)
+        : [...prev, dateString],
+    );
+  }, []);
+
   const saveAvailabilitySlots = async () => {
         if (__DEV__) {
-      console.log('🚨🚨🚨 SAVE AVAILABILITY SLOTS FUNCTION CALLED 🚨🚨🚨')
+      logger.debug('🚨🚨🚨 SAVE AVAILABILITY SLOTS FUNCTION CALLED 🚨🚨🚨')
     };
 
     if (!user?.uid) {
             if (__DEV__) {
-        console.error('❌ [ConsultantAvailability] No user UID available')
+        logger.error('❌ [ConsultantAvailability] No user UID available')
       };
       return;
     }
@@ -578,15 +594,15 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     try {
       setSaving(true);
             if (__DEV__) {
-        console.log(
+        logger.debug(
         '💾 [ConsultantAvailability] Starting to save availability slots...',
       )
       };
             if (__DEV__) {
-        console.log('👤 [ConsultantAvailability] User UID:', user.uid)
+        logger.debug('👤 [ConsultantAvailability] User UID:', user.uid)
       };
             if (__DEV__) {
-        console.log(
+        logger.debug(
         '📊 [ConsultantAvailability] Availability slots to save:',
         draftSlots.length,
       )
@@ -599,7 +615,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
         availabilityWindows,
       );
             if (__DEV__) {
-        console.log('✅ [ConsultantAvailability] Save result:', result)
+        logger.debug('✅ [ConsultantAvailability] Save result:', result)
       };
       setAvailabilitySlots(cloneAvailabilitySlots(draftSlots));
       handleCloseAvailabilityModal(draftSlots);
@@ -607,7 +623,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       Alert.alert('Success', 'Availability slots saved successfully!');
     } catch (error: any) {
             if (__DEV__) {
-        console.error(
+        logger.error(
         '❌ [ConsultantAvailability] Error saving availability slots:',
         error,
       )
@@ -621,14 +637,14 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
   const fetchConsultantAvailability = useCallback(async () => {
     try {
             if (__DEV__) {
-        console.log(
+        logger.debug(
         '📅 [ConsultantAvailability] Fetching consultant availability...',
       )
       };
 
       if (!user?.uid) {
                 if (__DEV__) {
-          console.log(
+          logger.debug(
           '⚠️ [ConsultantAvailability] No user UID available, using defaults',
         )
         };
@@ -638,7 +654,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       try {
         const profile = await getConsultantProfile(user.uid);
                 if (__DEV__) {
-          console.log('✅ [ConsultantAvailability] Profile response:', profile)
+          logger.debug('✅ [ConsultantAvailability] Profile response:', profile)
         };
 
         if ((profile as any)?.professionalInfo?.availability) {
@@ -648,7 +664,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
         if ((profile as any)?.professionalInfo?.availabilitySlots) {
           const slots = (profile as any).professionalInfo.availabilitySlots;
                     if (__DEV__) {
-            console.log(
+            logger.debug(
             '✅ [ConsultantAvailability] Availability slots loaded:',
             slots.length,
           )
@@ -657,7 +673,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
           const validSlots = slots.filter((slot: AvailabilitySlot) => {
             if (isPastDate(slot.date)) {
                             if (__DEV__) {
-                console.warn(`⚠️ Filtering out past date slot: ${slot.date}`)
+                logger.warn(`⚠️ Filtering out past date slot: ${slot.date}`)
               };
               return false;
             }
@@ -667,7 +683,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
           setDraftSlots(cloneAvailabilitySlots(validSlots));
           if (validSlots.length < slots.length) {
                         if (__DEV__) {
-              console.log(
+              logger.debug(
               `ℹ️ [ConsultantAvailability] Filtered out ${slots.length - validSlots.length} past date slot(s)`,
             )
             };
@@ -678,7 +694,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
         }
       } catch (profileError) {
                 if (__DEV__) {
-          console.log(
+          logger.debug(
           '⚠️ [ConsultantAvailability] Profile fetch failed, using defaults:',
           profileError,
         )
@@ -686,7 +702,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error(
+        logger.error(
         '❌ [ConsultantAvailability] Error in fetchConsultantAvailability:',
         error,
       )
@@ -756,7 +772,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                   await fetchConsultantAvailability();
                 } catch (error: any) {
                                     if (__DEV__) {
-                    console.error(
+                    logger.error(
                     '❌ [ConsultantAvailability] Error deleting slot:',
                     error,
                   )
@@ -813,7 +829,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                 Alert.alert('Success', 'All availability slots deleted.');
               } catch (error: any) {
                 if (__DEV__) {
-                  console.error(
+                  logger.error(
                     '❌ [ConsultantAvailability] Error deleting all slots:',
                     error,
                   );
@@ -837,7 +853,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
   useEffect(() => {
         if (__DEV__) {
-      console.log('🚀 ConsultantAvailability useEffect starting...')
+      logger.debug('🚀 ConsultantAvailability useEffect starting...')
     };
 
     setAvailability({
@@ -851,7 +867,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
     const forceLoadingTimeout = setTimeout(() => {
             if (__DEV__) {
-        console.log('⏰ Force loading timeout - showing calendar')
+        logger.debug('⏰ Force loading timeout - showing calendar')
       };
       setLoading(false);
     }, 1000);
@@ -867,7 +883,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
             if (__DEV__) {
-        console.log('🔄 ConsultantAvailability screen focused - refetching data')
+        logger.debug('🔄 ConsultantAvailability screen focused - refetching data')
       };
       fetchConsultantAvailability();
     });
@@ -1207,7 +1223,10 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                       {new Date(preview.date).toLocaleDateString()}
                     </Text>
                     <View style={cleanStyles.previewChipsWrap}>
-                      {preview.generatedSlots.map(slotLabel => (
+                      {(expandedPreviewDates.includes(preview.date)
+                        ? preview.allGeneratedSlots
+                        : preview.generatedSlots
+                      ).map(slotLabel => (
                         <View
                           key={`${preview.date}-${slotLabel}`}
                           style={cleanStyles.previewChip}
@@ -1219,9 +1238,15 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                       ))}
                     </View>
                     {preview.hiddenCount > 0 && (
-                      <Text style={cleanStyles.previewMoreText}>
-                        +{preview.hiddenCount} more slots
-                      </Text>
+                      <TouchableOpacity
+                        onPress={() => togglePreviewExpansion(preview.date)}
+                      >
+                        <Text style={cleanStyles.previewMoreText}>
+                          {expandedPreviewDates.includes(preview.date)
+                            ? 'Show less'
+                            : `+${preview.hiddenCount} more slots`}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                 ))}

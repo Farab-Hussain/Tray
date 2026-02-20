@@ -1,5 +1,6 @@
 // src/services/jobApplication.service.ts
 import api from '../lib/api';
+import { logger } from '../utils/logger';
 
 export interface JobApplication {
   id: string;
@@ -64,7 +65,7 @@ class JobApplicationService {
       const response = await api.get(`/jobs/${jobId}/applications`);
       return response.data;
     } catch (error: any) {
-      console.error('Error getting job applications:', error);
+      logger.error('Error getting job applications:', error);
       throw error;
     }
   }
@@ -77,7 +78,7 @@ class JobApplicationService {
       const response = await api.get(`/jobs/applications/${applicationId}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error getting application:', error);
+      logger.error('Error getting application:', error);
       throw error;
     }
   }
@@ -93,7 +94,7 @@ class JobApplicationService {
       const response = await api.put(`/jobs/applications/${applicationId}/status`, { status });
       return response.data;
     } catch (error: any) {
-      console.error('Error updating application status:', error);
+      logger.error('Error updating application status:', error);
       throw error;
     }
   }
@@ -106,7 +107,7 @@ class JobApplicationService {
       const response = await api.get('/jobs/applications/my');
       return response.data;
     } catch (error: any) {
-      console.error('Error getting my applications:', error);
+      logger.error('Error getting my applications:', error);
       throw error;
     }
   }
@@ -125,7 +126,7 @@ class JobApplicationService {
       const response = await api.post(`/jobs/${jobId}/apply`, applicationData);
       return response.data;
     } catch (error: any) {
-      console.error('Error applying for job:', error);
+      logger.error('Error applying for job:', error);
       throw error;
     }
   }
@@ -149,7 +150,7 @@ class JobApplicationService {
       const response = await api.post('/jobs/security/test-employer-access');
       return response.data;
     } catch (error: any) {
-      console.error('Error testing employer access security:', error);
+      logger.error('Error testing employer access security:', error);
       throw error;
     }
   }

@@ -22,6 +22,7 @@ import FitScoreDisplay from '../../../components/ui/FitScoreDisplay';
 import { showError, showSuccess, showInfo } from '../../../utils/toast';
 import { jobDetailScreenStyles } from '../../../constants/styles/jobDetailScreenStyles';
 import { useRefresh } from '../../../hooks/useRefresh';
+import { logger } from '../../../utils/logger';
 
 const JobDetailScreen = ({ navigation, route }: any) => {
   const { jobId } = route.params;
@@ -66,7 +67,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
     } catch (error) {
       // If we can't fetch applications, assume not applied
             if (__DEV__) {
-        console.log('Could not check application status:', error)
+        logger.debug('Could not check application status:', error)
       };
       setHasApplied(false);
     }
@@ -96,7 +97,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
           // Ensure score matches matchedSkills length (defensive check)
           if (normalizedMatchScore.matchedSkills.length > 0 && normalizedMatchScore.score === 0) {
                         if (__DEV__) {
-              console.warn('Score mismatch detected, using matchedSkills length:', {
+              logger.warn('Score mismatch detected, using matchedSkills length:', {
               originalScore: normalizedMatchScore.score,
               matchedSkillsCount: normalizedMatchScore.matchedSkills.length,
               matchedSkills: normalizedMatchScore.matchedSkills,
@@ -113,13 +114,13 @@ const JobDetailScreen = ({ navigation, route }: any) => {
         } catch (error) {
           // User might not have resume yet
                     if (__DEV__) {
-            console.log('No match score available:', error)
+            logger.debug('No match score available:', error)
           };
         }
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error fetching job:', error)
+        logger.error('Error fetching job:', error)
       };
       showError(error.message || 'Failed to load job details');
     } finally {
@@ -167,7 +168,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
     // Enhanced validation for Android - ensure resumeId is actually set and valid
     if (!resumeId || typeof resumeId !== 'string' || resumeId.trim() === '') {
             if (__DEV__) {
-        console.error('[JobDetailScreen] Resume ID validation failed:', {
+        logger.error('[JobDetailScreen] Resume ID validation failed:', {
           hasResume,
           resumeId,
           resumeIdType: typeof resumeId,
@@ -206,7 +207,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
   const applyForJob = async () => {
     if (!resumeId) {
             if (__DEV__) {
-        console.error('[JobDetailScreen] Cannot apply: resumeId is missing');
+        logger.error('[JobDetailScreen] Cannot apply: resumeId is missing');
       };
       showError('Resume ID is missing. Please try again.');
       return;
@@ -216,7 +217,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
     const validResumeId = String(resumeId).trim();
     if (!validResumeId) {
             if (__DEV__) {
-        console.error('[JobDetailScreen] Cannot apply: resumeId is empty after trimming');
+        logger.error('[JobDetailScreen] Cannot apply: resumeId is empty after trimming');
       };
       showError('Invalid resume ID. Please try again.');
       return;
@@ -225,7 +226,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
     try {
       setApplying(true);
             if (__DEV__) {
-        console.log('[JobDetailScreen] Applying for job:', {
+        logger.debug('[JobDetailScreen] Applying for job:', {
           jobId,
           resumeId: validResumeId,
         });
@@ -265,7 +266,7 @@ const JobDetailScreen = ({ navigation, route }: any) => {
       setHasApplied(true);
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error applying for job:', error)
+        logger.error('Error applying for job:', error)
       };
       
       // Check if user has already applied for this job

@@ -1,6 +1,26 @@
 import { api } from '../lib/fetcher';
 import * as NotificationStorage from './notification-storage.service';
 import { UserService } from './user.service';
+import { normalizeAvatarUrl, normalizeBookingStatus } from '../utils/normalize';
+import { logger } from '../utils/logger';
+
+const normalizeBooking = (booking: any) => {
+  if (!booking || typeof booking !== 'object') return booking;
+  return {
+    ...booking,
+    status: normalizeBookingStatus(booking.status),
+    studentProfileImage: normalizeAvatarUrl({
+      profileImage: booking.studentProfileImage,
+      avatarUrl: booking.studentAvatarUrl,
+      avatar: booking.studentAvatar,
+    }),
+    consultantProfileImage: normalizeAvatarUrl({
+      profileImage: booking.consultantProfileImage,
+      avatarUrl: booking.consultantAvatarUrl,
+      avatar: booking.consultantAvatar,
+    }),
+  };
+};
 
 export const BookingService = {
   // Create a new booking
@@ -31,19 +51,34 @@ export const BookingService = {
   // Get student's booked consultants
   async getMyConsultants() {
     const response = await api.get('/bookings/my-consultants');
-    return response.data;
+    const data = response.data;
+    if (Array.isArray(data)) return data.map(normalizeBooking);
+    if (Array.isArray(data?.consultants)) {
+      return { ...data, consultants: data.consultants.map(normalizeBooking) };
+    }
+    return data;
   },
 
   // Get all bookings for current user (student)
   async getMyBookings() {
     const response = await api.get('/bookings/student');
-    return response.data;
+    const data = response.data;
+    if (Array.isArray(data)) return data.map(normalizeBooking);
+    if (Array.isArray(data?.bookings)) {
+      return { ...data, bookings: data.bookings.map(normalizeBooking) };
+    }
+    return data;
   },
 
   // Get consultant's bookings (clients)
   async getConsultantBookings() {
     const response = await api.get('/bookings/consultant');
-    return response.data;
+    const data = response.data;
+    if (Array.isArray(data)) return data.map(normalizeBooking);
+    if (Array.isArray(data?.bookings)) {
+      return { ...data, bookings: data.bookings.map(normalizeBooking) };
+    }
+    return data;
   },
 
   // Update booking status (approve, cancel, etc.)
@@ -76,8 +111,8 @@ export const BookingService = {
         
         const studentName = studentData?.name || studentData?.displayName || 'Student';
         const consultantName = consultantData?.name || consultantData?.displayName || 'Consultant';
-        const studentAvatar = studentData?.profileImage || studentData?.avatarUrl || '';
-        const consultantAvatar = consultantData?.profileImage || consultantData?.avatarUrl || '';
+        const studentAvatar = normalizeAvatarUrl(studentData);
+        const consultantAvatar = normalizeAvatarUrl(consultantData);
         
         // Notify consultant
         await NotificationStorage.createNotification({
@@ -115,7 +150,7 @@ export const BookingService = {
       }
     } catch (notifError) {
             if (__DEV__) {
-        console.warn('⚠️ Failed to create booking cancellation notifications:', notifError)
+        logger.warn('⚠️ Failed to create booking cancellation notifications:', notifError)
       };
     }
     

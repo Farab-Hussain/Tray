@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Phone, Mic, MicOff, Camera } from 'lucide-react-native';
+import { Phone, Mic, MicOff, Camera, UserRound } from 'lucide-react-native';
 // Safely import InCallManager - may not be available until native module is linked
 let InCallManager: any = null;
 try {
@@ -17,6 +17,7 @@ import { callingStyles } from '../../../constants/styles/callingStyles';
 import { createPeer, applyAnswer, addRemoteIce } from '../../../webrtc/peer';
 import { addIceCandidate, answerCall, createCall, endCall, listenCall, listenCandidates, getCallOnce, getExistingCandidates, type CallDocument } from '../../../services/call.service';
 import { UserService } from '../../../services/user.service';
+import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { useAuth } from '../../../contexts/AuthContext';
 // Avoid static RTCView import; require dynamically to prevent crashes if pod not installed
 
@@ -32,6 +33,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const [local, setLocal] = useState<any | null>(null);
   const [remote, setRemote] = useState<any | null>(null);
   const [otherUser, setOtherUser] = useState<{ name: string; profileImage?: string } | null>(null);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   const pcRef = useRef<any | null>(null);
   const localStreamRef = useRef<any | null>(null);
@@ -39,6 +41,10 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const iceCandidateQueueRef = useRef<Array<{ senderId: string; candidate: any }>>([]);
   const isMutedRef = useRef<boolean>(false);
   const { callId, isCaller, callerId, receiverId, switchingFromAudio } = route?.params || {};
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [otherUser?.profileImage]);
 
   // Prevent back navigation while call is active
   useFocusEffect(
@@ -448,10 +454,33 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       try {
         const otherUserId = isCaller ? receiverId : callerId;
         const userData = await UserService.getUserById(otherUserId);
+        let consultantProfileImage: string | undefined;
+        let consultantProfileName: string | undefined;
+
+        try {
+          const consultantProfile = await getConsultantProfile(otherUserId);
+          consultantProfileImage =
+            consultantProfile?.personalInfo?.profileImage || undefined;
+          consultantProfileName =
+            consultantProfile?.personalInfo?.fullName || undefined;
+        } catch {
+          // Not a consultant profile or unavailable; ignore.
+        }
+
         if (userData) {
           setOtherUser({
-            name: userData.name || 'Unknown',
-            profileImage: userData.profileImage || userData.avatarUrl,
+            name: userData.name || consultantProfileName || 'Unknown',
+            profileImage:
+              userData.profileImage ||
+              userData.avatarUrl ||
+              userData.photoURL ||
+              userData.avatar ||
+              consultantProfileImage,
+          });
+        } else if (consultantProfileName || consultantProfileImage) {
+          setOtherUser({
+            name: consultantProfileName || 'Unknown',
+            profileImage: consultantProfileImage,
           });
         }
       } catch (error) {
@@ -1575,12 +1604,26 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         <View style={[callingStyles.mainVideoFeed, { backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }]}>
           {otherUser && (
             <>
-              <Image
-                source={{
-                  uri: otherUser.profileImage || 'https://via.placeholder.com/150',
-                }}
-                style={{ width: 120, height: 120, borderRadius: 60 }}
-              />
+              {!!otherUser.profileImage && !avatarLoadFailed ? (
+                <Image
+                  source={{ uri: otherUser.profileImage }}
+                  style={{ width: 120, height: 120, borderRadius: 60 }}
+                  onError={() => setAvatarLoadFailed(true)}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 120,
+                    height: 120,
+                    borderRadius: 60,
+                    backgroundColor: '#A5AFBD',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <UserRound size={54} color={COLORS.gray} />
+                </View>
+              )}
               <Text style={{ color: COLORS.white, marginTop: 16, fontSize: 18, fontWeight: '600' }}>
                 {otherUser.name}
               </Text>

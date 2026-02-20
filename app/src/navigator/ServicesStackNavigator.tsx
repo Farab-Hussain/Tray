@@ -1,6 +1,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import Services from '../Screen/Student/Services/Services';
+import ServiceDetails from '../Screen/Student/Services/ServiceDetails';
 import BookingSlots from '../Screen/Student/Booking/BookingSlots';
 import Cart from '../Screen/Student/Cart/Cart';
 import PaymentScreen from '../Screen/Student/Payment/PaymentScreen';
@@ -68,6 +69,13 @@ const ServicesStackNavigator = () => {
       <Stack.Screen 
         name="ServicesScreen" 
         component={Services}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      <Stack.Screen 
+        name="ServiceDetails" 
+        component={ServiceDetails}
         options={{
           cardStyleInterpolator: slideFromRight,
         }}
@@ -147,4 +155,3 @@ const ServicesStackNavigator = () => {
 };
 
 export default ServicesStackNavigator;
-

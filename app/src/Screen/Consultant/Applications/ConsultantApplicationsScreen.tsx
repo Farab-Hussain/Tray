@@ -31,6 +31,7 @@ import { launchImageLibrary, MediaType, ImagePickerResponse } from 'react-native
 import { api } from '../../../lib/fetcher';
 import { ConsultantService } from '../../../services/consultant.service';
 import axios from 'axios';
+import { logger } from '../../../utils/logger';
 
 interface PlatformServiceSummary {
   id: string;
@@ -181,7 +182,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       return services;
     } catch (error) {
             if (__DEV__) {
-        console.error('Error fetching platform services:', error)
+        logger.error('Error fetching platform services:', error)
       };
       return [];
     }
@@ -209,7 +210,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           consultantServices = consultantServicesResponse?.services || [];
         } catch (consultantServicesError) {
                     if (__DEV__) {
-            console.error('Error fetching consultant services for linkage:', consultantServicesError)
+            logger.error('Error fetching consultant services for linkage:', consultantServicesError)
           };
         }
       }
@@ -240,7 +241,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       setApplications(enrichedApps);
     } catch (error) {
             if (__DEV__) {
-        console.error('Error loading applications:', error)
+        logger.error('Error loading applications:', error)
       };
       Alert.alert('Error', 'Failed to load applications');
     } finally {
@@ -258,7 +259,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
     const params = route.params as any;
     if (params?.openCreateModal) {
             if (__DEV__) {
-        console.log('ConsultantApplicationsScreen - Auto-opening create modal from route params')
+        logger.debug('ConsultantApplicationsScreen - Auto-opening create modal from route params')
       };
       setIsEditing(false);
       setShowModal(true);
@@ -502,7 +503,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
                   }
                 } catch (error) {
                                     if (__DEV__) {
-                    console.error('Error checking approved services:', error)
+                    logger.error('Error checking approved services:', error)
                   };
                   navigation.navigate('PendingApproval' as never);
                 }
@@ -516,7 +517,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       }
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error submitting application:', error)
+        logger.error('Error submitting application:', error)
       };
       Alert.alert('Error', error.response?.data?.error || 'Failed to process request');
     } finally {
@@ -541,7 +542,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           bookingsCount = 0;
         } else {
                     if (__DEV__) {
-            console.error('Error fetching bookings before deletion:', error)
+            logger.error('Error fetching bookings before deletion:', error)
           };
         }
       }
@@ -567,7 +568,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
         await loadApplications();
       } catch (error: any) {
                 if (__DEV__) {
-          console.error('Error deleting approved service:', error)
+          logger.error('Error deleting approved service:', error)
         };
         Alert.alert(
           'Deletion Failed',
@@ -599,7 +600,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
       await loadApplications();
     } catch (error: any) {
             if (__DEV__) {
-        console.error('Error deleting application:', error)
+        logger.error('Error deleting application:', error)
       };
       Alert.alert('Error', 'Failed to delete application');
     } finally {
@@ -644,7 +645,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           } catch (serviceError) {
             if (!(axios.isAxiosError(serviceError) && serviceError.response?.status === 404)) {
                             if (__DEV__) {
-                console.error('Error fetching linked service by ID:', serviceError)
+                logger.error('Error fetching linked service by ID:', serviceError)
               };
             }
           }
@@ -672,7 +673,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
             }
           } catch (consultantFetchError) {
                         if (__DEV__) {
-              console.error('Error fetching consultant services while editing:', consultantFetchError)
+              logger.error('Error fetching consultant services while editing:', consultantFetchError)
             };
           }
         }
@@ -733,7 +734,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
           } catch (bookingsError) {
             if (!(axios.isAxiosError(bookingsError) && bookingsError.response?.status === 404)) {
                             if (__DEV__) {
-                console.error('Error fetching service bookings for edit warning:', bookingsError)
+                logger.error('Error fetching service bookings for edit warning:', bookingsError)
               };
             }
             setCurrentServiceBookingsCount(0);

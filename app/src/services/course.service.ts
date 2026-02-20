@@ -1,5 +1,6 @@
 // src/services/course.service.ts
 import { api } from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 export interface CourseVideoMeta {
   id?: string;
@@ -243,6 +244,111 @@ export interface InstructorStats {
 class CourseService {
   private inFlightRequests = new Map<string, Promise<any>>();
   private responseCache = new Map<string, { expiresAt: number; data: any }>();
+  private readonly validStatuses = new Set(['draft', 'pending', 'approved', 'published', 'archived']);
+
+  private toIsoDate(value: any): string | undefined {
+    if (!value) return undefined;
+    if (typeof value?.toDate === 'function') {
+      const d = value.toDate();
+      return d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString() : undefined;
+    }
+    if (typeof value?._seconds === 'number') {
+      const ms = value._seconds * 1000 + Math.floor((value._nanoseconds || 0) / 1_000_000);
+      const d = new Date(ms);
+      return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+    }
+    if (typeof value?.seconds === 'number') {
+      const ms = value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1_000_000);
+      const d = new Date(ms);
+      return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+    }
+    const d = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  }
+
+  private normalizeStatus(raw: any): Course['status'] {
+    const status = String(raw || '').toLowerCase();
+    return this.validStatuses.has(status) ? (status as Course['status']) : 'draft';
+  }
+
+  private normalizeCourse(course: any): Course {
+    const createdAt = this.toIsoDate(course?.createdAt);
+    const updatedAt = this.toIsoDate(course?.updatedAt);
+
+    return {
+      ...course,
+      id: String(course?.id || ''),
+      title: String(course?.title || ''),
+      description: String(course?.description || ''),
+      shortDescription: String(course?.shortDescription || course?.description || ''),
+      instructorId: String(course?.instructorId || ''),
+      instructorName: String(course?.instructorName || ''),
+      category: String(course?.category || ''),
+      level: (String(course?.level || 'beginner').toLowerCase() as Course['level']),
+      language: String(course?.language || 'en'),
+      tags: Array.isArray(course?.tags) ? course.tags : [],
+      objectives: Array.isArray(course?.objectives) ? course.objectives : [],
+      prerequisites: Array.isArray(course?.prerequisites) ? course.prerequisites : [],
+      targetAudience: Array.isArray(course?.targetAudience) ? course.targetAudience : [],
+      videos: Array.isArray(course?.videos) ? course.videos : [],
+      status: this.normalizeStatus(course?.status),
+      price: Number(course?.price || 0),
+      isFree: Boolean(course?.isFree),
+      currency: String(course?.currency || 'USD'),
+      duration: Number(course?.duration || 0),
+      durationText: String(course?.durationText || ''),
+      lessonsCount: Number(course?.lessonsCount || 0),
+      ratingCount: Number(course?.ratingCount || 0),
+      averageRating: Number(course?.averageRating || 0),
+      enrollmentCount: Number(course?.enrollmentCount || 0),
+      completionCount: Number(course?.completionCount || 0),
+      submittedAt: this.toIsoDate(course?.submittedAt),
+      approvedAt: this.toIsoDate(course?.approvedAt),
+      rejectedAt: this.toIsoDate(course?.rejectedAt),
+      publishedAt: this.toIsoDate(course?.publishedAt),
+      createdAt: createdAt as any,
+      updatedAt: updatedAt as any,
+    };
+  }
+
+  private normalizeCourseReview(review: any): CourseReview {
+    return {
+      ...review,
+      id: String(review?.id || ''),
+      courseId: String(review?.courseId || ''),
+      studentId: String(review?.studentId || ''),
+      studentName: review?.studentName ? String(review.studentName) : undefined,
+      studentAvatar: review?.studentAvatar ? String(review.studentAvatar) : undefined,
+      rating: Number(review?.rating || 0),
+      comment: String(review?.comment || ''),
+      createdAt: (this.toIsoDate(review?.createdAt) as any) || new Date(0),
+      updatedAt: (this.toIsoDate(review?.updatedAt) as any) || new Date(0),
+      instructorRespondedAt: this.toIsoDate(review?.instructorRespondedAt) as any,
+    };
+  }
+
+  private normalizeEnrollment(enrollment: any): CourseEnrollment {
+    return {
+      ...enrollment,
+      id: String(enrollment?.id || ''),
+      courseId: String(enrollment?.courseId || ''),
+      studentId: String(enrollment?.studentId || ''),
+      status: (String(enrollment?.status || 'active') as CourseEnrollment['status']),
+      progress: Number(enrollment?.progress || 0),
+      timeSpent: Number(enrollment?.timeSpent || 0),
+      lessonsCompleted: Number(enrollment?.lessonsCompleted || 0),
+      totalLessons: Number(enrollment?.totalLessons || 0),
+      completionRate: Number(enrollment?.completionRate || 0),
+      autoRenew: Boolean(enrollment?.autoRenew),
+      refundRequested: Boolean(enrollment?.refundRequested),
+      refundProcessed: Boolean(enrollment?.refundProcessed),
+      enrolledAt: (this.toIsoDate(enrollment?.enrolledAt) as any) || new Date(0),
+      completedAt: this.toIsoDate(enrollment?.completedAt) as any,
+      lastAccessAt: this.toIsoDate(enrollment?.lastAccessAt) as any,
+      accessEndsAt: this.toIsoDate(enrollment?.accessEndsAt) as any,
+      nextBillingDate: this.toIsoDate(enrollment?.nextBillingDate) as any,
+    };
+  }
 
   private async dedupeRequest<T>(
     key: string,
@@ -342,7 +448,11 @@ class CourseService {
         async () => {
           try {
             const response = await api.get(`/courses/public${suffix}`);
-            return normalize(response.data);
+            const result = normalize(response.data);
+            return {
+              ...result,
+              courses: (result.courses || []).map(course => this.normalizeCourse(course)),
+            };
           } catch (error: any) {
             // If listing endpoint is unavailable in this environment, return empty data
             // so the UI can still render featured/trending sections without error loops.
@@ -362,7 +472,7 @@ class CourseService {
       );
 
     } catch (error: any) {
-      console.error('Error searching courses:', error);
+      logger.error('Error searching courses:', error);
       throw new Error(error.response?.data?.error || 'Failed to search courses');
     }
   }
@@ -374,9 +484,9 @@ class CourseService {
     try {
       const response = await api.get(`/courses/${courseId}`);
 
-      return response.data.course;
+      return this.normalizeCourse(response.data.course);
     } catch (error: any) {
-      console.error('Error fetching course:', error);
+      logger.error('Error fetching course:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch course');
     }
   }
@@ -388,9 +498,9 @@ class CourseService {
     try {
       const response = await api.get(`/courses/slug/${slug}`);
 
-      return response.data.course;
+      return this.normalizeCourse(response.data.course);
     } catch (error: any) {
-      console.error('Error fetching course by slug:', error);
+      logger.error('Error fetching course by slug:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch course');
     }
   }
@@ -404,12 +514,15 @@ class CourseService {
         `courses:featured:${limit}`,
         async () => {
           const response = await api.get(`/courses/featured?limit=${limit}`);
-          return response.data;
+          return {
+            ...response.data,
+            courses: (response.data?.courses || []).map((course: any) => this.normalizeCourse(course)),
+          };
         },
         10000,
       );
     } catch (error: any) {
-      console.error('Error fetching featured courses:', error);
+      logger.error('Error fetching featured courses:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch featured courses');
     }
   }
@@ -423,12 +536,15 @@ class CourseService {
         `courses:trending:${limit}`,
         async () => {
           const response = await api.get(`/courses/trending?limit=${limit}`);
-          return response.data;
+          return {
+            ...response.data,
+            courses: (response.data?.courses || []).map((course: any) => this.normalizeCourse(course)),
+          };
         },
         10000,
       );
     } catch (error: any) {
-      console.error('Error fetching trending courses:', error);
+      logger.error('Error fetching trending courses:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch trending courses');
     }
   }
@@ -442,12 +558,15 @@ class CourseService {
         `courses:bestseller:${limit}`,
         async () => {
           const response = await api.get(`/courses/bestseller?limit=${limit}`);
-          return response.data;
+          return {
+            ...response.data,
+            courses: (response.data?.courses || []).map((course: any) => this.normalizeCourse(course)),
+          };
         },
         10000,
       );
     } catch (error: any) {
-      console.log('Bestseller courses fetch issue:', error);
+      logger.debug('Bestseller courses fetch issue:', error);
       throw new Error(error.response?.data?.error || 'Unable to load bestseller courses');
     }
   }
@@ -457,36 +576,36 @@ class CourseService {
    */
   async createCourse(courseData: CourseInput): Promise<Course> {
     try {
-      console.log('🚀 [CourseService] Creating course with timeout: 600000ms (10 minutes)');
-      console.log('📦 [CourseService] Course data:', JSON.stringify(courseData, null, 2));
-      console.log('⏰ [CourseService] Starting API call at:', new Date().toISOString());
+      logger.debug('🚀 [CourseService] Creating course with timeout: 600000ms (10 minutes)');
+      logger.debug('📦 [CourseService] Course data:', JSON.stringify(courseData, null, 2));
+      logger.debug('⏰ [CourseService] Starting API call at:', new Date().toISOString());
       
       // Increased timeout to 10 minutes to handle potential network delays
       const response = await api.post('/courses', courseData, { timeout: 600000 });
       
-      console.log('✅ [CourseService] Course created successfully');
-      console.log('📋 [CourseService] Response:', response.data);
-      return response.data?.course || response.data;
+      logger.debug('✅ [CourseService] Course created successfully');
+      logger.debug('📋 [CourseService] Response:', response.data);
+      return this.normalizeCourse(response.data?.course || response.data);
     } catch (error: any) {
-      console.error('❌ [CourseService] Course creation failed:', error);
+      logger.error('❌ [CourseService] Course creation failed:', error);
       
       // Enhanced error logging
       if (error.code === 'ECONNABORTED') {
-        console.error('⏰ [CourseService] Request timeout - server took too long to respond');
-        console.error('⏰ [CourseService] This might be due to:');
-        console.error('   - Slow Firestore operations');
-        console.error('   - Network connectivity issues');
-        console.error('   - Server overload');
+        logger.error('⏰ [CourseService] Request timeout - server took too long to respond');
+        logger.error('⏰ [CourseService] This might be due to:');
+        logger.error('   - Slow Firestore operations');
+        logger.error('   - Network connectivity issues');
+        logger.error('   - Server overload');
         throw new Error('Course creation timed out after 10 minutes. Please try again or contact support if the issue persists.');
       } else if (error.response) {
-        console.error('🔴 [CourseService] Server responded with error:', error.response.status, error.response.data);
+        logger.error('🔴 [CourseService] Server responded with error:', error.response.status, error.response.data);
         throw new Error(error.response.data?.error || `Server error: ${error.response.status}`);
       } else if (error.request) {
-        console.error('🔴 [CourseService] No response received from server');
-        console.error('🔴 [CourseService] Network error - check connection');
+        logger.error('🔴 [CourseService] No response received from server');
+        logger.error('🔴 [CourseService] Network error - check connection');
         throw new Error('No response from server. Please check your internet connection and try again.');
       } else {
-        console.error('🔴 [CourseService] Unexpected error:', error.message);
+        logger.error('🔴 [CourseService] Unexpected error:', error.message);
         throw new Error(error.message || 'Unable to create course');
       }
     }
@@ -499,9 +618,9 @@ class CourseService {
     try {
       const response = await api.put(`/courses/${courseId}`, updates);
 
-      return response.data.course;
+      return this.normalizeCourse(response.data.course);
     } catch (error: any) {
-      console.error('Error updating course:', error);
+      logger.error('Error updating course:', error);
       throw new Error(error.response?.data?.error || 'Failed to update course');
     }
   }
@@ -513,7 +632,7 @@ class CourseService {
     try {
       await api.delete(`/courses/${courseId}`);
     } catch (error: any) {
-      console.error('Error deleting course:', error);
+      logger.error('Error deleting course:', error);
       throw new Error(error.response?.data?.error || 'Failed to delete course');
     }
   }
@@ -539,9 +658,12 @@ class CourseService {
       // Reduce timeout to 10 seconds to fail fast
       const response = await api.get(`/courses/instructor/my${queryString}`, { timeout: 10000 });
 
-      return response.data;
+      return {
+        ...response.data,
+        courses: (response.data?.courses || []).map((course: any) => this.normalizeCourse(course)),
+      };
     } catch (error: any) {
-      console.log('Course fetch issue:', error);
+      logger.debug('Course fetch issue:', error);
       throw new Error(error.response?.data?.error || 'Unable to load courses');
     }
   }
@@ -568,9 +690,9 @@ class CourseService {
       // Increased timeout to 30 seconds to handle slow backend responses
       const response = await api.get(`/courses/instructor/my${queryString}`, { timeout: 30000 });
 
-      return response.data.courses || [];
+      return (response.data.courses || []).map((course: any) => this.normalizeCourse(course));
     } catch (error: any) {
-      console.log('Instructor courses fetch issue:', error);
+      logger.debug('Instructor courses fetch issue:', error);
       
       // Provide specific error message for timeout
       if (error.code === 'ECONNABORTED') {
@@ -588,9 +710,9 @@ class CourseService {
     try {
       const response = await api.post(`/courses/${courseId}/submit-for-approval`, {});
 
-      return response.data.course;
+      return this.normalizeCourse(response.data.course);
     } catch (error: any) {
-      console.error('Error submitting course for approval:', error);
+      logger.error('Error submitting course for approval:', error);
       const apiError = error?.response?.data;
       const missingFields = apiError?.details?.missingFields;
       if (Array.isArray(missingFields) && missingFields.length > 0) {
@@ -612,9 +734,9 @@ class CourseService {
     try {
       const response = await api.post(`/courses/${courseId}/enroll`, paymentDetails || {});
 
-      return response.data.enrollment;
+      return this.normalizeEnrollment(response.data.enrollment);
     } catch (error: any) {
-      console.error('Error enrolling in course:', error);
+      logger.error('Error enrolling in course:', error);
       throw new Error(error.response?.data?.error || 'Failed to enroll in course');
     }
   }
@@ -639,9 +761,12 @@ class CourseService {
 
       const response = await api.get(`/courses/enrollments/my?${queryString}`);
 
-      return response.data;
+      return {
+        ...response.data,
+        enrollments: (response.data?.enrollments || []).map((item: any) => this.normalizeEnrollment(item)),
+      };
     } catch (error: any) {
-      console.error('Error fetching enrollments:', error);
+      logger.error('Error fetching enrollments:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch enrollments');
     }
   }
@@ -666,9 +791,12 @@ class CourseService {
 
       const response = await api.get(`/courses/${courseId}/enrollments?${queryString}`);
 
-      return response.data;
+      return {
+        ...response.data,
+        enrollments: (response.data?.enrollments || []).map((item: any) => this.normalizeEnrollment(item)),
+      };
     } catch (error: any) {
-      console.error('Error fetching course enrollments:', error);
+      logger.error('Error fetching course enrollments:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch enrollments');
     }
   }
@@ -692,7 +820,7 @@ class CourseService {
 
       return response.data.progress;
     } catch (error: any) {
-      console.error('Error updating lesson progress:', error);
+      logger.error('Error updating lesson progress:', error);
       throw new Error(error.response?.data?.error || 'Failed to update progress');
     }
   }
@@ -710,9 +838,9 @@ class CourseService {
     try {
       const response = await api.post(`/courses/${courseId}/reviews`, reviewData);
 
-      return response.data.review;
+      return this.normalizeCourseReview(response.data.review);
     } catch (error: any) {
-      console.error('Error adding course review:', error);
+      logger.error('Error adding course review:', error);
       throw new Error(error.response?.data?.error || 'Failed to add review');
     }
   }
@@ -738,9 +866,12 @@ class CourseService {
 
       const response = await api.get(`/courses/${courseId}/reviews?${queryString}`);
 
-      return response.data;
+      return {
+        ...response.data,
+        reviews: (response.data?.reviews || []).map((review: any) => this.normalizeCourseReview(review)),
+      };
     } catch (error: any) {
-      console.error('Error fetching course reviews:', error);
+      logger.error('Error fetching course reviews:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch reviews');
     }
   }
@@ -754,7 +885,7 @@ class CourseService {
 
       return response.data.stats;
     } catch (error: any) {
-      console.error('Error fetching instructor stats:', error);
+      logger.error('Error fetching instructor stats:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch stats');
     }
   }
@@ -769,7 +900,7 @@ class CourseService {
 
       return response.data.stats;
     } catch (error: any) {
-      console.error('Error fetching instructor stats by ID:', error);
+      logger.error('Error fetching instructor stats by ID:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch instructor stats');
     }
   }
@@ -781,9 +912,12 @@ class CourseService {
     try {
       const response = await api.get('/courses/admin/pending');
 
-      return response.data;
+      return {
+        ...response.data,
+        courses: (response.data?.courses || []).map((course: any) => this.normalizeCourse(course)),
+      };
     } catch (error: any) {
-      console.error('Error fetching pending courses:', error);
+      logger.error('Error fetching pending courses:', error);
       throw new Error(error.response?.data?.error || 'Failed to fetch pending courses');
     }
   }
@@ -795,9 +929,9 @@ class CourseService {
     try {
       const response = await api.post(`/courses/${courseId}/approve`, {});
 
-      return response.data.course;
+      return this.normalizeCourse(response.data.course);
     } catch (error: any) {
-      console.error('Error approving course:', error);
+      logger.error('Error approving course:', error);
       throw new Error(error.response?.data?.error || 'Failed to approve course');
     }
   }
@@ -809,9 +943,9 @@ class CourseService {
     try {
       const response = await api.post(`/courses/${courseId}/reject`, { reason });
 
-      return response.data.course;
+      return this.normalizeCourse(response.data.course);
     } catch (error: any) {
-      console.error('Error rejecting course:', error);
+      logger.error('Error rejecting course:', error);
       throw new Error(error.response?.data?.error || 'Failed to reject course');
     }
   }
@@ -837,7 +971,7 @@ class CourseService {
 
       return response.data.purchase;
     } catch (error: any) {
-      console.error('Error purchasing course:', error);
+      logger.error('Error purchasing course:', error);
       throw new Error(error.message || 'Failed to purchase course');
     }
   }
@@ -851,7 +985,7 @@ class CourseService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error checking course access:', error);
+      logger.error('Error checking course access:', error);
       throw new Error(error.message || 'Failed to check access');
     }
   }
@@ -863,9 +997,9 @@ class CourseService {
     try {
       const response = await api.post(`/courses/${courseId}/launch`);
 
-      return response.data.course;
+      return this.normalizeCourse(response.data.course);
     } catch (error: any) {
-      console.error('Error launching course:', error);
+      logger.error('Error launching course:', error);
       throw new Error(error.message || 'Failed to launch course');
     }
   }
@@ -882,7 +1016,7 @@ class CourseService {
 
       return response.data.certificate;
     } catch (error: any) {
-      console.error('Error issuing certificate:', error);
+      logger.error('Error issuing certificate:', error);
       throw new Error(error.message || 'Failed to issue certificate');
     }
   }
@@ -896,7 +1030,7 @@ class CourseService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching purchase history:', error);
+      logger.error('Error fetching purchase history:', error);
       throw new Error(error.message || 'Failed to fetch purchase history');
     }
   }
@@ -910,7 +1044,7 @@ class CourseService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching certificates:', error);
+      logger.error('Error fetching certificates:', error);
       throw new Error(error.message || 'Failed to fetch certificates');
     }
   }
@@ -924,7 +1058,7 @@ class CourseService {
 
       return response.data;
     } catch (error: any) {
-      console.error('Error verifying certificate:', error);
+      logger.error('Error verifying certificate:', error);
       throw new Error(error.message || 'Failed to verify certificate');
     }
   }

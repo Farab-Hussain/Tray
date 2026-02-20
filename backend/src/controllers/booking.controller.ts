@@ -607,7 +607,7 @@ export const checkAccess = async (req: Request, res: Response) => {
       .collection("bookings")
       .where("studentId", "==", studentId)
       .where("consultantId", "==", consultantId)
-      .where("status", "in", ["confirmed", "accepted", "approved", "completed"])
+      .where("status", "in", ["pending", "confirmed", "accepted", "approved", "completed"])
       .where("paymentStatus", "==", "paid")
       .get();
 
@@ -624,7 +624,7 @@ export const checkAccess = async (req: Request, res: Response) => {
         return false;
       }
 
-      if (["confirmed", "accepted", "approved"].includes(status)) {
+      if (["pending", "confirmed", "accepted", "approved"].includes(status)) {
         const activeUntil = new Date(sessionDateTime.getTime() + ACTIVE_GRACE_MINUTES * 60 * 1000);
         return now <= activeUntil;
       }
@@ -794,13 +794,40 @@ export const getMyConsultants = async (req: Request, res: Response) => {
           continue;
         }
 
+        // Fallback rating source: compute from reviews if consultant document is stale/missing rating fields
+        let resolvedRating = consultant?.rating;
+        let resolvedTotalReviews = consultant?.totalReviews;
+
+        if (
+          resolvedRating === undefined ||
+          resolvedRating === null ||
+          resolvedTotalReviews === undefined ||
+          resolvedTotalReviews === null
+        ) {
+          const reviewsSnapshot = await db
+            .collection("reviews")
+            .where("consultantId", "==", consultantId)
+            .get();
+
+          const reviewDocs = reviewsSnapshot.docs.map(reviewDoc => reviewDoc.data());
+          const totalReviews = reviewDocs.length;
+          const averageRating =
+            totalReviews > 0
+              ? reviewDocs.reduce((sum: number, review: any) => sum + (Number(review.rating) || 0), 0) /
+                totalReviews
+              : 0;
+
+          resolvedRating = Math.round(averageRating * 10) / 10;
+          resolvedTotalReviews = totalReviews;
+        }
+
         consultantsData.push({
           uid: consultantId,
           name: consultant?.name,
           category: consultant?.category,
           profileImage: consultant?.profileImage || null,
-          rating: consultant?.rating,
-          totalReviews: consultant?.totalReviews,
+          rating: resolvedRating ?? 0,
+          totalReviews: resolvedTotalReviews ?? 0,
           totalBookings: activeConsultantBookings.length,
           lastBookingDate: activeConsultantBookings[0]?.date,
           lastBookingStatus: activeConsultantBookings[0]?.status

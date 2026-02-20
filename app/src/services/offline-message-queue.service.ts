@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ref, push, set, update, serverTimestamp } from 'firebase/database';
 import { database } from '../lib/firebase';
 import type { Message } from '../types/chatTypes';
+import { logger } from '../utils/logger';
 
 const QUEUE_KEY = '@offline_message_queue';
 const MAX_RETRIES = 3;
@@ -37,12 +38,12 @@ export const queueMessage = async (
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
     
     if (__DEV__) {
-      console.log('📦 [OfflineQueue] Message queued:', queueId);
+      logger.debug('📦 [OfflineQueue] Message queued:', queueId);
     }
     
     return queueId;
   } catch (error) {
-    console.error('❌ [OfflineQueue] Error queueing message:', error);
+    logger.error('❌ [OfflineQueue] Error queueing message:', error);
     throw error;
   }
 };
@@ -56,7 +57,7 @@ export const getQueuedMessages = async (): Promise<QueuedMessage[]> => {
     return queueData ? JSON.parse(queueData) : [];
   } catch (error) {
         if (__DEV__) {
-      console.error('❌ [OfflineQueue] Error getting queued messages:', error)
+      logger.error('❌ [OfflineQueue] Error getting queued messages:', error)
     };
     return [];
   }
@@ -75,10 +76,10 @@ export const removeQueuedMessage = async (queueId: string): Promise<void> => {
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(filteredQueue));
     
     if (__DEV__) {
-      console.log('✅ [OfflineQueue] Message removed from queue:', queueId);
+      logger.debug('✅ [OfflineQueue] Message removed from queue:', queueId);
     }
   } catch (error) {
-    console.error('❌ [OfflineQueue] Error removing queued message:', error);
+    logger.error('❌ [OfflineQueue] Error removing queued message:', error);
   }
 };
 
@@ -91,7 +92,7 @@ export const processQueuedMessages = async (): Promise<void> => {
     if (queue.length === 0) return;
 
     if (__DEV__) {
-      console.log(`📤 [OfflineQueue] Processing ${queue.length} queued messages...`);
+      logger.debug(`📤 [OfflineQueue] Processing ${queue.length} queued messages...`);
     }
 
     const db = database;
@@ -125,7 +126,7 @@ export const processQueuedMessages = async (): Promise<void> => {
         successfulIds.push(queuedMsg.id);
         
         if (__DEV__) {
-          console.log('✅ [OfflineQueue] Successfully sent queued message:', queuedMsg.id);
+          logger.debug('✅ [OfflineQueue] Successfully sent queued message:', queuedMsg.id);
         }
       } catch (error: any) {
         // Check if it's a network error or if max retries reached
@@ -138,12 +139,12 @@ export const processQueuedMessages = async (): Promise<void> => {
           queuedMsg.retries++;
           failedIds.push(queuedMsg);
           if (__DEV__) {
-            console.log(`⚠️ [OfflineQueue] Retry ${queuedMsg.retries}/${MAX_RETRIES} for message:`, queuedMsg.id);
+            logger.debug(`⚠️ [OfflineQueue] Retry ${queuedMsg.retries}/${MAX_RETRIES} for message:`, queuedMsg.id);
           }
         } else {
           // Max retries reached or non-network error - remove from queue
           if (__DEV__) {
-            console.error('❌ [OfflineQueue] Failed to send message after retries:', queuedMsg.id, error);
+            logger.error('❌ [OfflineQueue] Failed to send message after retries:', queuedMsg.id, error);
           }
         }
       }
@@ -162,10 +163,10 @@ export const processQueuedMessages = async (): Promise<void> => {
     }
 
     if (__DEV__) {
-      console.log(`✅ [OfflineQueue] Processed ${successfulIds.length} messages, ${failedIds.length} still queued`);
+      logger.debug(`✅ [OfflineQueue] Processed ${successfulIds.length} messages, ${failedIds.length} still queued`);
     }
   } catch (error) {
-    console.error('❌ [OfflineQueue] Error processing queued messages:', error);
+    logger.error('❌ [OfflineQueue] Error processing queued messages:', error);
   }
 };
 
@@ -178,4 +179,3 @@ export const isQueuedMessage = (messageId: string | undefined | null): boolean =
   }
   return messageId.startsWith('pending_');
 };
-

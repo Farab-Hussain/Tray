@@ -7,6 +7,7 @@ import { SessionCompletionService, SessionCompletion } from '../../../services/s
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { reviewStyles } from '../../../constants/styles/reviewStyles';
 import { sessionRatingStyles } from '../../../constants/styles/sessionRatingStyles';
+import { logger } from '../../../utils/logger';
 
 interface SessionRatingScreenProps {
   route: {
@@ -48,7 +49,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
         }
       } catch (error) {
                 if (__DEV__) {
-          console.error('Error fetching session completion:', error)
+          logger.error('Error fetching session completion:', error)
         };
         Alert.alert('Error', 'Failed to load session details');
       }
@@ -70,7 +71,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
       Alert.alert('Success', 'Consultant rating submitted! Now please rate the service.');
     } catch (error) {
             if (__DEV__) {
-        console.error('Error rating consultant:', error)
+        logger.error('Error rating consultant:', error)
       };
       Alert.alert('Error', 'Failed to submit consultant rating');
     } finally {
@@ -101,7 +102,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
       );
     } catch (error) {
             if (__DEV__) {
-        console.error('Error rating service:', error)
+        logger.error('Error rating service:', error)
       };
       Alert.alert('Error', 'Failed to submit service rating');
     } finally {
@@ -131,7 +132,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
               );
             } catch (error) {
                             if (__DEV__) {
-                console.error('Error requesting refund:', error)
+                logger.error('Error requesting refund:', error)
               };
               Alert.alert('Error', 'Failed to submit refund request');
             }

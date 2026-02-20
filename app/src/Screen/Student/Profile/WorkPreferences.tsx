@@ -13,6 +13,7 @@ import { ResumeService } from '../../../services/resume.service';
 import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
+import { logger } from '../../../utils/logger';
 import {
   Save,
   Plus,
@@ -79,11 +80,11 @@ const WorkPreferences = ({ navigation }: any) => {
     } catch (error: any) {
       // 404 is expected for new users - no work preferences exist yet
       if (error?.response?.status === 404) {
-        console.log('No existing work preferences found, starting with defaults');
+        logger.debug('No existing work preferences found, starting with defaults');
       } else {
         // Log other errors but don't crash the app
         if (__DEV__) {
-          console.error('Error loading work preferences:', error);
+          logger.error('Error loading work preferences:', error);
         }
       }
     }
@@ -116,7 +117,7 @@ const WorkPreferences = ({ navigation }: any) => {
       Alert.alert('Success', 'Work preferences updated successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving work preferences:', error);
+      logger.error('Error saving work preferences:', error);
       Alert.alert('Error', 'Failed to update work preferences. Please try again.');
     } finally {
       setSaving(false);

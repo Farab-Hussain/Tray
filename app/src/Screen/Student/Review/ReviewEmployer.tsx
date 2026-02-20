@@ -12,12 +12,14 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Star } from 'lucide-react-native';
+import { ChevronLeft, Star, UserRound } from 'lucide-react-native';
 import { COLORS } from '../../../constants/core/colors';
 import { reviewStyles } from '../../../constants/styles/reviewStyles';
 import { ReviewService } from '../../../services/review.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import * as NotificationStorage from '../../../services/notification-storage.service';
+import { logger } from '../../../utils/logger';
+import { normalizeAvatarUrl } from '../../../utils/normalize';
 
 const ReviewEmployer = ({ navigation, route }: any) => {
   const { user } = useAuth();
@@ -39,12 +41,7 @@ const ReviewEmployer = ({ navigation, route }: any) => {
       }
 
       try {
-                if (__DEV__) {
-          console.log(
-          '🔍 Checking for existing review for consultant:',
-          consultantId,
-        )
-        };
+        logger.debug('🔍 Checking for existing review for consultant:', consultantId);
         const response = await ReviewService.getMyReviews();
         const myReviews = response?.reviews || [];
 
@@ -53,12 +50,7 @@ const ReviewEmployer = ({ navigation, route }: any) => {
         );
 
         if (existingReview) {
-                    if (__DEV__) {
-            console.log(
-            '⚠️ User has already reviewed this consultant:',
-            existingReview.id,
-          )
-          };
+          logger.debug('⚠️ User has already reviewed this consultant:', existingReview.id);
           setHasExistingReview(true);
           setExistingReviewId(existingReview.id);
 
@@ -90,18 +82,12 @@ const ReviewEmployer = ({ navigation, route }: any) => {
             ],
           );
         } else {
-                    if (__DEV__) {
-            console.log('✅ No existing review found')
-          };
+          logger.debug('✅ No existing review found');
         }
       } catch (error: any) {
-                if (__DEV__) {
-          console.log('⚠️ Error checking for existing review:', error?.message)
-        };
+        logger.debug('⚠️ Error checking for existing review:', error?.message);
         if (error?.response?.status !== 404) {
-                    if (__DEV__) {
-            console.error('❌ Unexpected error:', error)
-          };
+          logger.error('❌ Unexpected error:', error);
         }
       } finally {
         setChecking(false);
@@ -130,14 +116,12 @@ const ReviewEmployer = ({ navigation, route }: any) => {
 
     setSubmitting(true);
     try {
-            if (__DEV__) {
-        console.log('📝 Submitting review:', {
+      logger.debug('📝 Submitting review:', {
         consultantId,
         rating,
         reviewText,
         recommendation,
-      })
-      };
+      });
 
       const response = await ReviewService.submitReview({
         consultantId,
@@ -149,7 +133,7 @@ const ReviewEmployer = ({ navigation, route }: any) => {
       try {
         if (consultantId && user?.uid) {
           const reviewerName = user.name || user.email?.split('@')[0] || 'Student';
-          const reviewerAvatar = user.profileImage || '';
+          const reviewerAvatar = normalizeAvatarUrl(user);
 
           await NotificationStorage.createNotification({
             userId: consultantId,
@@ -169,21 +153,15 @@ const ReviewEmployer = ({ navigation, route }: any) => {
           });
         }
       } catch (notifError) {
-                if (__DEV__) {
-          console.warn('⚠️ Failed to create review notification:', notifError)
-        };
+        logger.warn('⚠️ Failed to create review notification:', notifError);
       }
 
-            if (__DEV__) {
-        console.log('✅ Review submitted successfully')
-      };
+      logger.debug('✅ Review submitted successfully');
       Alert.alert('Success', 'Thank you for your review!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
-            if (__DEV__) {
-        console.error('❌ Error submitting review:', error)
-      };
+      logger.error('❌ Error submitting review:', error);
 
       const status = error?.response?.status;
       const responseData = error?.response?.data || {};
@@ -195,13 +173,7 @@ const ReviewEmployer = ({ navigation, route }: any) => {
         responseData.errorMessage ||
         (typeof responseData === 'string' ? responseData : null);
 
-      if (__DEV__) {
-        console.log('📋 Error details:', {
-          status,
-          responseData,
-          errorMessage,
-        });
-      }
+      logger.debug('📋 Error details:', { status, responseData, errorMessage });
 
       if (status === 403) {
         // Permission denied - user doesn't have a confirmed booking
@@ -312,16 +284,29 @@ const ReviewEmployer = ({ navigation, route }: any) => {
           keyboardShouldPersistTaps="handled"
         >
         <View style={reviewStyles.profileSection}>
-          <Image
-            source={
-              consultantImage
-                ? typeof consultantImage === 'string'
+          {consultantImage ? (
+            <Image
+              source={
+                typeof consultantImage === 'string'
                   ? { uri: consultantImage }
                   : consultantImage
-                : require('../../../assets/image/avatar.png')
-            }
-            style={reviewStyles.profileImage}
-          />
+              }
+              style={reviewStyles.profileImage}
+            />
+          ) : (
+            <View
+              style={[
+                reviewStyles.profileImage,
+                {
+                  backgroundColor: '#A5AFBD',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
+              ]}
+            >
+              <UserRound size={20} color={COLORS.gray} />
+            </View>
+          )}
           <Text style={reviewStyles.questionText}>
             How was your experience with {consultantName || 'this consultant'}?
           </Text>

@@ -489,7 +489,10 @@ export const getUserById = async (req: Request, res: Response) => {
       name: userData?.name,
       email: userData?.email,
       role: userData?.role,
-      profileImage: userData?.profileImage || userData?.avatar || null,
+      profileImage: userData?.profileImage || userData?.avatarUrl || userData?.photoURL || userData?.avatar || null,
+      avatarUrl: userData?.avatarUrl || null,
+      photoURL: userData?.photoURL || null,
+      avatar: userData?.avatar || null,
       createdAt: userData?.createdAt
     });
   } catch (error: any) {

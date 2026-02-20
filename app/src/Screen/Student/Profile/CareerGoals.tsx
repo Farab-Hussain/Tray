@@ -12,6 +12,7 @@ import { ResumeService } from '../../../services/resume.service';
 import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
+import { logger } from '../../../utils/logger';
 import {
   Target,
   DollarSign,
@@ -52,7 +53,7 @@ const CareerGoals = ({ navigation }: any) => {
         };
         
         if (__DEV__) {
-          console.log('📥 [CareerGoals] Loaded career goals:', loadedGoals);
+          logger.debug('📥 [CareerGoals] Loaded career goals:', loadedGoals);
         }
         
         setCareerGoals(loadedGoals);
@@ -60,11 +61,11 @@ const CareerGoals = ({ navigation }: any) => {
     } catch (error: any) {
       // 404 is expected for new users - no career goals exist yet
       if (error?.response?.status === 404) {
-        console.log('No existing career goals found, starting with defaults');
+        logger.debug('No existing career goals found, starting with defaults');
       } else {
         // Log other errors but don't crash the app
         if (__DEV__) {
-          console.error('Error loading career goals:', error);
+          logger.error('Error loading career goals:', error);
         }
       }
     }
@@ -150,14 +151,14 @@ const CareerGoals = ({ navigation }: any) => {
       };
 
       if (__DEV__) {
-        console.log('💾 [CareerGoals] Saving career goals data:', careerGoalsData);
+        logger.debug('💾 [CareerGoals] Saving career goals data:', careerGoalsData);
       }
 
       await ResumeService.updateCareerGoals(careerGoalsData);
       Alert.alert('Success', 'Career goals updated successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving career goals:', error);
+      logger.error('Error saving career goals:', error);
       Alert.alert('Error', 'Failed to update career goals. Please try again.');
     } finally {
       setSaving(false);

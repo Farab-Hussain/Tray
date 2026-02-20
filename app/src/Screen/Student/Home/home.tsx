@@ -19,6 +19,7 @@ import { showWarning, showError } from '../../../utils/toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useRefresh } from '../../../hooks/useRefresh';
+import { logger } from '../../../utils/logger';
 
 const Home = ({ navigation }: any) => {
   const [topConsultant, setTopConsultant] = useState<any>(null);
@@ -110,13 +111,13 @@ const Home = ({ navigation }: any) => {
               title: consultant.category || 'Consultant',
               avatar: consultant.profileImage
                 ? { uri: consultant.profileImage }
-                : require('../../../assets/image/avatar.png'),
+                : undefined,
               isOnline: true,
             },
           });
         } catch (error) {
           if (__DEV__) {
-            console.error('Error opening chat:', error);
+            logger.error('Error opening chat:', error);
           }
           showError('Failed to open chat');
         }
@@ -157,7 +158,7 @@ const Home = ({ navigation }: any) => {
       }
     } catch (error) {
       if (__DEV__) {
-        console.error('Error checking booking access:', error);
+        logger.error('Error checking booking access:', error);
       }
       showError('Unable to verify booking status');
     }
@@ -189,7 +190,7 @@ const Home = ({ navigation }: any) => {
 
       // Backend now handles sorting by rating and reviews
       if (__DEV__) {
-        console.log(
+        logger.debug(
           '⭐ Selected Top Consultant:',
           topConsultantData?.name,
           'with rating:',
@@ -197,7 +198,7 @@ const Home = ({ navigation }: any) => {
         );
       }
       if (__DEV__) {
-        console.log(
+        logger.debug(
           '📊 Other Consultants:',
           filteredConsultants.length,
           'consultants',
@@ -210,7 +211,7 @@ const Home = ({ navigation }: any) => {
       setImageCacheKey(prev => prev + 1);
     } catch (err) {
       if (__DEV__) {
-        console.error('Error fetching consultants:', err);
+        logger.error('Error fetching consultants:', err);
       }
       showWarning('Unable to load consultants. Please try again later.');
     } finally {
@@ -338,7 +339,7 @@ const Home = ({ navigation }: any) => {
                 ? {
                     uri: `${topConsultant.profileImage}?t=${imageCacheKey}&uid=${topConsultant.uid}`,
                   }
-                : require('../../../assets/image/avatar.png')
+                : undefined
             }
             rating={topConsultant.rating ?? 0}
             consultantId={topConsultant.uid}
@@ -404,21 +405,21 @@ const Home = ({ navigation }: any) => {
                       ? {
                           uri: `${item.profileImage}?t=${imageCacheKey}&uid=${item.uid}`,
                         }
-                      : require('../../../assets/image/avatar.png')
+                      : undefined
                   }
                   rating={item.rating ?? 0}
                   onBookPress={() => {
                     if (__DEV__) {
-                      console.log('📍 Book Now Clicked - Home Screen');
+                      logger.debug('📍 Book Now Clicked - Home Screen');
                     }
                     if (__DEV__) {
-                      console.log('🆔 Consultant UID:', item.uid);
+                      logger.debug('🆔 Consultant UID:', item.uid);
                     }
                     if (__DEV__) {
-                      console.log('👤 Consultant Name:', item.name);
+                      logger.debug('👤 Consultant Name:', item.name);
                     }
                     if (__DEV__) {
-                      console.log('📂 Consultant Category:', item.category);
+                      logger.debug('📂 Consultant Category:', item.category);
                     }
                     navigation.navigate('MainTabs', {
                       screen: 'Services',

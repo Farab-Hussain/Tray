@@ -1,4 +1,5 @@
 import { api } from '../lib/fetcher';
+import { logger } from '../utils/logger';
 
 export interface EmailTemplate {
   to: string;
@@ -40,11 +41,11 @@ export const EmailService = {
 
       await api.post('/email/send', emailTemplate);
             if (__DEV__) {
-        console.log('✅ Refund request email sent to consultant')
+        logger.debug('✅ Refund request email sent to consultant')
       };
     } catch (error) {
             if (__DEV__) {
-        console.error('❌ Error sending refund request email to consultant:', error)
+        logger.error('❌ Error sending refund request email to consultant:', error)
       };
       throw error;
     }
@@ -71,11 +72,11 @@ export const EmailService = {
 
       await api.post('/email/send', emailTemplate);
             if (__DEV__) {
-        console.log('✅ Refund request email sent to admin')
+        logger.debug('✅ Refund request email sent to admin')
       };
     } catch (error) {
             if (__DEV__) {
-        console.error('❌ Error sending refund request email to admin:', error)
+        logger.error('❌ Error sending refund request email to admin:', error)
       };
       throw error;
     }
@@ -103,11 +104,11 @@ export const EmailService = {
 
       await api.post('/email/send', emailTemplate);
             if (__DEV__) {
-        console.log('✅ Consultant response email sent to admin')
+        logger.debug('✅ Consultant response email sent to admin')
       };
     } catch (error) {
             if (__DEV__) {
-        console.error('❌ Error sending consultant response email to admin:', error)
+        logger.error('❌ Error sending consultant response email to admin:', error)
       };
       throw error;
     }
@@ -136,11 +137,11 @@ export const EmailService = {
 
       await api.post('/email/send', emailTemplate);
             if (__DEV__) {
-        console.log(`✅ Refund ${decision} email sent to student`)
+        logger.debug(`✅ Refund ${decision} email sent to student`)
       };
     } catch (error) {
             if (__DEV__) {
-        console.error(`❌ Error sending refund ${decision} email to student:`, error)
+        logger.error(`❌ Error sending refund ${decision} email to student:`, error)
       };
       throw error;
     }
@@ -171,11 +172,11 @@ export const EmailService = {
 
       await api.post('/email/send', emailTemplate);
             if (__DEV__) {
-        console.log(`✅ Refund ${decision} email sent to consultant`)
+        logger.debug(`✅ Refund ${decision} email sent to consultant`)
       };
     } catch (error) {
             if (__DEV__) {
-        console.error(`❌ Error sending refund ${decision} email to consultant:`, error)
+        logger.error(`❌ Error sending refund ${decision} email to consultant:`, error)
       };
       throw error;
     }
@@ -206,11 +207,11 @@ export const EmailService = {
 
       await api.post('/email/send', emailTemplate);
             if (__DEV__) {
-        console.log('✅ Session completion email sent to student')
+        logger.debug('✅ Session completion email sent to student')
       };
     } catch (error) {
             if (__DEV__) {
-        console.error('❌ Error sending session completion email to student:', error)
+        logger.error('❌ Error sending session completion email to student:', error)
       };
       throw error;
     }

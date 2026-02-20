@@ -806,16 +806,69 @@ export class CourseService {
   }
 
   async addReview(courseId: string, studentId: string, reviewData: any): Promise<any> {
-    const review = {
+    const rating = Number(reviewData?.rating ?? 0);
+    const comment = String(reviewData?.comment ?? '');
+
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+      throw new Error('Rating must be between 1 and 5');
+    }
+
+    const now = new Date();
+
+    // Upsert: one review per student per course
+    const existingReviewSnapshot = await this.reviewsCollection
+      .where('courseId', '==', courseId)
+      .where('studentId', '==', studentId)
+      .limit(1)
+      .get();
+
+    let reviewId = '';
+    if (!existingReviewSnapshot.empty) {
+      const existingDoc = existingReviewSnapshot.docs[0];
+      reviewId = existingDoc.id;
+      await existingDoc.ref.update({
+        rating,
+        comment,
+        updatedAt: now,
+      });
+    } else {
+      const review = {
+        courseId,
+        studentId,
+        rating,
+        comment,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const createdDoc = await this.reviewsCollection.add(review);
+      reviewId = createdDoc.id;
+    }
+
+    // Recalculate and persist aggregate rating on course
+    const allReviewsSnapshot = await this.reviewsCollection
+      .where('courseId', '==', courseId)
+      .get();
+
+    const allReviews = allReviewsSnapshot.docs.map(doc => doc.data() as { rating?: number });
+    const ratingCount = allReviews.length;
+    const totalRating = allReviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0);
+    const averageRating = ratingCount > 0 ? Math.round((totalRating / ratingCount) * 10) / 10 : 0;
+
+    await this.coursesCollection.doc(courseId).update({
+      averageRating,
+      rating: averageRating,
+      ratingCount,
+      updatedAt: now,
+    });
+
+    return {
+      id: reviewId,
       courseId,
       studentId,
-      rating: reviewData?.rating ?? 0,
-      comment: reviewData?.comment ?? '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      rating,
+      comment,
+      updatedAt: now,
     };
-    const doc = await this.reviewsCollection.add(review);
-    return { id: doc.id, ...review };
   }
 
   async getCourseReviews(
@@ -824,15 +877,55 @@ export class CourseService {
     limit: number = 20,
     _sort: string = 'newest'
   ): Promise<{ reviews: any[]; total: number; page: number; limit: number }> {
-    const offset = (page - 1) * limit;
-    const snapshot = await this.reviewsCollection
-      .where('courseId', '==', courseId)
-      .orderBy('createdAt', 'desc')
-      .offset(offset)
-      .limit(limit)
-      .get();
-    const reviews = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
-    return { reviews, total: reviews.length, page, limit };
+    const offset = Math.max(0, (page - 1) * limit);
+
+    try {
+      const snapshot = await this.reviewsCollection
+        .where('courseId', '==', courseId)
+        .orderBy('createdAt', 'desc')
+        .offset(offset)
+        .limit(limit)
+        .get();
+
+      const reviews = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+      return { reviews, total: reviews.length, page, limit };
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      const code = String(error?.code || '');
+      const isMissingIndex =
+        code === '9' ||
+        message.includes('FAILED_PRECONDITION') ||
+        message.toLowerCase().includes('requires an index');
+
+      if (!isMissingIndex) {
+        throw error;
+      }
+
+      // Fallback for environments without composite index:
+      // query only by courseId, then sort/paginate in memory.
+      const fallbackSnapshot = await this.reviewsCollection
+        .where('courseId', '==', courseId)
+        .get();
+
+      const allReviews = fallbackSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+      allReviews.sort((a: any, b: any) => {
+        const aTime = a?.createdAt?.toDate
+          ? a.createdAt.toDate().getTime()
+          : new Date(a?.createdAt || 0).getTime();
+        const bTime = b?.createdAt?.toDate
+          ? b.createdAt.toDate().getTime()
+          : new Date(b?.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+
+      const paged = allReviews.slice(offset, offset + limit);
+      return {
+        reviews: paged,
+        total: allReviews.length,
+        page,
+        limit,
+      };
+    }
   }
 
   async getFeaturedCourses(limit: number = 10): Promise<Course[]> {

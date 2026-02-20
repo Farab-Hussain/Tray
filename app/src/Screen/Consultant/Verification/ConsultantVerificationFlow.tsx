@@ -13,6 +13,7 @@ import { getConsultantApplications } from '../../../services/consultantFlow.serv
 import { COLORS } from '../../../constants/core/colors';
 import { CheckCircle, XCircle, Clock, Mail } from 'lucide-react-native';
 import { consultantVerificationFlowStyles as styles } from '../../../constants/styles/consultantVerificationFlowStyles';
+import { logger } from '../../../utils/logger';
 
 type VerificationStep = 
   | 'checking_email'
@@ -130,11 +131,11 @@ export default function ConsultantVerificationFlow() {
         try {
           await switchRole('consultant');
                     if (__DEV__) {
-            console.log('ConsultantVerificationFlow - Successfully switched to consultant role')
+            logger.debug('ConsultantVerificationFlow - Successfully switched to consultant role')
           };
         } catch (error: any) {
                     if (__DEV__) {
-            console.error('ConsultantVerificationFlow - Error switching role:', error)
+            logger.error('ConsultantVerificationFlow - Error switching role:', error)
           };
           // Continue navigation even if role switch fails
         }
@@ -149,7 +150,7 @@ export default function ConsultantVerificationFlow() {
 
     } catch (error) {
             if (__DEV__) {
-        console.error('Verification flow error:', error)
+        logger.error('Verification flow error:', error)
       };
       setVerificationState({
         step: 'profile_not_found',

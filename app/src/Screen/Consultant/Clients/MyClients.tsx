@@ -23,6 +23,12 @@ import ErrorDisplay from '../../../components/ui/ErrorDisplay';
 import LoadingState from '../../../components/ui/LoadingState';
 import { BookingService } from '../../../services/booking.service';
 import { api } from '../../../lib/fetcher';
+import { logger } from '../../../utils/logger';
+import {
+  normalizeAvatarUrl,
+  normalizeBookingStatus,
+  normalizeTimestampToDate,
+} from '../../../utils/normalize';
 
 interface Booking {
   id: string;
@@ -67,7 +73,7 @@ const MyClients = ({ navigation }: any) => {
     const now = Date.now();
     if (!forceRefresh && now - lastFetchTime < 3000) {
             if (__DEV__) {
-        console.log('🚫 [MyClients] Skipping fetch - too soon since last fetch')
+        logger.debug('🚫 [MyClients] Skipping fetch - too soon since last fetch')
       };
       return;
     }
@@ -80,7 +86,7 @@ const MyClients = ({ navigation }: any) => {
       setError(null);
 
             if (__DEV__) {
-        console.log('🔍 [MyClients] Fetching consultant bookings...')
+        logger.debug('🔍 [MyClients] Fetching consultant bookings...')
       };
 
       // Fetch bookings from API
@@ -88,16 +94,16 @@ const MyClients = ({ navigation }: any) => {
       const bookings: Booking[] = response.bookings || [];
 
             if (__DEV__) {
-        console.log('📊 [MyClients] Found', bookings.length, 'total bookings')
+        logger.debug('📊 [MyClients] Found', bookings.length, 'total bookings')
       };
 
       // Filter for approved bookings only (these are the clients)
       const approvedBookings = bookings.filter(booking => 
-        booking.status === 'approved' && booking.paymentStatus === 'paid'
+        normalizeBookingStatus(booking.status) === 'approved' && booking.paymentStatus === 'paid'
       );
 
             if (__DEV__) {
-        console.log('📊 [MyClients] Found', approvedBookings.length, 'approved bookings')
+        logger.debug('📊 [MyClients] Found', approvedBookings.length, 'approved bookings')
       };
 
       // Transform approved bookings into client data
@@ -115,12 +121,12 @@ const MyClients = ({ navigation }: any) => {
             studentDetailsMap.set(studentId, {
               name: studentResponse.data.name || `Student ${studentId.slice(0, 8)}`,
               email: studentResponse.data.email || `student${studentId.slice(0, 8)}@example.com`,
-              profileImage: studentResponse.data.profileImage || null
+              profileImage: normalizeAvatarUrl(studentResponse.data) || null,
             });
           }
         } catch {
                     if (__DEV__) {
-            console.log(`⚠️ [MyClients] Could not fetch student details for ${studentId}`)
+            logger.debug(`⚠️ [MyClients] Could not fetch student details for ${studentId}`)
           };
           studentDetailsMap.set(studentId, {
             name: `Student ${studentId.slice(0, 8)}`,
@@ -160,7 +166,10 @@ const MyClients = ({ navigation }: any) => {
           client.totalSpent += booking.amount;
 
           // Update last booking date if this booking is more recent
-          if (new Date(booking.date) > new Date(client.lastBookingDate)) {
+          if (
+            (normalizeTimestampToDate(booking.date)?.getTime() || 0) >
+            (normalizeTimestampToDate(client.lastBookingDate)?.getTime() || 0)
+          ) {
             client.lastBookingDate = booking.date;
           }
         }
@@ -171,19 +180,19 @@ const MyClients = ({ navigation }: any) => {
       // Sort clients by last booking date (most recent first)
       clientsList.sort(
         (a, b) =>
-          new Date(b.lastBookingDate).getTime() -
-          new Date(a.lastBookingDate).getTime(),
+          (normalizeTimestampToDate(b.lastBookingDate)?.getTime() || 0) -
+          (normalizeTimestampToDate(a.lastBookingDate)?.getTime() || 0),
       );
 
       setClients(clientsList);
       setFilteredClients(clientsList);
 
             if (__DEV__) {
-        console.log('✅ [MyClients] Successfully loaded', clientsList.length, 'clients')
+        logger.debug('✅ [MyClients] Successfully loaded', clientsList.length, 'clients')
       };
     } catch (err: any) {
             if (__DEV__) {
-        console.error('❌ [MyClients] Error fetching clients:', err)
+        logger.error('❌ [MyClients] Error fetching clients:', err)
       };
       setError(err.message || 'Failed to load clients. Please try again.');
       setClients([]);
@@ -224,14 +233,14 @@ const MyClients = ({ navigation }: any) => {
 
   const handleClientPress = (client: Client) => {
         if (__DEV__) {
-      console.log('View client:', client.studentName, client.studentId)
+      logger.debug('View client:', client.studentName, client.studentId)
     };
     // TODO: Navigate to client details or chat
   };
 
   const handleMessageClient = (client: Client) => {
         if (__DEV__) {
-      console.log('Message client:', client.studentName, client.studentId)
+      logger.debug('Message client:', client.studentName, client.studentId)
     };
     // Navigate to chat screen with client
     navigation.navigate('ChatScreen', {

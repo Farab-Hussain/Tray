@@ -1,5 +1,6 @@
 import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc, serverTimestamp, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
+import { logger } from '../utils/logger';
 
 export type CallStatus = 'ringing' | 'active' | 'ended' | 'missed';
 
@@ -37,9 +38,22 @@ export const answerCall = async (callId: string, answer: any) => {
   await updateDoc(ref, { answer, status: 'active' });
 };
 
-export const endCall = async (callId: string, status: CallStatus = 'ended') => {
+export const endCall = async (
+  callId: string,
+  status: CallStatus = 'ended',
+  endedBy?: string,
+) => {
   const ref = doc(firestore, 'calls', callId);
-  await updateDoc(ref, { status, endedAt: serverTimestamp() });
+  await setDoc(
+    ref,
+    {
+      status,
+      endedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      ...(endedBy ? { endedBy } : {}),
+    },
+    { merge: true },
+  );
 };
 
 export const addIceCandidate = async (callId: string, senderId: string, candidate: any) => {
@@ -84,9 +98,7 @@ export const getExistingCandidates = async (callId: string) => {
  * This allows the app to detect incoming calls globally, not just when on the calling screen
  */
 export const listenIncomingCalls = (receiverId: string, cb: (callId: string, callData: CallDocument) => void) => {
-    if (__DEV__) {
-    console.log('📞 [listenIncomingCalls] Setting up listener for receiver:', receiverId)
-  };
+  logger.debug('📞 [listenIncomingCalls] Setting up listener for receiver:', receiverId);
   
   const callsRef = collection(firestore, 'calls');
   const q = query(
@@ -100,24 +112,18 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
   
   // Set up polling as fallback if listener fails
   const startPolling = () => {
-        if (__DEV__) {
-      console.log('📞 [listenIncomingCalls] Starting polling fallback...')
-    };
+    logger.debug('📞 [listenIncomingCalls] Starting polling fallback...');
     pollInterval = setInterval(async () => {
       try {
         const snapshot = await getDocs(q);
         snapshot.forEach((doc) => {
           const callData = doc.data() as CallDocument;
           const callId = doc.id;
-                    if (__DEV__) {
-            console.log('📞 [Polling] Found ringing call:', callId)
-          };
+          logger.debug('📞 [Polling] Found ringing call:', callId);
           cb(callId, callData);
         });
       } catch (error: any) {
-                if (__DEV__) {
-          console.warn('⚠️ [Polling] Error checking calls:', error)
-        };
+        logger.warn('⚠️ [Polling] Error checking calls:', error);
       }
     }, 2000); // Poll every 2 seconds
   };
@@ -129,9 +135,7 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
       if (pollInterval) {
         clearInterval(pollInterval);
         pollInterval = null;
-                if (__DEV__) {
-          console.log('📞 [listenIncomingCalls] Stopped polling - listener is working')
-        };
+        logger.debug('📞 [listenIncomingCalls] Stopped polling - listener is working');
       }
       
       // Get document changes (only actual changes, not metadata updates)
@@ -145,37 +149,27 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
       
       // Only log if there are actual document changes or on first snapshot
       if (isFirstSnapshot || changes.length > 0) {
-                if (__DEV__) {
-          console.log('📞 [listenIncomingCalls] Snapshot received, docs:', snapshot.size, 'changes:', changes.length)
-        };
+        logger.debug('📞 [listenIncomingCalls] Snapshot received, docs:', snapshot.size, 'changes:', changes.length);
       }
       
       // Handle initial snapshot - check for existing ringing calls
       if (isFirstSnapshot) {
         isFirstSnapshot = false;
-                if (__DEV__) {
-          console.log('📞 [listenIncomingCalls] Initial snapshot, checking for existing calls...')
-        };
+        logger.debug('📞 [listenIncomingCalls] Initial snapshot, checking for existing calls...');
         snapshot.forEach((doc) => {
           const callData = doc.data() as CallDocument;
           const callId = doc.id;
           // Only trigger callback if status is still ringing
           if (callData.status === 'ringing') {
-                        if (__DEV__) {
-              console.log('📞 [Incoming Call] Existing ringing call detected:', callId, callData)
-            };
+            logger.debug('📞 [Incoming Call] Existing ringing call detected:', callId, callData);
             cb(callId, callData);
           } else {
-                        if (__DEV__) {
-              console.log('📞 [listenIncomingCalls] Existing call status is', callData.status, '- skipping')
-            };
+            logger.debug('📞 [listenIncomingCalls] Existing call status is', callData.status, '- skipping');
           }
         });
         
         if (snapshot.size === 0) {
-                    if (__DEV__) {
-            console.log('📞 [listenIncomingCalls] No existing ringing calls found')
-          };
+          logger.debug('📞 [listenIncomingCalls] No existing ringing calls found');
         }
         return; // Don't process changes on initial snapshot
       }
@@ -190,14 +184,10 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
           // Double-check status - only trigger if still ringing
           // This prevents race conditions where status changes between snapshot and callback
           if (callData.status === 'ringing') {
-                        if (__DEV__) {
-              console.log('📞 [Incoming Call] New incoming call detected:', callId, callData)
-            };
+            logger.debug('📞 [Incoming Call] New incoming call detected:', callId, callData);
             cb(callId, callData);
           } else {
-                        if (__DEV__) {
-              console.log('📞 [listenIncomingCalls] Call status is', callData.status, '- skipping callback')
-            };
+            logger.debug('📞 [listenIncomingCalls] Call status is', callData.status, '- skipping callback');
           }
         }
         // Note: We ignore 'modified' and 'removed' changes as they're handled elsewhere
@@ -205,17 +195,11 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
       });
     },
     (error) => {
-            if (__DEV__) {
-        console.error('❌ [listenIncomingCalls] Error listening to calls:', error)
-      };
+      logger.error('❌ [listenIncomingCalls] Error listening to calls:', error);
       // Check if it's an index error
       if (error.code === 'failed-precondition') {
-                if (__DEV__) {
-          console.error('❌ [listenIncomingCalls] Firestore index required. Please check Firebase Console for index creation link.')
-        };
-                if (__DEV__) {
-          console.log('📞 [listenIncomingCalls] Starting polling fallback due to index error...')
-        };
+        logger.error('❌ [listenIncomingCalls] Firestore index required. Please check Firebase Console for index creation link.');
+        logger.debug('📞 [listenIncomingCalls] Starting polling fallback due to index error...');
         // Start polling as fallback
         startPolling();
       } else {
@@ -228,26 +212,20 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
   // Start polling as backup after a delay
   setTimeout(() => {
     if (pollInterval === null) {
-            if (__DEV__) {
-        console.log('📞 [listenIncomingCalls] Starting polling as backup...')
-      };
+      logger.debug('📞 [listenIncomingCalls] Starting polling as backup...');
       startPolling();
       // Stop polling after 30 seconds if listener is working
       setTimeout(() => {
         if (pollInterval) {
           clearInterval(pollInterval);
           pollInterval = null;
-                    if (__DEV__) {
-            console.log('📞 [listenIncomingCalls] Stopped backup polling')
-          };
+          logger.debug('📞 [listenIncomingCalls] Stopped backup polling');
         }
       }, 30000);
     }
   }, 5000);
   
-    if (__DEV__) {
-    console.log('✅ [listenIncomingCalls] Listener set up successfully')
-  };
+  logger.debug('✅ [listenIncomingCalls] Listener set up successfully');
   
   // Return cleanup function
   return () => {
@@ -257,5 +235,3 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
     unsubscribe();
   };
 };
-
-

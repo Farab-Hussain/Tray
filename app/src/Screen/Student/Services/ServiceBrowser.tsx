@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS } from '../../../constants/core/colors';
 import { ConsultantService } from '../../../services/consultant.service';
 import ServiceCard from '../../../components/ui/ServiceCard';
+import { logger } from '../../../utils/logger';
 
 interface Service {
   id: string;
@@ -77,7 +78,7 @@ export default function ServiceBrowser() {
         setFilteredServices(response.services);
       }
     } catch (error) {
-      console.error('Error fetching services:', error);
+      logger.error('Error fetching services:', error);
       Alert.alert('Error', 'Failed to load services');
     } finally {
       setLoading(false);

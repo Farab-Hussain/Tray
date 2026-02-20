@@ -17,6 +17,7 @@ import { servicesStackStyles as styles } from '../../../constants/styles/service
 import { useAuth } from '../../../contexts/AuthContext';
 import { ConsultantService } from '../../../services/consultant.service';
 import { BookingService } from '../../../services/booking.service';
+import { logger } from '../../../utils/logger';
 
 // Helper function to calculate end time
 const calculateEndTime = (
@@ -27,7 +28,7 @@ const calculateEndTime = (
   const timeMatch = startTime.match(/(\d+)[:.](\d+)\s*(AM|PM)/i);
   if (!timeMatch) {
     if (__DEV__) {
-      console.warn('Could not parse time:', startTime);
+      logger.warn('Could not parse time:', startTime);
     }
     return startTime;
   }
@@ -37,7 +38,7 @@ const calculateEndTime = (
   const period = timeMatch[3];
 
   if (__DEV__) {
-    console.log('Parsed time:', { hours, minutes, period, durationMinutes });
+    logger.debug('Parsed time:', { hours, minutes, period, durationMinutes });
   }
 
   // Convert to 24-hour format
@@ -58,7 +59,7 @@ const calculateEndTime = (
     minutes,
   ).padStart(2, '0')} ${endPeriod}`;
   if (__DEV__) {
-    console.log('Calculated end time:', result);
+    logger.debug('Calculated end time:', result);
   }
 
   return result;
@@ -254,13 +255,13 @@ const BookingSlots = ({ navigation, route }: any) => {
 
     try {
       if (__DEV__) {
-        console.log('🔍 Fetching booked slots for consultant:', consultantId);
+        logger.debug('🔍 Fetching booked slots for consultant:', consultantId);
       }
       const response = await BookingService.getConsultantBookedSlots(
         consultantId,
       );
       if (__DEV__) {
-        console.log('📅 Booked slots response:', response);
+        logger.debug('📅 Booked slots response:', response);
       }
 
       if (response?.bookedSlots) {
@@ -272,7 +273,7 @@ const BookingSlots = ({ navigation, route }: any) => {
 
         setBookedSlots(bookedSlotsSet);
         if (__DEV__) {
-          console.log(
+          logger.debug(
             '✅ Loaded booked slots for consultant:',
             Array.from(bookedSlotsSet),
           );
@@ -280,7 +281,7 @@ const BookingSlots = ({ navigation, route }: any) => {
       }
     } catch (error) {
       if (__DEV__) {
-        console.error('❌ Error fetching booked slots:', error);
+        logger.error('❌ Error fetching booked slots:', error);
       }
       // Don't fail the entire component if booked slots can't be fetched
     }
@@ -475,7 +476,7 @@ const BookingSlots = ({ navigation, route }: any) => {
         ]);
 
         if (__DEV__) {
-          console.log('✅ Availability response:', availabilityResponse);
+          logger.debug('✅ Availability response:', availabilityResponse);
         }
 
         if (availabilityResponse?.available) {
@@ -489,20 +490,20 @@ const BookingSlots = ({ navigation, route }: any) => {
           if (hasAvailability || hasAvailabilitySlots) {
             setConsultantAvailability(availabilityResponse);
             if (__DEV__) {
-              console.log(
+              logger.debug(
                 '✅ Consultant availability loaded:',
                 availabilityResponse.availability,
               );
             }
           } else {
             if (__DEV__) {
-              console.log('⚠️ Consultant has no availability set');
+              logger.debug('⚠️ Consultant has no availability set');
             }
             setConsultantAvailability(null);
           }
         } else {
           if (__DEV__) {
-            console.log(
+            logger.debug(
               '⚠️ Consultant not available:',
               availabilityResponse?.message,
             );
@@ -511,7 +512,7 @@ const BookingSlots = ({ navigation, route }: any) => {
         }
       } catch (error: any) {
         if (__DEV__) {
-          console.error('❌ Error fetching consultant data:', error);
+          logger.error('❌ Error fetching consultant data:', error);
         }
         setConsultantAvailability(null);
       } finally {
@@ -644,7 +645,7 @@ const BookingSlots = ({ navigation, route }: any) => {
     setSelectedTimeSlots([]); // Reset current selections
 
     if (__DEV__) {
-      console.log(
+      logger.debug(
         '✅ Added slots for date:',
         selectedDate,
         'Slots:',
@@ -707,7 +708,7 @@ const BookingSlots = ({ navigation, route }: any) => {
     };
 
     if (__DEV__) {
-      console.log('📦 Adding to cart:', {
+      logger.debug('📦 Adding to cart:', {
         consultant: cartItem.consultantName,
         service: cartItem.serviceTitle,
         totalSlots: selectedSlots.length,

@@ -26,6 +26,8 @@ import { COLORS } from '../../../constants/core/colors';
 import AppButton from '../../../components/ui/AppButton';
 import { useAuth } from '../../../contexts/AuthContext';
 import { BookingService } from '../../../services/booking.service';
+import { ConsultantService } from '../../../services/consultant.service';
+import { logger } from '../../../utils/logger';
 
 interface ServiceDetailsProps {
   consultantId: string;
@@ -42,17 +44,19 @@ interface ServiceDetailsProps {
 }
 
 const ServiceDetails = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user } = useAuth();
   
   const [service, setService] = useState<ServiceDetailsProps | null>(null);
   const [loading, setLoading] = useState(true);
-  const [bookingSlots, setBookingSlots] = useState<Array<{
-    date: string;
-    time: string;
-    available: boolean;
-  }>>([]);
+  const [bookingSlots, setBookingSlots] = useState<
+    Array<{
+      date: string;
+      time: string;
+      available: boolean;
+    }>
+  >([]);
 
   // Get service data from route params
   const routeParams = route.params as ServiceDetailsProps;
@@ -60,22 +64,55 @@ const ServiceDetails = () => {
   const fetchServiceDetails = useCallback(async () => {
     try {
       setLoading(true);
-      // In a real implementation, you'd fetch full service details
-      // For now, use the route params
-      setService(routeParams);
-      
-      // Mock some available slots
-      const mockSlots = [
-        { date: '2024-02-15', time: '09:00 AM', available: true },
-        { date: '2024-02-15', time: '10:00 AM', available: true },
-        { date: '2024-02-15', time: '02:00 PM', available: false },
-        { date: '2024-02-16', time: '11:00 AM', available: true },
-        { date: '2024-02-16', time: '03:00 PM', available: true },
-      ];
-      setBookingSlots(mockSlots);
+      const serviceId = routeParams?.serviceId;
+      if (!serviceId) {
+        setService(routeParams);
+        setBookingSlots([]);
+        return;
+      }
+
+      const response = await ConsultantService.getServiceById(serviceId);
+      const apiService = response?.service || response;
+
+      const rawPrice = apiService?.price ?? apiService?.cost ?? apiService?.fee;
+      const parsedPrice =
+        typeof rawPrice === 'number'
+          ? rawPrice
+          : typeof rawPrice === 'string'
+          ? parseFloat(rawPrice)
+          : undefined;
+
+      const normalizedService: ServiceDetailsProps = {
+        serviceId: apiService?.id || apiService?._id || routeParams.serviceId,
+        serviceTitle: apiService?.title || routeParams?.serviceTitle || 'Service',
+        serviceDescription:
+          apiService?.description || routeParams?.serviceDescription,
+        serviceImageUrl:
+          apiService?.imageUrl || apiService?.image || routeParams?.serviceImageUrl,
+        serviceDuration:
+          apiService?.duration || routeParams?.serviceDuration || 60,
+        servicePrice:
+          Number.isFinite(parsedPrice) ? parsedPrice : routeParams?.servicePrice,
+        consultantId:
+          apiService?.consultantId ||
+          apiService?.consultant?.uid ||
+          routeParams?.consultantId,
+        consultantName:
+          apiService?.consultant?.name ||
+          routeParams?.consultantName ||
+          'Consultant',
+        consultantCategory:
+          apiService?.consultant?.category ||
+          routeParams?.consultantCategory ||
+          'Consultation',
+      };
+
+      setService(normalizedService);
+      setBookingSlots([]);
     } catch (error) {
-      console.error('Error fetching service details:', error);
-      Alert.alert('Error', 'Failed to load service details');
+      logger.error('Error fetching service details:', error);
+      setService(routeParams);
+      setBookingSlots([]);
     } finally {
       setLoading(false);
     }
@@ -142,6 +179,64 @@ const ServiceDetails = () => {
     openChat();
   };
 
+  const verifyCallAccess = async (): Promise<boolean> => {
+    if (!user) {
+      Alert.alert('Login Required', 'Please login to contact this consultant');
+      return false;
+    }
+
+    if (!service?.consultantId) {
+      Alert.alert('Consultant Not Available', 'Unable to start call right now.');
+      return false;
+    }
+
+    try {
+      const access = await BookingService.checkAccess(service.consultantId);
+      if (!access?.hasAccess) {
+        Alert.alert(
+          'Session Access Required',
+          access?.message ||
+            'Please book an active paid session with this consultant first.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Book Now', onPress: handleBookNow },
+          ],
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      Alert.alert('Error', 'Unable to verify session access');
+      return false;
+    }
+  };
+
+  const handleAudioCall = async () => {
+    const hasAccess = await verifyCallAccess();
+    if (!hasAccess || !user?.uid || !service?.consultantId) return;
+
+    const callId = `${user.uid}_${service.consultantId}-${Date.now()}`;
+    navigation.navigate('CallingScreen', {
+      callId,
+      callerId: user.uid,
+      receiverId: service.consultantId,
+      isCaller: true,
+    });
+  };
+
+  const handleVideoCall = async () => {
+    const hasAccess = await verifyCallAccess();
+    if (!hasAccess || !user?.uid || !service?.consultantId) return;
+
+    const callId = `${user.uid}_${service.consultantId}-${Date.now()}`;
+    navigation.navigate('VideoCallingScreen', {
+      callId,
+      callerId: user.uid,
+      receiverId: service.consultantId,
+      isCaller: true,
+    });
+  };
+
   const handleShare = async () => {
     if (!service) return;
 
@@ -152,7 +247,7 @@ const ServiceDetails = () => {
         title: service.serviceTitle,
       });
     } catch (error) {
-      console.error('Error sharing service:', error);
+      logger.error('Error sharing service:', error);
     }
   };
 
@@ -204,7 +299,7 @@ const ServiceDetails = () => {
           style={styles.shareButton}
           onPress={handleShare}
         >
-          <Share2 size={20} color={COLORS.black} />
+          {/* <Share2 size={20} color={COLORS.black} /> */}
         </TouchableOpacity>
       </View>
 
@@ -309,10 +404,7 @@ const ServiceDetails = () => {
               
               <TouchableOpacity
                 style={[styles.contactButton, styles.contactButtonSecondary]}
-                onPress={() => {
-                  // Implement call functionality
-                  Alert.alert('Coming Soon', 'Voice call feature coming soon!');
-                }}
+                onPress={handleAudioCall}
               >
                 <Phone size={20} color={COLORS.green} />
                 <Text style={[styles.contactButtonText, styles.contactButtonTextSecondary]}>
@@ -322,10 +414,7 @@ const ServiceDetails = () => {
               
               <TouchableOpacity
                 style={[styles.contactButton, styles.contactButtonSecondary]}
-                onPress={() => {
-                  // Implement video call functionality
-                  Alert.alert('Coming Soon', 'Video call feature coming soon!');
-                }}
+                onPress={handleVideoCall}
               >
                 <Video size={20} color={COLORS.green} />
                 <Text style={[styles.contactButtonText, styles.contactButtonTextSecondary]}>

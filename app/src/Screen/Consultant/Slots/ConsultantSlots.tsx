@@ -9,6 +9,7 @@ import { ConsultantService } from '../../../services/consultant.service';
 import LoadingState from '../../../components/ui/LoadingState';
 import { Calendar, Clock, XCircle } from 'lucide-react-native';
 import { formatDateWithWeekday, formatTimeString } from '../../../utils/dateUtils';
+import { logger } from '../../../utils/logger';
 
 interface Slot {
   date: string;
@@ -30,12 +31,12 @@ const ConsultantSlots = ({ navigation }: any) => {
     try {
       setIsLoading(true);
             if (__DEV__) {
-        console.log('📅 Fetching consultant availability slots...')
+        logger.debug('📅 Fetching consultant availability slots...')
       };
       
       const response = await ConsultantService.getConsultantAvailability(user.uid);
             if (__DEV__) {
-        console.log('✅ Received availability data:', response)
+        logger.debug('✅ Received availability data:', response)
       };
       
       // Transform the availability data into slots format
@@ -44,14 +45,14 @@ const ConsultantSlots = ({ navigation }: any) => {
         const slotsData: Slot[] = [];
         
                 if (__DEV__) {
-          console.log('🔍 Processing availability slots:', availabilitySlots.length)
+          logger.debug('🔍 Processing availability slots:', availabilitySlots.length)
         };
         
         // Transform availability slots into our Slot format
         availabilitySlots.forEach((slotGroup: any) => {
           if (slotGroup.date && slotGroup.timeSlots && Array.isArray(slotGroup.timeSlots) && slotGroup.timeSlots.length > 0) {
                         if (__DEV__) {
-              console.log(`  Processing date: ${slotGroup.date} with ${slotGroup.timeSlots.length} time slots`)
+              logger.debug(`  Processing date: ${slotGroup.date} with ${slotGroup.timeSlots.length} time slots`)
             };
             slotsData.push({
               date: slotGroup.date,
@@ -67,18 +68,18 @@ const ConsultantSlots = ({ navigation }: any) => {
         slotsData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
                 if (__DEV__) {
-          console.log(`✅ Processed ${slotsData.length} slot groups`)
+          logger.debug(`✅ Processed ${slotsData.length} slot groups`)
         };
         setSlots(slotsData);
       } else {
                 if (__DEV__) {
-          console.log('⚠️ No availability slots found in response')
+          logger.debug('⚠️ No availability slots found in response')
         };
         setSlots([]);
       }
     } catch (error) {
             if (__DEV__) {
-        console.error('❌ Error fetching consultant slots:', error)
+        logger.error('❌ Error fetching consultant slots:', error)
       };
       setSlots([]);
     } finally {
@@ -100,12 +101,12 @@ const ConsultantSlots = ({ navigation }: any) => {
   const handleDeleteSlot = async (date: string, time: string) => {
     try {
             if (__DEV__) {
-        console.log('🗑️ Deleting slot:', date, time)
+        logger.debug('🗑️ Deleting slot:', date, time)
       };
       
       if (!user?.uid) {
                 if (__DEV__) {
-          console.error('❌ User ID not available')
+          logger.error('❌ User ID not available')
         };
         return;
       }
@@ -124,14 +125,14 @@ const ConsultantSlots = ({ navigation }: any) => {
                 setIsLoading(true);
                 await ConsultantService.deleteAvailabilitySlot(user.uid, date, time);
                                 if (__DEV__) {
-                  console.log('✅ Slot deleted successfully')
+                  logger.debug('✅ Slot deleted successfully')
                 };
                 
                 // Refresh the slots list
                 await fetchSlots();
               } catch (error) {
                                 if (__DEV__) {
-                  console.error('❌ Error deleting slot:', error)
+                  logger.error('❌ Error deleting slot:', error)
                 };
                 Alert.alert('Error', 'Failed to delete slot. Please try again.');
               } finally {
@@ -143,7 +144,7 @@ const ConsultantSlots = ({ navigation }: any) => {
       );
     } catch (error) {
             if (__DEV__) {
-        console.error('❌ Error in handleDeleteSlot:', error)
+        logger.error('❌ Error in handleDeleteSlot:', error)
       };
     }
   };

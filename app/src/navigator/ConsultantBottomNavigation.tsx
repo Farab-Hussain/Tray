@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { View } from 'react-native';
 import { 
   Home,
-  Calendar,
   MessageCircle,
   BookOpen,
   User,
@@ -15,7 +14,6 @@ import {
 // Consultant Screens
 import ConsultantHome from '../Screen/Consultant/Home/ConsultantHome';
 import CourseManagementNavigator from '../navigation/CourseManagementNavigator';
-import ConsultantAvailability from '../Screen/Consultant/Availability/ConsultantAvailability';
 import Messages from '../Screen/common/Messages/Messages';
 import ConsultantServices from '../Screen/Consultant/Services/ConsultantServices';
 // import Notifications from '../Screen/common/Notifications/Notifications';
@@ -24,6 +22,9 @@ import ConsultantAccount from '../Screen/Consultant/Account/ConsultantAccount';
 
 
 import { COLORS } from '../constants/core/colors';
+import { useChatContext } from '../contexts/ChatContext';
+import { useNotificationContext } from '../contexts/NotificationContext';
+import { bottomNavigationStyles } from '../constants/styles/bottomNavigationStyles';
 
 const Tab = createBottomTabNavigator();
 
@@ -34,41 +35,15 @@ const getTabBarVisibility = (route: any) => {
 };
 
 const getTabIcon = (routeName: string, color: string, size: number) => {
-  const iconStyle = {
-    paddingTop: 8,
-  };
-
   switch (routeName) {
     case 'ConsultantHome':
-      return (
-        <View style={iconStyle}>
-          <Home size={size} color={color} />
-        </View>
-      );
+      return <Home size={size} color={color} />;
     case 'ConsultantServices':
-      return (
-        <View style={iconStyle}>
-          <BookOpen size={size} color={color} />
-        </View>
-      );
+      return <BookOpen size={size} color={color} />;
     case 'CourseManagement':
-      return (
-        <View style={iconStyle}>
-          <BookOpen size={size} color={color} />
-        </View>
-      );
-    case 'ConsultantAvailability':
-      return (
-        <View style={iconStyle}>
-          <Calendar size={size} color={color} />
-        </View>
-      );
+      return <BookOpen size={size} color={color} />;
     case 'ConsultantMessages':
-      return (
-        <View style={iconStyle}>
-          <MessageCircle size={size} color={color} />
-        </View>
-      );
+      return <MessageCircle size={size} color={color} />;
     // case 'ConsultantNotifications':
     //   return (
     //     <View style={iconStyle}>
@@ -82,21 +57,39 @@ const getTabIcon = (routeName: string, color: string, size: number) => {
     //     </View>
     //   );
     case 'ConsultantAccount':
-      return (
-        <View style={iconStyle}>
-          <User size={size} color={color} />
-        </View>
-      );
+      return <User size={size} color={color} />;
     default:
-      return (
-        <View style={iconStyle}>
-          <Home size={size} color={color} />
-        </View>
-      );
+      return <Home size={size} color={color} />;
   }
 };
 
 const ConsultantBottomTabs = () => {
+  const { chats } = useChatContext();
+  const { notifications } = useNotificationContext();
+
+  const hasUnreadMessages = useMemo(() => {
+    const chatUnreadViaChats =
+      chats?.some(chat => (chat.unreadCount || 0) > 0) ?? false;
+    const chatUnreadViaNotifications =
+      notifications?.some(
+        n => !n.read && (n.type === 'chat_message' || n.category === 'message'),
+      ) ?? false;
+    return chatUnreadViaChats || chatUnreadViaNotifications;
+  }, [chats, notifications]);
+
+  const renderIconWithBadge = useCallback(
+    (routeName: string, color: string, size: number) => {
+      const showDot = routeName === 'ConsultantMessages' && hasUnreadMessages;
+      return (
+        <View style={styles.iconWrapper}>
+          {getTabIcon(routeName, color, size)}
+          {showDot ? <View style={styles.badgeDot} /> : null}
+        </View>
+      );
+    },
+    [hasUnreadMessages],
+  );
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -107,8 +100,14 @@ const ConsultantBottomTabs = () => {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
+          marginTop: -2,
+          paddingBottom: 2,
         },
-        tabBarIcon: ({ color, size }) => getTabIcon(route.name, color, size),
+        tabBarIconStyle: {
+          marginTop: 4,
+        },
+        tabBarIcon: ({ color, size }) =>
+          renderIconWithBadge(route.name, color, size),
         tabBarStyle: {
           backgroundColor: COLORS.green,
           borderTopWidth: 0,
@@ -142,14 +141,6 @@ const ConsultantBottomTabs = () => {
       />
       
       <Tab.Screen
-        name="ConsultantAvailability"
-        component={ConsultantAvailability}
-        options={{
-          tabBarLabel: 'Availability',
-        }}
-      />
-      
-      <Tab.Screen
         name="ConsultantMessages"
         component={Messages}
         options={{
@@ -177,3 +168,4 @@ const ConsultantBottomTabs = () => {
 };
 
 export default ConsultantBottomTabs;
+const styles = bottomNavigationStyles;
