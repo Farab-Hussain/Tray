@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -16,19 +16,16 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { UserService } from '../../../services/user.service';
 import { Camera, User, Lock, Edit2, Mail, CheckCircle, LogOut } from 'lucide-react-native';
-import { showError, showSuccess } from '../../../utils/toast';
+import { showError } from '../../../utils/toast';
 import Loader from '../../../components/ui/Loader';
-import ImageUpload from '../../../components/ui/ImageUpload';
-import { updateProfile } from 'firebase/auth';
-import { auth } from '../../../lib/firebase';
 import { recruiterProfileStyles } from '../../../constants/styles/recruiterProfileStyles';
 
 const RecruiterProfile = ({ navigation }: any) => {
-  const { user, refreshUser, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [backendProfile, setBackendProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [updatingImage, setUpdatingImage] = useState(false);
-  const [imageCacheKey, setImageCacheKey] = useState(0);
+  const [updatingImage] = useState(false);
+  const [imageCacheKey] = useState(0);
 
   const handleLogout = () => {
     Alert.alert(
@@ -46,7 +43,7 @@ const RecruiterProfile = ({ navigation }: any) => {
             try {
               await logout();
               navigation.replace('Auth', { screen: 'Login' });
-            } catch (error) {
+            } catch {
               showError('Failed to logout');
             }
           },
@@ -89,57 +86,6 @@ const RecruiterProfile = ({ navigation }: any) => {
       fetchProfileData();
     }, [fetchProfileData])
   );
-
-  const handleImageUpdate = async (imageUrl: string | null) => {
-    if (!auth.currentUser) return;
-
-    setUpdatingImage(true);
-    try {
-      if (imageUrl) {
-        await updateProfile(auth.currentUser, {
-          photoURL: imageUrl,
-        });
-      }
-
-      // Update backend profile
-      try {
-        await UserService.updateProfile({
-          avatarUrl: imageUrl,
-        });
-      } catch (error) {
-                if (__DEV__) {
-          console.log('Backend update failed, but Firebase updated')
-        };
-      }
-
-      await refreshUser();
-      setImageCacheKey(prev => prev + 1);
-      showSuccess('Profile image updated successfully');
-      fetchProfileData();
-    } catch (error: any) {
-            if (__DEV__) {
-        console.error('Error updating profile image:', error)
-      };
-      showError(error.message || 'Failed to update profile image');
-    } finally {
-      setUpdatingImage(false);
-    }
-  };
-
-  const handleDeleteImage = async () => {
-    Alert.alert(
-      'Delete Profile Image',
-      'Are you sure you want to remove your profile image?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => handleImageUpdate(null),
-        },
-      ]
-    );
-  };
 
   if (loading && !refreshing) {
     return (
@@ -282,6 +228,51 @@ const RecruiterProfile = ({ navigation }: any) => {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>AI Hiring Tools</Text>
+          <View style={styles.sectionContent}>
+            <TouchableOpacity
+              style={styles.infoItem}
+              onPress={() => navigation.navigate('RecruiterPostJob')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.infoItemLeft}>
+                <View style={styles.iconContainer}>
+                  <CheckCircle size={20} color={COLORS.green} />
+                </View>
+                <View style={styles.infoItemText}>
+                  <Text style={styles.infoLabel}>Job Post Optimizer</Text>
+                  <Text style={styles.infoSubtext}>
+                    Improve job requirements, fair-chance wording, and salary range
+                  </Text>
+                </View>
+              </View>
+              <Edit2 size={18} color={COLORS.gray} />
+            </TouchableOpacity>
+
+            <View style={styles.separator} />
+
+            <TouchableOpacity
+              style={styles.infoItem}
+              onPress={() => navigation.navigate('RecruiterJobs')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.infoItemLeft}>
+                <View style={styles.iconContainer}>
+                  <CheckCircle size={20} color={COLORS.green} />
+                </View>
+                <View style={styles.infoItemText}>
+                  <Text style={styles.infoLabel}>Candidate Ranking Engine</Text>
+                  <Text style={styles.infoSubtext}>
+                    Rank candidates and detect talent shortage risks by role
+                  </Text>
+                </View>
+              </View>
+              <Edit2 size={18} color={COLORS.gray} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -290,4 +281,3 @@ const RecruiterProfile = ({ navigation }: any) => {
 const styles = recruiterProfileStyles;
 
 export default RecruiterProfile;
-

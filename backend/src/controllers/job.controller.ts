@@ -4,6 +4,7 @@ import { jobServices } from "../services/job.service";
 import { resumeServices } from "../services/resume.service";
 import { calculateMatchScore } from "../utils/skillMatching";
 import { Job, JobCard } from "../models/job.model";
+import { JobAISnapshotInput } from "../models/jobAiSnapshot.model";
 
 /**
  * Create a new job posting (Hiring Manager/Admin only)
@@ -336,3 +337,82 @@ export const getMatchScore = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Save AI ranking/shortage snapshot for a job (job owner only)
+ */
+export const saveJobAISnapshot = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = (req as any).user;
+
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const job = await jobServices.getById(id);
+    if (job.postedBy !== user.uid) {
+      return res.status(403).json({
+        error: "You can only save AI snapshots for your own job",
+      });
+    }
+
+    const body = req.body as Partial<JobAISnapshotInput>;
+    if (!body || !body.provider) {
+      return res.status(400).json({ error: "provider is required" });
+    }
+    if (!Array.isArray(body.ranking)) {
+      return res.status(400).json({ error: "ranking must be an array" });
+    }
+    if (!body.shortage || typeof body.shortage.detected !== "boolean") {
+      return res.status(400).json({
+        error: "shortage.detected (boolean) is required",
+      });
+    }
+
+    const snapshot = await jobServices.saveAISnapshot(id, user.uid, {
+      provider: body.provider,
+      trigger: body.trigger,
+      ranking: body.ranking,
+      shortage: body.shortage,
+      metadata: body.metadata,
+    } as JobAISnapshotInput);
+
+    res.status(201).json({
+      message: "AI snapshot saved",
+      snapshot,
+    });
+  } catch (error: any) {
+    console.error("Error saving AI snapshot:", error);
+    res.status(500).json({ error: error.message || "Failed to save AI snapshot" });
+  }
+};
+
+/**
+ * Get AI ranking/shortage snapshots for a job (job owner only)
+ */
+export const getJobAISnapshots = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = (req as any).user;
+    const limit = parseInt(req.query.limit as string, 10) || 20;
+
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const job = await jobServices.getById(id);
+    if (job.postedBy !== user.uid) {
+      return res.status(403).json({
+        error: "You can only view AI snapshots for your own job",
+      });
+    }
+
+    const data = await jobServices.getAISnapshots(id, user.uid, limit);
+    res.status(200).json(data);
+  } catch (error: any) {
+    console.error("Error fetching AI snapshots:", error);
+    res.status(500).json({
+      error: error.message || "Failed to fetch AI snapshots",
+    });
+  }
+};

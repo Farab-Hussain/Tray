@@ -234,5 +234,47 @@ export const JobService = {
     const response = await api.get(`/jobs/applications/${applicationId}`);
     return response.data;
   },
-};
 
+  /**
+   * Save recruiter AI ranking/shortage snapshot for trend tracking
+   */
+  async saveAISnapshot(
+    jobId: string,
+    payload: {
+      provider: 'openai' | 'claude' | 'local' | 'hybrid';
+      trigger?: 'ai_ranking' | 'shortage_advice' | 'manual';
+      ranking: Array<{
+        applicationId: string;
+        userId?: string;
+        name?: string;
+        skillMatchPercent?: number;
+        availabilityMatch?: number;
+        locationMatch?: number;
+        compliancePass?: boolean;
+        overallRankScore?: number;
+        readyNow?: boolean;
+        note?: string;
+      }>;
+      shortage: {
+        detected: boolean;
+        alerts?: string[];
+        relaxNonEssentialRequirements?: string[];
+        consultingServiceActions?: string[];
+      };
+      metadata?: Record<string, string | number | boolean | null>;
+    },
+  ) {
+    const response = await api.post(`/jobs/${jobId}/ai-snapshots`, payload);
+    return response.data;
+  },
+
+  /**
+   * Get recruiter AI trend snapshots for a job
+   */
+  async getAISnapshots(jobId: string, limit: number = 20) {
+    const response = await api.get(`/jobs/${jobId}/ai-snapshots`, {
+      params: { limit },
+    });
+    return response.data;
+  },
+};

@@ -67,4 +67,58 @@ export const sessionCompletionStyles = StyleSheet.create({
     color: COLORS.white,
     marginTop: 5,
   },
+  aiPanel: {
+    backgroundColor: '#EEF7FF',
+    borderWidth: 1,
+    borderColor: '#CFE6FF',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 20,
+  },
+  aiPanelTitle: {
+    color: '#103B66',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  aiPanelText: {
+    color: '#284B69',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  aiActionButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.green,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  aiActionButtonDisabled: {
+    opacity: 0.7,
+  },
+  aiActionButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  aiResultBox: {
+    marginTop: 10,
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    padding: 10,
+  },
+  aiResultHeading: {
+    fontSize: 12,
+    color: COLORS.black,
+    fontWeight: '700',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  aiResultText: {
+    fontSize: 12,
+    color: COLORS.gray,
+    lineHeight: 17,
+    marginBottom: 4,
+  },
 });

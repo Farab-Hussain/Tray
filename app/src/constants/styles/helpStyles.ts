@@ -131,6 +131,10 @@ export const helpStyles = StyleSheet.create({
   textArea: {
     minHeight: 120,
   },
+  textAreaCompact: {
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
   submitButton: {
     backgroundColor: COLORS.green,
     borderRadius: 10,
@@ -146,5 +150,103 @@ export const helpStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  providerRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 8,
+  },
+  providerChip: {
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.white,
+    marginTop: 10,
+  },
+  providerChipActive: {
+    backgroundColor: COLORS.green,
+    borderColor: COLORS.green,
+  },
+  providerChipText: {
+    fontSize: 13,
+    color: COLORS.black,
+    fontWeight: '600',
+  },
+  providerChipTextActive: {
+    color: COLORS.white,
+  },
+  chatContainer: {
+    maxHeight: 500,
+    marginBottom: 12,
+    padding: 10,
+  },
+  chatBubbleUser: {
+    alignSelf: 'flex-end',
+    backgroundColor: COLORS.blue,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+    maxWidth: '90%',
+  },
+  chatBubbleAssistant: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+    maxWidth: '90%',
+  },
+  chatBubbleText: {
+    color: COLORS.black,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  chatBubbleTextUser: {
+    color: COLORS.white,
+  },
+  chatInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chatInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    color: COLORS.black,
+    backgroundColor: COLORS.white,
+    marginBottom: 10,
+  },
+  sendAiButton: {
+    backgroundColor: COLORS.green,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 10,
+  },
+  sendAiButtonDisabled: {
+    opacity: 0.7,
+  },
+  sendAiButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  debugOutputCard: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: COLORS.white,
+  },
+  debugOutputText: {
+    color: COLORS.black,
+    fontSize: 14,
+    lineHeight: 20,
+  },
 });
-

@@ -6,6 +6,7 @@ import {
   RefreshControl,
   Image,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -42,6 +43,7 @@ import { useRefresh } from '../../../hooks/useRefresh';
 import Loader from '../../../components/ui/Loader';
 import { UserService } from '../../../services/user.service';
 import { ResumeService } from '../../../services/resume.service';
+import { AIProvider, AIService } from '../../../services/ai.service';
 import { logger } from '../../../utils/logger';
 
 const StudentProfile = ({ navigation }: any) => {
@@ -52,6 +54,95 @@ const StudentProfile = ({ navigation }: any) => {
   const [_updatingImage, _setUpdatingImage] = useState(false);
   const [_imageCacheKey, _setImageCacheKey] = useState(0);
   const [profileCompletion, setProfileCompletion] = useState<any>(null);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+
+  const handleAnalyzeProfile = async (provider: AIProvider) => {
+    try {
+      setAiAnalyzing(true);
+      const experience = Array.isArray(resume?.experience)
+        ? resume.experience
+            .map((exp: any) => `${exp?.title || 'N/A'} at ${exp?.company || 'N/A'}`)
+            .filter(Boolean)
+        : [];
+      const education = Array.isArray(resume?.education)
+        ? resume.education
+            .map((edu: any) => `${edu?.degree || 'N/A'} - ${edu?.institution || 'N/A'}`)
+            .filter(Boolean)
+        : [];
+      const certifications = Array.isArray(resume?.certifications)
+        ? resume.certifications
+            .map((cert: any) => cert?.name)
+            .filter(Boolean)
+        : [];
+
+      const result = await AIService.profileInsights({
+        provider,
+        name: backendProfile?.name || user?.displayName || '',
+        email: backendProfile?.email || user?.email || '',
+        phone: backendProfile?.phone || '',
+        location: backendProfile?.location || '',
+        skills: Array.isArray(resume?.skills) ? resume.skills : [],
+        certifications,
+        experience,
+        education,
+        target_role: experience[0] || undefined,
+      });
+
+      const missing = Array.isArray(result?.missing_critical_fields)
+        ? result.missing_critical_fields
+        : [];
+      const skillTags = Array.isArray(result?.suggested_skill_tags)
+        ? result.suggested_skill_tags
+        : [];
+      const certs = Array.isArray(result?.suggested_certifications)
+        ? result.suggested_certifications
+        : [];
+
+      Alert.alert(
+        'Profile AI Insights',
+        [
+          missing.length ? `Missing: ${missing.join(', ')}` : 'Missing: none',
+          skillTags.length
+            ? `Suggested skills: ${skillTags.slice(0, 5).join(', ')}`
+            : 'Suggested skills: none',
+          certs.length
+            ? `Suggested certs: ${certs.slice(0, 4).join(', ')}`
+            : 'Suggested certs: none',
+        ].join('\n\n'),
+        [
+          { text: 'Close', style: 'cancel' },
+          {
+            text: 'Open Resume',
+            onPress: () => navigation.navigate('Resume'),
+          },
+        ],
+      );
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Profile AI insights failed:', error);
+      }
+      Alert.alert(
+        'AI Error',
+        error?.response?.data?.detail ||
+          error?.message ||
+          'Failed to analyze profile',
+      );
+    } finally {
+      setAiAnalyzing(false);
+    }
+  };
+
+  const openProfileInsightsPicker = () => {
+    Alert.alert(
+      'Choose AI Provider',
+      'Select provider for profile insights.',
+      [
+        { text: 'OpenAI', onPress: () => handleAnalyzeProfile('openai') },
+        { text: 'Claude', onPress: () => handleAnalyzeProfile('claude') },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  };
 
   const fetchProfileData = useCallback(async () => {
     if (!user) {
@@ -396,6 +487,23 @@ const StudentProfile = ({ navigation }: any) => {
                 : 'Excellent! Your profile is complete.'
               }
             </Text>
+            <TouchableOpacity
+              style={{
+                marginTop: 10,
+                backgroundColor: COLORS.green,
+                borderRadius: 8,
+                alignSelf: 'flex-start',
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                opacity: aiAnalyzing ? 0.7 : 1,
+              }}
+              onPress={openProfileInsightsPicker}
+              disabled={aiAnalyzing}
+            >
+              <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '700' }}>
+                {aiAnalyzing ? 'Analyzing...' : 'Profile AI Insights'}
+              </Text>
+            </TouchableOpacity>
 
             {/* Detailed completion breakdown */}
             <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border }}>
@@ -728,4 +836,3 @@ const StudentProfile = ({ navigation }: any) => {
 };
 
 export default StudentProfile;
-

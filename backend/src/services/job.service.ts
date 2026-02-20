@@ -1,8 +1,14 @@
 import { db } from "../config/firebase";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { Job, JobInput, JobCard } from "../models/job.model";
+import {
+  JobAISnapshot,
+  JobAISnapshotInput,
+  JobAISnapshotSummary,
+} from "../models/jobAiSnapshot.model";
 
 const COLLECTION = "jobs";
+const SNAPSHOT_COLLECTION = "jobAiSnapshots";
 
 export const jobServices = {
   /**
@@ -344,6 +350,124 @@ export const jobServices = {
     };
   },
 
+  async saveAISnapshot(
+    jobId: string,
+    createdBy: string,
+    data: JobAISnapshotInput,
+  ): Promise<JobAISnapshot> {
+    const now = Timestamp.now();
+    const snapshotRef = db.collection(SNAPSHOT_COLLECTION).doc();
+    const ranking = Array.isArray(data.ranking) ? data.ranking : [];
+    const safeScores = ranking
+      .map(item => item.overallRankScore)
+      .filter((score): score is number => typeof score === "number");
+    const readyNowCount = ranking.filter(item => item.readyNow).length;
+    const averageRankScore = safeScores.length
+      ? Math.round(
+          safeScores.reduce((sum, score) => sum + score, 0) / safeScores.length,
+        )
+      : 0;
+    const summary: JobAISnapshotSummary = {
+      candidateCount: ranking.length,
+      readyNowCount,
+      averageRankScore,
+      shortageDetected: !!data.shortage?.detected,
+    };
+
+    const snapshot: JobAISnapshot = {
+      id: snapshotRef.id,
+      jobId,
+      createdBy,
+      provider: data.provider,
+      trigger: data.trigger || "manual",
+      ranking,
+      shortage: {
+        detected: !!data.shortage?.detected,
+        alerts: data.shortage?.alerts || [],
+        relaxNonEssentialRequirements:
+          data.shortage?.relaxNonEssentialRequirements || [],
+        consultingServiceActions: data.shortage?.consultingServiceActions || [],
+      },
+      metadata: data.metadata || {},
+      summary,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await snapshotRef.set(snapshot);
+    return snapshot;
+  },
+
+  async getAISnapshots(
+    jobId: string,
+    createdBy: string,
+    limit: number = 20,
+  ): Promise<{
+    snapshots: JobAISnapshot[];
+    trend: {
+      totalSnapshots: number;
+      latestReadyNowCount: number;
+      previousReadyNowCount: number;
+      readyNowDelta: number;
+      latestAverageRankScore: number;
+      previousAverageRankScore: number;
+      averageRankScoreDelta: number;
+      latestShortageDetected: boolean;
+    };
+  }> {
+    const safeLimit = Math.max(1, Math.min(limit, 50));
+    let snapshots: JobAISnapshot[] = [];
+
+    try {
+      const snapshot = await db
+        .collection(SNAPSHOT_COLLECTION)
+        .where("jobId", "==", jobId)
+        .where("createdBy", "==", createdBy)
+        .orderBy("createdAt", "desc")
+        .limit(safeLimit)
+        .get();
+      snapshots = snapshot.docs.map(doc => doc.data() as JobAISnapshot);
+    } catch (error: any) {
+      console.warn("Falling back to in-memory snapshot sort:", error?.message);
+      const fallback = await db
+        .collection(SNAPSHOT_COLLECTION)
+        .where("jobId", "==", jobId)
+        .where("createdBy", "==", createdBy)
+        .limit(safeLimit)
+        .get();
+      snapshots = fallback.docs
+        .map(doc => doc.data() as JobAISnapshot)
+        .sort((a, b) => {
+          const aMs = a?.createdAt?.toMillis?.() || 0;
+          const bMs = b?.createdAt?.toMillis?.() || 0;
+          return bMs - aMs;
+        });
+    }
+
+    const latest = snapshots[0];
+    const previous = snapshots[1];
+
+    const latestReadyNowCount = latest?.summary?.readyNowCount || 0;
+    const previousReadyNowCount = previous?.summary?.readyNowCount || 0;
+    const latestAverageRankScore = latest?.summary?.averageRankScore || 0;
+    const previousAverageRankScore = previous?.summary?.averageRankScore || 0;
+
+    return {
+      snapshots,
+      trend: {
+        totalSnapshots: snapshots.length,
+        latestReadyNowCount,
+        previousReadyNowCount,
+        readyNowDelta: latestReadyNowCount - previousReadyNowCount,
+        latestAverageRankScore,
+        previousAverageRankScore,
+        averageRankScoreDelta:
+          latestAverageRankScore - previousAverageRankScore,
+        latestShortageDetected: !!latest?.summary?.shortageDetected,
+      },
+    };
+  },
+
   // ==================== PAYMENT ENFORCEMENT METHODS ====================
 
   /**
@@ -448,4 +572,3 @@ export const jobServices = {
     })) as any[];
   },
 };
-
