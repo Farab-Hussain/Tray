@@ -24,7 +24,6 @@ import Loader from '../../../components/ui/Loader';
 import { useRefresh } from '../../../hooks/useRefresh';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import { showSuccess, showError } from '../../../utils/toast';
-import { logger } from '../../../utils/logger';
 
 const ConsultantProfile = ({ navigation }: any) => {
   const { user } = useAuth();
@@ -71,14 +70,14 @@ const ConsultantProfile = ({ navigation }: any) => {
         // Consultant profile not found is okay
         if (error?.response?.status !== 404) {
                     if (__DEV__) {
-            logger.debug('Error fetching consultant profile:', error)
+            console.log('Error fetching consultant profile:', error)
           };
         }
         setConsultantProfile(null);
       }
     } catch (error: any) {
             if (__DEV__) {
-        logger.error('Error fetching profile data:', error)
+        console.error('Error fetching profile data:', error)
       };
       // Set fallback profile from Firebase
       setBackendProfile({
@@ -136,7 +135,7 @@ const ConsultantProfile = ({ navigation }: any) => {
       closeEditModal();
     } catch (error: any) {
       showError('Failed to update profile');
-      logger.error('Error updating profile:', error);
+      console.error('Error updating profile:', error);
     } finally {
       setIsUpdating(false);
     }
@@ -159,7 +158,7 @@ const ConsultantProfile = ({ navigation }: any) => {
       showSuccess('Specialty added successfully!');
     } catch (error: any) {
       showError('Failed to add specialty');
-      logger.error('Error adding specialty:', error);
+      console.error('Error adding specialty:', error);
     }
   };
 
@@ -186,7 +185,7 @@ const ConsultantProfile = ({ navigation }: any) => {
               showSuccess('Specialty deleted successfully!');
             } catch (error: any) {
               showError('Failed to delete specialty');
-              logger.error('Error deleting specialty:', error);
+              console.error('Error deleting specialty:', error);
             }
           },
         },
@@ -226,7 +225,7 @@ const ConsultantProfile = ({ navigation }: any) => {
       showSuccess('Certification added successfully!');
     } catch (error: any) {
       showError('Failed to add certification');
-      logger.error('Error adding certification:', error);
+      console.error('Error adding certification:', error);
     }
   };
 
@@ -253,7 +252,7 @@ const ConsultantProfile = ({ navigation }: any) => {
               showSuccess('Certification deleted successfully!');
             } catch (error: any) {
               showError('Failed to delete certification');
-              logger.error('Error deleting certification:', error);
+              console.error('Error deleting certification:', error);
             }
           },
         },
@@ -768,3 +767,4 @@ const ConsultantProfile = ({ navigation }: any) => {
 const styles = studentProfileStyles;
 
 export default ConsultantProfile;
+
