@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Text, ScrollView, View, RefreshControl } from 'react-native';
+import { Text, ScrollView, View, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
@@ -15,6 +15,7 @@ import { showSuccess, handleApiError } from '../../../utils/toast';
 import { api } from '../../../lib/fetcher';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useRefresh } from '../../../hooks/useRefresh';
+import { AIProvider, AIService } from '../../../services/ai.service';
 
 interface Booking {
   id: string;
@@ -37,9 +38,21 @@ const ConsultantHome = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [availableSlots, setAvailableSlots] = useState(0);
   const [totalSlots, setTotalSlots] = useState(0);
+  const [leadAiLoading, setLeadAiLoading] = useState(false);
+  const [leadRecommendations, setLeadRecommendations] = useState<any[]>([]);
+  const [overflowActions, setOverflowActions] = useState<string[]>([]);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const isFetchingRef = useRef(false);
   const recentlyAcceptedRef = useRef<Set<string>>(new Set());
+
+  const parsePossibleJSON = (text: string) => {
+    const cleaned = (text || '')
+      .trim()
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+    return JSON.parse(cleaned || '{}');
+  };
 
   // Debounced fetch function to prevent rapid successive calls
   const fetchBookingRequests = useCallback(async (forceRefresh = false) => {
@@ -62,39 +75,37 @@ const ConsultantHome = ({ navigation }: any) => {
         console.log('🔍 [ConsultantHome] Fetching booking requests for consultant:', user.uid)
       };
       
-      // Fetch consultant availability to check slot availability (only if not refreshing)
-      if (!refreshing) {
-        try {
-          const availabilityResponse = await ConsultantService.getConsultantAvailability(user.uid);
-          const availability = availabilityResponse.data;
-          
-          // Calculate available slots from availability data
-          let totalSlotsCount = 0;
-          let availableSlotsCount = 0;
-          
-          if (availability?.availabilitySlots && Array.isArray(availability.availabilitySlots)) {
-            availability.availabilitySlots.forEach((slotGroup: any) => {
-              if (slotGroup.timeSlots && Array.isArray(slotGroup.timeSlots)) {
-                totalSlotsCount += slotGroup.timeSlots.length;
-                // For now, assume all slots are available (in real app, you'd check against booked slots)
-                availableSlotsCount += slotGroup.timeSlots.length;
-              }
-            });
-          }
-          
-          setTotalSlots(totalSlotsCount);
-          setAvailableSlots(availableSlotsCount);
-          
-                    if (__DEV__) {
-            console.log(`📊 [ConsultantHome] Slot availability: ${availableSlotsCount}/${totalSlotsCount} slots available`)
-          };
-        } catch {
-                    if (__DEV__) {
-            console.log('⚠️ [ConsultantHome] Could not fetch availability, using default values')
-          };
-          setTotalSlots(0);
-          setAvailableSlots(0);
+      // Fetch consultant availability to check slot availability
+      try {
+        const availabilityResponse = await ConsultantService.getConsultantAvailability(user.uid);
+        const availability = availabilityResponse.data;
+        
+        // Calculate available slots from availability data
+        let totalSlotsCount = 0;
+        let availableSlotsCount = 0;
+        
+        if (availability?.availabilitySlots && Array.isArray(availability.availabilitySlots)) {
+          availability.availabilitySlots.forEach((slotGroup: any) => {
+            if (slotGroup.timeSlots && Array.isArray(slotGroup.timeSlots)) {
+              totalSlotsCount += slotGroup.timeSlots.length;
+              // For now, assume all slots are available (in real app, you'd check against booked slots)
+              availableSlotsCount += slotGroup.timeSlots.length;
+            }
+          });
         }
+        
+        setTotalSlots(totalSlotsCount);
+        setAvailableSlots(availableSlotsCount);
+        
+                if (__DEV__) {
+          console.log(`📊 [ConsultantHome] Slot availability: ${availableSlotsCount}/${totalSlotsCount} slots available`)
+        };
+      } catch {
+                if (__DEV__) {
+          console.log('⚠️ [ConsultantHome] Could not fetch availability, using default values')
+        };
+        setTotalSlots(0);
+        setAvailableSlots(0);
       }
       
       // Fetch real booking requests from API
@@ -366,6 +377,80 @@ const ConsultantHome = ({ navigation }: any) => {
     }
   };
 
+  const openProviderPicker = (
+    title: string,
+    action: (provider: AIProvider) => Promise<void> | void,
+  ) => {
+    Alert.alert(title, 'Choose AI provider', [
+      { text: 'OpenAI', onPress: () => action('openai') },
+      { text: 'Claude', onPress: () => action('claude') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleLeadMatchingAI = async (provider: AIProvider) => {
+    if (!bookingRequests.length) {
+      Alert.alert('No Leads', 'No pending booking requests available to rank.');
+      return;
+    }
+
+    try {
+      setLeadAiLoading(true);
+      const leadPayload = bookingRequests.map(request => ({
+        id: request.id,
+        student_name: request.studentName,
+        service: request.serviceTitle,
+        requested_date: request.date,
+      }));
+
+      const result = await AIService.generateGeneric({
+        provider,
+        json_mode: true,
+        max_tokens: 700,
+        system_prompt:
+          'You are a consultant lead-matching assistant. Return strict JSON only.',
+        user_prompt: `Rank leads and suggest overflow routing if consultant is near/full capacity.
+Consultant context:
+- available_slots: ${availableSlots}
+- total_slots: ${totalSlots}
+- at_capacity: ${totalSlots > 0 && availableSlots === 0}
+
+Return JSON:
+{
+  "recommended_leads": [{"id":"...", "priority":"high|medium|low", "reason":"..."}],
+  "overflow_actions": ["..."],
+  "risk_notes": ["..."]
+}
+
+Leads:
+${JSON.stringify(leadPayload)}`,
+      });
+
+      const parsed = parsePossibleJSON(result?.output || '{}');
+      const recommendations = Array.isArray(parsed?.recommended_leads)
+        ? parsed.recommended_leads
+        : [];
+      const overflow = Array.isArray(parsed?.overflow_actions)
+        ? parsed.overflow_actions
+        : [];
+      const risks = Array.isArray(parsed?.risk_notes) ? parsed.risk_notes : [];
+
+      setLeadRecommendations(recommendations.slice(0, 5));
+      setOverflowActions([...overflow, ...risks].slice(0, 6));
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Lead matching AI failed:', error);
+      }
+      Alert.alert(
+        'AI Error',
+        error?.response?.data?.detail ||
+          error?.message ||
+          'Failed to generate lead matching insights.',
+      );
+    } finally {
+      setLeadAiLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={screenStyles.safeArea} edges={['top']}>
@@ -402,6 +487,50 @@ const ConsultantHome = ({ navigation }: any) => {
             </Text>
           )}
         </View>
+
+        <View style={consultantHome.aiPanel}>
+          <Text style={consultantHome.aiPanelTitle}>AI Lead Matching</Text>
+          <Text style={consultantHome.aiPanelText}>
+            Recommends highest-value leads and overflow routing when you are at capacity.
+          </Text>
+          <TouchableOpacity
+            style={[
+              consultantHome.aiActionButton,
+              (leadAiLoading || !bookingRequests.length) &&
+                consultantHome.aiActionButtonDisabled,
+            ]}
+            onPress={() =>
+              openProviderPicker('AI Lead Matching', handleLeadMatchingAI)
+            }
+            disabled={leadAiLoading || !bookingRequests.length}
+            activeOpacity={0.8}
+          >
+            <Text style={consultantHome.aiActionButtonText}>
+              {leadAiLoading ? 'Analyzing...' : 'Run AI Lead Matching'}
+            </Text>
+          </TouchableOpacity>
+
+          {leadRecommendations.length > 0 ? (
+            <View style={consultantHome.aiResultBox}>
+              {leadRecommendations.map((item, index) => (
+                <Text key={`${item?.id || index}`} style={consultantHome.aiResultText}>
+                  • {item?.id ? `${item.id}: ` : ''}
+                  {item?.reason || 'Prioritized lead based on fit and urgency'}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
+          {overflowActions.length > 0 ? (
+            <View style={consultantHome.aiResultBox}>
+              {overflowActions.map((tip, index) => (
+                <Text key={`${tip}-${index}`} style={consultantHome.aiResultText}>
+                  • {tip}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+        </View>
         
         {loading ? (
           <View style={consultantHome.loadingContainer}>
@@ -431,16 +560,13 @@ const ConsultantHome = ({ navigation }: any) => {
                 const profileImage = request.studentProfileImage;
                 if (profileImage && typeof profileImage === 'string' && profileImage.trim() !== '') {
                   // Validate URL format
-                  try {
-                    new URL(profileImage);
+                  if (/^https?:\/\//i.test(profileImage)) {
                     return { uri: profileImage.trim() };
-                  } catch {
-                    // Invalid URL, use placeholder
-                                        if (__DEV__) {
-                      console.log(`⚠️ [ConsultantHome] Invalid profile image URL for ${request.studentName}: ${profileImage}`)
-                    };
-                    return require('../../../assets/image/avatar.png');
                   }
+                  if (__DEV__) {
+                    console.log(`⚠️ [ConsultantHome] Invalid profile image URL for ${request.studentName}: ${profileImage}`)
+                  };
+                  return require('../../../assets/image/avatar.png');
                 }
                 return require('../../../assets/image/avatar.png');
               };

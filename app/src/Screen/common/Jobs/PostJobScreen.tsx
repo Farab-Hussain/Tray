@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -19,6 +19,7 @@ import { showError, showSuccess } from '../../../utils/toast';
 import { Plus, X, ChevronDown } from 'lucide-react-native';
 import { postJobScreenStyles } from '../../../constants/styles/postJobScreenStyles';
 import { getCurrencyByCode, getCurrenciesArray } from '../../../constants/data/currencies';
+import { AIProvider, AIService } from '../../../services/ai.service';
 
 const PostJobScreen = ({ navigation }: any) => {
   const [title, setTitle] = useState('');
@@ -38,7 +39,26 @@ const PostJobScreen = ({ navigation }: any) => {
   const [educationRequired, setEducationRequired] = useState('');
   const [posting, setPosting] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
-  const [touched, setTouched] = useState<{[key: string]: boolean}>({});
+  const [, setTouched] = useState<{[key: string]: boolean}>({});
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiImproving, setAiImproving] = useState(false);
+  const [aiExtractingSkills, setAiExtractingSkills] = useState(false);
+  const [aiOptimizing, setAiOptimizing] = useState(false);
+  const [optimizerResult, setOptimizerResult] = useState<{
+    missing_required_skills?: string[];
+    unrealistic_requirements?: string[];
+    fair_chance_language?: string[];
+    salary_range_suggestion?: {
+      min?: number;
+      max?: number;
+      currency?: string;
+      rationale?: string;
+    };
+    optimization_notes?: string[];
+  } | null>(null);
+  const [skillSuggestions, setSkillSuggestions] = useState<string[]>([]);
+  const [loadingSkillSuggestions, setLoadingSkillSuggestions] = useState(false);
+  const skillDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Validation functions
   const validateField = (field: string, value: any): string => {
@@ -135,11 +155,239 @@ const PostJobScreen = ({ navigation }: any) => {
     if (newSkill.trim()) {
       setRequiredSkills([...requiredSkills, newSkill.trim()]);
       setNewSkill('');
+      setSkillSuggestions([]);
     }
   };
 
   const handleRemoveSkill = (index: number) => {
     setRequiredSkills(requiredSkills.filter((_, i) => i !== index));
+  };
+
+  useEffect(() => {
+    return () => {
+      if (skillDebounceRef.current) clearTimeout(skillDebounceRef.current);
+    };
+  }, []);
+
+  const openProviderPicker = (
+    action: string,
+    onSelect: (provider: AIProvider) => void
+  ) => {
+    Alert.alert(action, 'Choose AI provider', [
+      { text: 'OpenAI', onPress: () => onSelect('openai') },
+      { text: 'Claude', onPress: () => onSelect('claude') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleGenerateDescription = async (provider: AIProvider) => {
+    if (!title.trim()) {
+      showError('Add a job title before generating description');
+      return;
+    }
+
+    try {
+      setAiGenerating(true);
+      const result = await AIService.generateJobPost({
+        provider,
+        role_title: title.trim(),
+        company_name: company.trim() || 'Your Company',
+        location: location.trim() || 'Remote',
+        job_type: jobType,
+        experience_level:
+          !experienceRequired || Number(experienceRequired) <= 1
+            ? 'junior'
+            : Number(experienceRequired) <= 4
+              ? 'mid'
+              : 'senior',
+        required_skills: requiredSkills.length ? requiredSkills : ['Communication'],
+        salary_range:
+          minSalary && maxSalary ? `${minSalary}-${maxSalary} ${currency}` : undefined,
+        tone: 'professional',
+      });
+
+      if (result?.job_post) {
+        setDescription(result.job_post);
+        showSuccess('Job description generated');
+      } else {
+        showError('AI returned empty job description');
+      }
+    } catch (error: any) {
+      showError(error?.response?.data?.detail || error?.message || 'Failed to generate description');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleImproveDescription = async (provider: AIProvider, type: string) => {
+    if (!description.trim()) {
+      showError('Add description before improving with AI');
+      return;
+    }
+
+    try {
+      setAiImproving(true);
+      const result = await AIService.improveJobPost({
+        provider,
+        existing_post: description.trim(),
+        improvement_type: type,
+      });
+      if (result?.improved_post) {
+        setDescription(result.improved_post);
+        showSuccess('Job description improved');
+      } else {
+        showError('AI returned empty improved description');
+      }
+    } catch (error: any) {
+      showError(error?.response?.data?.detail || error?.message || 'Failed to improve description');
+    } finally {
+      setAiImproving(false);
+    }
+  };
+
+  const openImproveTypePicker = () => {
+    Alert.alert('Improve Description', 'Select improvement type', [
+      {
+        text: 'Clarity',
+        onPress: () =>
+          openProviderPicker('Choose Provider', provider => handleImproveDescription(provider, 'clarity')),
+      },
+      {
+        text: 'Tone',
+        onPress: () =>
+          openProviderPicker('Choose Provider', provider => handleImproveDescription(provider, 'tone')),
+      },
+      {
+        text: 'Inclusivity',
+        onPress: () =>
+          openProviderPicker('Choose Provider', provider => handleImproveDescription(provider, 'inclusivity')),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const parsePossibleJSON = (text: string) => {
+    const cleaned = text
+      .trim()
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+    return JSON.parse(cleaned);
+  };
+
+  const handleOptimizeJobPost = async (provider: AIProvider) => {
+    if (!title.trim() || !description.trim()) {
+      showError('Add title and description before running optimizer');
+      return;
+    }
+
+    try {
+      setAiOptimizing(true);
+      const result = await AIService.generateGeneric({
+        provider,
+        json_mode: true,
+        max_tokens: 900,
+        system_prompt:
+          'You are a senior talent acquisition strategist optimizing job posts for hiring outcomes. Return JSON only.',
+        user_prompt: `Optimize this job post and return actionable recommendations.
+Return JSON exactly in this shape:
+{
+  "missing_required_skills": ["..."],
+  "unrealistic_requirements": ["..."],
+  "fair_chance_language": ["..."],
+  "salary_range_suggestion": {"min": 0, "max": 0, "currency": "USD", "rationale": "..."},
+  "optimization_notes": ["..."]
+}
+
+Job:
+${JSON.stringify({
+  title: title.trim(),
+  company: company.trim(),
+  location: location.trim(),
+  job_type: jobType,
+  description: description.trim(),
+  required_skills: requiredSkills,
+  salary_min: minSalary || null,
+  salary_max: maxSalary || null,
+  currency,
+  experience_required: experienceRequired || null,
+  education_required: educationRequired || null,
+})}`,
+      });
+
+      const parsed = parsePossibleJSON(result?.output || '{}');
+      setOptimizerResult(parsed || null);
+      showSuccess('AI optimizer insights generated');
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Job optimizer failed:', error);
+      }
+      showError(
+        error?.response?.data?.detail ||
+          error?.message ||
+          'Failed to optimize job post',
+      );
+    } finally {
+      setAiOptimizing(false);
+    }
+  };
+
+  const handleExtractSkills = async (provider: AIProvider) => {
+    if (!description.trim()) {
+      showError('Add description before extracting skills');
+      return;
+    }
+
+    try {
+      setAiExtractingSkills(true);
+      const result = await AIService.extractJobSkills({
+        provider,
+        job_description: description.trim(),
+      });
+      const suggested = Array.isArray(result?.required_skills) ? result.required_skills : [];
+      const merged = Array.from(new Set([...requiredSkills, ...suggested].map(s => s.trim()).filter(Boolean)));
+      setRequiredSkills(merged);
+      showSuccess('Skills extracted from description');
+    } catch (error: any) {
+      showError(error?.response?.data?.detail || error?.message || 'Failed to extract skills');
+    } finally {
+      setAiExtractingSkills(false);
+    }
+  };
+
+  const fetchSkillSuggestions = async (text: string) => {
+    const query = text.trim();
+    if (query.length < 2) {
+      setSkillSuggestions([]);
+      return;
+    }
+
+    try {
+      setLoadingSkillSuggestions(true);
+      const result = await AIService.autocomplete({
+        field_type: 'skill',
+        partial_text: query,
+        context: { title: title || 'general' },
+        max_suggestions: 4,
+      });
+      const suggestions = Array.isArray(result?.suggestions) ? result.suggestions : [];
+      const filtered = suggestions.filter(
+        (s: string) => !requiredSkills.some(existing => existing.toLowerCase() === s.toLowerCase())
+      );
+      setSkillSuggestions(filtered);
+    } catch {
+      setSkillSuggestions([]);
+    } finally {
+      setLoadingSkillSuggestions(false);
+    }
+  };
+
+  const handleSkillInputChange = (value: string) => {
+    setNewSkill(value);
+    if (skillDebounceRef.current) clearTimeout(skillDebounceRef.current);
+    skillDebounceRef.current = setTimeout(() => {
+      fetchSkillSuggestions(value);
+    }, 350);
   };
 
   
@@ -330,12 +578,176 @@ const PostJobScreen = ({ navigation }: any) => {
           multiline
           maxLength={5000}
         />
+        <View style={{ flexDirection: 'row', marginTop: 8, marginBottom: 8, gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => openProviderPicker('Generate Description', handleGenerateDescription)}
+            disabled={aiGenerating || aiImproving}
+            style={{
+              backgroundColor: COLORS.blue,
+              borderRadius: 8,
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              opacity: aiGenerating || aiImproving ? 0.7 : 1,
+            }}
+          >
+            <Text style={{ color: COLORS.white, fontWeight: '600', fontSize: 13 }}>
+              {aiGenerating ? 'Generating...' : 'Generate with AI'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={openImproveTypePicker}
+            disabled={aiGenerating || aiImproving}
+            style={{
+              backgroundColor: COLORS.green,
+              borderRadius: 8,
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              opacity: aiGenerating || aiImproving ? 0.7 : 1,
+            }}
+          >
+            <Text style={{ color: COLORS.white, fontWeight: '600', fontSize: 13 }}>
+              {aiImproving ? 'Improving...' : 'Improve with AI'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() =>
+              openProviderPicker('Optimize Job Post', handleOptimizeJobPost)
+            }
+            disabled={aiGenerating || aiImproving || aiOptimizing}
+            style={{
+              backgroundColor: '#0B6B57',
+              borderRadius: 8,
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              opacity: aiGenerating || aiImproving || aiOptimizing ? 0.7 : 1,
+            }}
+          >
+            <Text style={{ color: COLORS.white, fontWeight: '600', fontSize: 13 }}>
+              {aiOptimizing ? 'Optimizing...' : 'Optimize with AI'}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <Text style={postJobScreenStyles.characterCount}>
           {description.length}/5000 characters
         </Text>
         {errors.description && (
           <Text style={postJobScreenStyles.errorText}>{errors.description}</Text>
         )}
+        {optimizerResult ? (
+          <View
+            style={{
+              backgroundColor: '#F3F8FF',
+              borderColor: '#C9DFFF',
+              borderWidth: 1,
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ fontWeight: '700', color: '#16406F', marginBottom: 8 }}>
+              AI Job Post Optimizer
+            </Text>
+            {optimizerResult.missing_required_skills?.length ? (
+              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6 }}>
+                Missing skills: {optimizerResult.missing_required_skills.join(', ')}
+              </Text>
+            ) : null}
+            {optimizerResult.unrealistic_requirements?.length ? (
+              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6 }}>
+                Unrealistic requirements:{' '}
+                {optimizerResult.unrealistic_requirements.join(', ')}
+              </Text>
+            ) : null}
+            {optimizerResult.fair_chance_language?.length ? (
+              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6 }}>
+                Fair-chance language:{' '}
+                {optimizerResult.fair_chance_language.join(' ')}
+              </Text>
+            ) : null}
+            {optimizerResult.salary_range_suggestion ? (
+              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 6 }}>
+                Salary suggestion:{' '}
+                {optimizerResult.salary_range_suggestion.min ?? 'N/A'} -{' '}
+                {optimizerResult.salary_range_suggestion.max ?? 'N/A'}{' '}
+                {optimizerResult.salary_range_suggestion.currency || currency}
+              </Text>
+            ) : null}
+            {optimizerResult.optimization_notes?.length ? (
+              <Text style={{ fontSize: 12, color: COLORS.black, marginBottom: 10 }}>
+                Notes: {optimizerResult.optimization_notes.join(' | ')}
+              </Text>
+            ) : null}
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  const toAdd = Array.isArray(optimizerResult?.missing_required_skills)
+                    ? optimizerResult.missing_required_skills
+                    : [];
+                  const merged = Array.from(
+                    new Set([...requiredSkills, ...toAdd].map(s => s.trim()).filter(Boolean)),
+                  );
+                  setRequiredSkills(merged);
+                  showSuccess('Suggested missing skills applied');
+                }}
+                style={{
+                  backgroundColor: COLORS.green,
+                  borderRadius: 8,
+                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '700' }}>
+                  Apply Skills
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  const fairChanceLine = Array.isArray(
+                    optimizerResult?.fair_chance_language,
+                  )
+                    ? optimizerResult.fair_chance_language.join(' ')
+                    : '';
+                  if (!fairChanceLine.trim()) return;
+                  if (!description.includes(fairChanceLine)) {
+                    setDescription(prev => `${prev.trim()}\n\n${fairChanceLine}`.trim());
+                    showSuccess('Fair-chance language appended');
+                  }
+                }}
+                style={{
+                  backgroundColor: '#4A6FA5',
+                  borderRadius: 8,
+                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '700' }}>
+                  Apply Fair-Chance
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  const suggested = optimizerResult?.salary_range_suggestion;
+                  if (!suggested) return;
+                  if (suggested.min) setMinSalary(String(suggested.min));
+                  if (suggested.max) setMaxSalary(String(suggested.max));
+                  if (suggested.currency) setCurrency(suggested.currency);
+                  showSuccess('Salary suggestion applied');
+                }}
+                style={{
+                  backgroundColor: '#7D5BA6',
+                  borderRadius: 8,
+                  paddingVertical: 8,
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '700' }}>
+                  Apply Salary
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         <Text style={postJobScreenStyles.label}>Required Skills *</Text>
         <View style={postJobScreenStyles.addSkillContainer}>
@@ -344,7 +756,7 @@ const PostJobScreen = ({ navigation }: any) => {
             placeholder="Enter skill"
             placeholderTextColor={COLORS.lightGray}
             value={newSkill}
-            onChangeText={setNewSkill}
+            onChangeText={handleSkillInputChange}
             onSubmitEditing={handleAddSkill}
           />
           <TouchableOpacity
@@ -355,6 +767,53 @@ const PostJobScreen = ({ navigation }: any) => {
             <Plus size={20} color={COLORS.white} />
           </TouchableOpacity>
         </View>
+        {loadingSkillSuggestions ? (
+          <Text style={{ color: COLORS.gray, fontSize: 12, marginBottom: 8 }}>
+            Getting suggestions...
+          </Text>
+        ) : null}
+        {skillSuggestions.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
+            {skillSuggestions.map((suggestion, idx) => (
+              <TouchableOpacity
+                key={`${suggestion}-${idx}`}
+                onPress={() => {
+                  setNewSkill(suggestion);
+                  setSkillSuggestions([]);
+                }}
+                style={{
+                  backgroundColor: '#E8F5E9',
+                  borderRadius: 12,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  marginRight: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <Text style={{ color: '#1B5E20', fontSize: 12, fontWeight: '600' }}>
+                  {suggestion}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        <TouchableOpacity
+          onPress={() => openProviderPicker('Extract Skills', handleExtractSkills)}
+          disabled={aiExtractingSkills || !description.trim()}
+          style={{
+            backgroundColor: COLORS.orange,
+            borderRadius: 8,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            alignSelf: 'flex-start',
+            marginBottom: 8,
+            opacity: aiExtractingSkills || !description.trim() ? 0.7 : 1,
+          }}
+        >
+          <Text style={{ color: COLORS.white, fontWeight: '600', fontSize: 13 }}>
+            {aiExtractingSkills ? 'Extracting...' : 'Suggest Skills with AI'}
+          </Text>
+        </TouchableOpacity>
 
         {requiredSkills.length > 0 && (
           <View style={postJobScreenStyles.skillsContainer}>
@@ -533,4 +992,3 @@ const PostJobScreen = ({ navigation }: any) => {
 };
 
 export default PostJobScreen;
-

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Alert, ScrollView } from 'react-native';
+import { View, Text, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import AppButton from '../../../components/ui/AppButton';
@@ -10,6 +10,7 @@ import {
 import { EmailService } from '../../../services/email.service';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { sessionCompletionStyles } from '../../../constants/styles/sessionCompletionStyles';
+import { AIProvider, AIService } from '../../../services/ai.service';
 
 interface ConsultantSessionCompletionProps {
   route: {
@@ -38,6 +39,22 @@ const ConsultantSessionCompletion: React.FC<
   const [sessionCompletion, setSessionCompletion] =
     useState<SessionCompletion | null>(null);
   const [loading, setLoading] = useState(false);
+  const [prepLoading, setPrepLoading] = useState(false);
+  const [sessionPrep, setSessionPrep] = useState<{
+    profile_summary: string;
+    risk_areas: string[];
+    coaching_talking_points: string[];
+    progress_metrics: string[];
+  } | null>(null);
+
+  const parsePossibleJSON = (text: string) => {
+    const cleaned = (text || '')
+      .trim()
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+    return JSON.parse(cleaned || '{}');
+  };
 
   useEffect(() => {
     const fetchSessionCompletion = async () => {
@@ -161,6 +178,71 @@ const ConsultantSessionCompletion: React.FC<
     );
   };
 
+  const openProviderPicker = (
+    title: string,
+    action: (provider: AIProvider) => Promise<void> | void,
+  ) => {
+    Alert.alert(title, 'Choose AI provider', [
+      { text: 'OpenAI', onPress: () => action('openai') },
+      { text: 'Claude', onPress: () => action('claude') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleGenerateSessionPrep = async (provider: AIProvider) => {
+    try {
+      setPrepLoading(true);
+      const result = await AIService.generateGeneric({
+        provider,
+        json_mode: true,
+        max_tokens: 700,
+        system_prompt:
+          'You are a consultant session prep assistant. Return strict JSON only.',
+        user_prompt: `Create prep notes for consultant session.
+Context:
+- student_name: ${studentName}
+- service_title: ${serviceTitle}
+- session_date: ${sessionDate}
+- session_time: ${sessionTime}
+- refund_requested: ${!!sessionCompletion?.refundRequested}
+- payment_released: ${!!sessionCompletion?.paymentReleased}
+
+Return JSON:
+{
+  "profile_summary": "short paragraph",
+  "risk_areas": ["..."],
+  "coaching_talking_points": ["..."],
+  "progress_metrics": ["..."]
+}`,
+      });
+
+      const parsed = parsePossibleJSON(result?.output || '{}');
+      setSessionPrep({
+        profile_summary:
+          parsed?.profile_summary || 'No profile summary generated.',
+        risk_areas: Array.isArray(parsed?.risk_areas) ? parsed.risk_areas : [],
+        coaching_talking_points: Array.isArray(parsed?.coaching_talking_points)
+          ? parsed.coaching_talking_points
+          : [],
+        progress_metrics: Array.isArray(parsed?.progress_metrics)
+          ? parsed.progress_metrics
+          : [],
+      });
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Session prep AI failed:', error);
+      }
+      Alert.alert(
+        'AI Error',
+        error?.response?.data?.detail ||
+          error?.message ||
+          'Failed to generate session prep insights.',
+      );
+    } finally {
+      setPrepLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={screenStyles.safeArea} edges={['top']}>
       <ScreenHeader title="Session Management" />
@@ -190,6 +272,78 @@ const ConsultantSessionCompletion: React.FC<
                 ? 'Completed & Paid'
                 : 'In Progress'}
             </Text>
+          </View>
+
+          <View style={sessionCompletionStyles.aiPanel}>
+            <Text style={sessionCompletionStyles.aiPanelTitle}>
+              AI Session Prep Assistant
+            </Text>
+            <Text style={sessionCompletionStyles.aiPanelText}>
+              Summarizes client context, flags risk areas, and suggests coaching talking points.
+            </Text>
+            <TouchableOpacity
+              style={[
+                sessionCompletionStyles.aiActionButton,
+                prepLoading && sessionCompletionStyles.aiActionButtonDisabled,
+              ]}
+              onPress={() =>
+                openProviderPicker(
+                  'AI Session Prep Assistant',
+                  handleGenerateSessionPrep,
+                )
+              }
+              disabled={prepLoading}
+              activeOpacity={0.8}
+            >
+              <Text style={sessionCompletionStyles.aiActionButtonText}>
+                {prepLoading ? 'Generating...' : 'Generate AI Session Prep'}
+              </Text>
+            </TouchableOpacity>
+
+            {sessionPrep ? (
+              <View style={sessionCompletionStyles.aiResultBox}>
+                <Text style={sessionCompletionStyles.aiResultHeading}>
+                  Profile Summary
+                </Text>
+                <Text style={sessionCompletionStyles.aiResultText}>
+                  {sessionPrep.profile_summary}
+                </Text>
+
+                <Text style={sessionCompletionStyles.aiResultHeading}>Risk Areas</Text>
+                {sessionPrep.risk_areas.map((item, index) => (
+                  <Text
+                    key={`${item}-${index}`}
+                    style={sessionCompletionStyles.aiResultText}
+                  >
+                    • {item}
+                  </Text>
+                ))}
+
+                <Text style={sessionCompletionStyles.aiResultHeading}>
+                  Coaching Talking Points
+                </Text>
+                {sessionPrep.coaching_talking_points.map((item, index) => (
+                  <Text
+                    key={`${item}-${index}`}
+                    style={sessionCompletionStyles.aiResultText}
+                  >
+                    • {item}
+                  </Text>
+                ))}
+
+                <Text style={sessionCompletionStyles.aiResultHeading}>
+                  Progress Metrics
+                </Text>
+                {sessionPrep.progress_metrics.map((item, index) => (
+                  <Text
+                    key={`${item}-${index}`}
+                    style={sessionCompletionStyles.aiResultText}
+                  >
+                    • {item}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
           </View>
 
           {sessionCompletion?.refundRequested && (

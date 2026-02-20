@@ -4,6 +4,8 @@
 // Environment variables type definitions for react-native-dotenv
 declare module '@env' {
   export const API_URL: string;
+  export const FASTAPI_AI_URL: string;
+  export const FASTAPI_AI_PROVIDER: string;
   export const CLOUDINARY_CLOUD_NAME: string;
   export const CLOUDINARY_UPLOAD_PRESET: string; // optional unsigned preset
   export const FIREBASE_API_KEY: string;

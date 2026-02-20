@@ -47,6 +47,53 @@ export const consultantHome = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
+  aiPanel: {
+    backgroundColor: '#EEF7FF',
+    borderWidth: 1,
+    borderColor: '#CFE6FF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  aiPanelTitle: {
+    color: '#103B66',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  aiPanelText: {
+    color: '#284B69',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  aiActionButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.green,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  aiActionButtonDisabled: {
+    opacity: 0.7,
+  },
+  aiActionButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  aiResultBox: {
+    marginTop: 10,
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    padding: 10,
+  },
+  aiResultText: {
+    color: COLORS.black,
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 4,
+  },
 });
 
 export const consultantStyles = StyleSheet.create({

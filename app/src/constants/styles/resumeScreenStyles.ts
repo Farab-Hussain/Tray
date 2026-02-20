@@ -60,6 +60,63 @@ export const resumeScreenStyles = StyleSheet.create({
     textAlignVertical: 'top',
     paddingTop: 14,
   },
+  aiButtonsContainer: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  aiGenerateButton: {
+    backgroundColor: COLORS.green,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  aiValidateButton: {
+    backgroundColor: COLORS.green,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  aiScoreButton: {
+    backgroundColor: COLORS.blue,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  aiGenerateButtonDisabled: {
+    backgroundColor: COLORS.lightGray,
+    opacity: 0.7,
+  },
+  aiGenerateButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  scoreCard: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  scoreTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.black,
+    marginBottom: 6,
+  },
+  scoreSubText: {
+    fontSize: 13,
+    color: COLORS.gray,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
   addSkillContainer: {
     flexDirection: 'row',
     marginBottom: 12,
@@ -437,4 +494,3 @@ export const resumeScreenStyles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-

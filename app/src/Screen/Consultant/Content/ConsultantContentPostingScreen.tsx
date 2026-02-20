@@ -8,11 +8,9 @@ import {
   Alert,
   ActivityIndicator,
   Image,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import {
@@ -24,10 +22,10 @@ import {
   Plus,
   X,
   CheckCircle,
-  AlertCircle,
 } from 'lucide-react-native';
 import { ConsultantContentService } from '../../../services/consultantContent.service';
 import { consultantContentStyles } from '../../../constants/styles/consultantContentStyles';
+import { AIProvider, AIService } from '../../../services/ai.service';
 
 interface ContentData {
   title: string;
@@ -42,9 +40,7 @@ interface ContentData {
 }
 
 const ConsultantContentPostingScreen = ({ navigation }: any) => {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [contentData, setContentData] = useState<ContentData>({
     title: '',
     description: '',
@@ -57,6 +53,12 @@ const ConsultantContentPostingScreen = ({ navigation }: any) => {
   const [newTag, setNewTag] = useState('');
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [thumbnailFile, setThumbnailFile] = useState<any>(null);
+  const [contentAiLoading, setContentAiLoading] = useState(false);
+  const [contentInsights, setContentInsights] = useState<{
+    trending_skill_topics: string[];
+    free_content_ideas: string[];
+    pricing_recommendation: string;
+  } | null>(null);
 
   const contentTypes = [
     { value: 'article', label: 'Article', icon: BookOpen, color: COLORS.blue },
@@ -67,18 +69,77 @@ const ConsultantContentPostingScreen = ({ navigation }: any) => {
     { value: 'resource', label: 'Resource', icon: Upload, color: COLORS.gray },
   ];
 
-  const categories = [
-    'Career Development',
-    'Interview Tips',
-    'Resume Writing',
-    'Job Search',
-    'Networking',
-    'Skills Development',
-    'Industry Insights',
-    'Workplace Advice',
-    'Technology',
-    'Business',
-  ];
+  const parsePossibleJSON = (text: string) => {
+    const cleaned = (text || '')
+      .trim()
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+    return JSON.parse(cleaned || '{}');
+  };
+
+  const openProviderPicker = (
+    title: string,
+    action: (provider: AIProvider) => Promise<void> | void,
+  ) => {
+    Alert.alert(title, 'Choose AI provider', [
+      { text: 'OpenAI', onPress: () => action('openai') },
+      { text: 'Claude', onPress: () => action('claude') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleContentOptimization = async (provider: AIProvider) => {
+    try {
+      setContentAiLoading(true);
+      const result = await AIService.generateGeneric({
+        provider,
+        json_mode: true,
+        max_tokens: 700,
+        system_prompt:
+          'You are a consultant content strategy assistant. Return strict JSON only.',
+        user_prompt: `Provide content optimization insights for this consultant draft.
+Context:
+- content_type: ${contentData.contentType}
+- title: ${contentData.title || 'N/A'}
+- category: ${contentData.category || 'N/A'}
+- tags: ${contentData.tags.join(', ') || 'none'}
+- is_free: ${contentData.isFree}
+- current_price: ${contentData.price || 0}
+
+Return JSON:
+{
+  "trending_skill_topics": ["..."],
+  "free_content_ideas": ["..."],
+  "pricing_recommendation": "..."
+}`,
+      });
+
+      const parsed = parsePossibleJSON(result?.output || '{}');
+      setContentInsights({
+        trending_skill_topics: Array.isArray(parsed?.trending_skill_topics)
+          ? parsed.trending_skill_topics
+          : [],
+        free_content_ideas: Array.isArray(parsed?.free_content_ideas)
+          ? parsed.free_content_ideas
+          : [],
+        pricing_recommendation:
+          parsed?.pricing_recommendation || 'No pricing recommendation returned.',
+      });
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('Content optimization AI failed:', error);
+      }
+      Alert.alert(
+        'AI Error',
+        error?.response?.data?.detail ||
+          error?.message ||
+          'Failed to generate content optimization insights.',
+      );
+    } finally {
+      setContentAiLoading(false);
+    }
+  };
 
   const addTag = () => {
     if (newTag.trim() && !contentData.tags.includes(newTag.trim())) {
@@ -110,7 +171,7 @@ const ConsultantContentPostingScreen = ({ navigation }: any) => {
       if (!result.didCancel && result.assets) {
         setSelectedFile(result.assets[0]);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to pick document');
     }
   };
@@ -128,7 +189,7 @@ const ConsultantContentPostingScreen = ({ navigation }: any) => {
       if (!result.didCancel && result.assets) {
         setThumbnailFile(result.assets[0]);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to pick thumbnail');
     }
   };
@@ -144,7 +205,7 @@ const ConsultantContentPostingScreen = ({ navigation }: any) => {
       if (!result.didCancel && result.assets) {
         setSelectedFile(result.assets[0]);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to pick video');
     }
   };
@@ -235,7 +296,7 @@ const ConsultantContentPostingScreen = ({ navigation }: any) => {
         thumbnailUrl,
       };
 
-      const response = await ConsultantContentService.createContent(contentToSubmit);
+      await ConsultantContentService.createContent(contentToSubmit);
       
       Alert.alert(
         'Success',
@@ -522,6 +583,70 @@ const ConsultantContentPostingScreen = ({ navigation }: any) => {
               • All content is subject to admin approval before publishing{'\n'}
               • No copyrighted material without proper attribution
             </Text>
+          </View>
+        </View>
+
+        <View style={consultantContentStyles.section}>
+          <Text style={consultantContentStyles.sectionTitle}>
+            AI Content Optimization
+          </Text>
+          <View style={consultantContentStyles.sectionContent}>
+            <Text style={consultantContentStyles.guidelinesText}>
+              Get trending topics, free content ideas, and pricing guidance based on your draft.
+            </Text>
+            <TouchableOpacity
+              style={[
+                consultantContentStyles.aiActionButton,
+                contentAiLoading && consultantContentStyles.aiActionButtonDisabled,
+              ]}
+              onPress={() =>
+                openProviderPicker(
+                  'AI Content Optimization',
+                  handleContentOptimization,
+                )
+              }
+              disabled={contentAiLoading}
+              activeOpacity={0.8}
+            >
+              <Text style={consultantContentStyles.aiActionButtonText}>
+                {contentAiLoading ? 'Analyzing...' : 'Generate AI Content Insights'}
+              </Text>
+            </TouchableOpacity>
+
+            {contentInsights ? (
+              <View style={consultantContentStyles.aiResultBox}>
+                <Text style={consultantContentStyles.aiResultHeading}>
+                  Trending Skill Topics
+                </Text>
+                {contentInsights.trending_skill_topics.map((topic, index) => (
+                  <Text
+                    key={`${topic}-${index}`}
+                    style={consultantContentStyles.aiResultText}
+                  >
+                    • {topic}
+                  </Text>
+                ))}
+
+                <Text style={consultantContentStyles.aiResultHeading}>
+                  Free Content Ideas
+                </Text>
+                {contentInsights.free_content_ideas.map((idea, index) => (
+                  <Text
+                    key={`${idea}-${index}`}
+                    style={consultantContentStyles.aiResultText}
+                  >
+                    • {idea}
+                  </Text>
+                ))}
+
+                <Text style={consultantContentStyles.aiResultHeading}>
+                  Pricing Recommendation
+                </Text>
+                <Text style={consultantContentStyles.aiResultText}>
+                  {contentInsights.pricing_recommendation}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </View>
 

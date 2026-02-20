@@ -250,4 +250,41 @@ export const consultantContentStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  aiActionButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.green,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  aiActionButtonDisabled: {
+    opacity: 0.7,
+  },
+  aiActionButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  aiResultBox: {
+    marginTop: 10,
+    backgroundColor: '#F6F9FC',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E3EBF5',
+  },
+  aiResultHeading: {
+    fontSize: 12,
+    color: COLORS.black,
+    fontWeight: '700',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  aiResultText: {
+    fontSize: 12,
+    color: COLORS.gray,
+    lineHeight: 17,
+    marginBottom: 4,
+  },
 });

@@ -9,6 +9,8 @@ import {
   deleteJob,
   searchJobs,
   getMatchScore,
+  saveJobAISnapshot,
+  getJobAISnapshots,
 } from "../controllers/job.controller";
 import {
   applyForJob,
@@ -49,6 +51,8 @@ router.post("/", authenticateUser(), authorizeRole(["admin", "recruiter", "consu
 // Dynamic routes - Must be after specific routes
 router.get("/:id", validateJobId, getJobById); // GET /jobs/:id - Get job details
 router.get("/:id/match-score", validateJobId, authenticateUser(), getMatchScore); // GET /jobs/:id/match-score - Get match score for current user
+router.post("/:id/ai-snapshots", authenticateUser(), validateJobId, saveJobAISnapshot); // POST /jobs/:id/ai-snapshots - Save recruiter AI trend snapshot
+router.get("/:id/ai-snapshots", authenticateUser(), validateJobId, getJobAISnapshots); // GET /jobs/:id/ai-snapshots - Get recruiter AI trend snapshots
 router.put("/:id", authenticateUser(), validateUpdateJob, updateJob); // PUT /jobs/:id - Update job
 router.delete("/:id", authenticateUser(), validateJobId, deleteJob); // DELETE /jobs/:id - Delete job
 
@@ -67,4 +71,3 @@ router.get("/applications/:id", authenticateUser(), getApplicationById); // GET 
 router.post("/security/test-employer-access", authenticateUser(), testEmployerAccessSecurity); // POST /jobs/security/test-employer-access - Test employer security access
 
 export default router;
-
