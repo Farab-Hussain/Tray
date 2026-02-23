@@ -1,5 +1,44 @@
 import { Timestamp } from "firebase-admin/firestore";
 
+export interface WorkEligibilityChecklist {
+  selfAttestationAccepted?: boolean;
+  drivingTransportation?: {
+    hasValidDriversLicense?: boolean;
+    canMeetMvrRequirements?: boolean;
+    hasReliableTransportation?: boolean;
+    canPerformDrivingDuties?: boolean;
+  };
+  workAuthorizationDocumentation?: {
+    hasValidI9Identification?: boolean;
+    canMeetEverifyRequirements?: boolean;
+  };
+  physicalWorkplaceRequirements?: {
+    canPerformEssentialPhysicalFunctions?: boolean;
+    mayRequestWorkplaceAccommodations?: boolean; // Optional disclosure
+  };
+  schedulingWorkEnvironment?: {
+    canWorkNightsWeekendsRotating?: boolean;
+    canWorkSafetySensitiveEnvironments?: boolean;
+    canWorkRegulatedEnvironments?: boolean;
+  };
+  drugTestingSafetyPolicies?: {
+    canPassDrugScreening?: boolean;
+    canComplyRandomDrugTesting?: boolean;
+  };
+  professionalLicensingCertifications?: {
+    eligibleToObtainRequiredLicenses?: boolean;
+    currentlyHoldsRequiredLicensesCertifications?: boolean;
+    licenseExamplesNote?: string;
+  };
+  roleBasedCompatibilitySensitive?: {
+    noRestrictionsForWorkWithMinors?: boolean;
+    noRestrictionsForVulnerableAdultsPatients?: boolean;
+    noRestrictionsForFinancialHandlingRoles?: boolean;
+    noRestrictionsForSecureFacilities?: boolean;
+    hasPendingLegalMattersAffectingEmploymentTypes?: boolean; // Optional disclosure
+  };
+}
+
 // Resume data model
 export interface Resume {
   id: string;
@@ -60,6 +99,7 @@ export interface Resume {
     portfolio?: string;
     github?: string;
   };
+  workEligibilityChecklist?: WorkEligibilityChecklist; // Private, self-attested, not shown to employers
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -125,5 +165,6 @@ export interface ResumeInput {
     portfolio?: string;
     github?: string;
   };
+  workEligibilityChecklist?: WorkEligibilityChecklist;
 
 }

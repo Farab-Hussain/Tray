@@ -156,6 +156,7 @@ export const sanitizeDocumentForEmployer = (req: Request, res: Response, next: N
             workRestrictions: undefined,
             transportationStatus: undefined,
             workAuthorized: undefined,
+            workEligibilityChecklist: undefined,
           };
 
           if (data.document) {

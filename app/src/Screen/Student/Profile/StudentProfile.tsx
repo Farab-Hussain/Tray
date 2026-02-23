@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,18 +9,14 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   User,
-  Mail,
-  Lock,
   FileText,
   Briefcase,
   Shield,
   GraduationCap,
   Award,
-  Code,
-  ExternalLink,
   Target,
   DollarSign,
   Car,
@@ -345,59 +341,8 @@ const StudentProfile = ({ navigation }: any) => {
   useFocusEffect(
     useCallback(() => {
       fetchProfileData();
-    }, [user])
+    }, [fetchProfileData])
   );
-
-  // const handleImageUpdate = async (imageUrl: string | null) => {
-  //   if (!auth.currentUser) return;
-
-  //   setUpdatingImage(true);
-  //   try {
-  //     if (imageUrl) {
-  //       await updateProfile(auth.currentUser, {
-  //         photoURL: imageUrl,
-  //       });
-  //     }
-
-  //     // Update backend profile
-  //     try {
-  //       await UserService.updateProfile({
-  //         avatarUrl: imageUrl,
-  //       });
-  //     } catch  {
-  //       if (__DEV__) {
-  //         logger.debug('Backend update failed, but Firebase updated')
-  //       };
-  //     }
-
-  //     await refreshUser();
-  //     setImageCacheKey(prev => prev + 1);
-  //     showSuccess('Profile image updated successfully');
-  //     fetchProfileData();
-  //   } catch (error: any) {
-  //     if (__DEV__) {
-  //       logger.error('Error updating profile image:', error)
-  //     };
-  //     showError(error.message || 'Failed to update profile image');
-  //   } finally {
-  //     setUpdatingImage(false);
-  //   }
-  // };
-
-  // const handleDeleteImage = async () => {
-  //   Alert.alert(
-  //     'Delete Profile Image',
-  //     'Are you sure you want to remove your profile image?',
-  //     [
-  //       { text: 'Cancel', style: 'cancel' },
-  //       {
-  //         text: 'Delete',
-  //         style: 'destructive',
-  //         onPress: () => handleImageUpdate(null),
-  //       },
-  //     ]
-  //   );
-  // };
 
   if (loading && !refreshing) {
     return (
@@ -719,6 +664,27 @@ const StudentProfile = ({ navigation }: any) => {
               label: 'Transportation',
               value: resume.transportationStatus.replace('-', ' '),
               icon: Car,
+              iconColor: COLORS.green,
+              showSeparator: false,
+            }] : []),
+          ]}
+        />
+
+        {/* Work Eligibility (Private) */}
+        <ProfileSectionCard
+          title="Work Eligibility (Private)"
+          icon={Shield}
+          items={[
+            {
+              label: 'Client-Side Eligibility Checklist',
+              subtext: 'Private self-attested compatibility details used for matching only',
+              onPress: () => navigation.navigate('AuthorizationDocuments'),
+              rightIcon: ChevronRight,
+            },
+            ...(resume?.workEligibilityChecklist?.selfAttestationAccepted ? [{
+              label: 'Status',
+              value: 'Self-attested',
+              icon: CheckCircle,
               iconColor: COLORS.green,
               showSeparator: false,
             }] : []),

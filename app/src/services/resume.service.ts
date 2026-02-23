@@ -1,5 +1,44 @@
 import { api } from '../lib/fetcher';
 
+export interface WorkEligibilityChecklist {
+  selfAttestationAccepted?: boolean;
+  drivingTransportation?: {
+    hasValidDriversLicense?: boolean;
+    canMeetMvrRequirements?: boolean;
+    hasReliableTransportation?: boolean;
+    canPerformDrivingDuties?: boolean;
+  };
+  workAuthorizationDocumentation?: {
+    hasValidI9Identification?: boolean;
+    canMeetEverifyRequirements?: boolean;
+  };
+  physicalWorkplaceRequirements?: {
+    canPerformEssentialPhysicalFunctions?: boolean;
+    mayRequestWorkplaceAccommodations?: boolean;
+  };
+  schedulingWorkEnvironment?: {
+    canWorkNightsWeekendsRotating?: boolean;
+    canWorkSafetySensitiveEnvironments?: boolean;
+    canWorkRegulatedEnvironments?: boolean;
+  };
+  drugTestingSafetyPolicies?: {
+    canPassDrugScreening?: boolean;
+    canComplyRandomDrugTesting?: boolean;
+  };
+  professionalLicensingCertifications?: {
+    eligibleToObtainRequiredLicenses?: boolean;
+    currentlyHoldsRequiredLicensesCertifications?: boolean;
+    licenseExamplesNote?: string;
+  };
+  roleBasedCompatibilitySensitive?: {
+    noRestrictionsForWorkWithMinors?: boolean;
+    noRestrictionsForVulnerableAdultsPatients?: boolean;
+    noRestrictionsForFinancialHandlingRoles?: boolean;
+    noRestrictionsForSecureFacilities?: boolean;
+    hasPendingLegalMattersAffectingEmploymentTypes?: boolean;
+  };
+}
+
 export interface ResumeData {
   personalInfo: {
     name: string;
@@ -31,6 +70,7 @@ export interface ResumeData {
   }>;
   resumeFileUrl?: string;
   resumeFilePublicId?: string;
+  workEligibilityChecklist?: WorkEligibilityChecklist;
 }
 
 export const ResumeService = {
@@ -178,4 +218,3 @@ export const ResumeService = {
     return response.data;
   },
 };
-
