@@ -1,10 +1,7 @@
 import React from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { createStackNavigator, StackCardStyleInterpolator } from '@react-navigation/stack';
 import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
-import { COLORS } from '../constants/core/colors';
 import { navigationRef } from './navigationRef';
 import BottomTabs from './BottomNavigation';
 import ConsultantBottomTabs from './ConsultantBottomNavigation';
@@ -77,8 +74,7 @@ const Stack = createStackNavigator();
 
 // Component to render appropriate bottom tabs based on role
 const RoleBasedTabs = () => {
-  const { role, activeRole, needsProfileCreation, consultantVerificationStatus, user } = useAuth();
-  const [isChecking, setIsChecking] = React.useState(true);
+  const { role, activeRole, needsProfileCreation, user } = useAuth();
   
   // Use activeRole if available, fallback to role for backward compatibility
   const currentRole = activeRole || role;
@@ -108,11 +104,6 @@ const RoleBasedTabs = () => {
     }
   }, [user]);
   
-  // Set checking to false since we no longer need to check services
-  React.useEffect(() => {
-    setIsChecking(false);
-  }, []);
-  
   // Debug logging for role changes
   React.useEffect(() => {
     if (__DEV__) {
@@ -125,37 +116,9 @@ const RoleBasedTabs = () => {
     return <CreateProfile />;
   }
   
-  // For consultants, check if profile is approved (services are no longer required for access)
+  // For consultants, approval gating was removed: route directly to consultant tabs.
   if (currentRole === 'consultant') {
-    // If still checking, show loading screen
-    if (isChecking) {
-      return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.white }}>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={COLORS.green} />
-            <Text style={{ marginTop: 12, fontSize: 16, color: COLORS.gray }}>
-              Loading your status...
-            </Text>
-          </View>
-        </SafeAreaView>
-      );
-    }
-    
-    // If profile is approved, show consultant tabs (no service approval required)
-    if (consultantVerificationStatus === 'approved') {
-      return <ConsultantBottomTabs />;
-    }
-    
-    // If profile is not approved or status is null/incomplete, show pending approval
-    if (!consultantVerificationStatus || ['incomplete', 'pending', 'rejected'].includes(consultantVerificationStatus)) {
-      return <PendingApproval />;
-    }
-    
-    // Default fallback - should not reach here, but show pending approval as fallback
-    if (__DEV__) {
-      console.warn('⚠️ [RoleBasedTabs] Unexpected consultant state, showing pending approval');
-    }
-    return <PendingApproval />;
+    return <ConsultantBottomTabs />;
   }
   
   // For recruiters, show recruiter-specific screens

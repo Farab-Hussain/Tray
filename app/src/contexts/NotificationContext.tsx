@@ -303,19 +303,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [user?.uid, refreshChats]);
 
-  // Listen for incoming messages and refresh chat list
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    // Check for new messages every 30 seconds
-    const intervalId = setInterval(() => {
-      refreshChats();
-    }, 30000); // 30 seconds
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [user?.uid, refreshChats]);
+  // Chat refresh is event-driven (notification open, unread count change, and chat screen actions).
+  // Avoid interval polling here to prevent excessive background refresh noise.
 
   // Load notifications from Firestore
   useEffect(() => {

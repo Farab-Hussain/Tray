@@ -19,7 +19,6 @@ import { signInWithEmailAndPassword, type UserCredential } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { api } from '../../lib/fetcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getConsultantApplications } from '../../services/consultantFlow.service';
 import { showError, handleApiError } from '../../utils/toast';
 import { useSocialLogin } from '../../hooks/useSocialLogin';
 
@@ -443,7 +442,7 @@ const Login = ({ navigation }: LoginProps) => {
                 'incomplete',
               );
             }
-          } catch (storageError) {
+          } catch {
             await AsyncStorage.setItem(
               'consultantVerificationStatus',
               'incomplete',
@@ -591,147 +590,12 @@ const Login = ({ navigation }: LoginProps) => {
     // Navigate based on actual role from database (not from button clicked)
     if (userRole === 'consultant') {
       if (__DEV__) {
-        console.log(
-          'Login - User is consultant, checking verification status...',
-        );
+        console.log('Login - User is consultant, navigating to consultant tabs');
       }
-
-      // Check consultant verification status to determine navigation
-      try {
-        // Add timeout for consultant status check
-        const statusRes = (await Promise.race([
-          api.get('/consultant-flow/status'),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error('Backend request timeout')),
-              10000,
-            ),
-          ),
-        ])) as any;
-
-        const backendStatus = statusRes.data?.status;
-        if (__DEV__) {
-          console.log('Login - Consultant status:', backendStatus);
-        }
-
-        if (backendStatus === 'no_profile' || backendStatus === 'incomplete') {
-          if (__DEV__) {
-            console.log(
-              'Login - No profile found, navigating to profile creation',
-            );
-          }
-          navigation.replace('Screen', {
-            screen: 'ConsultantProfileFlow',
-          });
-        } else if (backendStatus === 'pending') {
-          if (__DEV__) {
-            console.log(
-              'Login - Profile pending, navigating to pending approval',
-            );
-          }
-          navigation.replace('Screen', {
-            screen: 'PendingApproval',
-          });
-        } else if (backendStatus === 'approved') {
-          if (__DEV__) {
-            console.log('Login - Profile approved, checking services status');
-          }
-          // Check if consultant has approved services
-          try {
-            // Add timeout for applications check
-            const applicationsResponse = (await Promise.race([
-              getConsultantApplications(),
-              new Promise((_, reject) =>
-                setTimeout(
-                  () => reject(new Error('Backend request timeout')),
-                  10000,
-                ),
-              ),
-            ])) as any;
-
-            const approvedServices = applicationsResponse.filter(
-              (app: any) => app.status === 'approved',
-            );
-
-            if (approvedServices.length > 0) {
-              if (__DEV__) {
-                console.log(
-                  'Login - Profile and services approved, navigating to consultant applications screen',
-                );
-              }
-              navigation.replace('Screen', {
-                screen: 'Applications',
-                params: { role: 'consultant' },
-              });
-            } else {
-              if (__DEV__) {
-                console.log(
-                  'Login - Profile approved but no services approved, navigating to pending approval',
-                );
-              }
-              navigation.replace('Screen', {
-                screen: 'PendingApproval',
-              });
-            }
-          } catch (servicesError) {
-            if (__DEV__) {
-              console.error('Login - Error checking services:', servicesError);
-            }
-            // If services check fails, navigate to pending approval
-            navigation.replace('Screen', {
-              screen: 'PendingApproval',
-            });
-          }
-        } else if (backendStatus === 'rejected') {
-          if (__DEV__) {
-            console.log(
-              'Login - Profile rejected, navigating to pending approval',
-            );
-          }
-          navigation.replace('Screen', {
-            screen: 'PendingApproval',
-          });
-        } else {
-          if (__DEV__) {
-            console.log(
-              'Login - Unknown status, navigating to profile creation',
-            );
-          }
-          navigation.replace('Screen', {
-            screen: 'ConsultantProfileFlow',
-          });
-        }
-      } catch (statusError: any) {
-        if (__DEV__) {
-          console.error(
-            'Login - Error checking consultant status:',
-            statusError,
-          );
-        }
-
-        // If backend is unavailable, navigate to pending approval (safer default)
-        const isBackendUnavailable =
-          statusError?.isBackendUnavailable ||
-          statusError?.isNgrokError ||
-          statusError?.response?.status === 503 ||
-          statusError?.message?.includes('timeout');
-
-        if (isBackendUnavailable) {
-          if (__DEV__) {
-            console.warn(
-              '⚠️ [Login] Backend unavailable, navigating to pending approval as fallback',
-            );
-          }
-          navigation.replace('Screen', {
-            screen: 'PendingApproval',
-          });
-        } else {
-          // Other error - navigate to profile creation as fallback
-          navigation.replace('Screen', {
-            screen: 'ConsultantProfileFlow',
-          });
-        }
-      }
+      navigation.replace('Screen', {
+        screen: 'MainTabs',
+        params: { role: 'consultant' },
+      });
     } else if (userRole === 'recruiter') {
       if (__DEV__) {
         console.log('Login - User is recruiter, navigating to recruiter tabs (uses student tabs structure)');
