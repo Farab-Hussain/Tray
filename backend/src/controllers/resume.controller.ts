@@ -1,6 +1,16 @@
 // src/controllers/resume.controller.ts
 import { Request, Response } from "express";
-import { resumeServices, WorkPreferences, AuthorizationInfo, CareerGoals, ExternalProfiles } from "../services/resume.service";
+import {
+  resumeServices,
+  WorkPreferences,
+  AuthorizationInfo,
+  CareerGoals,
+  ExternalProfiles,
+} from "../services/resume.service";
+import {
+  WorkEligibilitySectionKey,
+  WorkEligibilityVerificationStatus,
+} from "../models/resume.model";
 import { Resume, ResumeInput } from "../models/resume.model";
 
 /**
@@ -255,6 +265,86 @@ export const getProfileCompletionStatus = async (req: Request, res: Response) =>
 };
 
 /**
+ * Admin: fetch resume by user ID.
+ */
+export const getResumeByUserIdAdmin = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const resume = await resumeServices.getByUserId(userId);
+    res.status(200).json({ resume });
+  } catch (error: any) {
+    if (error.message === "Resume not found") {
+      return res.status(404).json({ error: "Resume not found" });
+    }
+    console.error("Error fetching resume by userId (admin):", error);
+    res.status(500).json({ error: error.message || "Failed to fetch resume" });
+  }
+};
+
+/**
+ * Admin: review a single work-eligibility section for a student.
+ */
+export const reviewWorkEligibilitySection = async (req: Request, res: Response) => {
+  try {
+    const reviewer = (req as any).user;
+    if (!reviewer || !reviewer.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { userId } = req.params;
+    const { section, status, reviewNote } = req.body as {
+      section: WorkEligibilitySectionKey;
+      status: WorkEligibilityVerificationStatus;
+      reviewNote?: string;
+    };
+
+    const allowedSections: WorkEligibilitySectionKey[] = [
+      "drivingTransportation",
+      "workAuthorizationDocumentation",
+      "physicalWorkplaceRequirements",
+      "schedulingWorkEnvironment",
+      "drugTestingSafetyPolicies",
+      "professionalLicensingCertifications",
+      "roleBasedCompatibilitySensitive",
+    ];
+    const allowedStatuses: WorkEligibilityVerificationStatus[] = [
+      "pending",
+      "verified",
+      "rejected",
+    ];
+
+    if (!allowedSections.includes(section)) {
+      return res.status(400).json({ error: "Invalid section" });
+    }
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid review status" });
+    }
+
+    const resume = await resumeServices.reviewWorkEligibilitySection(
+      userId,
+      section,
+      status as Exclude<WorkEligibilityVerificationStatus, "self_reported">,
+      reviewer.uid,
+      reviewNote
+    );
+
+    res.status(200).json({
+      message: "Work eligibility section reviewed successfully",
+      resume,
+    });
+  } catch (error: any) {
+    if (
+      error?.message?.includes("Evidence is required") ||
+      error?.message?.includes("self-attestation")
+    ) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error("Error reviewing work eligibility section:", error);
+    res.status(500).json({ error: error.message || "Failed to review work eligibility section" });
+  }
+};
+
+/**
  * Get resume by ID (for job applications - hiring manager can view)
  */
 export const getResumeById = async (req: Request, res: Response) => {
@@ -446,4 +536,3 @@ export const getCertifications = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message || "Failed to fetch certifications" });
   }
 };
-

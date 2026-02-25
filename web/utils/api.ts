@@ -160,6 +160,32 @@ export const activityAPI = {
     api.get('/admin/activities/recent', { params: { limit } }),
 };
 
+export const uploadAdminAPI = {
+  getFileAccessUrl: (publicId: string) =>
+    api.get('/upload/file-access-url', { params: { publicId } }),
+};
+
+// ========== Resume Admin API ==========
+
+export const resumeAdminAPI = {
+  getResumeByUserId: (userId: string) => api.get(`/resumes/admin/by-user/${userId}`),
+  reviewWorkEligibilitySection: (
+    userId: string,
+    data: {
+      section:
+        | 'drivingTransportation'
+        | 'workAuthorizationDocumentation'
+        | 'physicalWorkplaceRequirements'
+        | 'schedulingWorkEnvironment'
+        | 'drugTestingSafetyPolicies'
+        | 'professionalLicensingCertifications'
+        | 'roleBasedCompatibilitySensitive';
+      status: 'pending' | 'verified' | 'rejected';
+      reviewNote?: string;
+    }
+  ) => api.put(`/resumes/${userId}/work-eligibility/review`, data),
+};
+
 // ========== Consultant API ==========
 
 export const consultantAPI = {

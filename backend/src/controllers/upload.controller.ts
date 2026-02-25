@@ -65,6 +65,23 @@ const uploadFile = multer({
   },
 });
 
+const getExtensionFromFile = (file: Express.Multer.File): string => {
+  const name = file.originalname || '';
+  const dotIndex = name.lastIndexOf('.');
+  if (dotIndex !== -1 && dotIndex < name.length - 1) {
+    return name.substring(dotIndex + 1).toLowerCase();
+  }
+  if (file.mimetype === 'application/pdf') return 'pdf';
+  if (file.mimetype === 'application/msword') return 'doc';
+  if (
+    file.mimetype ===
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
+    return 'docx';
+  }
+  return 'bin';
+};
+
 // Middleware for single file upload with error handling (supports both image and video)
 export const uploadSingle = (req: Request, res: Response, next: any) => {
   console.log('📎 [uploadSingle] Multer middleware started');
@@ -523,13 +540,18 @@ export const uploadResumeFile = async (req: Request, res: Response) => {
     req.setTimeout(120000); // 2 minutes
     res.setTimeout(120000);
 
+    const fileExt = getExtensionFromFile(file);
+    const originalFileName = file.originalname || `document.${fileExt}`;
+
     // Upload to Cloudinary as raw file (not image)
     const result = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           resource_type: 'raw', // Use 'raw' for PDF/DOC files
           folder: `tray/${fileType}-files`,
-          public_id: `${userId}/${randomUUID()}`,
+          public_id: `${userId}/${randomUUID()}.${fileExt}`,
+          filename_override: originalFileName,
+          use_filename: false,
           timeout: 60000, // 60 second timeout for Cloudinary
         },
         (error, result) => {
@@ -543,12 +565,26 @@ export const uploadResumeFile = async (req: Request, res: Response) => {
         }
       ).end(file.buffer);
     });
+    const uploadedBytes = Number((result as any).bytes || 0);
+    if (uploadedBytes <= 0) {
+      return res.status(500).json({ error: "Uploaded file is empty. Please try again." });
+    }
+    if (uploadedBytes !== file.size) {
+      console.warn(
+        "⚠️ [uploadResumeFile] Uploaded byte size differs from source file size:",
+        { sourceBytes: file.size, uploadedBytes }
+      );
+    }
 
     res.status(200).json({
       message: "File uploaded successfully",
       imageUrl: (result as any).secure_url, // Keep as imageUrl for compatibility
+      fileUrl: (result as any).secure_url,
       url: (result as any).secure_url, // Also provide as url
       publicId: (result as any).public_id,
+      fileName: originalFileName,
+      mimeType: file.mimetype,
+      bytes: uploadedBytes,
     });
 
   } catch (error: any) {
@@ -587,6 +623,48 @@ export const getUploadSignature = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Get upload signature error:", error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+// Get signed access URL for raw files (PDF/DOC) when direct raw delivery is restricted
+export const getFileAccessUrl = async (req: Request, res: Response) => {
+  try {
+    const { publicId } = req.query as { publicId?: string };
+    if (!publicId) {
+      return res.status(400).json({ error: "publicId is required" });
+    }
+
+    const signedUrl = cloudinary.url(publicId, {
+      resource_type: "raw",
+      type: "upload",
+      secure: true,
+      sign_url: true,
+    });
+
+    // Cloudinary private download URL works better for locked-down raw delivery.
+    const extensionMatch = publicId.match(/\.([a-zA-Z0-9]+)$/);
+    const detectedFormat = extensionMatch ? extensionMatch[1].toLowerCase() : "pdf";
+    const publicIdWithoutExt = extensionMatch
+      ? publicId.replace(/\.[a-zA-Z0-9]+$/, "")
+      : publicId;
+
+    const privateDownloadUrl = cloudinary.utils.private_download_url(
+      publicIdWithoutExt,
+      detectedFormat,
+      {
+        resource_type: "raw",
+        type: "upload",
+        expires_at: Math.floor(Date.now() / 1000) + 60 * 10, // 10 min
+      } as any
+    );
+
+    return res.status(200).json({
+      url: privateDownloadUrl || signedUrl,
+      fallbackUrl: signedUrl,
+    });
+  } catch (error: any) {
+    console.error("Get file access URL error:", error);
+    return res.status(500).json({ error: error.message || "Failed to generate file URL" });
   }
 };
 

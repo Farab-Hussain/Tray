@@ -42,11 +42,11 @@ const WorkPreferences = ({ navigation }: any) => {
   const [newRestriction, setNewRestriction] = useState('');
   const [newJobToAvoid, setNewJobToAvoid] = useState('');
 
-  const transportationOptions = [
-    { value: 'own-car', label: 'Own Car' },
-    { value: 'public-transport', label: 'Public Transport' },
-    { value: 'none', label: 'None' }
-  ];
+  // const transportationOptions = [
+  //   { value: 'own-car', label: 'Own Car' },
+  //   { value: 'public-transport', label: 'Public Transport' },
+  //   { value: 'none', label: 'None' }
+  // ];
 
   const workTypeOptions = [
     'full-time',
@@ -260,30 +260,7 @@ const WorkPreferences = ({ navigation }: any) => {
           </View>
         </View>
 
-        <View style={studentProfileStyles.section}>
-          <Text style={studentProfileStyles.sectionTitle}>Transportation</Text>
-          
-          <View style={studentProfileStyles.sectionContent}>
-            {transportationOptions.map(option => (
-              <TouchableOpacity
-                key={option.value}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  padding: 12,
-                  borderWidth: 1,
-                  borderColor: workPreferences.transportationStatus === option.value ? COLORS.green : COLORS.lightGray,
-                  borderRadius: 8,
-                  marginBottom: 8
-                }}
-                onPress={() => setWorkPreferences(prev => ({ ...prev, transportationStatus: option.value as any }))}
-              >
-                <Car size={20} color={workPreferences.transportationStatus === option.value ? COLORS.green : COLORS.gray} />
-                <Text style={{ marginLeft: 12, fontSize: 16, color: COLORS.black }}>{option.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+    
 
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>Preferred Work Types</Text>
@@ -305,7 +282,6 @@ const WorkPreferences = ({ navigation }: any) => {
               >
                 <Briefcase size={20} color={workPreferences.preferredWorkTypes.includes(type) ? COLORS.green : COLORS.gray} />
                 <Text style={{ marginLeft: 12, fontSize: 16, textTransform: 'capitalize', color: COLORS.black }}>{type}</Text>
-                <Text style={{ marginLeft: 12, fontSize: 16, textTransform: 'capitalize' }}>{type}</Text>
               </TouchableOpacity>
             ))}
           </View>

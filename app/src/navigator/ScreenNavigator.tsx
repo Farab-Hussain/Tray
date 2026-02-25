@@ -356,7 +356,7 @@ const ScreenNavigator = () => {
           cardStyleInterpolator: slideFromRight,
         }}
       />
-      
+
       {/* Recruiter Profile Screen */}
       <Stack.Screen
         name="RecruiterProfile"

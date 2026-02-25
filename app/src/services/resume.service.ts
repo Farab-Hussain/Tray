@@ -1,7 +1,38 @@
 import { api } from '../lib/fetcher';
 
+export type WorkEligibilitySectionKey =
+  | 'drivingTransportation'
+  | 'workAuthorizationDocumentation'
+  | 'physicalWorkplaceRequirements'
+  | 'schedulingWorkEnvironment'
+  | 'drugTestingSafetyPolicies'
+  | 'professionalLicensingCertifications'
+  | 'roleBasedCompatibilitySensitive';
+
+export type WorkEligibilityVerificationStatus =
+  | 'self_reported'
+  | 'pending'
+  | 'verified'
+  | 'rejected';
+
+export interface WorkEligibilityEvidenceFile {
+  section: WorkEligibilitySectionKey;
+  fileUrl: string;
+  publicId?: string;
+  fileName: string;
+  uploadedAt: string;
+  status?: WorkEligibilityVerificationStatus;
+  reviewNote?: string;
+}
+
 export interface WorkEligibilityChecklist {
   selfAttestationAccepted?: boolean;
+  selfAttestationAcceptedAt?: string;
+  selfAttestationSource?: 'ios' | 'android' | 'web' | 'unknown';
+  verificationStatusBySection?: Partial<
+    Record<WorkEligibilitySectionKey, WorkEligibilityVerificationStatus>
+  >;
+  evidenceFiles?: WorkEligibilityEvidenceFile[];
   drivingTransportation?: {
     hasValidDriversLicense?: boolean;
     canMeetMvrRequirements?: boolean;

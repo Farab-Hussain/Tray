@@ -1,6 +1,11 @@
 import { db } from "../config/firebase";
 import { Timestamp } from "firebase-admin/firestore";
-import { Resume, ResumeInput } from "../models/resume.model";
+import {
+  Resume,
+  ResumeInput,
+  WorkEligibilitySectionKey,
+  WorkEligibilityVerificationStatus,
+} from "../models/resume.model";
 
 const COLLECTION = "resumes";
 
@@ -470,6 +475,55 @@ export const resumeServices = {
       externalProfiles,
       overallCompletion: (completedSections / 5) * 100
     };
+  },
+
+  /**
+   * Admin review for one work-eligibility section.
+   */
+  async reviewWorkEligibilitySection(
+    targetUserId: string,
+    section: WorkEligibilitySectionKey,
+    status: Exclude<WorkEligibilityVerificationStatus, "self_reported">,
+    _reviewedBy: string,
+    reviewNote?: string
+  ): Promise<Resume> {
+    const existingResume = await this.getByUserId(targetUserId);
+    const checklist = existingResume.workEligibilityChecklist || {};
+    const sectionEvidence = Array.isArray(checklist.evidenceFiles)
+      ? checklist.evidenceFiles.filter(file => file.section === section)
+      : [];
+
+    if (!checklist.selfAttestationAccepted) {
+      throw new Error("Cannot review section before student self-attestation is accepted");
+    }
+
+    if ((status === "pending" || status === "verified") && sectionEvidence.length === 0) {
+      throw new Error("Evidence is required before marking section as pending or verified");
+    }
+
+    const verificationStatusBySection = {
+      ...(checklist.verificationStatusBySection || {}),
+      [section]: status,
+    };
+
+    const evidenceFiles = Array.isArray(checklist.evidenceFiles)
+      ? checklist.evidenceFiles.map(file =>
+          file.section === section
+            ? {
+                ...file,
+                status,
+                reviewNote: reviewNote || file.reviewNote,
+              }
+            : file
+        )
+      : [];
+
+    return this.update(existingResume.id, {
+      workEligibilityChecklist: {
+        ...checklist,
+        verificationStatusBySection,
+        evidenceFiles,
+      },
+    });
   }
 };
-

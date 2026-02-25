@@ -10,7 +10,8 @@ import {
   Shield, 
   Activity,
   TrendingUp,
-  LogOut
+  LogOut,
+  ClipboardCheck
 } from "lucide-react";
 import Image from "next/image";
 import React, { useState } from "react";
@@ -79,6 +80,13 @@ const LeftSide = () => {
       label: "User Management",
       icon: Shield,
       isActive: pathname.includes("/admin/users"),
+      showWhenCollapsed: true
+    },
+    {
+      href: "/admin/work-eligibility",
+      label: "Work Eligibility",
+      icon: ClipboardCheck,
+      isActive: pathname.includes("/admin/work-eligibility"),
       showWhenCollapsed: true
     },
     {

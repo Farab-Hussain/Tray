@@ -7,16 +7,36 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
-import { ResumeService, WorkEligibilityChecklist } from '../../../services/resume.service';
+import {
+  ResumeService,
+  WorkEligibilityChecklist,
+  WorkEligibilityEvidenceFile,
+  WorkEligibilitySectionKey,
+  WorkEligibilityVerificationStatus,
+} from '../../../services/resume.service';
+import UploadService from '../../../services/upload.service';
 import { showError, showSuccess } from '../../../utils/toast';
+import { Upload, Trash2 } from 'lucide-react-native';
+
+let DocumentPicker: any = null;
+try {
+  DocumentPicker = require('react-native-document-picker');
+} catch (_e) {
+  DocumentPicker = null;
+}
 
 const checklistDefaults: WorkEligibilityChecklist = {
   selfAttestationAccepted: false,
+  selfAttestationAcceptedAt: undefined,
+  selfAttestationSource: undefined,
+  verificationStatusBySection: {},
+  evidenceFiles: [],
   drivingTransportation: {},
   workAuthorizationDocumentation: {},
   physicalWorkplaceRequirements: {},
@@ -27,6 +47,30 @@ const checklistDefaults: WorkEligibilityChecklist = {
       'Examples may include: CDL, Real Estate, Insurance, Security, Healthcare credentials, etc.',
   },
   roleBasedCompatibilitySensitive: {},
+};
+
+const sectionLabels: Record<WorkEligibilitySectionKey, string> = {
+  drivingTransportation: 'Driving & Transportation',
+  workAuthorizationDocumentation: 'Work Authorization & Documentation',
+  physicalWorkplaceRequirements: 'Physical & Workplace Requirements',
+  schedulingWorkEnvironment: 'Scheduling & Work Environment',
+  drugTestingSafetyPolicies: 'Drug Testing & Safety Policies',
+  professionalLicensingCertifications: 'Professional Licensing & Certifications',
+  roleBasedCompatibilitySensitive: 'Role-Based Compatibility',
+};
+
+const statusColors: Record<WorkEligibilityVerificationStatus, string> = {
+  self_reported: COLORS.gray,
+  pending: COLORS.orange,
+  verified: COLORS.green,
+  rejected: COLORS.red,
+};
+
+const statusLabels: Record<WorkEligibilityVerificationStatus, string> = {
+  self_reported: 'Self-Reported',
+  pending: 'Pending Review',
+  verified: 'Verified',
+  rejected: 'Rejected',
 };
 
 const Row = ({
@@ -55,6 +99,7 @@ const Row = ({
 const AuthorizationDocuments = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingSection, setUploadingSection] = useState<WorkEligibilitySectionKey | null>(null);
   const [checklist, setChecklist] = useState<WorkEligibilityChecklist>(checklistDefaults);
 
   const loadChecklist = useCallback(async () => {
@@ -66,6 +111,11 @@ const AuthorizationDocuments = ({ navigation }: any) => {
         setChecklist({
           ...checklistDefaults,
           ...existing,
+          verificationStatusBySection: {
+            ...checklistDefaults.verificationStatusBySection,
+            ...existing.verificationStatusBySection,
+          },
+          evidenceFiles: Array.isArray(existing.evidenceFiles) ? existing.evidenceFiles : [],
           drivingTransportation: { ...checklistDefaults.drivingTransportation, ...existing.drivingTransportation },
           workAuthorizationDocumentation: {
             ...checklistDefaults.workAuthorizationDocumentation,
@@ -115,6 +165,194 @@ const AuthorizationDocuments = ({ navigation }: any) => {
     loadChecklist();
   }, [loadChecklist]);
 
+  const getSectionEvidence = (section: WorkEligibilitySectionKey): WorkEligibilityEvidenceFile | undefined =>
+    checklist.evidenceFiles?.find(file => file.section === section);
+
+  const getSectionStatus = (section: WorkEligibilitySectionKey): WorkEligibilityVerificationStatus => {
+    const explicitStatus = checklist.verificationStatusBySection?.[section];
+    if (explicitStatus) {
+      return explicitStatus;
+    }
+    return getSectionEvidence(section) ? 'pending' : 'self_reported';
+  };
+
+  const handleAttachEvidence = async (section: WorkEligibilitySectionKey) => {
+    try {
+      if (!DocumentPicker || !DocumentPicker.pick) {
+        showError('Document picker is not available. Please rebuild the app to enable upload.');
+        return;
+      }
+
+      setUploadingSection(section);
+      const result = await DocumentPicker.pick({
+        type: [
+          DocumentPicker.types.pdf,
+          DocumentPicker.types.doc,
+          DocumentPicker.types.docx,
+          DocumentPicker.types.images,
+        ],
+        copyTo: 'cachesDirectory',
+      });
+
+      if (!result || result.length === 0) {
+        return;
+      }
+
+      const file = result[0];
+      const uploadResult = await UploadService.uploadFile(
+        {
+          uri: file.uri,
+          type: file.type || 'application/pdf',
+          name: file.name || `${section}.pdf`,
+          fileName: file.name || `${section}.pdf`,
+        },
+        'resume',
+      );
+      const uploadedFileUrl =
+        uploadResult.imageUrl || (uploadResult as any).fileUrl || uploadResult.videoUrl || '';
+      if (!uploadedFileUrl) {
+        throw new Error('Upload completed but no file URL was returned.');
+      }
+
+      const uploadedEvidence: WorkEligibilityEvidenceFile = {
+        section,
+        fileUrl: uploadedFileUrl,
+        publicId: uploadResult.publicId,
+        fileName: file.name || `${section}.pdf`,
+        uploadedAt: new Date().toISOString(),
+        status: 'pending',
+      };
+
+      const nextChecklist = {
+        ...checklist,
+        evidenceFiles: [...(checklist.evidenceFiles || []).filter(item => item.section !== section), uploadedEvidence],
+        verificationStatusBySection: {
+          ...(checklist.verificationStatusBySection || {}),
+          [section]: 'pending' as const,
+        },
+      };
+
+      setChecklist(nextChecklist);
+
+      await ResumeService.updateResume({
+        workEligibilityChecklist: nextChecklist,
+      });
+
+      showSuccess(`Evidence uploaded and saved for ${sectionLabels[section]}`);
+    } catch (error: any) {
+      if (DocumentPicker?.isCancel && DocumentPicker.isCancel(error)) {
+        return;
+      }
+      showError(error?.message || 'Failed to attach evidence');
+    } finally {
+      setUploadingSection(null);
+    }
+  };
+
+  const handleRemoveEvidence = (section: WorkEligibilitySectionKey) => {
+    setChecklist(prev => ({
+      ...prev,
+      evidenceFiles: (prev.evidenceFiles || []).filter(item => item.section !== section),
+      verificationStatusBySection: {
+        ...(prev.verificationStatusBySection || {}),
+        [section]: 'self_reported',
+      },
+    }));
+  };
+
+  const markPendingReview = (section: WorkEligibilitySectionKey) => {
+    if (!getSectionEvidence(section)) {
+      Alert.alert('Evidence Required', 'Attach a proof document before submitting this section for review.');
+      return;
+    }
+    setChecklist(prev => ({
+      ...prev,
+      verificationStatusBySection: {
+        ...(prev.verificationStatusBySection || {}),
+        [section]: 'pending',
+      },
+    }));
+    showSuccess(`${sectionLabels[section]} submitted for review`);
+  };
+
+  const renderSectionMeta = (section: WorkEligibilitySectionKey) => {
+    const status = getSectionStatus(section);
+    const evidence = getSectionEvidence(section);
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text
+            style={{
+              color: statusColors[status],
+              fontSize: 12,
+              fontWeight: '700',
+              textTransform: 'uppercase',
+            }}
+          >
+            {statusLabels[status]}
+          </Text>
+          <TouchableOpacity
+            onPress={() => markPendingReview(section)}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: COLORS.lightGray,
+            }}
+          >
+            <Text style={{ fontSize: 12, color: COLORS.black }}>Submit Review</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => handleAttachEvidence(section)}
+            disabled={uploadingSection === section}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: COLORS.blue,
+              paddingVertical: 8,
+              paddingHorizontal: 10,
+              borderRadius: 8,
+              opacity: uploadingSection === section ? 0.7 : 1,
+            }}
+          >
+            <Upload size={14} color={COLORS.white} />
+            <Text style={{ color: COLORS.white, marginLeft: 6, fontSize: 12 }}>
+              {uploadingSection === section ? 'Uploading...' : 'Attach Proof'}
+            </Text>
+          </TouchableOpacity>
+          {evidence ? (
+            <TouchableOpacity
+              onPress={() => handleRemoveEvidence(section)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: COLORS.lightGray,
+                paddingVertical: 8,
+                paddingHorizontal: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Trash2 size={14} color={COLORS.black} />
+              <Text style={{ color: COLORS.black, marginLeft: 6, fontSize: 12 }}>Remove</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        {evidence ? (
+          <Text style={{ marginTop: 8, color: COLORS.gray, fontSize: 12 }}>
+            Attached: {evidence.fileName}
+          </Text>
+        ) : (
+          <Text style={{ marginTop: 8, color: COLORS.gray, fontSize: 12 }}>
+            No evidence uploaded yet.
+          </Text>
+        )}
+      </View>
+    );
+  };
+
   const handleSave = async () => {
     if (!checklist.selfAttestationAccepted) {
       Alert.alert('Confirmation Required', 'Please acknowledge the self-attestation disclaimer before saving.');
@@ -123,8 +361,18 @@ const AuthorizationDocuments = ({ navigation }: any) => {
 
     try {
       setSaving(true);
+      const normalizedChecklist: WorkEligibilityChecklist = {
+        ...checklist,
+        selfAttestationAcceptedAt: checklist.selfAttestationAcceptedAt || new Date().toISOString(),
+        selfAttestationSource:
+          checklist.selfAttestationSource ||
+          (Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'unknown'),
+        evidenceFiles: checklist.evidenceFiles || [],
+        verificationStatusBySection: checklist.verificationStatusBySection || {},
+      };
+
       await ResumeService.updateResume({
-        workEligibilityChecklist: checklist,
+        workEligibilityChecklist: normalizedChecklist,
       });
       showSuccess('Private checklist saved');
       navigation.goBack();
@@ -173,14 +421,27 @@ const AuthorizationDocuments = ({ navigation }: any) => {
             <Row
               label="I understand and accept this self-attestation disclaimer"
               value={checklist.selfAttestationAccepted}
-              onChange={next => setChecklist(prev => ({ ...prev, selfAttestationAccepted: next }))}
+              onChange={next =>
+                setChecklist(prev => ({
+                  ...prev,
+                  selfAttestationAccepted: next,
+                  selfAttestationAcceptedAt: next ? prev.selfAttestationAcceptedAt : undefined,
+                  selfAttestationSource: next ? prev.selfAttestationSource : undefined,
+                }))
+              }
             />
+            {checklist.selfAttestationAcceptedAt ? (
+              <Text style={{ color: COLORS.gray, fontSize: 12 }}>
+                Last attested: {new Date(checklist.selfAttestationAcceptedAt).toLocaleString()}
+              </Text>
+            ) : null}
           </View>
         </View>
 
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>1️⃣ Driving & Transportation</Text>
           <View style={studentProfileStyles.sectionContent}>
+            {renderSectionMeta('drivingTransportation')}
             <Row
               label="I have a valid driver’s license"
               value={checklist.drivingTransportation?.hasValidDriversLicense}
@@ -227,6 +488,7 @@ const AuthorizationDocuments = ({ navigation }: any) => {
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>2️⃣ Work Authorization & Documentation</Text>
           <View style={studentProfileStyles.sectionContent}>
+            {renderSectionMeta('workAuthorizationDocumentation')}
             <Row
               label="I have valid identification required for employment (I-9 compliant)"
               value={checklist.workAuthorizationDocumentation?.hasValidI9Identification}
@@ -259,6 +521,7 @@ const AuthorizationDocuments = ({ navigation }: any) => {
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>3️⃣ Physical & Workplace Requirements</Text>
           <View style={studentProfileStyles.sectionContent}>
+            {renderSectionMeta('physicalWorkplaceRequirements')}
             <Row
               label="I can perform essential physical job functions (standing, lifting, repetitive tasks)"
               value={checklist.physicalWorkplaceRequirements?.canPerformEssentialPhysicalFunctions}
@@ -291,6 +554,7 @@ const AuthorizationDocuments = ({ navigation }: any) => {
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>4️⃣ Scheduling & Work Environment</Text>
           <View style={studentProfileStyles.sectionContent}>
+            {renderSectionMeta('schedulingWorkEnvironment')}
             <Row
               label="I can work nights / weekends / rotating shifts"
               value={checklist.schedulingWorkEnvironment?.canWorkNightsWeekendsRotating}
@@ -336,6 +600,7 @@ const AuthorizationDocuments = ({ navigation }: any) => {
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>5️⃣ Drug Testing & Safety Policies</Text>
           <View style={studentProfileStyles.sectionContent}>
+            {renderSectionMeta('drugTestingSafetyPolicies')}
             <Row
               label="I can pass a drug screening if required"
               value={checklist.drugTestingSafetyPolicies?.canPassDrugScreening}
@@ -368,6 +633,7 @@ const AuthorizationDocuments = ({ navigation }: any) => {
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>6️⃣ Professional Licensing & Certifications</Text>
           <View style={studentProfileStyles.sectionContent}>
+            {renderSectionMeta('professionalLicensingCertifications')}
             <Row
               label="I am eligible to hold or obtain required professional licenses"
               value={checklist.professionalLicensingCertifications?.eligibleToObtainRequiredLicenses}
@@ -403,6 +669,7 @@ const AuthorizationDocuments = ({ navigation }: any) => {
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>7️⃣ Role-Based Compatibility (Private & Sensitive)</Text>
           <View style={studentProfileStyles.sectionContent}>
+            {renderSectionMeta('roleBasedCompatibilitySensitive')}
             <Row
               label="I have no active restrictions that would prevent work involving minors"
               value={checklist.roleBasedCompatibilitySensitive?.noRestrictionsForWorkWithMinors}

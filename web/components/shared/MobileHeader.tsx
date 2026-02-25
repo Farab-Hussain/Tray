@@ -14,7 +14,8 @@ import {
   BookOpen,
   MessageSquare,
   Activity,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  ClipboardCheck
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -58,6 +59,12 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ title, onSearch }) => {
       href: '/admin/users',
       icon: Shield,
       current: pathname.startsWith('/admin/users')
+    },
+    {
+      name: 'Work Eligibility',
+      href: '/admin/work-eligibility',
+      icon: ClipboardCheck,
+      current: pathname.startsWith('/admin/work-eligibility')
     },
     {
       name: 'Analytics',

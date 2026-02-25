@@ -22,12 +22,14 @@ import {
   getExternalProfiles,
   updateMultipleSections,
   getProfileCompletionStatus,
+  getResumeByUserIdAdmin,
+  reviewWorkEligibilitySection,
 } from "../controllers/resume.controller";
 import {
   validateCreateResume,
   validateUpdateResume,
 } from "../middleware/validation";
-import { authenticateUser } from "../middleware/authMiddleware";
+import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
 import { enforceDocumentSecurity, sanitizeDocumentForEmployer, logDocumentAccess } from "../middleware/documentSecurity.middleware";
 
 const router = express.Router();
@@ -36,7 +38,6 @@ const router = express.Router();
 
 router.post("/", authenticateUser(), validateCreateResume, createOrUpdateResume); // POST /resumes - Create/update resume
 router.get("/my", authenticateUser(), getMyResume); // GET /resumes/my - Get my resume
-router.get("/:id", authenticateUser(), logDocumentAccess, enforceDocumentSecurity, sanitizeDocumentForEmployer, getResumeById); // GET /resumes/:id - Get resume by ID (for job applications)
 router.put("/", authenticateUser(), updateResume); // PUT /resumes - Update resume
 router.put("/skills", authenticateUser(), updateResumeSkills); // PUT /resumes/skills - Update skills in resume
 router.delete("/", authenticateUser(), deleteResume); // DELETE /resumes - Delete resume
@@ -73,5 +74,23 @@ router.put("/multiple-sections", authenticateUser(), updateMultipleSections); //
 // Profile Completion Status
 router.get("/completion-status", authenticateUser(), getProfileCompletionStatus); // GET /resumes/completion-status
 
-export default router;
+// Admin: fetch resume by user ID
+router.get(
+  "/admin/by-user/:userId",
+  authenticateUser(),
+  authorizeRole(["admin"]),
+  getResumeByUserIdAdmin
+); // GET /resumes/admin/by-user/:userId
 
+// Admin review for one eligibility section
+router.put(
+  "/:userId/work-eligibility/review",
+  authenticateUser(),
+  authorizeRole(["admin"]),
+  reviewWorkEligibilitySection
+); // PUT /resumes/:userId/work-eligibility/review
+
+// Keep dynamic :id route last so it does not swallow static endpoints above.
+router.get("/:id", authenticateUser(), logDocumentAccess, enforceDocumentSecurity, sanitizeDocumentForEmployer, getResumeById); // GET /resumes/:id - Get resume by ID (for job applications)
+
+export default router;

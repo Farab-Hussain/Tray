@@ -322,6 +322,8 @@ api.interceptors.response.use(
     const isService404 =
       status === 404 && url.includes('/consultants/services/');
     const isResume404 = status === 404 && url.includes('/resumes/my');
+    const isWorkPreferences404 =
+      status === 404 && url.includes('/resumes/work-preferences');
     const isCourseListRequest =
       url.includes('/courses/public') ||
       url.includes('/courses/search') ||
@@ -365,6 +367,7 @@ api.interceptors.response.use(
       !isCourseListRequest &&
       !isCourseList404 &&
       !isResume404 &&
+      !isWorkPreferences404 &&
       !(
         status === 403 &&
         url.includes('/auth/switch-role') &&
@@ -503,14 +506,15 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Don't show toast for expected 404s (availability, profile, user, service, resume not found)
+    // Don't show toast for expected 404s (availability, profile, user, service, resume/work-preferences not found)
     if (
       isAvailability404 ||
       isProfile404 ||
       isUser404 ||
       isService404 ||
       isCourseList404 ||
-      isResume404
+      isResume404 ||
+      isWorkPreferences404
     ) {
       // Only log expected 404s in dev mode, and only once per URL
       if (__DEV__) {

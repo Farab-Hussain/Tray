@@ -51,6 +51,16 @@ const StudentProfile = ({ navigation }: any) => {
   const [_imageCacheKey, _setImageCacheKey] = useState(0);
   const [profileCompletion, setProfileCompletion] = useState<any>(null);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const getWorkEligibilitySummaryStatus = (): string => {
+    const statuses = Object.values(
+      resume?.workEligibilityChecklist?.verificationStatusBySection || {},
+    );
+    if (statuses.includes('rejected')) return 'Evidence rejected';
+    if (statuses.includes('verified')) return 'Partially verified';
+    if (statuses.includes('pending')) return 'Verification pending';
+    if (resume?.workEligibilityChecklist?.selfAttestationAccepted) return 'Self-attested';
+    return 'Not started';
+  };
 
   const handleAnalyzeProfile = async (provider: AIProvider) => {
     try {
@@ -513,77 +523,6 @@ const StudentProfile = ({ navigation }: any) => {
               </View>
             </View>
 
-            {/* Action buttons for incomplete sections */}
-            {completionPercentage < 100 && (
-              <View style={{ marginTop: 12 }}>
-                {!profileCompletion?.hasResume && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: COLORS.green,
-                      borderRadius: 6,
-                      padding: 8,
-                      alignItems: 'center',
-                      marginBottom: 8,
-                    }}
-                    onPress={() => navigation.navigate('Resume')}
-                  >
-                    <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>
-                      Add Resume (+25%)
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {!profileCompletion?.workPreferences && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: COLORS.blue,
-                      borderRadius: 6,
-                      padding: 8,
-                      alignItems: 'center',
-                      marginBottom: 8,
-                    }}
-                    onPress={() => navigation.navigate('WorkPreferences')}
-                  >
-                    <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>
-                      Set Work Preferences (+20%)
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {!profileCompletion?.careerGoals && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: COLORS.purple,
-                      borderRadius: 6,
-                      padding: 8,
-                      alignItems: 'center',
-                    }}
-                    onPress={() => navigation.navigate('CareerGoals')}
-                  >
-                    <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>
-                      Set Career Goals (+15%)
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {!profileCompletion?.externalProfiles && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: COLORS.blue,
-                      borderRadius: 6,
-                      padding: 8,
-                      alignItems: 'center',
-                      marginTop: 8,
-                    }}
-                    onPress={() => navigation.navigate('ExternalProfilesScreen')}
-                  >
-                    <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>
-                      Add External Profiles (+10%)
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
           </View>
         </View>
 
@@ -648,7 +587,7 @@ const StudentProfile = ({ navigation }: any) => {
           icon={Briefcase}
           items={[
             {
-              label: 'Work Preferences',
+              label: 'Manage Preferences',
               subtext: 'Set your work restrictions, transportation, and preferred job types',
               onPress: () => navigation.navigate('WorkPreferences'),
               rightIcon: ChevronRight,
@@ -683,7 +622,7 @@ const StudentProfile = ({ navigation }: any) => {
             },
             ...(resume?.workEligibilityChecklist?.selfAttestationAccepted ? [{
               label: 'Status',
-              value: 'Self-attested',
+              value: getWorkEligibilitySummaryStatus(),
               icon: CheckCircle,
               iconColor: COLORS.green,
               showSeparator: false,
@@ -697,7 +636,7 @@ const StudentProfile = ({ navigation }: any) => {
           icon={Target}
           items={[
             {
-              label: 'Career Goals',
+              label: 'Manage Goals',
               subtext: 'Define your career interests and salary expectations',
               onPress: () => navigation.navigate('CareerGoals'),
               rightIcon: ChevronRight,
@@ -725,7 +664,7 @@ const StudentProfile = ({ navigation }: any) => {
           icon={GraduationCap}
           items={[
             {
-              label: 'Education',
+              label: 'Manage Education',
               subtext: 'Add your educational background and degrees',
               onPress: () => navigation.navigate('EducationScreen'),
               rightIcon: ChevronRight,
@@ -746,7 +685,7 @@ const StudentProfile = ({ navigation }: any) => {
           icon={Award}
           items={[
             {
-              label: 'Certifications',
+              label: 'Manage Certifications',
               subtext: 'Add professional certifications and credentials',
               onPress: () => navigation.navigate('CertificationsScreen'),
               rightIcon: ChevronRight,
@@ -767,7 +706,7 @@ const StudentProfile = ({ navigation }: any) => {
           icon={Globe}
           items={[
             {
-              label: 'External Profiles',
+              label: 'Manage Profiles',
               subtext: 'Add your LinkedIn, GitHub, and portfolio links',
               onPress: () => navigation.navigate('ExternalProfilesScreen'),
               rightIcon: ChevronRight,

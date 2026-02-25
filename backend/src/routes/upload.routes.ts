@@ -9,6 +9,7 @@ import {
   deleteProfileImage,
   deleteConsultantImage,
   getUploadSignature,
+  getFileAccessUrl,
   uploadFileMiddleware,
   uploadResumeFile,
 } from "../controllers/upload.controller";
@@ -25,5 +26,6 @@ router.post("/file", authenticateUser(), uploadFileMiddleware, uploadResumeFile)
 router.delete("/profile-image", authenticateUser(), deleteProfileImage);
 router.delete("/consultant-image", authenticateUser(), deleteConsultantImage);
 router.post("/upload-signature", authenticateUser(), getUploadSignature);
+router.get("/file-access-url", authenticateUser(), getFileAccessUrl);
 
 export default router;

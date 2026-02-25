@@ -122,6 +122,7 @@ export const studentProfileStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginTop: 10,
     marginBottom: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
