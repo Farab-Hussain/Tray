@@ -207,6 +207,20 @@ export const consultantAPI = {
     api.delete(`/consultants/services/${serviceId}`),
 };
 
+// ========== Company Admin API ==========
+export const companyAdminAPI = {
+  getAll: (params?: {
+    verificationStatus?: string;
+    industry?: string;
+    isActive?: boolean;
+    limit?: number;
+  }) => api.get('/companies/admin/all', { params }),
+  reviewVerification: (
+    verificationId: string,
+    data: { status: 'approved' | 'rejected'; rejectionReason?: string; adminNotes?: string }
+  ) => api.put(`/companies/admin/verification/${verificationId}`, data),
+};
+
 // ========== Booking API ==========
 
 export const bookingAPI = {

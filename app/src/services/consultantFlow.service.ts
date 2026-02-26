@@ -15,6 +15,19 @@ export interface ConsultantProfile {
     category: string;
     title?: string;
     specialties?: string[];
+    maxCaseload?: number;
+    placementRate?: number;
+    retentionRate?: number;
+    revenueGenerated?: number;
+    clientSatisfactionRating?: number;
+    picsInformedCertified?: boolean;
+    picsCertificationProof?: {
+      fileUrl: string;
+      publicId?: string;
+      fileName: string;
+      uploadedAt: string;
+      mimeType?: string;
+    };
   };
   status: 'pending' | 'approved' | 'rejected';
   reviewNotes?: string;
@@ -36,6 +49,12 @@ export interface ConsultantProfileInput {
     category: string;
     title?: string;
     specialties?: string[];
+    maxCaseload?: number;
+    placementRate?: number;
+    retentionRate?: number;
+    revenueGenerated?: number;
+    clientSatisfactionRating?: number;
+    picsInformedCertified?: boolean;
   };
 }
 

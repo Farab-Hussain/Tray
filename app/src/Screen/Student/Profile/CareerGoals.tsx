@@ -260,20 +260,34 @@ const CareerGoals = ({ navigation }: any) => {
 
         <View style={studentProfileStyles.section}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={studentProfileStyles.sectionTitle}>PICS Assessment Proof</Text>
+            <Text style={studentProfileStyles.sectionTitle}>PICS Assessment</Text>
+            <Switch
+              value={careerGoals.picsAssessmentCompleted}
+              onValueChange={(val) => {
+                setCareerGoals(prev => ({ ...prev, picsAssessmentCompleted: val }));
+                if (!val) setPicsProof(undefined);
+              }}
+            />
+          </View>
+          <Text style={{ color: COLORS.gray, marginTop: 4 }}>
+            Upload proof and toggle on when completed.
+          </Text>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+            <Text style={{ color: COLORS.gray, flex: 1, marginRight: 10 }}>
+              Certificate or screenshot for PICS.
+            </Text>
             <TouchableOpacity
               onPress={async () => {
                 try {
+                  if (!careerGoals.picsAssessmentCompleted) {
+                    showError('Toggle PICS on before uploading proof');
+                    return;
+                  }
                   setPicsUploading(true);
-                  // Use the same UploadService file picker as other uploads
                   const picker = require('react-native-document-picker');
                   const res = await picker.pick({
-                    type: [
-                      picker.types.images,
-                      picker.types.pdf,
-                      picker.types.doc,
-                      picker.types.docx,
-                    ],
+                    type: [picker.types.images, picker.types.pdf, picker.types.doc, picker.types.docx],
                   });
                   const file = res?.[0] || res;
                   if (!file) return;
@@ -288,7 +302,7 @@ const CareerGoals = ({ navigation }: any) => {
                   };
                   setPicsProof(proof);
                   setCareerGoals(prev => ({ ...prev, picsAssessmentCompleted: true }));
-                  showSuccess('Proof uploaded and PICS marked as completed');
+                  showSuccess('Proof uploaded');
                 } catch (err: any) {
                   if (err?.message?.includes('cancel')) return;
                   showError(err?.message || 'Failed to upload proof');
@@ -300,7 +314,7 @@ const CareerGoals = ({ navigation }: any) => {
                 paddingHorizontal: 12,
                 paddingVertical: 8,
                 borderRadius: 8,
-                backgroundColor: COLORS.blue,
+                backgroundColor: careerGoals.picsAssessmentCompleted ? COLORS.blue : COLORS.lightGray,
                 opacity: picsUploading ? 0.6 : 1,
               }}
               disabled={picsUploading}
@@ -322,11 +336,7 @@ const CareerGoals = ({ navigation }: any) => {
                 <X size={16} color={COLORS.red} />
               </TouchableOpacity>
             </View>
-          ) : (
-            <Text style={{ color: COLORS.gray, marginTop: 8 }}>
-              Upload a certificate or screenshot to support the PICS completion claim.
-            </Text>
-          )}
+          ) : null}
         </View>
 
         <View style={studentProfileStyles.section}>
@@ -348,19 +358,6 @@ const CareerGoals = ({ navigation }: any) => {
               multiline
             />
           </View>
-        </View>
-
-        <View style={studentProfileStyles.section}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={studentProfileStyles.sectionTitle}>PICS Assessment Completed</Text>
-            <Switch
-              value={careerGoals.picsAssessmentCompleted}
-              onValueChange={(val) => setCareerGoals(prev => ({ ...prev, picsAssessmentCompleted: val }))}
-            />
-          </View>
-          <Text style={{ color: COLORS.gray, marginTop: 6 }}>
-            Toggle on if you have finished the PICS assessment.
-          </Text>
         </View>
 
 

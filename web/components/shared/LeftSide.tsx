@@ -90,6 +90,13 @@ const LeftSide = () => {
       showWhenCollapsed: true
     },
     {
+      href: "/admin/company-verifications",
+      label: "Company Verifications",
+      icon: ClipboardCheck,
+      isActive: pathname.includes("/admin/company-verifications"),
+      showWhenCollapsed: true
+    },
+    {
       href: "/admin/analytics",
       label: "Analytics",
       icon: TrendingUp,

@@ -25,6 +25,18 @@ export interface ConsultantProfile {
     hourlyRate?: number;
     availability?: Record<string, string[]>; // Legacy format: monday: ["10:00", "12:00"]
     availabilitySlots?: AvailabilitySlot[]; // New format: specific dates with time slots
+    maxCaseload?: number;
+    placementRate?: number;
+    retentionRate?: number;
+    revenueGenerated?: number;
+    picsInformedCertified?: boolean;
+    picsCertificationProof?: {
+      fileUrl: string;
+      publicId?: string;
+      fileName: string;
+      uploadedAt: string;
+      mimeType?: string;
+    };
   };
   status: "pending" | "approved" | "rejected";
   createdAt: Timestamp;
@@ -51,5 +63,10 @@ export interface ConsultantProfileInput {
     hourlyRate?: number;
     availability?: Record<string, string[]>;
     availabilitySlots?: AvailabilitySlot[];
+    maxCaseload?: number;
+    placementRate?: number;
+    retentionRate?: number;
+    revenueGenerated?: number;
+    picsInformedCertified?: boolean;
   };
 }

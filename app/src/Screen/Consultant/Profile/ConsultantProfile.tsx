@@ -11,6 +11,8 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  Switch,
+  StyleSheet,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -18,7 +20,8 @@ import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserService } from '../../../services/user.service';
 import { getConsultantProfile, updateConsultantProfile } from '../../../services/consultantFlow.service';
-import { User, Lock, Mail, Edit2, CheckCircle, Award, Briefcase, BookOpen, Star,  X } from 'lucide-react-native';
+import UploadService from '../../../services/upload.service';
+import { User, Lock, Mail, Edit2, CheckCircle, Award, Briefcase, BookOpen, Star, TrendingUp, Activity, BarChart3, DollarSign, ShieldCheck, Upload, X } from 'lucide-react-native';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import Loader from '../../../components/ui/Loader';
 import { useRefresh } from '../../../hooks/useRefresh';
@@ -48,6 +51,8 @@ const ConsultantProfile = ({ navigation }: any) => {
   const [newQualificationImagePublicId, setNewQualificationImagePublicId] = useState<string | null>(null);
   const [certificateViewerVisible, setCertificateViewerVisible] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
+  const [picsProof, setPicsProof] = useState<any>(null);
+  const [picsUploading, setPicsUploading] = useState(false);
 
   const fetchProfileData = useCallback(async () => {
     if (!user) {
@@ -126,7 +131,23 @@ const ConsultantProfile = ({ navigation }: any) => {
         updatedProfile.personalInfo[fieldPath] = editValue;
       } else if (editField.includes('professionalInfo.')) {
         const fieldPath = editField.replace('professionalInfo.', '');
-        updatedProfile.professionalInfo[fieldPath] = editValue;
+        const numericFields = ['maxCaseload', 'placementRate', 'retentionRate', 'revenueGenerated', 'clientSatisfactionRating'];
+        if (numericFields.includes(fieldPath)) {
+          const numVal = Number(editValue);
+
+          // Prevent saving non-numeric values (e.g., "10a") while keeping UX consistent
+          if (editValue === '' || Number.isNaN(numVal)) {
+            showError('Please enter a valid number');
+            setIsUpdating(false);
+            return;
+          }
+
+          updatedProfile.professionalInfo[fieldPath] = numVal;
+        } else if (fieldPath === 'picsInformedCertified') {
+          updatedProfile.professionalInfo[fieldPath] = editValue === 'true' || editValue === true;
+        } else {
+          updatedProfile.professionalInfo[fieldPath] = editValue;
+        }
       }
 
       await updateConsultantProfile(user.uid, updatedProfile);
@@ -490,6 +511,225 @@ const ConsultantProfile = ({ navigation }: any) => {
           </View>
         </View>
 
+        {/* Capacity & Metrics Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Capacity & Metrics</Text>
+
+          <TouchableOpacity
+            style={styles.infoItem}
+            onPress={() => openEditModal('professionalInfo.maxCaseload', String(consultantProfile?.professionalInfo?.maxCaseload || ''), 'Max Caseload')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.infoItemLeft}>
+              <View style={styles.iconContainer}>
+                <Activity size={20} color={COLORS.green} />
+              </View>
+              <View style={styles.infoItemText}>
+                <Text style={styles.infoLabel}>Max Caseload</Text>
+                <Text style={styles.infoValue}>
+                  {consultantProfile?.professionalInfo?.maxCaseload ?? 'Not set'}
+                </Text>
+              </View>
+            </View>
+            <Edit2 size={18} color={COLORS.gray} />
+          </TouchableOpacity>
+          <View style={styles.separator} />
+
+          <TouchableOpacity
+            style={styles.infoItem}
+            onPress={() => openEditModal('professionalInfo.placementRate', String(consultantProfile?.professionalInfo?.placementRate || ''), 'Placement Rate (%)')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.infoItemLeft}>
+              <View style={styles.iconContainer}>
+                <TrendingUp size={20} color={COLORS.green} />
+              </View>
+              <View style={styles.infoItemText}>
+                <Text style={styles.infoLabel}>Placement Rate</Text>
+                <Text style={styles.infoValue}>
+                  {consultantProfile?.professionalInfo?.placementRate != null
+                    ? `${consultantProfile.professionalInfo.placementRate}%`
+                    : 'Not set'}
+                </Text>
+              </View>
+            </View>
+            <Edit2 size={18} color={COLORS.gray} />
+          </TouchableOpacity>
+          <View style={styles.separator} />
+
+          <TouchableOpacity
+            style={styles.infoItem}
+            onPress={() => openEditModal('professionalInfo.retentionRate', String(consultantProfile?.professionalInfo?.retentionRate || ''), 'Retention Rate (%)')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.infoItemLeft}>
+              <View style={styles.iconContainer}>
+                <BarChart3 size={20} color={COLORS.green} />
+              </View>
+              <View style={styles.infoItemText}>
+                <Text style={styles.infoLabel}>Retention Rate</Text>
+                <Text style={styles.infoValue}>
+                  {consultantProfile?.professionalInfo?.retentionRate != null
+                    ? `${consultantProfile.professionalInfo.retentionRate}%`
+                    : 'Not set'}
+                </Text>
+              </View>
+            </View>
+            <Edit2 size={18} color={COLORS.gray} />
+          </TouchableOpacity>
+          <View style={styles.separator} />
+
+          <TouchableOpacity
+            style={styles.infoItem}
+            onPress={() => openEditModal('professionalInfo.revenueGenerated', String(consultantProfile?.professionalInfo?.revenueGenerated || ''), 'Revenue Generated')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.infoItemLeft}>
+              <View style={styles.iconContainer}>
+                <DollarSign size={20} color={COLORS.green} />
+              </View>
+              <View style={styles.infoItemText}>
+                <Text style={styles.infoLabel}>Revenue Generated</Text>
+                <Text style={styles.infoValue}>
+                  {consultantProfile?.professionalInfo?.revenueGenerated != null
+                    ? `$${consultantProfile.professionalInfo.revenueGenerated}`
+                    : 'Not set'}
+                </Text>
+              </View>
+            </View>
+            <Edit2 size={18} color={COLORS.gray} />
+          </TouchableOpacity>
+          <View style={styles.separator} />
+
+          <TouchableOpacity
+            style={styles.infoItem}
+            onPress={() => openEditModal('professionalInfo.clientSatisfactionRating', String(consultantProfile?.professionalInfo?.clientSatisfactionRating || ''), 'Client Satisfaction Rating')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.infoItemLeft}>
+              <View style={styles.iconContainer}>
+                <Star size={20} color={COLORS.orange} />
+              </View>
+              <View style={styles.infoItemText}>
+                <Text style={styles.infoLabel}>Client Satisfaction Rating</Text>
+                <Text style={styles.infoValue}>
+                  {consultantProfile?.professionalInfo?.clientSatisfactionRating != null
+                    ? `${consultantProfile.professionalInfo.clientSatisfactionRating}%`
+                    : 'Not set'}
+                </Text>
+              </View>
+            </View>
+            <Edit2 size={18} color={COLORS.gray} />
+          </TouchableOpacity>
+          <View style={styles.separator} />
+
+          <View style={[styles.picsCard]}>
+            <View style={styles.picsHeaderRow}>
+              <View style={styles.picsTitleRow}>
+                <View style={styles.iconContainer}>
+                  <ShieldCheck size={20} color={COLORS.green} />
+                </View>
+                <View>
+                  <Text style={styles.infoLabel}>PICS Assessment</Text>
+                  <Text style={{ color: COLORS.gray, fontSize: 12 }}>Upload proof and toggle on when completed.</Text>
+                </View>
+              </View>
+              <Switch
+                value={consultantProfile?.professionalInfo?.picsInformedCertified || false}
+                onValueChange={async (val) => {
+                  const updatedProfile = { ...consultantProfile };
+                  updatedProfile.professionalInfo = updatedProfile.professionalInfo || {};
+                  updatedProfile.professionalInfo.picsInformedCertified = val;
+                  if (!val) {
+                    updatedProfile.professionalInfo.picsCertificationProof = undefined;
+                    setPicsProof(null);
+                  }
+                  await updateConsultantProfile(user?.uid, updatedProfile);
+                  setConsultantProfile(updatedProfile);
+                }}
+              />
+            </View>
+
+            <View style={styles.picsUploadRow}>
+              <Text style={{ color: COLORS.gray, flex: 1, marginRight: 10 }}>Certificate or screenshot for PICS.</Text>
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    if (!consultantProfile?.professionalInfo?.picsInformedCertified) {
+                      showError('Toggle PICS on before uploading proof');
+                      return;
+                    }
+                    setPicsUploading(true);
+                    const picker = require('react-native-document-picker');
+                    const res = await picker.pick({
+                      type: [picker.types.images, picker.types.pdf, picker.types.doc, picker.types.docx],
+                    });
+                    const file = res?.[0] || res;
+                    if (!file) return;
+
+                    const uploadRes = await UploadService.uploadFile(file, 'pics-proof');
+                    const proof = {
+                      fileUrl: uploadRes?.fileUrl || uploadRes?.imageUrl || uploadRes?.url,
+                      publicId: uploadRes?.publicId,
+                      fileName: uploadRes?.fileName || file?.name || 'document',
+                      mimeType: file?.type,
+                      uploadedAt: new Date().toISOString(),
+                    };
+                    const updatedProfile = { ...consultantProfile };
+                    updatedProfile.professionalInfo = updatedProfile.professionalInfo || {};
+                    updatedProfile.professionalInfo.picsCertificationProof = proof;
+                    updatedProfile.professionalInfo.picsInformedCertified = true;
+                    await updateConsultantProfile(user?.uid, updatedProfile);
+                    setConsultantProfile(updatedProfile);
+                    setPicsProof(proof);
+                    showSuccess('Proof uploaded');
+                  } catch (err: any) {
+                    if (err?.message?.includes('cancel')) return;
+                    showError(err?.message || 'Failed to upload proof');
+                  } finally {
+                    setPicsUploading(false);
+                  }
+                }}
+                style={[
+                  styles.uploadButton,
+                  {
+                    backgroundColor: consultantProfile?.professionalInfo?.picsInformedCertified
+                      ? COLORS.blue
+                      : COLORS.lightGray,
+                    opacity: picsUploading ? 0.6 : 1,
+                  },
+                ]}
+                disabled={picsUploading}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Upload size={16} color={COLORS.white} />
+                  <Text style={{ color: COLORS.white, fontWeight: '600' }}>
+                    {picsUploading ? 'Uploading...' : 'Upload Proof'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {consultantProfile?.professionalInfo?.picsCertificationProof ? (
+              <View style={[studentProfileStyles.quickInfo, { marginTop: 10, alignSelf: 'stretch' }]}>
+                <ShieldCheck size={16} color={COLORS.green} />
+                <Text style={studentProfileStyles.quickInfoText}>{consultantProfile.professionalInfo.picsCertificationProof.fileName}</Text>
+                <TouchableOpacity
+                  onPress={async () => {
+                    const updatedProfile = { ...consultantProfile };
+                    updatedProfile.professionalInfo.picsCertificationProof = undefined;
+                    await updateConsultantProfile(user?.uid, updatedProfile);
+                    setConsultantProfile(updatedProfile);
+                    setPicsProof(null);
+                  }}
+                >
+                  <X size={16} color={COLORS.red} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
         {/* Qualifications/Certifications Section */}
         {consultantProfile?.personalInfo?.qualifications && 
          consultantProfile.personalInfo.qualifications.length > 0 && (
@@ -764,7 +1004,44 @@ const ConsultantProfile = ({ navigation }: any) => {
   );
 };
 
-const styles = studentProfileStyles;
+const styles = StyleSheet.create({
+  ...studentProfileStyles,
+  picsCard: {
+    width: '100%',
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#EDF1F4',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  picsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  picsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  picsUploadRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  uploadButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+});
 
 export default ConsultantProfile;
-

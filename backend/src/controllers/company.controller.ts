@@ -400,6 +400,7 @@ export const reviewCompanyVerification = async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'Rejection reason is required when rejecting' });
     }
 
+    // Ensure the verification document exists and belongs to a company
     const verification = await CompanyService.reviewVerification(verificationId, {
       status,
       rejectionReason,

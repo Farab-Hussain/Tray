@@ -14,6 +14,19 @@ export interface Company {
   contactInfo: CompanyContactInfo;
   socialLinks: CompanySocialLinks;
   fairChanceHiring: FairChanceHiringSettings;
+  // Extended business fields
+  hiringVolumeMonthly?: string;
+  hiringRequirements?: string;
+  backgroundPolicyType?: string;
+  drugTestingPolicy?: string;
+  requiredCertifications?: string;
+  shiftRequirements?: string;
+  transportationRequired?: boolean;
+  payRange?: string;
+  benefitsOffered?: string;
+  retention90DayRate?: string;
+  referralFeeAgreement?: string;
+  workforcePartnerLevel?: string;
   verificationStatus: 'pending' | 'verified' | 'rejected' | 'not_submitted';
   verificationDocuments?: string[];
   verificationSubmittedAt?: string;

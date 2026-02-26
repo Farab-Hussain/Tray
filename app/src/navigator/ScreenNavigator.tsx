@@ -31,6 +31,7 @@ import CertificationsScreen from '../Screen/Student/Profile/CertificationsScreen
 import SkillsScreen from '../Screen/Student/Profile/SkillsScreen';
 import ExternalProfilesScreen from '../Screen/Student/Profile/ExternalProfilesScreen';
 import RecruiterProfile from '../Screen/Recruiter/Profile/RecruiterProfile';
+import CompanyProfileScreen from '../Screen/Recruiter/Company/CompanyProfileScreen';
 import ConsultantProfile from '../Screen/Consultant/Profile/ConsultantProfile';
 import RecruiterJobs from '../Screen/Recruiter/Jobs/RecruiterJobs';
 import AllApplicationsScreen from '../Screen/Recruiter/Jobs/AllApplicationsScreen';
@@ -80,15 +81,6 @@ const RoleBasedTabs = () => {
   // Use activeRole if available, fallback to role for backward compatibility
   const currentRole = activeRole || role;
 
-  // Avoid flashing student tabs before roles load after login/registration
-  if (user && (!currentRole || roles.length === 0)) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-      </View>
-    );
-  }
-  
   // Check if email is verified - redirect to EmailVerification if not
   React.useEffect(() => {
     if (user && !user.emailVerified) {
@@ -120,6 +112,15 @@ const RoleBasedTabs = () => {
       console.log('🔄 [RoleBasedTabs] Role changed:', { role, activeRole, currentRole });
     }
   }, [role, activeRole, currentRole]);
+
+  const shouldShowRoleLoader = user && (!currentRole || roles.length === 0);
+  if (shouldShowRoleLoader) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+      </View>
+    );
+  }
   
   // If profile needs to be created, show profile creation screen
   if (needsProfileCreation) {
@@ -371,6 +372,14 @@ const ScreenNavigator = () => {
       <Stack.Screen
         name="RecruiterProfile"
         component={RecruiterProfile}
+        options={{
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+
+      <Stack.Screen
+        name="CompanyProfile"
+        component={CompanyProfileScreen}
         options={{
           cardStyleInterpolator: slideFromRight,
         }}

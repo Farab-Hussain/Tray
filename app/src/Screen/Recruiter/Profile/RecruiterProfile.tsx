@@ -254,7 +254,7 @@ const RecruiterProfile = ({ navigation }: any) => {
 
             <TouchableOpacity
               style={styles.infoItem}
-              onPress={() => navigation.navigate('RecruiterJobs')}
+              onPress={() => navigation.navigate('CompanyProfile')}
               activeOpacity={0.7}
             >
               <View style={styles.infoItemLeft}>
@@ -262,9 +262,9 @@ const RecruiterProfile = ({ navigation }: any) => {
                   <CheckCircle size={20} color={COLORS.green} />
                 </View>
                 <View style={styles.infoItemText}>
-                  <Text style={styles.infoLabel}>Candidate Ranking Engine</Text>
+                  <Text style={styles.infoLabel}>Company Profile</Text>
                   <Text style={styles.infoSubtext}>
-                    Rank candidates and detect talent shortage risks by role
+                    Manage company info, hiring policies, and subscriptions
                   </Text>
                 </View>
               </View>

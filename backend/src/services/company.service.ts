@@ -210,10 +210,19 @@ export class CompanyService {
       }
 
       const verificationRef = db.collection('companyVerifications').doc();
+      const verificationDataClean = Object.fromEntries(
+        Object.entries({
+          businessRegistrationDocument: verificationData.businessRegistrationDocument,
+          taxDocument: verificationData.taxDocument,
+          proofOfAddress: verificationData.proofOfAddress,
+          additionalDocuments: verificationData.additionalDocuments,
+        }).filter(([, v]) => v !== undefined)
+      ) as typeof verificationData;
+
       const verification: CompanyVerification = {
         id: verificationRef.id,
         companyId,
-        ...verificationData,
+        ...verificationDataClean,
         submittedAt: new Date().toISOString(),
         status: 'pending',
       };
@@ -221,16 +230,20 @@ export class CompanyService {
       await verificationRef.set(verification);
 
       // Update company verification status
-      await this.update(companyId, {
+      const verificationDocuments = [
+        verificationData.businessRegistrationDocument,
+        verificationData.taxDocument,
+        verificationData.proofOfAddress,
+        ...(verificationData.additionalDocuments || [])
+      ].filter(Boolean) as string[];
+
+      const companyUpdate = {
         verificationStatus: 'pending',
         verificationSubmittedAt: new Date().toISOString(),
-        verificationDocuments: [
-          verificationData.businessRegistrationDocument,
-          verificationData.taxDocument,
-          verificationData.proofOfAddress,
-          ...(verificationData.additionalDocuments || [])
-        ].filter(Boolean) as string[],
-      });
+        verificationDocuments: verificationDocuments.length ? verificationDocuments : undefined,
+      };
+
+      await this.update(companyId, Object.fromEntries(Object.entries(companyUpdate).filter(([, v]) => v !== undefined)));
 
       Logger.info('Company', companyId, `Company submitted for verification: ${company.name}`);
       
@@ -254,23 +267,43 @@ export class CompanyService {
     }
   ): Promise<CompanyVerification> {
     try {
-      const verificationRef = db.collection('companyVerifications').doc(verificationId);
-      
-      await verificationRef.update({
+      const collection = db.collection('companyVerifications');
+      let verificationRef = collection.doc(verificationId);
+      let verificationDoc = await verificationRef.get();
+
+      // Fallback: if doc doesn't exist with that id, look up by companyId == verificationId
+      if (!verificationDoc.exists) {
+        const query = await collection.where('companyId', '==', verificationId).limit(1).get();
+        if (query.empty) {
+          throw new Error('Verification document not found');
+        }
+        verificationRef = query.docs[0].ref;
+        verificationDoc = query.docs[0];
+      }
+
+      const baseUpdate = {
         ...reviewData,
         reviewedAt: new Date().toISOString(),
-      });
+      };
+      const cleanedUpdate = Object.fromEntries(
+        Object.entries(baseUpdate).filter(([, v]) => v !== undefined)
+      );
+      await verificationRef.update(cleanedUpdate);
 
       // Get updated verification
-      const verificationDoc = await verificationRef.get();
       const verification = verificationDoc.data() as CompanyVerification;
+      const verificationStatus = reviewData.status;
 
       // Update company verification status
-      await this.update(verification.companyId, {
-        verificationStatus: verification.status === 'approved' ? 'verified' : verification.status,
-        verifiedAt: verification.status === 'approved' ? new Date().toISOString() : undefined,
-        rejectedReason: verification.status === 'rejected' ? reviewData.rejectionReason : undefined,
-      });
+      const companyUpdate = {
+        verificationStatus: verificationStatus === 'approved' ? 'verified' : verificationStatus,
+        verifiedAt: verificationStatus === 'approved' ? new Date().toISOString() : undefined,
+        rejectedReason: verificationStatus === 'rejected' ? reviewData.rejectionReason : undefined,
+      };
+      const cleanedCompanyUpdate = Object.fromEntries(
+        Object.entries(companyUpdate).filter(([, v]) => v !== undefined)
+      );
+      await this.update(verification.companyId, cleanedCompanyUpdate);
 
       Logger.info('Company', verification.companyId, `Company verification ${verification.status}: ${verificationId}`);
       

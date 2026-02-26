@@ -1,5 +1,5 @@
 // src/services/company.service.ts
-import api from '../lib/api';
+import { api } from '../lib/fetcher';
 import { logger } from '../utils/logger';
 
 export interface CompanyProfile {
@@ -15,6 +15,20 @@ export interface CompanyProfile {
   contactInfo: CompanyContactInfo;
   socialLinks: CompanySocialLinks;
   fairChanceHiring: FairChanceHiringSettings;
+  // Extended fields
+  hiringVolumeMonthly?: string;
+  hiringRequirements?: string;
+  backgroundPolicyType?: string;
+  drugTestingPolicy?: string;
+  requiredCertifications?: string;
+  shiftRequirements?: string;
+  transportationRequired?: boolean;
+  payRange?: string;
+  benefitsOffered?: string;
+  retention90DayRate?: number;
+  subscriptionTier?: string;
+  referralFeeAgreement?: string;
+  workforcePartnerLevel?: string;
   verificationStatus?: 'pending' | 'verified' | 'rejected' | 'not_submitted';
   isActive?: boolean;
   postedBy?: string;
@@ -126,7 +140,7 @@ class CompanyService {
   /**
    * Submit company for verification
    */
-  async submitForVerification(companyId: string, verificationData: CompanyVerification): Promise<{ verification: any }> {
+  async submitForVerification(companyId: string, verificationData: Partial<CompanyVerification> = {}): Promise<{ verification: any }> {
     try {
       const response = await api.post(`/companies/${companyId}/verification`, verificationData);
       return response.data;

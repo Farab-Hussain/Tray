@@ -7,6 +7,8 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -51,6 +53,8 @@ const StudentProfile = ({ navigation }: any) => {
   const [_imageCacheKey, _setImageCacheKey] = useState(0);
   const [profileCompletion, setProfileCompletion] = useState<any>(null);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [locationInput, setLocationInput] = useState('');
   const getWorkEligibilitySummaryStatus = (): string => {
     const statuses = Object.values(
       resume?.workEligibilityChecklist?.verificationStatusBySection || {},
@@ -150,6 +154,18 @@ const StudentProfile = ({ navigation }: any) => {
     );
   };
 
+  const handleSaveLocation = async () => {
+    if (!user) return;
+    try {
+      const updatedProfile = await UserService.updateProfile({ location: locationInput.trim() });
+      setBackendProfile(updatedProfile);
+      setLocationModalVisible(false);
+      Alert.alert('Success', 'Location updated');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to update location');
+    }
+  };
+
   const fetchProfileData = useCallback(async () => {
     if (!user) {
       setLoading(false);
@@ -162,6 +178,8 @@ const StudentProfile = ({ navigation }: any) => {
       // Fetch user profile
       const profileResponse = await UserService.getUserProfile();
       setBackendProfile(profileResponse);
+      setLocationInput(profileResponse?.location || '');
+      setLocationInput(profileResponse?.location || '');
 
       // Fetch resume if exists
       let resumeData = null;
@@ -366,6 +384,7 @@ const StudentProfile = ({ navigation }: any) => {
   const profileImage = backendProfile?.profileImage || user?.photoURL;
   const displayName = backendProfile?.name || user?.displayName || 'No name set';
   const email = backendProfile?.email || user?.email || 'No email';
+  const location = backendProfile?.location || '';
 
   // Calculate profile completion percentage
   const completionPercentage = profileCompletion?.overallCompletion || 0;
@@ -527,25 +546,35 @@ const StudentProfile = ({ navigation }: any) => {
         </View>
 
         {/* Profile Information Section */}
-        <ProfileSectionCard
-          title="Profile Information"
-          icon={User}
-          items={[
-            {
-              label: 'Username',
-              value: displayName,
-              onPress: () => navigation.navigate('ChangeUsername'),
-              rightIcon: Edit2,
+      <ProfileSectionCard
+        title="Profile Information"
+        icon={User}
+        items={[
+          {
+            label: 'Username',
+            value: displayName,
+            onPress: () => navigation.navigate('ChangeUsername'),
+            rightIcon: Edit2,
+          },
+          {
+            label: 'Email',
+            value: email,
+            rightIcon: CheckCircle,
+            rightIconColor: COLORS.green,
+            showSeparator: false,
+          },
+          {
+            label: 'Location',
+            value: location || 'Add your city, state',
+            onPress: () => {
+              setLocationInput(location || '');
+              setLocationModalVisible(true);
             },
-            {
-              label: 'Email',
-              value: email,
-              rightIcon: CheckCircle,
-              rightIconColor: COLORS.green,
-              showSeparator: false,
-            },
-          ]}
-        />
+            rightIcon: Edit2,
+            showSeparator: false,
+          },
+        ]}
+      />
 
         {/* Security Section */}
         <ProfileSectionCard
@@ -599,7 +628,7 @@ const StudentProfile = ({ navigation }: any) => {
               iconColor: COLORS.orange,
               showSeparator: false,
             }] : []),
-            ...(resume?.transportationStatus ? [{
+            ...(resume?.transportationStatus && !['none', 'unknown'].includes(resume.transportationStatus) ? [{
               label: 'Transportation',
               value: resume.transportationStatus.replace('-', ' '),
               icon: Car,
@@ -734,8 +763,40 @@ const StudentProfile = ({ navigation }: any) => {
             }] : []),
           ]}
         />
-
       </ScrollView>
+
+      {/* Location modal */}
+      <Modal
+        visible={locationModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLocationModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Update Location</Text>
+            <Text style={styles.modalSubtitle}>City, State (e.g., Austin, TX)</Text>
+            <View style={styles.modalInputWrapper}>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="City, State"
+                value={locationInput}
+                onChangeText={setLocationInput}
+                autoCapitalize="words"
+              />
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setLocationModalVisible(false)}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveLocation}>
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };

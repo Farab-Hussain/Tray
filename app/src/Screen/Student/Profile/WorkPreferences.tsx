@@ -15,10 +15,8 @@ import { studentProfileStyles } from '../../../constants/styles/studentProfileSt
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { logger } from '../../../utils/logger';
 import {
-  Save,
   Plus,
   X,
-  Car,
   AlertCircle,
   Briefcase,
 } from 'lucide-react-native';
@@ -44,11 +42,11 @@ const WorkPreferences = ({ navigation }: any) => {
   const [newJobToAvoid, setNewJobToAvoid] = useState('');
   const [newIndustryToAvoid, setNewIndustryToAvoid] = useState('');
 
-  // const transportationOptions = [
-  //   { value: 'own-car', label: 'Own Car' },
-  //   { value: 'public-transport', label: 'Public Transport' },
-  //   { value: 'none', label: 'None' }
-  // ];
+  const transportationOptions = [
+    { value: 'own-car', label: 'Own Car' },
+    { value: 'public-transport', label: 'Public Transport' },
+    { value: 'none', label: 'None' },
+  ];
 
   const workTypeOptions = [
     'full-time',
@@ -345,6 +343,30 @@ const WorkPreferences = ({ navigation }: any) => {
 
     
 
+        <View style={studentProfileStyles.section}>
+          <Text style={studentProfileStyles.sectionTitle}>Transportation Types</Text>
+          
+          <View style={studentProfileStyles.sectionContent}>
+            {transportationOptions.map((type) => (
+              <TouchableOpacity
+                key={type.value}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 12,
+                  borderWidth: 1,
+                  borderColor: workPreferences.transportationStatus === type.value ? COLORS.green : COLORS.lightGray,
+                  borderRadius: 8,
+                  marginBottom: 8
+                }}
+                onPress={() => setWorkPreferences((prev) => ({ ...prev, transportationStatus: type.value }))}
+              >
+                <Briefcase size={20} color={workPreferences.transportationStatus === type.value ? COLORS.green : COLORS.gray} />
+                <Text style={{ marginLeft: 12, fontSize: 16, color: COLORS.black }}>{type.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>Preferred Work Types</Text>
           

@@ -273,10 +273,10 @@ export const studentProfileStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContent: {
+  modalContainer: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
     width: '90%',
     maxWidth: 400,
     shadowColor: COLORS.black,
@@ -285,16 +285,20 @@ export const studentProfileStyles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.black,
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 12,
+  },
+  modalInputWrapper: {
+    width: '100%',
+    marginBottom: 16,
   },
   modalInput: {
     borderWidth: 1,
@@ -302,21 +306,32 @@ export const studentProfileStyles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginBottom: 20,
     minHeight: 40,
-    textAlignVertical: 'top',
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     gap: 12,
   },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
+  cancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+  },
+  cancelButtonText: {
+    color: COLORS.black,
+    fontWeight: '600',
+  },
+  saveButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.green,
+  },
+  saveButtonText: {
+    color: COLORS.white,
+    fontWeight: '700',
   },
   cancelButton: {
     backgroundColor: COLORS.lightGray,

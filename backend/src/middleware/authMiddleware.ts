@@ -283,6 +283,21 @@ export const authorizeRole = (roles: string[]) => {
         return res.status(401).json({ error: "Authentication required" });
       }
 
+      // Fast path: trust token role/roles if present (avoids Firestore read for admins)
+      const tokenRole = (user as any).role;
+      const tokenRoles: string[] = (user as any).roles || [];
+      const hasTokenRole =
+        (tokenRole && roles.includes(tokenRole)) ||
+        (Array.isArray(tokenRoles) && tokenRoles.some((r) => roles.includes(r)));
+      if (hasTokenRole) {
+        const effectiveRole = tokenRole || tokenRoles[0];
+        (req as any).userRole = effectiveRole;
+        // Normalize role on req.user for downstream controllers
+        (req as any).user = { ...user, role: effectiveRole, roles: tokenRoles.length ? tokenRoles : [effectiveRole] };
+        Logger.info(route, user.uid, `Access granted via token role: ${tokenRole || tokenRoles.join(',')}`);
+        return next();
+      }
+
       // Fetch user's role from Firestore with timeout
       const rolePromise = db.collection("users").doc(user.uid).get();
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -309,6 +324,8 @@ export const authorizeRole = (roles: string[]) => {
       }
 
       (req as any).userRole = userRole;
+      // Normalize role back onto req.user for controllers that rely on it
+      (req as any).user = { ...user, role: userRole };
       Logger.info(route, user.uid, `Access granted - Role: ${userRole}`);
       next();
     } catch (error: any) {
