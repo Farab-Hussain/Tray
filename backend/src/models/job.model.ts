@@ -1,5 +1,51 @@
 import { Timestamp } from "firebase-admin/firestore";
 
+export type ComplianceLicenseType =
+  | "cdl"
+  | "real_estate"
+  | "insurance"
+  | "security"
+  | "healthcare"
+  | "other";
+
+export interface JobComplianceRequirements {
+  drivingTransportation?: {
+    requiresValidDriversLicense?: boolean;
+    requiresMvrStandards?: boolean;
+    requiresReliableTransportation?: boolean;
+    requiresDrivingEssentialDuty?: boolean;
+  };
+  workAuthorization?: {
+    requiresValidEmploymentAuthorization?: boolean;
+    employerUsesEverify?: boolean;
+  };
+  physicalEnvironmental?: {
+    requiresEssentialPhysicalDuties?: boolean;
+    safetySensitiveRole?: boolean;
+    regulatedEnvironment?: boolean;
+  };
+  drugTestingWorkplacePolicy?: {
+    requiresPreEmploymentDrugScreening?: boolean;
+    subjectToRandomDrugTesting?: boolean;
+  };
+  professionalLicensing?: {
+    requiresProfessionalLicense?: boolean;
+    licenseTypes?: ComplianceLicenseType[];
+    otherLicenseText?: string;
+  };
+  roleBasedCompatibility?: {
+    mustBeEligibleForMinors?: boolean;
+    mustBeEligibleForVulnerableAdults?: boolean;
+    mustBeEligibleForFinancialHandling?: boolean;
+    mustBeEligibleForSecureFacilityAccess?: boolean;
+    caseByCaseConsideration?: boolean;
+  };
+  legalAttestations?: {
+    employerConductsBackgroundChecksPerLaw?: boolean;
+    employerAgreesCaseByCaseConsideration?: boolean;
+  };
+}
+
 // Job posting data model
 export interface Job {
   id: string;
@@ -35,6 +81,8 @@ export interface Job {
   // NEW: Background check requirements
   backgroundCheckRequired?: boolean;
   backgroundCheckType?: 'basic' | 'standard' | 'enhanced' | 'none';
+  // NEW: Role-Based Requirements & Compliance (additive, optional)
+  complianceRequirements?: JobComplianceRequirements;
 }
 
 // Input type for creating/updating jobs
@@ -65,6 +113,8 @@ export interface JobInput {
   // NEW: Background check requirements
   backgroundCheckRequired?: boolean;
   backgroundCheckType?: 'basic' | 'standard' | 'enhanced' | 'none';
+  // NEW: Role-Based Requirements & Compliance (additive, optional)
+  complianceRequirements?: JobComplianceRequirements;
 }
 
 // Lightweight job data for cards (optimized for frontend)
@@ -91,4 +141,3 @@ export interface JobCard {
     secondChancePolicy: boolean;
   };
 }
-

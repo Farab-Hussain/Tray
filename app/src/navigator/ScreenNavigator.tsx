@@ -68,16 +68,26 @@ import RecruiterJobApplicationsScreen from '../Screen/Recruiter/Jobs/JobApplicat
 import RecruiterApplicationReviewScreen from '../Screen/Recruiter/Jobs/ApplicationReviewScreen';
 // Course Management screens
 import CourseCreationScreen from '../Screen/Consultant/CourseManagement/CourseCreationScreen';
+import { ActivityIndicator, View } from 'react-native';
 
 const Stack = createStackNavigator();
 
 
 // Component to render appropriate bottom tabs based on role
 const RoleBasedTabs = () => {
-  const { role, activeRole, needsProfileCreation, user } = useAuth();
+  const { role, activeRole, needsProfileCreation, user, roles } = useAuth();
   
   // Use activeRole if available, fallback to role for backward compatibility
   const currentRole = activeRole || role;
+
+  // Avoid flashing student tabs before roles load after login/registration
+  if (user && (!currentRole || roles.length === 0)) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+      </View>
+    );
+  }
   
   // Check if email is verified - redirect to EmailVerification if not
   React.useEffect(() => {

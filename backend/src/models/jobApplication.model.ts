@@ -46,5 +46,10 @@ export interface JobApplicationWithDetails extends JobApplication {
     company: string;
     requiredSkills: string[];
   };
+  complianceEvaluation?: {
+    enabled: boolean;
+    pass: boolean;
+    failedChecks: string[];
+    summary: string;
+  };
 }
-

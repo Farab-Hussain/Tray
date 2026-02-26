@@ -641,25 +641,39 @@ export const getFileAccessUrl = async (req: Request, res: Response) => {
       sign_url: true,
     });
 
-    // Cloudinary private download URL works better for locked-down raw delivery.
+    // Raw assets can be uploaded with extension inside public_id (e.g. ".../file.pdf").
+    // Keep signed delivery URL as the primary URL because it's tolerant of both variants.
     const extensionMatch = publicId.match(/\.([a-zA-Z0-9]+)$/);
     const detectedFormat = extensionMatch ? extensionMatch[1].toLowerCase() : "pdf";
     const publicIdWithoutExt = extensionMatch
       ? publicId.replace(/\.[a-zA-Z0-9]+$/, "")
       : publicId;
 
-    const privateDownloadUrl = cloudinary.utils.private_download_url(
+    const expiresAt = Math.floor(Date.now() / 1000) + 60 * 10; // 10 min
+    const privateDownloadUrlExact = cloudinary.utils.private_download_url(
+      publicId,
+      undefined as any,
+      {
+        resource_type: "raw",
+        type: "upload",
+        expires_at: expiresAt,
+      } as any
+    );
+    const privateDownloadUrlLegacy = cloudinary.utils.private_download_url(
       publicIdWithoutExt,
       detectedFormat,
       {
         resource_type: "raw",
         type: "upload",
-        expires_at: Math.floor(Date.now() / 1000) + 60 * 10, // 10 min
+        expires_at: expiresAt,
       } as any
     );
 
     return res.status(200).json({
-      url: privateDownloadUrl || signedUrl,
+      // Prefer API private download URL for restricted raw/PDF delivery.
+      url: privateDownloadUrlExact || privateDownloadUrlLegacy || signedUrl,
+      privateDownloadUrl: privateDownloadUrlExact,
+      privateDownloadUrlLegacy,
       fallbackUrl: signedUrl,
     });
   } catch (error: any) {

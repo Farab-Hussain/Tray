@@ -186,6 +186,40 @@ export const validateCreateJob = [
   body('experienceRequired').optional().isInt({ min: 0 }).withMessage('Experience required must be a non-negative integer'),
   body('educationRequired').optional().isString().trim().withMessage('Education required must be a string'),
   body('status').optional().isIn(['active', 'closed', 'draft']).withMessage('Status must be active, closed, or draft'),
+  // Optional compliance requirements
+  body('complianceRequirements').optional().isObject().withMessage('complianceRequirements must be an object'),
+  body('complianceRequirements.drivingTransportation').optional().isObject(),
+  body('complianceRequirements.drivingTransportation.requiresValidDriversLicense').optional().isBoolean(),
+  body('complianceRequirements.drivingTransportation.requiresMvrStandards').optional().isBoolean(),
+  body('complianceRequirements.drivingTransportation.requiresReliableTransportation').optional().isBoolean(),
+  body('complianceRequirements.drivingTransportation.requiresDrivingEssentialDuty').optional().isBoolean(),
+  body('complianceRequirements.workAuthorization').optional().isObject(),
+  body('complianceRequirements.workAuthorization.requiresValidEmploymentAuthorization').optional().isBoolean(),
+  body('complianceRequirements.workAuthorization.employerUsesEverify').optional().isBoolean(),
+  body('complianceRequirements.physicalEnvironmental').optional().isObject(),
+  body('complianceRequirements.physicalEnvironmental.requiresEssentialPhysicalDuties').optional().isBoolean(),
+  body('complianceRequirements.physicalEnvironmental.safetySensitiveRole').optional().isBoolean(),
+  body('complianceRequirements.physicalEnvironmental.regulatedEnvironment').optional().isBoolean(),
+  body('complianceRequirements.drugTestingWorkplacePolicy').optional().isObject(),
+  body('complianceRequirements.drugTestingWorkplacePolicy.requiresPreEmploymentDrugScreening').optional().isBoolean(),
+  body('complianceRequirements.drugTestingWorkplacePolicy.subjectToRandomDrugTesting').optional().isBoolean(),
+  body('complianceRequirements.professionalLicensing').optional().isObject(),
+  body('complianceRequirements.professionalLicensing.requiresProfessionalLicense').optional().isBoolean(),
+  body('complianceRequirements.professionalLicensing.licenseTypes').optional().isArray(),
+  body('complianceRequirements.professionalLicensing.licenseTypes.*')
+    .optional()
+    .isIn(['cdl', 'real_estate', 'insurance', 'security', 'healthcare', 'other'])
+    .withMessage('Invalid license type'),
+  body('complianceRequirements.professionalLicensing.otherLicenseText').optional().isString(),
+  body('complianceRequirements.roleBasedCompatibility').optional().isObject(),
+  body('complianceRequirements.roleBasedCompatibility.mustBeEligibleForMinors').optional().isBoolean(),
+  body('complianceRequirements.roleBasedCompatibility.mustBeEligibleForVulnerableAdults').optional().isBoolean(),
+  body('complianceRequirements.roleBasedCompatibility.mustBeEligibleForFinancialHandling').optional().isBoolean(),
+  body('complianceRequirements.roleBasedCompatibility.mustBeEligibleForSecureFacilityAccess').optional().isBoolean(),
+  body('complianceRequirements.roleBasedCompatibility.caseByCaseConsideration').optional().isBoolean(),
+  body('complianceRequirements.legalAttestations').optional().isObject(),
+  body('complianceRequirements.legalAttestations.employerConductsBackgroundChecksPerLaw').optional().isBoolean(),
+  body('complianceRequirements.legalAttestations.employerAgreesCaseByCaseConsideration').optional().isBoolean(),
   handleValidationErrors,
 ];
 
@@ -199,6 +233,40 @@ export const validateUpdateJob = [
   body('requiredSkills').optional().isArray({ min: 1 }).withMessage('At least one required skill is needed'),
   body('requiredSkills.*').optional().isString().trim().notEmpty().withMessage('Each skill must be a non-empty string'),
   body('status').optional().isIn(['active', 'closed', 'draft']).withMessage('Status must be active, closed, or draft'),
+  // Optional compliance requirements
+  body('complianceRequirements').optional().isObject().withMessage('complianceRequirements must be an object'),
+  body('complianceRequirements.drivingTransportation').optional().isObject(),
+  body('complianceRequirements.drivingTransportation.requiresValidDriversLicense').optional().isBoolean(),
+  body('complianceRequirements.drivingTransportation.requiresMvrStandards').optional().isBoolean(),
+  body('complianceRequirements.drivingTransportation.requiresReliableTransportation').optional().isBoolean(),
+  body('complianceRequirements.drivingTransportation.requiresDrivingEssentialDuty').optional().isBoolean(),
+  body('complianceRequirements.workAuthorization').optional().isObject(),
+  body('complianceRequirements.workAuthorization.requiresValidEmploymentAuthorization').optional().isBoolean(),
+  body('complianceRequirements.workAuthorization.employerUsesEverify').optional().isBoolean(),
+  body('complianceRequirements.physicalEnvironmental').optional().isObject(),
+  body('complianceRequirements.physicalEnvironmental.requiresEssentialPhysicalDuties').optional().isBoolean(),
+  body('complianceRequirements.physicalEnvironmental.safetySensitiveRole').optional().isBoolean(),
+  body('complianceRequirements.physicalEnvironmental.regulatedEnvironment').optional().isBoolean(),
+  body('complianceRequirements.drugTestingWorkplacePolicy').optional().isObject(),
+  body('complianceRequirements.drugTestingWorkplacePolicy.requiresPreEmploymentDrugScreening').optional().isBoolean(),
+  body('complianceRequirements.drugTestingWorkplacePolicy.subjectToRandomDrugTesting').optional().isBoolean(),
+  body('complianceRequirements.professionalLicensing').optional().isObject(),
+  body('complianceRequirements.professionalLicensing.requiresProfessionalLicense').optional().isBoolean(),
+  body('complianceRequirements.professionalLicensing.licenseTypes').optional().isArray(),
+  body('complianceRequirements.professionalLicensing.licenseTypes.*')
+    .optional()
+    .isIn(['cdl', 'real_estate', 'insurance', 'security', 'healthcare', 'other'])
+    .withMessage('Invalid license type'),
+  body('complianceRequirements.professionalLicensing.otherLicenseText').optional().isString(),
+  body('complianceRequirements.roleBasedCompatibility').optional().isObject(),
+  body('complianceRequirements.roleBasedCompatibility.mustBeEligibleForMinors').optional().isBoolean(),
+  body('complianceRequirements.roleBasedCompatibility.mustBeEligibleForVulnerableAdults').optional().isBoolean(),
+  body('complianceRequirements.roleBasedCompatibility.mustBeEligibleForFinancialHandling').optional().isBoolean(),
+  body('complianceRequirements.roleBasedCompatibility.mustBeEligibleForSecureFacilityAccess').optional().isBoolean(),
+  body('complianceRequirements.roleBasedCompatibility.caseByCaseConsideration').optional().isBoolean(),
+  body('complianceRequirements.legalAttestations').optional().isObject(),
+  body('complianceRequirements.legalAttestations.employerConductsBackgroundChecksPerLaw').optional().isBoolean(),
+  body('complianceRequirements.legalAttestations.employerAgreesCaseByCaseConsideration').optional().isBoolean(),
   handleValidationErrors,
 ];
 
@@ -246,4 +314,3 @@ export const validateUpdateApplicationStatus = [
   body('reviewNotes').optional().isString().trim().isLength({ max: 1000 }).withMessage('Review notes must be less than 1000 characters'),
   handleValidationErrors,
 ];
-

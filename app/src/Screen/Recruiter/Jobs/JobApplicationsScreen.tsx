@@ -74,6 +74,9 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
   };
 
   const getCompliancePass = (app: any) => {
+    if (typeof app?.complianceEvaluation?.pass === 'boolean') {
+      return app.complianceEvaluation.pass;
+    }
     if (app?.resume?.workAuthorized === false) return false;
     const restrictions = Array.isArray(app?.resume?.workRestrictions)
       ? app.resume.workRestrictions.length

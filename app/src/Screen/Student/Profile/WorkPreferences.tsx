@@ -36,11 +36,13 @@ const WorkPreferences = ({ navigation }: any) => {
       shifts: [] as string[]
     },
     preferredWorkTypes: [] as string[],
-    jobsToAvoid: [] as string[]
+    jobsToAvoid: [] as string[],
+    industriesToAvoid: [] as string[],
   });
 
   const [newRestriction, setNewRestriction] = useState('');
   const [newJobToAvoid, setNewJobToAvoid] = useState('');
+  const [newIndustryToAvoid, setNewIndustryToAvoid] = useState('');
 
   // const transportationOptions = [
   //   { value: 'own-car', label: 'Own Car' },
@@ -74,7 +76,8 @@ const WorkPreferences = ({ navigation }: any) => {
             shifts: response.preferences.shiftFlexibility?.shifts || []
           },
           preferredWorkTypes: response.preferences.preferredWorkTypes || [],
-          jobsToAvoid: response.preferences.jobsToAvoid || []
+          jobsToAvoid: response.preferences.jobsToAvoid || [],
+          industriesToAvoid: response.preferences.industriesToAvoid || [],
         });
       }
     } catch (error: any) {
@@ -100,7 +103,8 @@ const WorkPreferences = ({ navigation }: any) => {
       workPreferences.transportationStatus !== 'none' ||
       workPreferences.preferredWorkTypes.length > 0 ||
       workPreferences.shiftFlexibility.days.length > 0 ||
-      workPreferences.shiftFlexibility.shifts.length > 0;
+      workPreferences.shiftFlexibility.shifts.length > 0 ||
+      workPreferences.industriesToAvoid.length > 0;
 
     if (!hasSomeData) {
       errors.push('Please add at least one preference before saving');
@@ -176,6 +180,23 @@ const WorkPreferences = ({ navigation }: any) => {
     }));
   };
 
+  const addIndustryToAvoid = () => {
+    if (newIndustryToAvoid.trim()) {
+      setWorkPreferences(prev => ({
+        ...prev,
+        industriesToAvoid: [...prev.industriesToAvoid, newIndustryToAvoid.trim()]
+      }));
+      setNewIndustryToAvoid('');
+    }
+  };
+
+  const removeIndustryToAvoid = (index: number) => {
+    setWorkPreferences(prev => ({
+      ...prev,
+      industriesToAvoid: prev.industriesToAvoid.filter((_, i) => i !== index)
+    }));
+  };
+
   const toggleDay = (day: string) => {
     setWorkPreferences(prev => ({
       ...prev,
@@ -208,6 +229,23 @@ const WorkPreferences = ({ navigation }: any) => {
         : [...prev.preferredWorkTypes, type]
     }));
   };
+
+  const renderPill = (label: string, onPress: () => void) => (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: COLORS.lightGray,
+        marginRight: 8,
+        marginBottom: 8,
+      }}
+    >
+      <Text style={{ color: COLORS.black }}>{label}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={studentProfileStyles.container}>
@@ -253,6 +291,51 @@ const WorkPreferences = ({ navigation }: any) => {
                   justifyContent: 'center'
                 }}
                 onPress={addWorkRestriction}
+              >
+                <Plus size={20} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <View style={studentProfileStyles.section}>
+          <Text style={studentProfileStyles.sectionTitle}>Industries to Avoid</Text>
+
+          <View style={studentProfileStyles.sectionContent}>
+            {workPreferences.industriesToAvoid.map((industry, index) => (
+              <View key={`${industry}-${index}`} style={studentProfileStyles.quickInfo}>
+                <Text style={studentProfileStyles.quickInfoText}>{industry}</Text>
+                <TouchableOpacity onPress={() => removeIndustryToAvoid(index)}>
+                  <X size={16} color={COLORS.red} />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              <TextInput
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: COLORS.lightGray,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 12,
+                }}
+                placeholder="Add industry to avoid"
+                placeholderTextColor={COLORS.lightGray}
+                value={newIndustryToAvoid}
+                onChangeText={setNewIndustryToAvoid}
+              />
+              <TouchableOpacity
+                onPress={addIndustryToAvoid}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 8,
+                  backgroundColor: COLORS.green,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
                 <Plus size={20} color={COLORS.white} />
               </TouchableOpacity>

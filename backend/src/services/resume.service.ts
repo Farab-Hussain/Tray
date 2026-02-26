@@ -19,6 +19,7 @@ export interface WorkPreferences {
   };
   preferredWorkTypes?: ('full-time' | 'part-time' | 'contract' | 'internship')[];
   jobsToAvoid?: string[];
+  industriesToAvoid?: string[];
 }
 
 export interface AuthorizationInfo {
@@ -34,12 +35,31 @@ export interface CareerGoals {
     min: number;
     max: number;
   };
+  employmentGapExplanation?: string;
+  industriesToAvoid?: string[];
+  picsAssessmentCompleted?: boolean;
+  picsAssessmentCompletedAt?: string;
+  picsAssessmentProof?: {
+    fileUrl: string;
+    publicId?: string;
+    fileName: string;
+    uploadedAt: string;
+    mimeType?: string;
+  };
 }
 
 export interface ExternalProfiles {
   linkedIn?: string;
   portfolio?: string;
   github?: string;
+}
+
+export interface AdditionalDocument {
+  fileUrl: string;
+  publicId?: string;
+  fileName: string;
+  uploadedAt: string;
+  mimeType?: string;
 }
 
 export const resumeServices = {
@@ -186,6 +206,7 @@ export const resumeServices = {
         shiftFlexibility: preferences.shiftFlexibility,
         preferredWorkTypes: preferences.preferredWorkTypes,
         jobsToAvoid: preferences.jobsToAvoid,
+        industriesToAvoid: preferences.industriesToAvoid,
       };
 
       return this.update(existingResume.id, updateData);
@@ -202,17 +223,18 @@ export const resumeServices = {
             name: '',
             email: '',
           },
-          skills: [],
-          experience: [],
-          education: [],
-          workRestrictions: preferences.workRestrictions,
-          transportationStatus: preferences.transportationStatus,
-          shiftFlexibility: preferences.shiftFlexibility,
-          preferredWorkTypes: preferences.preferredWorkTypes,
-          jobsToAvoid: preferences.jobsToAvoid,
-          createdAt: now,
-          updatedAt: now,
-        };
+        skills: [],
+        experience: [],
+        education: [],
+        workRestrictions: preferences.workRestrictions,
+        transportationStatus: preferences.transportationStatus,
+        shiftFlexibility: preferences.shiftFlexibility,
+        preferredWorkTypes: preferences.preferredWorkTypes,
+        jobsToAvoid: preferences.jobsToAvoid,
+        industriesToAvoid: preferences.industriesToAvoid,
+        createdAt: now,
+        updatedAt: now,
+      };
 
         await resumeRef.set(resumeData);
         return resumeData;
@@ -284,11 +306,15 @@ export const resumeServices = {
   async updateCareerGoals(uid: string, goals: CareerGoals): Promise<Resume> {
     try {
       const existingResume = await this.getByUserId(uid);
-      
+
       const updateData = {
         careerInterests: goals.careerInterests,
         targetIndustries: goals.targetIndustries,
         salaryExpectation: goals.salaryExpectation,
+        industriesToAvoid: goals.industriesToAvoid,
+        employmentGapExplanation: goals.employmentGapExplanation,
+        picsAssessmentCompleted: goals.picsAssessmentCompleted,
+        picsAssessmentCompletedAt: goals.picsAssessmentCompletedAt,
       };
 
       return this.update(existingResume.id, updateData);
@@ -311,6 +337,11 @@ export const resumeServices = {
           careerInterests: goals.careerInterests,
           targetIndustries: goals.targetIndustries,
           salaryExpectation: goals.salaryExpectation,
+          industriesToAvoid: goals.industriesToAvoid,
+          employmentGapExplanation: goals.employmentGapExplanation,
+          picsAssessmentCompleted: goals.picsAssessmentCompleted,
+          picsAssessmentCompletedAt: goals.picsAssessmentCompletedAt,
+          picsAssessmentProof: goals.picsAssessmentProof,
           createdAt: now,
           updatedAt: now,
         };
@@ -320,6 +351,38 @@ export const resumeServices = {
       }
       throw error;
     }
+  },
+
+  async addAdditionalDocument(uid: string, doc: AdditionalDocument): Promise<Resume> {
+    const resume = await this.getByUserId(uid);
+    const updatedDocs = Array.isArray(resume.additionalDocuments) ? [...resume.additionalDocuments] : [];
+    updatedDocs.push(doc);
+
+    await db.collection(COLLECTION).doc(resume.id).update({
+      additionalDocuments: updatedDocs,
+      updatedAt: Timestamp.now(),
+    });
+
+    const updated = await this.getById(resume.id);
+    return updated;
+  },
+
+  async removeAdditionalDocument(uid: string, criteria: { publicId?: string; fileUrl?: string }): Promise<Resume> {
+    const resume = await this.getByUserId(uid);
+    const docs = Array.isArray(resume.additionalDocuments) ? resume.additionalDocuments : [];
+    const filtered = docs.filter(d => {
+      if (criteria.publicId) return d.publicId !== criteria.publicId;
+      if (criteria.fileUrl) return d.fileUrl !== criteria.fileUrl;
+      return true;
+    });
+
+    await db.collection(COLLECTION).doc(resume.id).update({
+      additionalDocuments: filtered,
+      updatedAt: Timestamp.now(),
+    });
+
+    const updated = await this.getById(resume.id);
+    return updated;
   },
 
   /**

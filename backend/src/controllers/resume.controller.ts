@@ -164,6 +164,50 @@ export const updateCareerGoals = async (req: Request, res: Response) => {
   }
 };
 
+// Additional documents locker
+export const addAdditionalDocument = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.uid) return res.status(401).json({ error: "Authentication required" });
+
+    const doc = req.body; // { fileUrl, publicId?, fileName, mimeType }
+    if (!doc?.fileUrl || !doc?.fileName) {
+      return res.status(400).json({ error: "fileUrl and fileName are required" });
+    }
+
+    const resume = await resumeServices.addAdditionalDocument(user.uid, {
+      fileUrl: doc.fileUrl,
+      publicId: doc.publicId,
+      fileName: doc.fileName,
+      mimeType: doc.mimeType,
+      uploadedAt: new Date().toISOString(),
+    });
+
+    res.status(200).json({ message: "Document added", resume });
+  } catch (error: any) {
+    console.error("Error adding additional document:", error);
+    res.status(500).json({ error: error.message || "Failed to add document" });
+  }
+};
+
+export const removeAdditionalDocument = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.uid) return res.status(401).json({ error: "Authentication required" });
+
+    const { publicId, fileUrl } = req.body;
+    if (!publicId && !fileUrl) {
+      return res.status(400).json({ error: "publicId or fileUrl required" });
+    }
+
+    const resume = await resumeServices.removeAdditionalDocument(user.uid, { publicId, fileUrl });
+    res.status(200).json({ message: "Document removed", resume });
+  } catch (error: any) {
+    console.error("Error removing additional document:", error);
+    res.status(500).json({ error: error.message || "Failed to remove document" });
+  }
+};
+
 /**
  * Get career goals
  */

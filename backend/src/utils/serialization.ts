@@ -44,6 +44,7 @@ export const serializeApplication = (application: any): any => {
       missingSkills: Array.isArray(application.missingSkills) ? application.missingSkills : [],
       // Optional fields
       reviewNotes: application.reviewNotes || undefined,
+      complianceEvaluation: application.complianceEvaluation || undefined,
     };
     
     // Remove undefined fields to keep response clean
@@ -78,4 +79,3 @@ export const serializeApplication = (application: any): any => {
 export const serializeApplications = (applications: any[]): any[] => {
   return applications.map(serializeApplication);
 };
-

@@ -20,6 +20,8 @@ import {
   getCertifications,
   updateExternalProfiles,
   getExternalProfiles,
+  addAdditionalDocument,
+  removeAdditionalDocument,
   updateMultipleSections,
   getProfileCompletionStatus,
   getResumeByUserIdAdmin,
@@ -55,6 +57,10 @@ router.get("/authorization", authenticateUser(), getAuthorization); // GET /resu
 // Career Goals
 router.put("/career-goals", authenticateUser(), updateCareerGoals); // PUT /resumes/career-goals
 router.get("/career-goals", authenticateUser(), getCareerGoals); // GET /resumes/career-goals
+
+// Additional Documents Locker
+router.post("/additional-documents", authenticateUser(), addAdditionalDocument); // POST /resumes/additional-documents
+router.delete("/additional-documents", authenticateUser(), removeAdditionalDocument); // DELETE /resumes/additional-documents
 
 // Education
 router.put("/education", authenticateUser(), updateEducation); // PUT /resumes/education

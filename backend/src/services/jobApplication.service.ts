@@ -2,6 +2,7 @@ import { db } from "../config/firebase";
 import { Timestamp } from "firebase-admin/firestore";
 import { JobApplication, JobApplicationInput, JobApplicationWithDetails } from "../models/jobApplication.model";
 import { getRatingPriority } from "../utils/skillMatching";
+import { evaluateComplianceForJob } from "../utils/complianceMatching";
 
 const COLLECTION = "jobApplications";
 
@@ -154,6 +155,8 @@ export const jobApplicationServices = {
               company: jobData.company || "",
               requiredSkills: jobData.requiredSkills || [],
             } : undefined,
+            // Deliberately include only computed compliance result, not private checklist details.
+            complianceEvaluation: evaluateComplianceForJob(resumeData, jobData),
           };
 
           return details;
@@ -396,4 +399,3 @@ export const jobApplicationServices = {
     return !snapshot.empty;
   },
 };
-

@@ -101,6 +101,17 @@ export interface ResumeData {
   }>;
   resumeFileUrl?: string;
   resumeFilePublicId?: string;
+  industriesToAvoid?: string[];
+  employmentGapExplanation?: string;
+  picsAssessmentCompleted?: boolean;
+  picsAssessmentCompletedAt?: string;
+  picsAssessmentProof?: {
+    fileUrl: string;
+    publicId?: string;
+    fileName: string;
+    uploadedAt: string;
+    mimeType?: string;
+  };
   workEligibilityChecklist?: WorkEligibilityChecklist;
 }
 
@@ -198,6 +209,19 @@ export const ResumeService = {
    */
   async getCareerGoals() {
     const response = await api.get('/resumes/career-goals');
+    return response.data;
+  },
+
+  /**
+   * Additional documents locker
+   */
+  async addAdditionalDocument(doc: { fileUrl: string; publicId?: string; fileName: string; mimeType?: string }) {
+    const response = await api.post('/resumes/additional-documents', doc);
+    return response.data;
+  },
+
+  async removeAdditionalDocument(criteria: { publicId?: string; fileUrl?: string }) {
+    const response = await api.delete('/resumes/additional-documents', { data: criteria });
     return response.data;
   },
 

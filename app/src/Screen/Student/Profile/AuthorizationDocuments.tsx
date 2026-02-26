@@ -9,6 +9,7 @@ import {
   Switch,
   Platform,
 } from 'react-native';
+import { Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
@@ -101,6 +102,8 @@ const AuthorizationDocuments = ({ navigation }: any) => {
   const [saving, setSaving] = useState(false);
   const [uploadingSection, setUploadingSection] = useState<WorkEligibilitySectionKey | null>(null);
   const [checklist, setChecklist] = useState<WorkEligibilityChecklist>(checklistDefaults);
+  const [docLockerUploading, setDocLockerUploading] = useState(false);
+  const [docLockerFiles, setDocLockerFiles] = useState<Array<{ fileUrl: string; publicId?: string; fileName: string; uploadedAt: string; mimeType?: string }>>([]);
 
   const loadChecklist = useCallback(async () => {
     try {
@@ -142,6 +145,11 @@ const AuthorizationDocuments = ({ navigation }: any) => {
             ...existing.roleBasedCompatibilitySensitive,
           },
         });
+
+        // Additional documents locker
+        if (Array.isArray(response?.resume?.additionalDocuments)) {
+          setDocLockerFiles(response.resume.additionalDocuments);
+        }
       }
     } catch (error: any) {
       if (error?.response?.status === 404) {
@@ -373,6 +381,7 @@ const AuthorizationDocuments = ({ navigation }: any) => {
 
       await ResumeService.updateResume({
         workEligibilityChecklist: normalizedChecklist,
+        additionalDocuments: docLockerFiles,
       });
       showSuccess('Private checklist saved');
       navigation.goBack();
@@ -399,6 +408,107 @@ const AuthorizationDocuments = ({ navigation }: any) => {
       <ScreenHeader title="Work Eligibility (Private)" onBackPress={() => navigation.goBack()} />
 
       <ScrollView style={studentProfileStyles.scrollView}>
+        {/* Additional Document Locker */}
+        <View style={studentProfileStyles.section}>
+          <Text style={studentProfileStyles.sectionTitle}>Additional Document Locker</Text>
+          <View style={studentProfileStyles.sectionContent}>
+            <Text style={{ color: COLORS.gray, marginBottom: 12 }}>
+              Upload extra documents (certificates, IDs, letters). These stay private unless you share them in an application.
+            </Text>
+
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  setDocLockerUploading(true);
+                  let DocumentPicker: any = null;
+                  DocumentPicker = require('react-native-document-picker');
+                  const pickerRes = await DocumentPicker.pick({
+                    type: [
+                      DocumentPicker.types.pdf,
+                      DocumentPicker.types.doc,
+                      DocumentPicker.types.docx,
+                      DocumentPicker.types.images,
+                    ],
+                  });
+                  const file = pickerRes?.[0] || pickerRes;
+                  if (!file) return;
+
+                  const uploadRes = await UploadService.uploadFile(file, 'additional');
+                  const newDoc = {
+                    fileUrl: uploadRes?.fileUrl || uploadRes?.imageUrl || uploadRes?.url,
+                    publicId: uploadRes?.publicId,
+                    fileName: uploadRes?.fileName || file?.name || 'document',
+                    mimeType: file?.type,
+                    uploadedAt: new Date().toISOString(),
+                  };
+
+                  setDocLockerFiles(prev => [...prev, newDoc]);
+                  await ResumeService.addAdditionalDocument(newDoc);
+                  showSuccess('Document uploaded');
+                } catch (error: any) {
+                  if (error?.message?.includes('cancel')) return;
+                  showError(error?.message || 'Failed to upload document');
+                } finally {
+                  setDocLockerUploading(false);
+                }
+              }}
+              disabled={docLockerUploading}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: COLORS.blue,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 8,
+                opacity: docLockerUploading ? 0.6 : 1,
+              }}
+            >
+              <Upload size={16} color={COLORS.white} />
+              <Text style={{ color: COLORS.white, marginLeft: 8, fontWeight: '600' }}>
+                {docLockerUploading ? 'Uploading...' : 'Add Document'}
+              </Text>
+            </TouchableOpacity>
+
+            {docLockerFiles.length === 0 ? (
+              <Text style={{ color: COLORS.gray, marginTop: 10 }}>No documents uploaded yet.</Text>
+            ) : (
+              <View style={{ marginTop: 12, gap: 10 }}>
+                {docLockerFiles.map((doc, idx) => (
+                  <View key={`${doc.fileUrl}-${idx}`} style={studentProfileStyles.quickInfo}>
+                    <TouchableOpacity
+                      style={{ flex: 1 }}
+                      onPress={() => doc.fileUrl && Linking.openURL(doc.fileUrl)}
+                    >
+                      <Text
+                        style={[studentProfileStyles.quickInfoText, { textDecorationLine: 'underline' }]}
+                        numberOfLines={1}
+                      >
+                        {doc.fileName}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        try {
+                          setDocLockerUploading(true);
+                          await ResumeService.removeAdditionalDocument({ publicId: doc.publicId, fileUrl: doc.fileUrl });
+                          setDocLockerFiles(prev => prev.filter((_, i) => i !== idx));
+                          showSuccess('Removed');
+                        } catch (error: any) {
+                          showError(error?.message || 'Failed to remove document');
+                        } finally {
+                          setDocLockerUploading(false);
+                        }
+                      }}
+                      style={{ padding: 4 }}
+                    >
+                      <Trash2 size={16} color={COLORS.red} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>
             Client side: Work Eligibility & Role Compatibility (Private)

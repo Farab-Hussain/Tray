@@ -113,6 +113,7 @@ export interface Resume {
   };
   preferredWorkTypes?: ('full-time' | 'part-time' | 'contract' | 'internship')[];
   jobsToAvoid?: string[];
+  industriesToAvoid?: string[];
   // NEW: Work authorization
   workAuthorized?: boolean;
   authorizationDocuments?: string[];
@@ -124,12 +125,29 @@ export interface Resume {
     min: number;
     max: number;
   };
+  employmentGapExplanation?: string;
+  picsAssessmentCompleted?: boolean;
+  picsAssessmentCompletedAt?: string;
+  picsAssessmentProof?: {
+    fileUrl: string;
+    publicId?: string;
+    fileName: string;
+    uploadedAt: string;
+    mimeType?: string;
+  };
   // NEW: External profiles
   externalProfiles?: {
     linkedIn?: string;
     portfolio?: string;
     github?: string;
   };
+  additionalDocuments?: Array<{
+    fileUrl: string;
+    publicId?: string;
+    fileName: string;
+    uploadedAt: string;
+    mimeType?: string;
+  }>;
   workEligibilityChecklist?: WorkEligibilityChecklist; // Private, self-attested, not shown to employers
   createdAt: Timestamp;
   updatedAt: Timestamp;

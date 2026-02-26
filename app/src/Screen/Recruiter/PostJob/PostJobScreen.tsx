@@ -53,6 +53,43 @@ interface JobPost {
     caseByCaseReview: boolean;
     noBackgroundCheck: boolean;
   };
+  complianceRequirements: {
+    drivingTransportation: {
+      requiresValidDriversLicense: boolean;
+      requiresMvrStandards: boolean;
+      requiresReliableTransportation: boolean;
+      requiresDrivingEssentialDuty: boolean;
+    };
+    workAuthorization: {
+      requiresValidEmploymentAuthorization: boolean;
+      employerUsesEverify: boolean;
+    };
+    physicalEnvironmental: {
+      requiresEssentialPhysicalDuties: boolean;
+      safetySensitiveRole: boolean;
+      regulatedEnvironment: boolean;
+    };
+    drugTestingWorkplacePolicy: {
+      requiresPreEmploymentDrugScreening: boolean;
+      subjectToRandomDrugTesting: boolean;
+    };
+    professionalLicensing: {
+      requiresProfessionalLicense: boolean;
+      licenseTypes: Array<'cdl' | 'real_estate' | 'insurance' | 'security' | 'healthcare' | 'other'>;
+      otherLicenseText: string;
+    };
+    roleBasedCompatibility: {
+      mustBeEligibleForMinors: boolean;
+      mustBeEligibleForVulnerableAdults: boolean;
+      mustBeEligibleForFinancialHandling: boolean;
+      mustBeEligibleForSecureFacilityAccess: boolean;
+      caseByCaseConsideration: boolean;
+    };
+    legalAttestations: {
+      employerConductsBackgroundChecksPerLaw: boolean;
+      employerAgreesCaseByCaseConsideration: boolean;
+    };
+  };
   isActive: boolean;
   companyId?: string;
 }
@@ -165,6 +202,16 @@ const PostJobScreen = ({ navigation }: any) => {
         }
         return '';
 
+      case 'complianceAttestations':
+        if (
+          hasAnyComplianceSelection(jobPost.complianceRequirements) &&
+          (!jobPost.complianceRequirements.legalAttestations.employerConductsBackgroundChecksPerLaw ||
+            !jobPost.complianceRequirements.legalAttestations.employerAgreesCaseByCaseConsideration)
+        ) {
+          return 'Legal attestations are required when compliance requirements are set';
+        }
+        return '';
+
       default:
         return '';
     }
@@ -184,11 +231,25 @@ const PostJobScreen = ({ navigation }: any) => {
     );
     newErrors.salaryMin = validateField('salaryMin', jobPost.salaryRange.min);
     newErrors.salaryMax = validateField('salaryMax', jobPost.salaryRange.max);
+    newErrors.complianceAttestations = validateField('complianceAttestations', null);
 
     setErrors(newErrors);
 
     // Check if there are any errors
     return Object.values(newErrors).every(error => error === '');
+  };
+
+  const hasAnyComplianceSelection = (reqs: JobPost['complianceRequirements']): boolean => {
+    const sections = Object.values(reqs || {});
+    return sections.some(section => {
+      if (section && typeof section === 'object') {
+        return Object.values(section).some(val => {
+          if (Array.isArray(val)) return val.length > 0;
+          return val === true;
+        });
+      }
+      return false;
+    });
   };
 
   const [jobPost, setJobPost] = useState<JobPost>({
@@ -214,6 +275,43 @@ const PostJobScreen = ({ navigation }: any) => {
       felonyFriendly: false,
       caseByCaseReview: false,
       noBackgroundCheck: false,
+    },
+    complianceRequirements: {
+      drivingTransportation: {
+        requiresValidDriversLicense: false,
+        requiresMvrStandards: false,
+        requiresReliableTransportation: false,
+        requiresDrivingEssentialDuty: false,
+      },
+      workAuthorization: {
+        requiresValidEmploymentAuthorization: false,
+        employerUsesEverify: false,
+      },
+      physicalEnvironmental: {
+        requiresEssentialPhysicalDuties: false,
+        safetySensitiveRole: false,
+        regulatedEnvironment: false,
+      },
+      drugTestingWorkplacePolicy: {
+        requiresPreEmploymentDrugScreening: false,
+        subjectToRandomDrugTesting: false,
+      },
+      professionalLicensing: {
+        requiresProfessionalLicense: false,
+        licenseTypes: [],
+        otherLicenseText: '',
+      },
+      roleBasedCompatibility: {
+        mustBeEligibleForMinors: false,
+        mustBeEligibleForVulnerableAdults: false,
+        mustBeEligibleForFinancialHandling: false,
+        mustBeEligibleForSecureFacilityAccess: false,
+        caseByCaseConsideration: false,
+      },
+      legalAttestations: {
+        employerConductsBackgroundChecksPerLaw: false,
+        employerAgreesCaseByCaseConsideration: false,
+      },
     },
     isActive: true,
   });
@@ -325,6 +423,7 @@ const PostJobScreen = ({ navigation }: any) => {
         noBackgroundCheck: jobPost.fairChanceHiring.noBackgroundCheck,
         secondChancePolicy: false, // Default value
       },
+      complianceRequirements: jobPost.complianceRequirements,
       status: 'active' as const,
     };
 
@@ -1846,6 +1945,433 @@ const PostJobScreen = ({ navigation }: any) => {
                   setJobPost({ ...jobPost, backgroundCheckRequired: value })
                 }
                 trackColor={{ false: COLORS.border, true: COLORS.orange }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+          </View>
+
+          {/* Role-Based Requirements & Compliance */}
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{ fontSize: 18, fontWeight: '600', color: COLORS.black, marginBottom: 12 }}
+            >
+              Role-Based Requirements & Compliance
+            </Text>
+            <Text style={{ fontSize: 12, color: COLORS.gray, marginBottom: 12 }}>
+              Select only requirements that are essential for performing this role.
+            </Text>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+              Driving & Transportation
+            </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Requires valid driver's license</Text>
+              <Switch
+                value={jobPost.complianceRequirements.drivingTransportation.requiresValidDriversLicense}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      drivingTransportation: { ...prev.complianceRequirements.drivingTransportation, requiresValidDriversLicense: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Requires MVR standards eligibility</Text>
+              <Switch
+                value={jobPost.complianceRequirements.drivingTransportation.requiresMvrStandards}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      drivingTransportation: { ...prev.complianceRequirements.drivingTransportation, requiresMvrStandards: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Requires reliable transportation</Text>
+              <Switch
+                value={jobPost.complianceRequirements.drivingTransportation.requiresReliableTransportation}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      drivingTransportation: { ...prev.complianceRequirements.drivingTransportation, requiresReliableTransportation: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Requires driving as an essential duty</Text>
+              <Switch
+                value={jobPost.complianceRequirements.drivingTransportation.requiresDrivingEssentialDuty}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      drivingTransportation: { ...prev.complianceRequirements.drivingTransportation, requiresDrivingEssentialDuty: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+              Work Authorization
+            </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Requires valid employment authorization documentation</Text>
+              <Switch
+                value={jobPost.complianceRequirements.workAuthorization.requiresValidEmploymentAuthorization}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      workAuthorization: { ...prev.complianceRequirements.workAuthorization, requiresValidEmploymentAuthorization: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Employer uses E-Verify</Text>
+              <Switch
+                value={jobPost.complianceRequirements.workAuthorization.employerUsesEverify}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      workAuthorization: { ...prev.complianceRequirements.workAuthorization, employerUsesEverify: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+              Physical & Environmental
+            </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Requires ability to perform essential physical duties</Text>
+              <Switch
+                value={jobPost.complianceRequirements.physicalEnvironmental.requiresEssentialPhysicalDuties}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      physicalEnvironmental: { ...prev.complianceRequirements.physicalEnvironmental, requiresEssentialPhysicalDuties: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Safety-sensitive role</Text>
+              <Switch
+                value={jobPost.complianceRequirements.physicalEnvironmental.safetySensitiveRole}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      physicalEnvironmental: { ...prev.complianceRequirements.physicalEnvironmental, safetySensitiveRole: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Regulated environment</Text>
+              <Switch
+                value={jobPost.complianceRequirements.physicalEnvironmental.regulatedEnvironment}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      physicalEnvironmental: { ...prev.complianceRequirements.physicalEnvironmental, regulatedEnvironment: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+              Drug Testing & Workplace Policy
+            </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Requires pre-employment drug screening</Text>
+              <Switch
+                value={jobPost.complianceRequirements.drugTestingWorkplacePolicy.requiresPreEmploymentDrugScreening}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      drugTestingWorkplacePolicy: { ...prev.complianceRequirements.drugTestingWorkplacePolicy, requiresPreEmploymentDrugScreening: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+              Professional Licensing
+            </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Requires professional license</Text>
+              <Switch
+                value={jobPost.complianceRequirements.professionalLicensing.requiresProfessionalLicense}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      professionalLicensing: { ...prev.complianceRequirements.professionalLicensing, requiresProfessionalLicense: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black, marginBottom: 4 }}>License types (select all that apply)</Text>
+              {['cdl','real_estate','insurance','security','healthcare','other'].map(type => (
+                <View key={type} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 14, color: COLORS.black, textTransform: 'capitalize' }}>
+                    {type === 'cdl' ? 'CDL' : type.replace('_', ' ')}
+                  </Text>
+                  <Switch
+                    value={jobPost.complianceRequirements.professionalLicensing.licenseTypes.includes(type as any)}
+                    onValueChange={value =>
+                      setJobPost(prev => {
+                        const current = prev.complianceRequirements.professionalLicensing.licenseTypes;
+                        const next = value
+                          ? [...current, type as any]
+                          : current.filter(t => t !== type);
+                        return {
+                          ...prev,
+                          complianceRequirements: {
+                            ...prev.complianceRequirements,
+                            professionalLicensing: {
+                              ...prev.complianceRequirements.professionalLicensing,
+                              licenseTypes: next,
+                            },
+                          },
+                        };
+                      })
+                    }
+                    trackColor={{ false: COLORS.border, true: COLORS.green }}
+                    thumbColor={COLORS.white}
+                  />
+                </View>
+              ))}
+            </View>
+            {jobPost.complianceRequirements.professionalLicensing.licenseTypes.includes('other') && (
+              <View style={{ marginBottom: 12 }}>
+                <TextInput
+                  placeholder="Other license description"
+                  value={jobPost.complianceRequirements.professionalLicensing.otherLicenseText}
+                  onChangeText={text =>
+                    setJobPost(prev => ({
+                      ...prev,
+                      complianceRequirements: {
+                        ...prev.complianceRequirements,
+                        professionalLicensing: {
+                          ...prev.complianceRequirements.professionalLicensing,
+                          otherLicenseText: text,
+                        },
+                      },
+                    }))
+                  }
+                  style={{
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    borderRadius: 8,
+                    padding: 10,
+                    color: COLORS.black,
+                  }}
+                />
+              </View>
+            )}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Subject to random drug testing</Text>
+              <Switch
+                value={jobPost.complianceRequirements.drugTestingWorkplacePolicy.subjectToRandomDrugTesting}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      drugTestingWorkplacePolicy: { ...prev.complianceRequirements.drugTestingWorkplacePolicy, subjectToRandomDrugTesting: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+              Role-Based Compatibility
+            </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Must be eligible to work with minors</Text>
+              <Switch
+                value={jobPost.complianceRequirements.roleBasedCompatibility.mustBeEligibleForMinors}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      roleBasedCompatibility: { ...prev.complianceRequirements.roleBasedCompatibility, mustBeEligibleForMinors: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Must be eligible for secure facility access</Text>
+              <Switch
+                value={jobPost.complianceRequirements.roleBasedCompatibility.mustBeEligibleForSecureFacilityAccess}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      roleBasedCompatibility: { ...prev.complianceRequirements.roleBasedCompatibility, mustBeEligibleForSecureFacilityAccess: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Must be eligible for vulnerable adults/patients</Text>
+              <Switch
+                value={jobPost.complianceRequirements.roleBasedCompatibility.mustBeEligibleForVulnerableAdults}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      roleBasedCompatibility: { ...prev.complianceRequirements.roleBasedCompatibility, mustBeEligibleForVulnerableAdults: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Must be eligible for financial handling</Text>
+              <Switch
+                value={jobPost.complianceRequirements.roleBasedCompatibility.mustBeEligibleForFinancialHandling}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      roleBasedCompatibility: { ...prev.complianceRequirements.roleBasedCompatibility, mustBeEligibleForFinancialHandling: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>Case-by-case consideration</Text>
+              <Switch
+                value={jobPost.complianceRequirements.roleBasedCompatibility.caseByCaseConsideration}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      roleBasedCompatibility: { ...prev.complianceRequirements.roleBasedCompatibility, caseByCaseConsideration: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+
+            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.black, marginBottom: 8 }}>
+              Legal Attestations
+            </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>
+                Employer conducts background checks in accordance with applicable laws
+              </Text>
+              <Switch
+                value={jobPost.complianceRequirements.legalAttestations.employerConductsBackgroundChecksPerLaw}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      legalAttestations: { ...prev.complianceRequirements.legalAttestations, employerConductsBackgroundChecksPerLaw: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: COLORS.black }}>
+                Employer agrees to case-by-case consideration where applicable
+              </Text>
+              <Switch
+                value={jobPost.complianceRequirements.legalAttestations.employerAgreesCaseByCaseConsideration}
+                onValueChange={value =>
+                  setJobPost(prev => ({
+                    ...prev,
+                    complianceRequirements: {
+                      ...prev.complianceRequirements,
+                      legalAttestations: { ...prev.complianceRequirements.legalAttestations, employerAgreesCaseByCaseConsideration: value },
+                    },
+                  }))
+                }
+                trackColor={{ false: COLORS.border, true: COLORS.green }}
                 thumbColor={COLORS.white}
               />
             </View>

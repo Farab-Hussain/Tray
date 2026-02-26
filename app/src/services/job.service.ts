@@ -68,6 +68,43 @@ export const JobService = {
     experienceRequired?: number;
     educationRequired?: string;
     status?: 'active' | 'closed' | 'draft';
+    complianceRequirements?: {
+      drivingTransportation?: {
+        requiresValidDriversLicense?: boolean;
+        requiresMvrStandards?: boolean;
+        requiresReliableTransportation?: boolean;
+        requiresDrivingEssentialDuty?: boolean;
+      };
+      workAuthorization?: {
+        requiresValidEmploymentAuthorization?: boolean;
+        employerUsesEverify?: boolean;
+      };
+      physicalEnvironmental?: {
+        requiresEssentialPhysicalDuties?: boolean;
+        safetySensitiveRole?: boolean;
+        regulatedEnvironment?: boolean;
+      };
+      drugTestingWorkplacePolicy?: {
+        requiresPreEmploymentDrugScreening?: boolean;
+        subjectToRandomDrugTesting?: boolean;
+      };
+      professionalLicensing?: {
+        requiresProfessionalLicense?: boolean;
+        licenseTypes?: Array<'cdl' | 'real_estate' | 'insurance' | 'security' | 'healthcare' | 'other'>;
+        otherLicenseText?: string;
+      };
+      roleBasedCompatibility?: {
+        mustBeEligibleForMinors?: boolean;
+        mustBeEligibleForVulnerableAdults?: boolean;
+        mustBeEligibleForFinancialHandling?: boolean;
+        mustBeEligibleForSecureFacilityAccess?: boolean;
+        caseByCaseConsideration?: boolean;
+      };
+      legalAttestations?: {
+        employerConductsBackgroundChecksPerLaw?: boolean;
+        employerAgreesCaseByCaseConsideration?: boolean;
+      };
+    };
   }) {
     const response = await api.post('/jobs', jobData);
     return response.data;

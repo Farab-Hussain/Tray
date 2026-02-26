@@ -19,9 +19,11 @@ import { api, isNgrokError } from '../../lib/fetcher';
 import { authStyles } from '../../constants/styles/authStyles';
 import { COLORS } from '../../constants/core/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../contexts/AuthContext';
 
 const EmailVerification = ({ route }: any) => {
   const navigation = useNavigation();
+  const { refreshUser } = useAuth();
   const [isResending, setIsResending] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [, setIsCompletingRegistration] = useState(false);
@@ -75,6 +77,9 @@ const EmailVerification = ({ route }: any) => {
             console.log('EmailVerification - Role saved:', { userRole, userRoles })
           };
           
+          // Refresh auth context with latest role/profile data before navigating
+          await refreshUser();
+
           // Navigate based on role
           if (userRole === 'consultant') {
                         if (__DEV__) {
@@ -117,6 +122,9 @@ const EmailVerification = ({ route }: any) => {
                 if (__DEV__) {
           console.log('EmailVerification - Backend registration completed')
         };
+
+        // Refresh auth context with latest role/profile data before navigating
+        await refreshUser();
 
         // Navigate based on role
         if (role === 'consultant') {

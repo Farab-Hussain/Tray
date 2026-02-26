@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ResumeService } from '../../../services/resume.service';
@@ -19,21 +20,36 @@ import {
   Plus,
   X,
   Briefcase,
+  ShieldCheck,
+  Upload,
 } from 'lucide-react-native';
+import UploadService from '../../../services/upload.service';
 
 const CareerGoals = ({ navigation }: any) => {
   const [careerGoals, setCareerGoals] = useState({
     careerInterests: [] as string[],
     targetIndustries: [] as string[],
+    industriesToAvoid: [] as string[],
     salaryExpectation: {
       min: '',
       max: ''
-    }
+    },
+    employmentGapExplanation: '',
+    picsAssessmentCompleted: false,
+    picsAssessmentProof: undefined as
+      | { fileUrl: string; publicId?: string; fileName: string; uploadedAt: string; mimeType?: string }
+      | undefined,
   });
 
   const [newInterest, setNewInterest] = useState('');
   const [newIndustry, setNewIndustry] = useState('');
+  const [showPicsToggle, setShowPicsToggle] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [picsProof, setPicsProof] = useState<
+    | { fileUrl: string; publicId?: string; fileName: string; uploadedAt: string; mimeType?: string }
+    | undefined
+  >(undefined);
+  const [picsUploading, setPicsUploading] = useState(false);
 
   useEffect(() => {
     loadCareerGoals();
@@ -43,14 +59,18 @@ const CareerGoals = ({ navigation }: any) => {
     try {
       const response = await ResumeService.getCareerGoals();
       if (response.goals) {
-        const loadedGoals = {
-          careerInterests: response.goals.careerInterests || [],
-          targetIndustries: response.goals.targetIndustries || [],
-          salaryExpectation: {
-            min: response.goals.salaryExpectation?.min?.toString() || '',
-            max: response.goals.salaryExpectation?.max?.toString() || ''
-          }
-        };
+          const loadedGoals = {
+            careerInterests: response.goals.careerInterests || [],
+            targetIndustries: response.goals.targetIndustries || [],
+            industriesToAvoid: response.goals.industriesToAvoid || [],
+            salaryExpectation: {
+              min: response.goals.salaryExpectation?.min?.toString() || '',
+              max: response.goals.salaryExpectation?.max?.toString() || ''
+            },
+            employmentGapExplanation: response.goals.employmentGapExplanation || '',
+      picsAssessmentCompleted: !!response.goals.picsAssessmentCompleted,
+      picsAssessmentProof: response.goals.picsAssessmentProof,
+          };
         
         if (__DEV__) {
           logger.debug('📥 [CareerGoals] Loaded career goals:', loadedGoals);
@@ -147,7 +167,11 @@ const CareerGoals = ({ navigation }: any) => {
         salaryExpectation: {
           min: careerGoals.salaryExpectation.min ? parseInt(careerGoals.salaryExpectation.min, 10) : 0,
           max: careerGoals.salaryExpectation.max ? parseInt(careerGoals.salaryExpectation.max, 10) : 0
-        }
+        },
+        employmentGapExplanation: careerGoals.employmentGapExplanation || undefined,
+        picsAssessmentCompleted: careerGoals.picsAssessmentCompleted,
+        picsAssessmentCompletedAt: careerGoals.picsAssessmentCompleted ? new Date().toISOString() : undefined,
+        picsAssessmentProof: picsProof,
       };
 
       if (__DEV__) {
@@ -233,6 +257,112 @@ const CareerGoals = ({ navigation }: any) => {
             </View>
           </View>
         </View>
+
+        <View style={studentProfileStyles.section}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={studentProfileStyles.sectionTitle}>PICS Assessment Proof</Text>
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  setPicsUploading(true);
+                  // Use the same UploadService file picker as other uploads
+                  const picker = require('react-native-document-picker');
+                  const res = await picker.pick({
+                    type: [
+                      picker.types.images,
+                      picker.types.pdf,
+                      picker.types.doc,
+                      picker.types.docx,
+                    ],
+                  });
+                  const file = res?.[0] || res;
+                  if (!file) return;
+
+                  const uploadRes = await UploadService.uploadFile(file, 'pics-proof');
+                  const proof = {
+                    fileUrl: uploadRes?.fileUrl || uploadRes?.imageUrl || uploadRes?.url,
+                    publicId: uploadRes?.publicId,
+                    fileName: uploadRes?.fileName || file?.name || 'document',
+                    mimeType: file?.type,
+                    uploadedAt: new Date().toISOString(),
+                  };
+                  setPicsProof(proof);
+                  setCareerGoals(prev => ({ ...prev, picsAssessmentCompleted: true }));
+                  showSuccess('Proof uploaded and PICS marked as completed');
+                } catch (err: any) {
+                  if (err?.message?.includes('cancel')) return;
+                  showError(err?.message || 'Failed to upload proof');
+                } finally {
+                  setPicsUploading(false);
+                }
+              }}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: COLORS.blue,
+                opacity: picsUploading ? 0.6 : 1,
+              }}
+              disabled={picsUploading}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Upload size={16} color={COLORS.white} />
+                <Text style={{ color: COLORS.white, fontWeight: '600' }}>
+                  {picsUploading ? 'Uploading...' : 'Upload Proof'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {picsProof ? (
+            <View style={[studentProfileStyles.quickInfo, { marginTop: 10 }]}>
+              <ShieldCheck size={16} color={COLORS.green} />
+              <Text style={studentProfileStyles.quickInfoText}>{picsProof.fileName}</Text>
+              <TouchableOpacity onPress={() => setPicsProof(undefined)}>
+                <X size={16} color={COLORS.red} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={{ color: COLORS.gray, marginTop: 8 }}>
+              Upload a certificate or screenshot to support the PICS completion claim.
+            </Text>
+          )}
+        </View>
+
+        <View style={studentProfileStyles.section}>
+          <Text style={studentProfileStyles.sectionTitle}>Employment Gap Explanation</Text>
+          <View style={studentProfileStyles.sectionContent}>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: COLORS.lightGray,
+                borderRadius: 8,
+                padding: 12,
+                fontSize: 16,
+                minHeight: 80,
+                textAlignVertical: 'top'
+              }}
+              placeholder="Briefly explain any recent employment gaps (optional)"
+              value={careerGoals.employmentGapExplanation}
+              onChangeText={(text) => setCareerGoals(prev => ({ ...prev, employmentGapExplanation: text }))}
+              multiline
+            />
+          </View>
+        </View>
+
+        <View style={studentProfileStyles.section}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={studentProfileStyles.sectionTitle}>PICS Assessment Completed</Text>
+            <Switch
+              value={careerGoals.picsAssessmentCompleted}
+              onValueChange={(val) => setCareerGoals(prev => ({ ...prev, picsAssessmentCompleted: val }))}
+            />
+          </View>
+          <Text style={{ color: COLORS.gray, marginTop: 6 }}>
+            Toggle on if you have finished the PICS assessment.
+          </Text>
+        </View>
+
 
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>Target Industries</Text>
