@@ -86,3 +86,29 @@ class GenerateTextRequest(AIRequestOptions):
     user_prompt: str
     max_tokens: int = 800
     json_mode: bool = False
+
+
+class PlatformAnalyticsSnapshot(BaseModel):
+    total_users: int = 0
+    active_consultants: int = 0
+    total_bookings: int = 0
+    completed_bookings: int = 0
+    cancelled_bookings: int = 0
+    total_revenue: float = 0
+    revenue_this_month: float = 0
+    bookings_growth_pct: float = 0
+    revenue_growth_pct: float = 0
+    pending_applications: int = 0
+    top_consultants: List[str] = Field(default_factory=list)
+    placement_rate_pct: Optional[float] = None
+    revenue_by_role: Dict[str, float] = Field(default_factory=dict)
+    dropoff_points: List[str] = Field(default_factory=list)
+    suspicious_signals: List[str] = Field(default_factory=list)
+    recent_job_descriptions: List[str] = Field(default_factory=list)
+    abnormal_activity_signals: List[str] = Field(default_factory=list)
+    high_demand_industries: List[str] = Field(default_factory=list)
+    underserved_segments: List[str] = Field(default_factory=list)
+
+
+class AdminInsightsRequest(AIRequestOptions):
+    snapshot: PlatformAnalyticsSnapshot

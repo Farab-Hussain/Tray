@@ -14,6 +14,7 @@ Separate AI backend for the Tray mobile app with provider switching between Open
 - `POST /api/chat/message`
 - `POST /api/autocomplete/suggest`
 - `POST /api/ai/generate` (generic)
+- `POST /api/admin-ai/insights`
 - `GET /health`
 
 ## Provider Selection
@@ -119,3 +120,5 @@ After deploy, set your app env:
 Important:
 - Set `ALLOWED_ORIGINS` to your production app/web domains (comma-separated).
 - Rotate compromised API keys immediately if they were ever exposed.
+- Optional hardening: set `ADMIN_AI_SHARED_SECRET` in both `backend/.env` and
+  `fastapi-ai-backend/.env` so only your backend proxy can call `/api/admin-ai/insights`.

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-from routers import ai, autocomplete, chatbot, jobpost, resume
+from routers import admin_ai, ai, autocomplete, chatbot, jobpost, resume
 
 app = FastAPI(
     title="Tray AI FastAPI Backend",
@@ -26,6 +26,7 @@ app.add_middleware(
 )
 
 app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
+app.include_router(admin_ai.router, prefix="/api/admin-ai", tags=["Admin AI"])
 app.include_router(resume.router, prefix="/api/resume", tags=["Resume"])
 app.include_router(jobpost.router, prefix="/api/jobpost", tags=["Job Post"])
 app.include_router(chatbot.router, prefix="/api/chat", tags=["Chatbot"])

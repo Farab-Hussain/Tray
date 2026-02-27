@@ -211,6 +211,16 @@ export interface AdminAnalytics {
     description: string;
     timestamp: string;
   }>;
+  aiSnapshot: {
+    topConsultants: string[];
+    revenueByRole: Record<string, number>;
+    dropoffPoints: string[];
+    suspiciousSignals: string[];
+    recentJobDescriptions: string[];
+    abnormalActivitySignals: string[];
+    highDemandIndustries: string[];
+    underservedSegments: string[];
+  };
 }
 
 type FirestoreLikeTimestamp =
@@ -233,6 +243,9 @@ interface ConsultantProfileDoc {
   personalInfo?: {
     fullName?: string;
   };
+  professionalInfo?: {
+    category?: string;
+  };
   createdAt?: FirestoreLikeTimestamp;
   updatedAt?: FirestoreLikeTimestamp;
 }
@@ -253,6 +266,25 @@ interface ApplicationDoc {
   consultantId?: string;
   status?: string;
   createdAt?: FirestoreLikeTimestamp;
+}
+
+interface JobDoc {
+  id: string;
+  postedBy?: string;
+  title?: string;
+  description?: string;
+  company?: string;
+  requiredSkills?: string[];
+  status?: string;
+  createdAt?: FirestoreLikeTimestamp;
+}
+
+interface JobApplicationDoc {
+  id: string;
+  jobId?: string;
+  userId?: string;
+  status?: string;
+  appliedAt?: FirestoreLikeTimestamp;
 }
 
 /**
@@ -284,6 +316,19 @@ export const getAdminAnalytics = async (): Promise<AdminAnalytics> => {
     // Get all applications
     const applicationsSnapshot = await db.collection("consultantApplications").get();
     const allApplications: ApplicationDoc[] = applicationsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as Record<string, unknown>),
+    }));
+
+    // Get all jobs and job applications for admin AI signals
+    const jobsSnapshot = await db.collection("jobs").get();
+    const allJobs: JobDoc[] = jobsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as Record<string, unknown>),
+    }));
+
+    const jobApplicationsSnapshot = await db.collection("jobApplications").get();
+    const allJobApplications: JobApplicationDoc[] = jobApplicationsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...(doc.data() as Record<string, unknown>),
     }));
@@ -344,6 +389,17 @@ export const getAdminAnalytics = async (): Promise<AdminAnalytics> => {
         }
       }
       return new Date(0);
+    };
+
+    const getIndustryLabel = (job: JobDoc): string => {
+      const text = `${job.title || ""} ${job.description || ""} ${(job.requiredSkills || []).join(" ")}`.toLowerCase();
+      if (/(nurse|health|medical|patient|clinic|hospital)/.test(text)) return "Healthcare";
+      if (/(software|frontend|backend|react|node|python|engineer|developer|data)/.test(text)) return "Technology";
+      if (/(warehouse|logistics|forklift|inventory|shipping)/.test(text)) return "Logistics";
+      if (/(sales|account executive|business development|retail)/.test(text)) return "Sales";
+      if (/(accounting|finance|analyst|auditor)/.test(text)) return "Finance";
+      if (/(teacher|education|training|instructor)/.test(text)) return "Education";
+      return "General";
     };
 
     // Calculate trends - get user creation dates from profiles
@@ -427,6 +483,191 @@ export const getAdminAnalytics = async (): Promise<AdminAnalytics> => {
     );
     recentActivity.splice(10);
 
+    // ========== AI snapshot data (used by FastAPI admin-ai endpoint) ==========
+    const profileByUid = new Map(allProfiles.map((p) => [p.id, p]));
+    const consultantPerf = new Map<string, { completed: number; revenue: number }>();
+    const revenueByRole: Record<string, number> = {};
+    const consultantBookings: Record<string, { total: number; cancelled: number }> = {};
+
+    allBookings.forEach((booking) => {
+      const consultantId = booking.consultantId;
+      if (!consultantId) return;
+
+      consultantBookings[consultantId] = consultantBookings[consultantId] || { total: 0, cancelled: 0 };
+      consultantBookings[consultantId].total += 1;
+      if (booking.status === "cancelled") {
+        consultantBookings[consultantId].cancelled += 1;
+      }
+
+      const isCompleted = booking.status === "completed" || booking.status === "approved";
+      const isPaid = booking.paymentStatus === "paid";
+      if (!isCompleted && !isPaid) return;
+
+      const current = consultantPerf.get(consultantId) || { completed: 0, revenue: 0 };
+      current.completed += isCompleted ? 1 : 0;
+      current.revenue += booking.amount || 0;
+      consultantPerf.set(consultantId, current);
+
+      const role = profileByUid.get(consultantId)?.professionalInfo?.category || "General";
+      revenueByRole[role] = (revenueByRole[role] || 0) + (booking.amount || 0);
+    });
+
+    const topConsultants = Array.from(consultantPerf.entries())
+      .sort((a, b) => {
+        const scoreA = a[1].completed * 100 + a[1].revenue;
+        const scoreB = b[1].completed * 100 + b[1].revenue;
+        return scoreB - scoreA;
+      })
+      .slice(0, 5)
+      .map(([uid, perf]) => {
+        const name =
+          profileByUid.get(uid)?.personalInfo?.fullName ||
+          `Consultant ${uid.slice(0, 8)}`;
+        return `${name} (${perf.completed} completed, $${Math.round(perf.revenue)})`;
+      });
+
+    const profileApprovalRate = allProfiles.length > 0
+      ? allProfiles.filter((p) => p.status === "approved").length / allProfiles.length
+      : 1;
+    const bookingCompletionRate = totalBookings > 0 ? completedBookings / totalBookings : 1;
+    const appReviewRate = allApplications.length > 0
+      ? allApplications.filter((a) => a.status !== "pending").length / allApplications.length
+      : 1;
+
+    const dropoffPoints: string[] = [];
+    if (profileApprovalRate < 0.7) {
+      dropoffPoints.push(
+        `Consultant profile approval is ${(profileApprovalRate * 100).toFixed(1)}%; review onboarding requirements and guidance.`
+      );
+    }
+    if (bookingCompletionRate < 0.75) {
+      dropoffPoints.push(
+        `Booking completion is ${(bookingCompletionRate * 100).toFixed(1)}%; investigate cancellations and no-shows.`
+      );
+    }
+    if (appReviewRate < 0.75) {
+      dropoffPoints.push(
+        `Application review throughput is ${(appReviewRate * 100).toFixed(1)}%; pending queue may be blocking supply.`
+      );
+    }
+    if (dropoffPoints.length === 0) {
+      dropoffPoints.push("No major drop-off detected in current profile, application, and booking funnel.");
+    }
+
+    const suspiciousSignals: string[] = [];
+    const jobsByPoster = new Map<string, number>();
+    const descriptionFingerprint = new Map<string, number>();
+    allJobs.forEach((job) => {
+      const poster = job.postedBy || "unknown";
+      jobsByPoster.set(poster, (jobsByPoster.get(poster) || 0) + 1);
+
+      const fingerprint = (job.description || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 120);
+      if (fingerprint) {
+        descriptionFingerprint.set(fingerprint, (descriptionFingerprint.get(fingerprint) || 0) + 1);
+      }
+
+      if ((job.requiredSkills || []).length >= 15) {
+        suspiciousSignals.push(
+          `Job "${job.title || job.id}" has ${(job.requiredSkills || []).length} required skills; possible unrealistic criteria.`
+        );
+      }
+    });
+
+    jobsByPoster.forEach((count, poster) => {
+      if (count >= 20) {
+        suspiciousSignals.push(`Employer ${poster} posted ${count} jobs; review for potential spam behavior.`);
+      }
+    });
+    descriptionFingerprint.forEach((count) => {
+      if (count >= 6) {
+        suspiciousSignals.push(`Detected ${count} near-duplicate job descriptions across postings.`);
+      }
+    });
+    if (suspiciousSignals.length === 0) {
+      suspiciousSignals.push("No high-confidence suspicious employer behavior signals detected.");
+    }
+
+    const abnormalActivitySignals: string[] = [];
+    Object.entries(consultantBookings).forEach(([consultantId, stats]) => {
+      if (stats.total >= 5) {
+        const cancelRate = stats.cancelled / stats.total;
+        if (cancelRate >= 0.5) {
+          const name =
+            profileByUid.get(consultantId)?.personalInfo?.fullName ||
+            consultantId.slice(0, 8);
+          abnormalActivitySignals.push(
+            `Consultant ${name} has ${(cancelRate * 100).toFixed(0)}% cancellation rate over ${stats.total} bookings.`
+          );
+        }
+      }
+    });
+
+    const applicationsPerDayByUser = new Map<string, number>();
+    allJobApplications.forEach((app) => {
+      if (!app.userId) return;
+      const d = toDate(app.appliedAt);
+      const dayKey = `${app.userId}:${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      applicationsPerDayByUser.set(dayKey, (applicationsPerDayByUser.get(dayKey) || 0) + 1);
+    });
+    applicationsPerDayByUser.forEach((count, dayUser) => {
+      if (count >= 25) {
+        const userId = dayUser.split(":")[0];
+        abnormalActivitySignals.push(`User ${userId} submitted ${count} job applications in one day.`);
+      }
+    });
+    if (abnormalActivitySignals.length === 0) {
+      abnormalActivitySignals.push("No abnormal account-activity spikes detected.");
+    }
+
+    const recentJobDescriptions = allJobs
+      .sort((a, b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime())
+      .slice(0, 8)
+      .map((job) => `${job.title || "Untitled"}: ${(job.description || "").slice(0, 220)}`);
+
+    const demandByIndustry = new Map<string, number>();
+    allJobs.forEach((job) => {
+      if (job.status && job.status !== "active") return;
+      const industry = getIndustryLabel(job);
+      demandByIndustry.set(industry, (demandByIndustry.get(industry) || 0) + 1);
+    });
+
+    const supplyByIndustry = new Map<string, number>();
+    allProfiles.forEach((p) => {
+      const category = (p.professionalInfo?.category || "General").toLowerCase();
+      let industry = "General";
+      if (/(health|medical|nurs)/.test(category)) industry = "Healthcare";
+      else if (/(tech|software|engineer|developer|data)/.test(category)) industry = "Technology";
+      else if (/(logistics|warehouse|supply)/.test(category)) industry = "Logistics";
+      else if (/(sales|retail|business)/.test(category)) industry = "Sales";
+      else if (/(finance|account)/.test(category)) industry = "Finance";
+      else if (/(education|teacher|training)/.test(category)) industry = "Education";
+      supplyByIndustry.set(industry, (supplyByIndustry.get(industry) || 0) + 1);
+    });
+
+    const highDemandIndustries = Array.from(demandByIndustry.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([industry]) => industry);
+
+    const underservedSegments = Array.from(demandByIndustry.entries())
+      .filter(([_, demand]) => demand >= 2)
+      .map(([industry, demand]) => {
+        const supply = supplyByIndustry.get(industry) || 0;
+        return { industry, demand, supply, ratio: supply === 0 ? Infinity : demand / supply };
+      })
+      .filter((item) => item.supply === 0 || item.ratio >= 2)
+      .sort((a, b) => b.ratio - a.ratio)
+      .slice(0, 5)
+      .map((item) =>
+        item.supply === 0
+          ? `${item.industry}: demand high (${item.demand} active jobs) with no consultant supply`
+          : `${item.industry}: demand/supply imbalance (${item.demand} jobs vs ${item.supply} consultants)`
+      );
+
     const analytics: AdminAnalytics = {
       overview: {
         totalUsers,
@@ -446,6 +687,18 @@ export const getAdminAnalytics = async (): Promise<AdminAnalytics> => {
         revenueGrowth: Math.round(revenueGrowth * 10) / 10,
       },
       recentActivity,
+      aiSnapshot: {
+        topConsultants,
+        revenueByRole: Object.fromEntries(
+          Object.entries(revenueByRole).map(([role, revenue]) => [role, Math.round(revenue)])
+        ),
+        dropoffPoints,
+        suspiciousSignals: suspiciousSignals.slice(0, 10),
+        recentJobDescriptions,
+        abnormalActivitySignals: abnormalActivitySignals.slice(0, 10),
+        highDemandIndustries,
+        underservedSegments,
+      },
     };
 
     Logger.info("Admin Analytics", "", `Analytics calculated: ${totalUsers} users, ${activeConsultants} consultants, $${totalRevenue} revenue`);
@@ -455,4 +708,3 @@ export const getAdminAnalytics = async (): Promise<AdminAnalytics> => {
     throw error;
   }
 };
-

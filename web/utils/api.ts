@@ -244,4 +244,11 @@ export const reviewAPI = {
   delete: (id: string) => api.delete(`/reviews/${id}`),
 };
 
+// ========== Admin AI API (proxied via backend, admin-auth protected) ==========
+export const adminAIAPI = {
+  generateInsights: (payload: unknown) => {
+    return api.post('/consultant-flow/admin/ai-insights', payload);
+  },
+};
+
 export default api;

@@ -20,7 +20,10 @@ import {
   deleteConsultantApplication,
   getDashboardStats,
 } from "../controllers/consultantFlow.controller";
-import { getAdminAnalyticsController } from "../controllers/analytics.controller";
+import {
+  generateAdminAIInsightsController,
+  getAdminAnalyticsController,
+} from "../controllers/analytics.controller";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
 import { 
   checkConsultantStatus, 
@@ -138,5 +141,12 @@ router.get(
   getAdminAnalyticsController
 );
 
-export default router;
+// POST /consultant-flow/admin/ai-insights - Generate admin AI insights (admin only, proxied through backend)
+router.post(
+  "/admin/ai-insights",
+  authenticateUser(),
+  authorizeRole(["admin"]),
+  generateAdminAIInsightsController
+);
 
+export default router;
