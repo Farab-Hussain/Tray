@@ -56,7 +56,7 @@ const Login = ({ navigation }: LoginProps) => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Issue', 'Please fill in all fields');
       return;
     }
 
@@ -223,7 +223,7 @@ const Login = ({ navigation }: LoginProps) => {
                         'Please try again later or use the verification screen.';
                     }
 
-                    Alert.alert('Error', userMessage, [
+                    Alert.alert('Issue', userMessage, [
                       {
                         text: 'Go to Verification',
                         onPress: () => {

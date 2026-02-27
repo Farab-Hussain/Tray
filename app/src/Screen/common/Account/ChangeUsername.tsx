@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { updateProfile } from 'firebase/auth';
+import { sanitizeUserMessage } from '../../../utils/sanitizeUserMessage';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { authStyles } from '../../../constants/styles/authStyles';
@@ -136,7 +137,7 @@ const ChangeUsername = ({ navigation }: any) => {
               style={[styles.input, error ? styles.inputError : null]}
               maxLength={50}
             />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error ? <Text style={styles.errorText}>{sanitizeUserMessage(error)}</Text> : null}
           </View>
 
           <AppButton
@@ -155,4 +156,3 @@ const ChangeUsername = ({ navigation }: any) => {
 const styles = changeUsernameStyles;
 
 export default ChangeUsername;
-

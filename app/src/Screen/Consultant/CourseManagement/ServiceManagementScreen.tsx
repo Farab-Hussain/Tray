@@ -139,7 +139,7 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
         logger.debug('⚠️ [ServiceManagement] Validation failed: missing title or description');
         logger.debug('📝 [ServiceManagement] Title:', formData.title);
         logger.debug('📝 [ServiceManagement] Description:', formData.description);
-        Alert.alert('Error', 'Title and description are required');
+        Alert.alert('Issue', 'Title and description are required');
         return;
       }
 
@@ -163,7 +163,7 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
       await loadServices();
     } catch (error: any) {
       logger.debug('❌ [ServiceManagement] Service creation issue:', error);
-      Alert.alert('Unable to create service', error.message || 'Please try again');
+      Alert.alert('Unable to create service', issue.message || 'Please try again');
     }
   };
 
@@ -187,7 +187,7 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
       await loadServices();
     } catch (error: any) {
       logger.debug('❌ [ServiceManagement] Service update issue:', error);
-      Alert.alert('Unable to update service', error.message || 'Please try again');
+      Alert.alert('Unable to update service', issue.message || 'Please try again');
     }
   };
 
@@ -207,7 +207,7 @@ export const ServiceManagementScreen: React.FC<Props> = ({ navigation: _navigati
               await loadServices();
             } catch (error: any) {
               logger.debug('❌ [ServiceManagement] Service deletion issue:', error);
-              Alert.alert('Unable to delete service', error.message || 'Please try again');
+              Alert.alert('Unable to delete service', issue.message || 'Please try again');
             }
           },
         },

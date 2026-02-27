@@ -82,12 +82,12 @@ const CreateServiceForm: React.FC<CreateServiceFormProps> = ({ onClose, onSubmit
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
-      Alert.alert('Error', 'Please enter a service title');
+      Alert.alert('Issue', 'Please enter a service title');
       return;
     }
 
     if (!formData.description.trim()) {
-      Alert.alert('Error', 'Please enter a service description');
+      Alert.alert('Issue', 'Please enter a service description');
       return;
     }
 

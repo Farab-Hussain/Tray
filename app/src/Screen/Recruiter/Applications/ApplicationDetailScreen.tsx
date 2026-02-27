@@ -148,7 +148,7 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
       
     } catch (error) {
       console.error('Error loading application detail:', error);
-      Alert.alert('Error', 'Failed to load application detail');
+      Alert.alert('Issue', 'Failed to load application detail');
     } finally {
       setLoading(false);
     }
@@ -163,7 +163,7 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
       
       Alert.alert('Success', 'Application status updated');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update application status');
+      Alert.alert('Issue', 'Failed to update application status');
     }
   };
 

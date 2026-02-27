@@ -51,7 +51,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
                 if (__DEV__) {
           logger.error('Error fetching session completion:', error)
         };
-        Alert.alert('Error', 'Failed to load session details');
+        Alert.alert('Issue', 'Failed to load session details');
       }
     };
 
@@ -73,7 +73,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
             if (__DEV__) {
         logger.error('Error rating consultant:', error)
       };
-      Alert.alert('Error', 'Failed to submit consultant rating');
+      Alert.alert('Issue', 'Failed to submit consultant rating');
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
             if (__DEV__) {
         logger.error('Error rating service:', error)
       };
-      Alert.alert('Error', 'Failed to submit service rating');
+      Alert.alert('Issue', 'Failed to submit service rating');
     } finally {
       setLoading(false);
     }
@@ -120,7 +120,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
           text: 'Submit',
           onPress: async (reason?: string) => {
             if (!reason || reason.trim().length === 0) {
-              Alert.alert('Error', 'Please provide a reason for the refund request');
+              Alert.alert('Issue', 'Please provide a reason for the refund request');
               return;
             }
 
@@ -134,7 +134,7 @@ const SessionRatingScreen: React.FC<SessionRatingScreenProps> = ({ route, naviga
                             if (__DEV__) {
                 logger.error('Error requesting refund:', error)
               };
-              Alert.alert('Error', 'Failed to submit refund request');
+              Alert.alert('Issue', 'Failed to submit refund request');
             }
           }
         }

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { COLORS } from '../../constants/core/colors';
 import UploadService from '../../services/upload.service';
+import { sanitizeUserMessage } from '../../utils/sanitizeUserMessage';
 import {
   launchImageLibrary,
   ImagePickerResponse,
@@ -389,7 +390,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       )}
 
       {/* Error Message */}
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <Text style={styles.errorText}>{sanitizeUserMessage(error)}</Text>
+      )}
 
       <CustomAlert
         visible={alertVisible}

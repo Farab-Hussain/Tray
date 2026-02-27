@@ -147,7 +147,7 @@ const StudentAvailability = ({ navigation, route }: any) => {
                 if (__DEV__) {
           logger.debug('⚠️ No consultant ID provided')
         };
-        Alert.alert('Error', 'No consultant selected');
+        Alert.alert('Issue', 'No consultant selected');
         setLoading(false);
         return;
       }
@@ -209,7 +209,7 @@ const StudentAvailability = ({ navigation, route }: any) => {
             if (__DEV__) {
         logger.error('❌ Error fetching consultant availability:', error)
       };
-      Alert.alert('Error', 'Failed to load consultant availability');
+      Alert.alert('Issue', 'Failed to load consultant availability');
     } finally {
       setLoading(false);
     }

@@ -342,7 +342,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
     const endMinutes = parseTime(endTime);
 
     if (startMinutes >= endMinutes) {
-      Alert.alert('Error', 'End time must be after start time');
+      Alert.alert('Issue', 'End time must be after start time');
       return;
     }
 
@@ -628,7 +628,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
         error,
       )
       };
-      Alert.alert('Error', 'Failed to save availability slots');
+      Alert.alert('Issue', 'Failed to save availability slots');
     } finally {
       setSaving(false);
     }
@@ -796,7 +796,7 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
   const handleDeleteAllSlots = useCallback(() => {
     if (!user?.uid) {
-      Alert.alert('Error', 'Unable to delete slots. Please log in again.');
+      Alert.alert('Issue', 'Unable to delete slots. Please log in again.');
       return;
     }
 

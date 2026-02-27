@@ -51,14 +51,14 @@ const Register = ({ navigation, route }: any) => {
 
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill all required fields');
+      Alert.alert('Note', 'Please fill all required fields');
       return;
     }
     
 
     // Password validation is now optional - just check if passwords match
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Password and confirm password do not match');
+      Alert.alert('Note', 'Password and confirm password do not match');
       return;
     }
 
@@ -248,7 +248,7 @@ const Register = ({ navigation, route }: any) => {
             if (__DEV__) {
         console.log('Register - Registration flag cleared due to error')
       };
-      Alert.alert('Error', e.message || 'Something went wrong');
+      Alert.alert('Issue', e.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }

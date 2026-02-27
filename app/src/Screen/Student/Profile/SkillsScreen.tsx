@@ -47,7 +47,7 @@ const SkillsScreen = ({ navigation }: any) => {
 
   const addTechnicalSkill = () => {
     if (!newTechnicalSkill.trim()) {
-      Alert.alert('Validation Error', 'Please enter a technical skill');
+      Alert.alert('Validation Issue', 'Please enter a technical skill');
       return;
     }
 
@@ -64,7 +64,7 @@ const SkillsScreen = ({ navigation }: any) => {
 
   const addSoftSkill = () => {
     if (!newSoftSkill.trim()) {
-      Alert.alert('Validation Error', 'Please enter a soft skill');
+      Alert.alert('Validation Issue', 'Please enter a soft skill');
       return;
     }
 
@@ -81,7 +81,7 @@ const SkillsScreen = ({ navigation }: any) => {
 
   const addLanguage = () => {
     if (!newLanguage.trim()) {
-      Alert.alert('Validation Error', 'Please enter a language');
+      Alert.alert('Validation Issue', 'Please enter a language');
       return;
     }
 
@@ -133,7 +133,7 @@ const SkillsScreen = ({ navigation }: any) => {
     }
     
     if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n\n'));
+      Alert.alert('Validation Issue', issues.join('\n\n'));
       return;
     }
 
@@ -144,7 +144,7 @@ const SkillsScreen = ({ navigation }: any) => {
       Alert.alert('Success', 'Skills information saved successfully!');
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save skills information');
+      Alert.alert('Issue', 'Failed to save skills information');
     } finally {
       setLoading(false);
     }

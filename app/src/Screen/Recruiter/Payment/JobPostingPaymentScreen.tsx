@@ -59,17 +59,17 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
         });
 
         if (error) {
-          Alert.alert('Error', 'Failed to initialize payment sheet');
+          Alert.alert('Issue', 'Failed to initialize payment sheet');
           console.error('Payment sheet initialization error:', error);
         } else {
           setPaymentIntent(response);
         }
       } else {
-        Alert.alert('Error', response.error || 'Failed to create payment intent');
+        Alert.alert('Issue', response.issue || 'Failed to create payment intent');
       }
     } catch (error) {
       console.error('Payment initialization error:', error);
-      Alert.alert('Error', 'Failed to initialize payment');
+      Alert.alert('Issue', 'Failed to initialize payment');
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
 
   const handlePayment = async () => {
     if (!paymentIntent) {
-      Alert.alert('Error', 'Payment not initialized');
+      Alert.alert('Issue', 'Payment not initialized');
       return;
     }
 
@@ -91,7 +91,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
       const { error } = await presentPaymentSheet();
 
       if (error) {
-        Alert.alert('Payment Failed', error.message);
+        Alert.alert('Payment Failed', issue.message);
         console.error('Payment error:', error);
       } else {
         // Payment successful - confirm and record
@@ -99,7 +99,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
       }
     } catch (error) {
       console.error('Payment processing error:', error);
-      Alert.alert('Error', 'Failed to process payment');
+      Alert.alert('Issue', 'Failed to process payment');
     } finally {
       setProcessing(false);
     }
@@ -153,11 +153,11 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
           ]
         );
       } else {
-        Alert.alert('Error', response.error || 'Failed to confirm payment');
+        Alert.alert('Issue', response.issue || 'Failed to confirm payment');
       }
     } catch (error) {
       console.error('Payment confirmation error:', error);
-      Alert.alert('Error', 'Failed to confirm payment');
+      Alert.alert('Issue', 'Failed to confirm payment');
     }
   };
 

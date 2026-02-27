@@ -23,7 +23,7 @@ const Verify = ({ navigation, route }: any) => {
   }, [countdown]);
   
   const handleVerify = async () => {
-    if (!otp) return Alert.alert('Error', 'Please enter the 4 digit code');
+    if (!otp) return Alert.alert('Issue', 'Please enter the 4 digit code');
     setLoading(true);
 
     try {
@@ -34,7 +34,7 @@ const Verify = ({ navigation, route }: any) => {
             if (__DEV__) {
         console.error('Verify OTP error:', err.response?.data || err.message)
       };
-      Alert.alert("Error", err.response?.data?.error || "Invalid or expired code");
+      Alert.alert("Issue", err.response?.data?.issue || "Invalid or expired code");
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,7 @@ const Verify = ({ navigation, route }: any) => {
             if (__DEV__) {
         console.error('Resend code error:', err.response?.data || err.message)
       };
-      Alert.alert("Error", err.response?.data?.error || "Failed to resend code");
+      Alert.alert("Issue", err.response?.data?.issue || "Failed to resend code");
     } finally {
       setResending(false);
     }

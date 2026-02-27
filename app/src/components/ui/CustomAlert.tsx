@@ -8,6 +8,7 @@ import {
 import { COLORS } from '../../constants/core/colors';
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
 import { customAlertStyles } from '../../constants/styles/customAlertStyles';
+import { sanitizeUserMessage } from '../../utils/sanitizeUserMessage';
 
 interface CustomAlertProps {
   visible: boolean;
@@ -78,10 +79,10 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title}>{sanitizeUserMessage(title)}</Text>
 
           {/* Message */}
-          <Text style={styles.message}>{message}</Text>
+          <Text style={styles.message}>{sanitizeUserMessage(message)}</Text>
 
           {/* OK Button */}
           <TouchableOpacity

@@ -447,7 +447,7 @@ const PostJobScreen = ({ navigation }: any) => {
         setPaymentAmount(error.response.data.paymentAmount);
         setPaymentUrl(error.response.data.paymentUrl);
 
-        Alert.alert('Payment Required', error.response.data.message, [
+        Alert.alert('Payment Required', issue.response.data.message, [
           { text: 'Cancel', style: 'cancel' },
           {
             text: 'Pay Now',
@@ -700,7 +700,7 @@ const PostJobScreen = ({ navigation }: any) => {
 
       const improvedText = improved?.improved_post?.trim();
       if (!improvedText) {
-        Alert.alert('AI Error', 'Improved text was empty. Please try again.');
+        Alert.alert('AI Issue', 'Improved text was empty. Please try again.');
         return;
       }
 

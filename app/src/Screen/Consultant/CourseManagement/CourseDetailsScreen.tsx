@@ -75,7 +75,7 @@ export default function CourseDetailsScreen({ navigation, route }: CourseDetails
       setCourseReviews(reviewsResponse?.reviews || []);
     } catch (error) {
       logger.error('Error loading course details:', error);
-      Alert.alert('Error', 'Failed to load course details');
+      Alert.alert('Issue', 'Failed to load course details');
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +106,7 @@ export default function CourseDetailsScreen({ navigation, route }: CourseDetails
               Alert.alert('Success', 'Course deleted successfully');
               navigation.goBack();
             } catch {
-              Alert.alert('Error', 'Failed to delete course');
+              Alert.alert('Issue', 'Failed to delete course');
             }
           },
         },

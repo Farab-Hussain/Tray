@@ -172,7 +172,7 @@ const ServiceDetails = () => {
           consultantName: service.consultantName,
         });
       } catch (error) {
-        Alert.alert('Error', 'Unable to verify session access');
+        Alert.alert('Issue', 'Unable to verify session access');
       }
     };
 
@@ -206,7 +206,7 @@ const ServiceDetails = () => {
       }
       return true;
     } catch (error) {
-      Alert.alert('Error', 'Unable to verify session access');
+      Alert.alert('Issue', 'Unable to verify session access');
       return false;
     }
   };

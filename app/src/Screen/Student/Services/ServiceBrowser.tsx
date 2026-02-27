@@ -79,7 +79,7 @@ export default function ServiceBrowser() {
       }
     } catch (error) {
       logger.error('Error fetching services:', error);
-      Alert.alert('Error', 'Failed to load services');
+      Alert.alert('Issue', 'Failed to load services');
     } finally {
       setLoading(false);
     }

@@ -222,7 +222,7 @@ const Cart = ({ navigation, route }: any) => {
 
   const handleProceedToCheckout = async () => {
     if (!user) {
-      Alert.alert('Error', 'Please login to proceed');
+      Alert.alert('Issue', 'Please login to proceed');
       return;
     }
 

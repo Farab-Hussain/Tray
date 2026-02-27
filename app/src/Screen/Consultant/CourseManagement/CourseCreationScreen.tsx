@@ -250,7 +250,7 @@ export default function CourseCreationScreen() {
         }
       } catch (error) {
         logger.error('Error loading course for edit:', error);
-        Alert.alert('Error', 'Failed to load course details for editing.');
+        Alert.alert('Issue', 'Failed to load course details for editing.');
       } finally {
         setIsPrefilling(false);
       }
@@ -288,7 +288,7 @@ export default function CourseCreationScreen() {
             text: 'Open in Browser',
             onPress: () => {
               Linking.openURL(url).catch(() => {
-                Alert.alert('Error', 'Unable to open video URL.');
+                Alert.alert('Issue', 'Unable to open video URL.');
               });
             },
           },
@@ -359,13 +359,13 @@ export default function CourseCreationScreen() {
 
       if (response?.didCancel) return;
       if (response?.errorMessage) {
-        Alert.alert('Upload Error', response.errorMessage);
+        Alert.alert('Upload Issue', response.issueMessage);
         return;
       }
 
       const asset = response?.assets?.[0];
       if (!asset?.uri) {
-        Alert.alert('Upload Error', 'No video selected.');
+        Alert.alert('Upload Issue', 'No video selected.');
         return;
       }
 
@@ -400,7 +400,7 @@ export default function CourseCreationScreen() {
       );
     } catch (error: any) {
       logger.error('❌ [CourseCreation] Video upload error:', error);
-      Alert.alert('Upload Error', error?.message || 'Failed to upload video.');
+      Alert.alert('Upload Issue', issue?.message || 'Failed to upload video.');
     } finally {
       updateVideoItem(videoId, 'isUploadingVideo', false);
     }
@@ -451,13 +451,13 @@ export default function CourseCreationScreen() {
 
       if (response?.didCancel) return;
       if (response?.errorMessage) {
-        Alert.alert('Upload Error', response.errorMessage);
+        Alert.alert('Upload Issue', response.issueMessage);
         return;
       }
 
       const asset = response?.assets?.[0];
       if (!asset?.uri) {
-        Alert.alert('Upload Error', 'No video selected.');
+        Alert.alert('Upload Issue', 'No video selected.');
         return;
       }
 
@@ -481,7 +481,7 @@ export default function CourseCreationScreen() {
       Alert.alert('Upload Complete', 'Intro video uploaded successfully.');
     } catch (error: any) {
       logger.error('❌ [CourseCreation] Intro video upload error:', error);
-      Alert.alert('Upload Error', error?.message || 'Failed to upload intro video.');
+      Alert.alert('Upload Issue', issue?.message || 'Failed to upload intro video.');
     } finally {
       setIsUploadingIntroVideo(false);
     }
@@ -629,7 +629,7 @@ export default function CourseCreationScreen() {
 
   const handleNext = () => {
     if (!validateCurrentStep()) {
-      Alert.alert('Validation Error', 'Please fill in all required fields');
+      Alert.alert('Validation Issue', 'Please fill in all required fields');
       return;
     }
     if (currentStep < 4) {
@@ -714,7 +714,7 @@ export default function CourseCreationScreen() {
       setShowSuccessModal(true);
     } catch (error) {
       logger.error(isEditMode ? 'Error updating course:' : 'Error creating course:', error);
-      Alert.alert('Error', isEditMode ? 'Failed to update course. Please try again.' : 'Failed to create course. Please try again.');
+      Alert.alert('Issue', isEditMode ? 'Failed to update course. Please try again.' : 'Failed to create course. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -1883,7 +1883,7 @@ export default function CourseCreationScreen() {
                   onLoad={() => setIsVideoPlaying(true)}
                   onError={(error: any) => {
                     logger.error('❌ [CourseCreation] Video error:', error);
-                    Alert.alert('Preview error', 'Could not play this video.');
+                    Alert.alert('Preview issue', 'Could not play this video.');
                   }}
                 />
               ) : (
@@ -1902,7 +1902,7 @@ export default function CourseCreationScreen() {
                     onPress={() => {
                       if (!currentVideoUrl) return;
                       Linking.openURL(currentVideoUrl).catch(() => {
-                        Alert.alert('Error', 'Unable to open video URL.');
+                        Alert.alert('Issue', 'Unable to open video URL.');
                       });
                     }}
                     style={{

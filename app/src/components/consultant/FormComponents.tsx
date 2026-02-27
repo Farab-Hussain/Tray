@@ -11,6 +11,7 @@ import { formComponentsStyles } from '../../constants/styles/formComponentsStyle
 import { consultantFlowStyles } from '../../constants/styles/consultantFlowStyles';
 import { COLORS } from '../../constants/core/colors';
 import * as LucideIcons from 'lucide-react-native';
+import { sanitizeUserMessage } from '../../utils/sanitizeUserMessage';
 
 interface FormInputProps {
   label: string;
@@ -59,7 +60,11 @@ export const FormInput: React.FC<FormInputProps> = ({
         multiline={multiline}
         numberOfLines={numberOfLines}
       />
-      {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
+      {error && (
+        <Text style={formComponentsStyles.errorText}>
+          {sanitizeUserMessage(error)}
+        </Text>
+      )}
     </View>
   );
 };
@@ -108,7 +113,11 @@ export const TextArea: React.FC<TextAreaProps> = ({
           {maxLength && ` / ${maxLength}`}
         </Text>
       )}
-      {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
+      {error && (
+        <Text style={formComponentsStyles.errorText}>
+          {sanitizeUserMessage(error)}
+        </Text>
+      )}
     </View>
   );
 };
@@ -150,7 +159,11 @@ export const PriceInput: React.FC<PriceInputProps> = ({
           placeholderTextColor="#9CA3AF"
         />
       </View>
-      {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
+      {error && (
+        <Text style={formComponentsStyles.errorText}>
+          {sanitizeUserMessage(error)}
+        </Text>
+      )}
     </View>
   );
 };
@@ -296,7 +309,11 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
           </View>
         )}
 
-        {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
+        {error && (
+          <Text style={formComponentsStyles.errorText}>
+            {sanitizeUserMessage(error)}
+          </Text>
+        )}
       </View>
     );
   }
@@ -370,7 +387,11 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
         </View>
       )}
 
-      {error && <Text style={formComponentsStyles.errorText}>{error}</Text>}
+      {error && (
+        <Text style={formComponentsStyles.errorText}>
+          {sanitizeUserMessage(error)}
+        </Text>
+      )}
     </View>
   );
 };

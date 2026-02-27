@@ -29,7 +29,7 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
             if (__DEV__) {
         console.error('Error fetching refund requests:', error)
       };
-      Alert.alert('Error', 'Failed to load refund requests');
+      Alert.alert('Issue', 'Failed to load refund requests');
     } finally {
       setLoading(false);
     }
@@ -94,7 +94,7 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
                             if (__DEV__) {
                 console.error('Error approving refund:', error)
               };
-              Alert.alert('Error', 'Failed to approve refund');
+              Alert.alert('Issue', 'Failed to approve refund');
             }
           }
         }
@@ -157,7 +157,7 @@ const AdminRefundReview: React.FC<AdminRefundReviewProps> = ({ navigation: _navi
                             if (__DEV__) {
                 console.error('Error denying refund:', error)
               };
-              Alert.alert('Error', 'Failed to deny refund');
+              Alert.alert('Issue', 'Failed to deny refund');
             }
           }
         }

@@ -31,12 +31,12 @@ const ResetPassword = ({ navigation, route }: any) => {
 
   const handleResetPassword = async () => {
     if (!newPassword || !confirmPassword)
-      return Alert.alert('Error', 'Please fill all fields');
+      return Alert.alert('Issue', 'Please fill all fields');
     
     // Password validation is now optional - allow any password
     
     if (newPassword !== confirmPassword)
-      return Alert.alert('Error', 'Passwords do not match');
+      return Alert.alert('Issue', 'Passwords do not match');
 
     setLoading(true);
     try {
@@ -67,7 +67,7 @@ const ResetPassword = ({ navigation, route }: any) => {
         errorMessage = err;
       }
       
-      Alert.alert("Error", errorMessage);
+      Alert.alert("Issue", issueMessage);
     } finally {
       setLoading(false);
     }

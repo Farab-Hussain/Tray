@@ -1,4 +1,5 @@
 import Toast from 'react-native-toast-message';
+import { sanitizeUserMessage } from './sanitizeUserMessage';
 
 export interface ToastConfig {
   title?: string;
@@ -11,8 +12,8 @@ export const showToast = {
   success: (config: ToastConfig) => {
     Toast.show({
       type: 'success',
-      text1: config.title || 'Success',
-      text2: config.message,
+      text1: sanitizeUserMessage(config.title || 'Success'),
+      text2: sanitizeUserMessage(config.message),
       visibilityTime: config.duration || 4000,
       position: config.position || 'top',
       autoHide: true,
@@ -22,8 +23,8 @@ export const showToast = {
   error: (config: ToastConfig) => {
     Toast.show({
       type: 'error',
-      text1: config.title || 'Error',
-      text2: config.message,
+      text1: sanitizeUserMessage(config.title || 'Issue'),
+      text2: sanitizeUserMessage(config.message),
       visibilityTime: config.duration || 5000,
       position: config.position || 'top',
       autoHide: true,
@@ -33,8 +34,8 @@ export const showToast = {
   info: (config: ToastConfig) => {
     Toast.show({
       type: 'info',
-      text1: config.title || 'Info',
-      text2: config.message,
+      text1: sanitizeUserMessage(config.title || 'Info'),
+      text2: sanitizeUserMessage(config.message),
       visibilityTime: config.duration || 4000,
       position: config.position || 'top',
       autoHide: true,
@@ -44,8 +45,8 @@ export const showToast = {
   warning: (config: ToastConfig) => {
     Toast.show({
       type: 'info', // Using info type for warning since there's no built-in warning type
-      text1: config.title || 'Warning',
-      text2: config.message,
+      text1: sanitizeUserMessage(config.title || 'Warning'),
+      text2: sanitizeUserMessage(config.message),
       visibilityTime: config.duration || 4500,
       position: config.position || 'top',
       autoHide: true,
@@ -112,8 +113,8 @@ export const showWarning = (message: string, title?: string) => {
 
 export const showError = (message: string, title?: string) => {
   showToast.error({
-    title: title || 'Error',
-    message,
+    title: title || 'Issue',
+    message: sanitizeUserMessage(message),
   });
 };
 
@@ -131,7 +132,7 @@ export const handleApiError = (error: any) => {
       case 400:
         showToast.warning({
           title: 'Let\'s fix that',
-          message: message || 'Double-check your information and try again.',
+          message: sanitizeUserMessage(message) || 'Double-check your information and try again.',
         });
         break;
       case 401:
@@ -143,7 +144,7 @@ export const handleApiError = (error: any) => {
       case 403:
         showToast.info({
           title: 'Access needed',
-          message: message || 'You\'ll need permission to access this. Contact support if this seems wrong.',
+          message: sanitizeUserMessage(message) || 'You\'ll need permission to access this. Contact support if this seems wrong.',
         });
         break;
       case 404:
@@ -162,7 +163,7 @@ export const handleApiError = (error: any) => {
         showValidationError(message || 'Let\'s double-check those fields.');
         break;
       case 500:
-        showServerError(message);
+        showServerError(sanitizeUserMessage(message));
         break;
       default:
         showToast.info({

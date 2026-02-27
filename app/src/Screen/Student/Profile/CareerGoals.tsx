@@ -154,7 +154,7 @@ const CareerGoals = ({ navigation }: any) => {
     }
     
     if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n\n'));
+      Alert.alert('Validation Issue', issues.join('\n\n'));
       return;
     }
 
@@ -183,7 +183,7 @@ const CareerGoals = ({ navigation }: any) => {
       navigation.goBack();
     } catch (error) {
       logger.error('Error saving career goals:', error);
-      Alert.alert('Error', 'Failed to update career goals. Please try again.');
+      Alert.alert('Issue', 'Failed to update career goals. Please try again.');
     } finally {
       setSaving(false);
     }

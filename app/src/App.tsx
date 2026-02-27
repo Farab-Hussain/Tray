@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View, Text, LogBox } from 'react-native';
+import { ActivityIndicator, View, Text, LogBox, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import Toast from 'react-native-toast-message';
@@ -13,6 +13,7 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 import { navigationRef } from './navigator/navigationRef';
 import { appStyles } from './constants/styles/appStyles';
 import { validateEnvironmentOrThrow } from './utils/envValidation';
+import { sanitizeAlertPayload } from './utils/sanitizeUserMessage';
 
 // Validate environment variables on app startup
 try {
@@ -98,6 +99,13 @@ if (typeof console.warn === 'function') {
     }
   };
 }
+
+// Remove the word "error" from any alert shown to users in production
+const originalAlert = Alert.alert.bind(Alert);
+Alert.alert = (title?: any, message?: any, buttons?: any, options?: any, type?: any) => {
+  const { sanitizedTitle, sanitizedMessage, sanitizedButtons } = sanitizeAlertPayload(title, message, buttons);
+  return originalAlert(sanitizedTitle, sanitizedMessage, sanitizedButtons as any, options, type);
+};
 
 const sanitizeEnvStripeKey = () => {
   if (!STRIPE_PUBLISHABLE_KEY) {

@@ -102,7 +102,7 @@ const EmailVerification = ({ route }: any) => {
                     if (__DEV__) {
             console.error('Error fetching user role:', error)
           };
-          Alert.alert('Error', 'Failed to fetch user information. Please try logging in again.');
+          Alert.alert('Issue', 'Failed to fetch user information. Please try logging in again.');
         }
       } else {
         // User is registering, complete registration process
@@ -373,7 +373,7 @@ const EmailVerification = ({ route }: any) => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert('Error', 'No user found. Please log in again.');
+        Alert.alert('Issue', 'No user found. Please log in again.');
         setIsResending(false);
         return;
       }
@@ -640,7 +640,7 @@ const EmailVerification = ({ route }: any) => {
           userMessage += 'Please try again later or contact support if the issue persists.';
         }
         
-        Alert.alert('Error', userMessage, [{ text: 'OK' }]);
+        Alert.alert('Issue', userMessage, [{ text: 'OK' }]);
       }
     } catch (error: any) {
             if (__DEV__) {

@@ -244,7 +244,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
       }
     } catch (error) {
       console.error('Error loading company profile:', error);
-      Alert.alert('Error', 'Failed to load company profile');
+      Alert.alert('Issue', 'Failed to load company profile');
     } finally {
       setLoading(false);
     }
@@ -256,17 +256,17 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
 
       // Validation
       if (!company.name.trim()) {
-        Alert.alert('Error', 'Company name is required');
+        Alert.alert('Issue', 'Company name is required');
         return;
       }
 
       if (!company.industry) {
-        Alert.alert('Error', 'Industry is required');
+        Alert.alert('Issue', 'Industry is required');
         return;
       }
 
       if (!company.contactInfo.email.trim()) {
-        Alert.alert('Error', 'Contact email is required');
+        Alert.alert('Issue', 'Contact email is required');
         return;
       }
 
@@ -281,7 +281,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
       Alert.alert('Success', 'Company profile saved successfully');
     } catch (error) {
       console.error('Error saving company profile:', error);
-      Alert.alert('Error', 'Failed to save company profile');
+      Alert.alert('Issue', 'Failed to save company profile');
     } finally {
       setSaving(false);
     }
@@ -298,7 +298,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
           onPress: async () => {
             try {
               if (!company.id) {
-                Alert.alert('Error', 'Please save the company profile first.');
+                Alert.alert('Issue', 'Please save the company profile first.');
                 return;
               }
               // No docs yet; send empty payload
@@ -306,7 +306,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
               setCompany({ ...company, verificationStatus: 'pending' });
               Alert.alert('Success', 'Company submitted for verification');
             } catch (error) {
-              Alert.alert('Error', 'Failed to submit for verification');
+              Alert.alert('Issue', 'Failed to submit for verification');
             }
           },
         },

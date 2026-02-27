@@ -24,7 +24,7 @@ const CreateProfile = ({ navigation }: any) => {
 
   const handleCreateProfile = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter your name');
+      Alert.alert('Issue', 'Please enter your name');
       return;
     }
 
@@ -53,7 +53,7 @@ const CreateProfile = ({ navigation }: any) => {
             if (__DEV__) {
         console.error('Profile creation error:', error)
       };
-      Alert.alert('Error', error.response?.data?.error || 'Failed to create profile');
+      Alert.alert('Issue', issue.response?.data?.issue || 'Failed to create profile');
     } finally {
       setIsLoading(false);
     }

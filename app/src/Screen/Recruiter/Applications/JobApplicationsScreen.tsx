@@ -200,7 +200,7 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       
     } catch (error) {
       console.error('Error loading applications:', error);
-      Alert.alert('Error', 'Failed to load applications');
+      Alert.alert('Issue', 'Failed to load applications');
     } finally {
       setLoading(false);
     }
@@ -274,7 +274,7 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       
       Alert.alert('Success', 'Application status updated');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update application status');
+      Alert.alert('Issue', 'Failed to update application status');
     }
   };
 

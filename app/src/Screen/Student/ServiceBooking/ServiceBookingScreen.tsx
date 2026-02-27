@@ -61,7 +61,7 @@ export default function ServiceBookingScreen() {
       ];
       setAvailableSlots(mockSlots);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load available slots');
+      Alert.alert('Issue', 'Failed to load available slots');
     } finally {
       setLoading(false);
     }
@@ -69,7 +69,7 @@ export default function ServiceBookingScreen() {
 
   const handleBooking = async () => {
     if (!selectedDate || !selectedTime) {
-      Alert.alert('Error', 'Please select date and time');
+      Alert.alert('Issue', 'Please select date and time');
       return;
     }
 
@@ -102,7 +102,7 @@ export default function ServiceBookingScreen() {
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Failed to create booking');
+      Alert.alert('Issue', 'Failed to create booking');
     } finally {
       setBooking(false);
     }
@@ -113,7 +113,7 @@ export default function ServiceBookingScreen() {
       await createChatIfNotExists(user?.uid || '', service.consultantId);
       navigation.navigate('Chat', { consultantId: service.consultantId });
     } catch (error) {
-      Alert.alert('Error', 'Failed to open chat');
+      Alert.alert('Issue', 'Failed to open chat');
     }
   };
 

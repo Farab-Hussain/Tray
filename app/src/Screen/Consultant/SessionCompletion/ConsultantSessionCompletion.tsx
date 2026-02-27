@@ -68,7 +68,7 @@ const ConsultantSessionCompletion: React.FC<
                 if (__DEV__) {
           logger.error('Error fetching session completion:', error)
         };
-        Alert.alert('Error', 'Failed to load session details');
+        Alert.alert('Issue', 'Failed to load session details');
       }
     };
 
@@ -116,7 +116,7 @@ const ConsultantSessionCompletion: React.FC<
                             if (__DEV__) {
                 logger.error('Error ending session:', error)
               };
-              Alert.alert('Error', 'Failed to end session');
+              Alert.alert('Issue', 'Failed to end session');
             } finally {
               setLoading(false);
             }
@@ -144,7 +144,7 @@ const ConsultantSessionCompletion: React.FC<
           text: 'Submit Response',
           onPress: async (response?: string) => {
             if (!response || response.trim().length === 0) {
-              Alert.alert('Error', 'Please provide a response');
+              Alert.alert('Issue', 'Please provide a response');
               return;
             }
 
@@ -170,7 +170,7 @@ const ConsultantSessionCompletion: React.FC<
                             if (__DEV__) {
                 logger.error('Error submitting response:', error)
               };
-              Alert.alert('Error', 'Failed to submit response');
+              Alert.alert('Issue', 'Failed to submit response');
             }
           },
         },

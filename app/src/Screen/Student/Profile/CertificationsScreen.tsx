@@ -68,7 +68,7 @@ const CertificationsScreen = ({ navigation }: any) => {
 
   const addCertification = () => {
     if (!newCertification.name.trim() || !newCertification.issuer.trim()) {
-      Alert.alert('Validation Error', 'Please fill in certification name and issuing organization');
+      Alert.alert('Validation Issue', 'Please fill in certification name and issuing organization');
       return;
     }
 
@@ -130,7 +130,7 @@ const CertificationsScreen = ({ navigation }: any) => {
     }
     
     if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n\n'));
+      Alert.alert('Validation Issue', issues.join('\n\n'));
       return;
     }
 
@@ -147,7 +147,7 @@ const CertificationsScreen = ({ navigation }: any) => {
       navigation.goBack();
     } catch (error) {
       logger.error('Error saving certifications:', error);
-      Alert.alert('Error', 'Failed to save certifications. Please try again.');
+      Alert.alert('Issue', 'Failed to save certifications. Please try again.');
     } finally {
       setLoading(false);
     }

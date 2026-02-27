@@ -134,7 +134,7 @@ export default function CoursePlayerScreen() {
         }
       } catch (error) {
         logger.error('Error loading course:', error);
-        Alert.alert('Error', 'Failed to load course');
+        Alert.alert('Issue', 'Failed to load course');
       } finally {
         setIsLoading(false);
       }
@@ -182,7 +182,7 @@ export default function CoursePlayerScreen() {
       setShowEnrollmentModal(false);
       Alert.alert('Success!', 'You have successfully enrolled in this course.');
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Failed to enroll in course');
+      Alert.alert('Issue', issue?.message || 'Failed to enroll in course');
     } finally {
       setIsEnrolling(false);
     }
@@ -216,14 +216,14 @@ export default function CoursePlayerScreen() {
       });
 
       if (initError) {
-        Alert.alert('Payment Error', initError.message || 'Failed to initialize payment form.');
+        Alert.alert('Payment Issue', initIssue.message || 'Failed to initialize payment form.');
         return;
       }
 
       const { error: paymentError } = await presentPaymentSheet();
       if (paymentError) {
         if (paymentError.code !== 'Canceled') {
-          Alert.alert('Payment Failed', paymentError.message || 'Payment could not be processed.');
+          Alert.alert('Payment Failed', paymentIssue.message || 'Payment could not be processed.');
         }
         return;
       }
@@ -233,7 +233,7 @@ export default function CoursePlayerScreen() {
       setShowEnrollmentModal(false);
       Alert.alert('Success!', 'Payment completed and enrollment successful.');
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Failed to complete payment and enrollment');
+      Alert.alert('Issue', issue?.message || 'Failed to complete payment and enrollment');
     } finally {
       setIsEnrolling(false);
     }
@@ -337,7 +337,7 @@ export default function CoursePlayerScreen() {
       setShowRatingModal(false);
       Alert.alert('Success', 'Your rating has been submitted.');
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Failed to submit rating');
+      Alert.alert('Issue', issue?.message || 'Failed to submit rating');
     } finally {
       setIsSubmittingRating(false);
     }
@@ -438,7 +438,7 @@ export default function CoursePlayerScreen() {
               }}
               onError={() => {
                 setIsPlaying(false);
-                Alert.alert('Playback Error', 'Unable to play this video.');
+                Alert.alert('Playback Issue', 'Unable to play this video.');
               }}
             />
             {!isPlaying && (

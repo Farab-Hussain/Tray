@@ -23,6 +23,7 @@ import { auth } from '../../../lib/firebase';
 import { COLORS } from '../../../constants/core/colors';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { changePasswordStyles } from '../../../constants/styles/changePasswordStyles';
+import { sanitizeUserMessage } from '../../../utils/sanitizeUserMessage';
 
 const ChangePassword = ({ navigation }: any) => {
   const { user } = useAuth();
@@ -149,7 +150,7 @@ const ChangePassword = ({ navigation }: any) => {
               </TouchableOpacity>
             </View>
             {currentPasswordError ? (
-              <Text style={styles.errorText}>{currentPasswordError}</Text>
+              <Text style={styles.errorText}>{sanitizeUserMessage(currentPasswordError)}</Text>
             ) : null}
           </View>
 
@@ -215,7 +216,7 @@ const ChangePassword = ({ navigation }: any) => {
             textStyle={authStyles.signUpText}
           />
           {generalError ? (
-            <Text style={[styles.errorText, styles.generalError]}>{generalError}</Text>
+            <Text style={[styles.errorText, styles.generalError]}>{sanitizeUserMessage(generalError)}</Text>
           ) : null}
         </View>
       </KeyboardAvoidingView>
@@ -226,4 +227,3 @@ const ChangePassword = ({ navigation }: any) => {
 const styles = changePasswordStyles;
 
 export default ChangePassword;
-

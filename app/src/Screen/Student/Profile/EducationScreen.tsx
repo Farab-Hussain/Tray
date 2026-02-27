@@ -69,7 +69,7 @@ const EducationScreen = ({ navigation }: any) => {
 
   const addEducation = () => {
     if (!newEducation.institution.trim() || !newEducation.degree.trim()) {
-      Alert.alert('Validation Error', 'Please fill in at least institution and degree');
+      Alert.alert('Validation Issue', 'Please fill in at least institution and degree');
       return;
     }
 
@@ -105,7 +105,7 @@ const EducationScreen = ({ navigation }: any) => {
     }
     
     if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n\n'));
+      Alert.alert('Validation Issue', issues.join('\n\n'));
       return;
     }
 
@@ -122,7 +122,7 @@ const EducationScreen = ({ navigation }: any) => {
       navigation.goBack();
     } catch (error) {
       logger.error('Error saving education:', error);
-      Alert.alert('Error', 'Failed to save education information. Please try again.');
+      Alert.alert('Issue', 'Failed to save education information. Please try again.');
     } finally {
       setLoading(false);
     }

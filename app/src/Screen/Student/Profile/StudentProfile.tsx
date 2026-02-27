@@ -162,7 +162,7 @@ const StudentProfile = ({ navigation }: any) => {
       setLocationModalVisible(false);
       Alert.alert('Success', 'Location updated');
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Failed to update location');
+      Alert.alert('Issue', issue?.message || 'Failed to update location');
     }
   };
 

@@ -77,7 +77,7 @@ export default function ChatScreen() {
       
       return unsubscribe;
     } catch (error) {
-      Alert.alert('Error', 'Failed to initialize chat');
+      Alert.alert('Issue', 'Failed to initialize chat');
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ export default function ChatScreen() {
       
       setMessageText('');
     } catch (error) {
-      Alert.alert('Error', 'Failed to send message');
+      Alert.alert('Issue', 'Failed to send message');
     } finally {
       setSending(false);
     }

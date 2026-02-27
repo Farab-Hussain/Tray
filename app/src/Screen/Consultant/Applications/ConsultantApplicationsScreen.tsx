@@ -243,7 +243,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
             if (__DEV__) {
         logger.error('Error loading applications:', error)
       };
-      Alert.alert('Error', 'Failed to load applications');
+      Alert.alert('Issue', 'Failed to load applications');
     } finally {
       setIsLoading(false);
     }
@@ -345,13 +345,13 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
 
   const handleSubmitApplication = async () => {
     if (!user?.uid) {
-      Alert.alert('Error', 'User not authenticated');
+      Alert.alert('Issue', 'User not authenticated');
       return;
     }
     
     // Validate form and show errors immediately
     if (!validateForm()) {
-      Alert.alert('', 'Please fix the errors before submitting');
+      Alert.alert('', 'Please fix the issues before submitting');
       return;
     }
 
@@ -519,7 +519,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
             if (__DEV__) {
         logger.error('Error submitting application:', error)
       };
-      Alert.alert('Error', error.response?.data?.error || 'Failed to process request');
+      Alert.alert('Issue', issue.response?.data?.issue || 'Failed to process request');
     } finally {
       setIsSubmitting(false);
       setMutatingApplicationId(null);
@@ -602,7 +602,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
             if (__DEV__) {
         logger.error('Error deleting application:', error)
       };
-      Alert.alert('Error', 'Failed to delete application');
+      Alert.alert('Issue', 'Failed to delete application');
     } finally {
       setIsSubmitting(false);
       setMutatingApplicationId(null);
@@ -612,7 +612,7 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
   const handleEditApplication = useCallback(
     async (app: ConsultantApplicationWithTitle) => {
       if (!user?.uid) {
-        Alert.alert('Error', 'User not authenticated');
+        Alert.alert('Issue', 'User not authenticated');
         return;
       }
 

@@ -96,7 +96,7 @@ const StripePaymentSetup = ({ navigation }: any) => {
             if (__DEV__) {
         logger.error('Error checking account status:', error)
       };
-      Alert.alert('Error', error.message || 'Failed to check account status');
+      Alert.alert('Issue', issue.message || 'Failed to check account status');
     } finally {
       setLoading(false);
     }
@@ -112,13 +112,13 @@ const StripePaymentSetup = ({ navigation }: any) => {
       if (canOpen) {
         await Linking.openURL(onboardingUrl);
       } else {
-        Alert.alert('Error', 'Cannot open Stripe onboarding page');
+        Alert.alert('Issue', 'Cannot open Stripe onboarding page');
       }
     } catch (error: any) {
             if (__DEV__) {
         logger.error('Error creating account:', error)
       };
-      Alert.alert('Error', error.message || 'Failed to create Stripe account');
+      Alert.alert('Issue', issue.message || 'Failed to create Stripe account');
     } finally {
       setCreatingAccount(false);
     }
@@ -134,13 +134,13 @@ const StripePaymentSetup = ({ navigation }: any) => {
       if (canOpen) {
         await Linking.openURL(accountStatus.onboardingUrl);
       } else {
-        Alert.alert('Error', 'Cannot open Stripe onboarding page');
+        Alert.alert('Issue', 'Cannot open Stripe onboarding page');
       }
     } catch (error: any) {
             if (__DEV__) {
         logger.error('Error opening onboarding:', error)
       };
-      Alert.alert('Error', 'Failed to open onboarding page');
+      Alert.alert('Issue', 'Failed to open onboarding page');
     }
   };
 
@@ -320,4 +320,3 @@ const StripePaymentSetup = ({ navigation }: any) => {
 
 
 export default StripePaymentSetup;
-

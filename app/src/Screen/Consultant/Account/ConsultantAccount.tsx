@@ -330,7 +330,7 @@ const ConsultantAccount = ({ navigation }: any) => {
           //               } catch (error: any) {
           //                 // Handle unexpected errors
           //                 const errorMessage = error?.response?.data?.error || error?.message || 'Failed to switch role';
-          //                 Alert.alert('Error', errorMessage);
+          //                 Alert.alert('Issue', issueMessage);
           //               } finally {
           //                 setSwitchingRole(false);
           //               }

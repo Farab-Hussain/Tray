@@ -57,31 +57,31 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({
 
   const handleSubmit = async () => {
     if (!user?.uid) {
-      Alert.alert('Error', 'User not authenticated');
+      Alert.alert('Issue', 'User not authenticated');
       return;
     }
 
     // Validation
     if (applicationType === 'existing' && !_selectedServiceId) {
-      Alert.alert('Error', 'Please select a service');
+      Alert.alert('Issue', 'Please select a service');
       return;
     }
 
     if (applicationType === 'new') {
       if (!customTitle.trim()) {
-        Alert.alert('Error', 'Please enter a service title');
+        Alert.alert('Issue', 'Please enter a service title');
         return;
       }
       if (!customDescription.trim()) {
-        Alert.alert('Error', 'Please enter a service description');
+        Alert.alert('Issue', 'Please enter a service description');
         return;
       }
       if (parseInt(customDuration, 10) <= 0) {
-        Alert.alert('Error', 'Please enter a valid duration');
+        Alert.alert('Issue', 'Please enter a valid duration');
         return;
       }
       if (parseFloat(customPrice) <= 0) {
-        Alert.alert('Error', 'Please enter a valid price');
+        Alert.alert('Issue', 'Please enter a valid price');
         return;
       }
     }

@@ -13,7 +13,7 @@ const ForgotPassword = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
 
   const handleSendCode = async () => {
-    if (!email) return Alert.alert('Error', 'Please enter your email');
+    if (!email) return Alert.alert('Issue', 'Please enter your email');
     setLoading(true);
 
     try {
@@ -24,7 +24,7 @@ const ForgotPassword = ({ navigation }: any) => {
         resetSessionId: data.data.resetSessionId,
       });
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.error || 'Something went wrong');
+      Alert.alert('Issue', err.response?.data?.issue || 'Something went wrong');
     } finally {
       setLoading(false);
     }

@@ -186,7 +186,7 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
 
   const openProfile = (url: string) => {
     Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'Unable to open this URL');
+      Alert.alert('Issue', 'Unable to open this URL');
     });
   };
 
@@ -220,7 +220,7 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
       navigation.goBack();
     } catch (error) {
       logger.error('Error saving external profiles:', error);
-      Alert.alert('Error', 'Failed to save external profiles. Please try again.');
+      Alert.alert('Issue', 'Failed to save external profiles. Please try again.');
     } finally {
       setLoading(false);
     }

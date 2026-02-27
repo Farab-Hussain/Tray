@@ -130,12 +130,12 @@ const ConsultantServices = ({ navigation }: any) => {
             Alert.alert('Success', 'Image uploaded successfully!');
           } catch (uploadError) {
             logger.error('Image upload error:', uploadError);
-            Alert.alert('Error', 'Failed to upload image. Please try again.');
+            Alert.alert('Issue', 'Failed to upload image. Please try again.');
           }
         }
       });
     } catch (pickError) {
-      Alert.alert('Error', 'Failed to pick image');
+      Alert.alert('Issue', 'Failed to pick image');
       logger.error('Image picker error:', pickError);
     }
   };
@@ -332,7 +332,7 @@ const ConsultantServices = ({ navigation }: any) => {
               Alert.alert('Deleted', 'Service deleted successfully.');
             } catch (error) {
               logger.error('Delete service error:', error);
-              Alert.alert('Error', 'Failed to delete service. Please try again.');
+              Alert.alert('Issue', 'Failed to delete service. Please try again.');
             }
           },
         },
@@ -349,11 +349,11 @@ const ConsultantServices = ({ navigation }: any) => {
     try {
       // Validate form data
       if (!formData.title.trim() || !formData.description.trim()) {
-        Alert.alert('Error', 'Title and description are required');
+        Alert.alert('Issue', 'Title and description are required');
         return;
       }
       if (!formData.imageUrl) {
-        Alert.alert('Error', 'Please upload a service thumbnail image from your device');
+        Alert.alert('Issue', 'Please upload a service thumbnail image from your device');
         return;
       }
 

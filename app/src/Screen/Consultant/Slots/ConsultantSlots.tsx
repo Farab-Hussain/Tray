@@ -134,7 +134,7 @@ const ConsultantSlots = ({ navigation }: any) => {
                                 if (__DEV__) {
                   logger.error('❌ Error deleting slot:', error)
                 };
-                Alert.alert('Error', 'Failed to delete slot. Please try again.');
+                Alert.alert('Issue', 'Failed to delete slot. Please try again.');
               } finally {
                 setIsLoading(false);
               }
@@ -379,4 +379,3 @@ const styles = StyleSheet.create({
 });
 
 export default ConsultantSlots;
-

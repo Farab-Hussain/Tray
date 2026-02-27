@@ -121,7 +121,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
   const handlePayment = async () => {
     if (!user?.uid) {
-      Alert.alert('Error', 'Please log in to proceed with payment');
+      Alert.alert('Issue', 'Please log in to proceed with payment');
       return;
     }
 
@@ -162,7 +162,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
                 if (__DEV__) {
           logger.error('❌ Error creating payment intent:', error)
         };
-        Alert.alert('Payment Error', error?.message || 'Failed to initialize payment. Please try again.');
+        Alert.alert('Payment Issue', issue?.message || 'Failed to initialize payment. Please try again.');
         setPaymentLoading(false);
         return;
       }
@@ -182,7 +182,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
                 if (__DEV__) {
           logger.error('❌ Error initializing payment sheet:', initError)
         };
-        Alert.alert('Payment Error', initError.message || 'Failed to initialize payment form');
+        Alert.alert('Payment Issue', initIssue.message || 'Failed to initialize payment form');
         setPaymentLoading(false);
         return;
       }
@@ -199,7 +199,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           logger.error('Payment failed:', paymentError)
         };
         if (paymentError.code !== 'Canceled') {
-          Alert.alert('Payment Failed', paymentError.message || 'Payment could not be processed');
+          Alert.alert('Payment Failed', paymentIssue.message || 'Payment could not be processed');
         }
         setPaymentLoading(false);
         return;
@@ -212,7 +212,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             if (__DEV__) {
         logger.error('Payment error:', error)
       };
-      Alert.alert('Payment Error', error.message || 'An unexpected error occurred');
+      Alert.alert('Payment Issue', issue.message || 'An unexpected issue occurred');
       setPaymentLoading(false);
     }
   };

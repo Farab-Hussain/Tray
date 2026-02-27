@@ -152,7 +152,7 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
       await loadCourses();
     } catch (error) {
       logger.error('Error loading initial data:', error);
-      Alert.alert('Error', 'Failed to load courses');
+      Alert.alert('Issue', 'Failed to load courses');
     } finally {
       setLoading(false);
     }
@@ -201,7 +201,7 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
       setHasMore(result.hasMore);
     } catch (error) {
       logger.error('Error loading courses:', error);
-      Alert.alert('Error', 'Failed to load courses');
+      Alert.alert('Issue', 'Failed to load courses');
     }
   };
 
@@ -247,7 +247,7 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
       }
 
       if (price === 0) {
-        Alert.alert('Error', 'Please select a valid pricing option');
+        Alert.alert('Issue', 'Please select a valid pricing option');
         return;
       }
 
@@ -270,7 +270,7 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
       );
     } catch (error) {
       logger.error('Error purchasing course:', error);
-      Alert.alert('Error', 'Failed to purchase course');
+      Alert.alert('Issue', 'Failed to purchase course');
     }
   };
 

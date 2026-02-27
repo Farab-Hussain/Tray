@@ -18,6 +18,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { ConsultantService } from '../../../services/consultant.service';
 import { BookingService } from '../../../services/booking.service';
 import { logger } from '../../../utils/logger';
+import { sanitizeUserMessage } from '../../../utils/sanitizeUserMessage';
 
 // Helper function to calculate end time
 const calculateEndTime = (
@@ -681,12 +682,12 @@ const BookingSlots = ({ navigation, route }: any) => {
     }
 
     if (!consultantId || !serviceId) {
-      Alert.alert('Error', 'Missing booking information');
+      Alert.alert('Issue', 'Missing booking information');
       return;
     }
 
     if (!user?.uid) {
-      Alert.alert('Error', 'Please log in to book a consultation');
+      Alert.alert('Issue', 'Please log in to book a consultation');
       return;
     }
 
@@ -749,8 +750,9 @@ const BookingSlots = ({ navigation, route }: any) => {
           ) : !consultantAvailability ? (
             <View style={mergedStyles.errorContainer}>
               <Text style={mergedStyles.errorText}>
-                This consultant hasn't set their availability yet.{'\n'}
-                Please check back later.
+                {sanitizeUserMessage(
+                  \"This consultant hasn't set their availability yet.\\nPlease check back later.\",
+                )}
               </Text>
             </View>
           ) : (

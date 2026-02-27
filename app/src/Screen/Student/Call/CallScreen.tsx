@@ -86,7 +86,7 @@ export default function CallScreen() {
       
       return unsubscribe;
     } catch (error) {
-      Alert.alert('Error', 'Failed to initialize call');
+      Alert.alert('Issue', 'Failed to initialize call');
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -98,7 +98,7 @@ export default function CallScreen() {
       await endCall(callId, 'ended');
       setCallStatus('ended');
     } catch (error) {
-      Alert.alert('Error', 'Failed to end call');
+      Alert.alert('Issue', 'Failed to end call');
     }
   };
 

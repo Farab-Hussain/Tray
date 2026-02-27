@@ -172,7 +172,7 @@ Return JSON:
         setSelectedFile(result.assets[0]);
       }
     } catch {
-      Alert.alert('Error', 'Failed to pick document');
+      Alert.alert('Issue', 'Failed to pick document');
     }
   };
 
@@ -190,7 +190,7 @@ Return JSON:
         setThumbnailFile(result.assets[0]);
       }
     } catch {
-      Alert.alert('Error', 'Failed to pick thumbnail');
+      Alert.alert('Issue', 'Failed to pick thumbnail');
     }
   };
 
@@ -206,7 +206,7 @@ Return JSON:
         setSelectedFile(result.assets[0]);
       }
     } catch {
-      Alert.alert('Error', 'Failed to pick video');
+      Alert.alert('Issue', 'Failed to pick video');
     }
   };
 
@@ -269,7 +269,7 @@ Return JSON:
     const errors = validateContent();
     
     if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n\n'));
+      Alert.alert('Validation Issue', issues.join('\n\n'));
       return;
     }
 
@@ -310,7 +310,7 @@ Return JSON:
       );
     } catch (error: any) {
       logger.error('Error creating content:', error);
-      Alert.alert('Error', error.message || 'Failed to create content');
+      Alert.alert('Issue', issue.message || 'Failed to create content');
     } finally {
       setLoading(false);
     }

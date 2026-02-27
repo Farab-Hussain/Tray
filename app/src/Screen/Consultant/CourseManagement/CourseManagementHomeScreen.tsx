@@ -75,21 +75,21 @@ export default function CourseManagementHomeScreen() {
   const handleSaveEdit = async () => {
     if (!editingCourseId) return;
     if (!editTitle.trim() || !editDescription.trim() || !editCategory.trim()) {
-      Alert.alert('Validation Error', 'Title, description, and category are required.');
+      Alert.alert('Validation Issue', 'Title, description, and category are required.');
       return;
     }
 
     if (!editIsFree) {
       const numericPrice = Number(editPrice);
       if (Number.isNaN(numericPrice) || numericPrice < 0) {
-        Alert.alert('Validation Error', 'Price must be a valid number.');
+        Alert.alert('Validation Issue', 'Price must be a valid number.');
         return;
       }
     }
 
     const numericDuration = Number(editDurationMinutes);
     if (Number.isNaN(numericDuration) || numericDuration <= 0) {
-      Alert.alert('Validation Error', 'Duration must be a valid number greater than 0.');
+      Alert.alert('Validation Issue', 'Duration must be a valid number greater than 0.');
       return;
     }
 
@@ -101,7 +101,7 @@ export default function CourseManagementHomeScreen() {
 
     const parsedObjectives = parseList(editObjectivesText);
     if (parsedObjectives.length === 0) {
-      Alert.alert('Validation Error', 'At least one learning objective is required.');
+      Alert.alert('Validation Issue', 'At least one learning objective is required.');
       return;
     }
 
@@ -129,7 +129,7 @@ export default function CourseManagementHomeScreen() {
       await loadCourses();
       Alert.alert('Success', 'Course updated successfully.');
     } catch (error: any) {
-      Alert.alert('Update Failed', error?.message || 'Unable to update course.');
+      Alert.alert('Update Failed', issue?.message || 'Unable to update course.');
     } finally {
       setIsSavingEdit(false);
     }
@@ -150,7 +150,7 @@ export default function CourseManagementHomeScreen() {
               await loadCourses();
               Alert.alert('Deleted', 'Course deleted successfully.');
             } catch (error: any) {
-              Alert.alert('Delete Failed', error?.message || 'Unable to delete course.');
+              Alert.alert('Delete Failed', issue?.message || 'Unable to delete course.');
             }
           },
         },
@@ -164,7 +164,7 @@ export default function CourseManagementHomeScreen() {
       await loadCourses();
       Alert.alert('Submitted', course.rejectionReason ? 'Course re-submitted for approval.' : 'Course sent for approval.');
     } catch (error: any) {
-      Alert.alert('Submit Failed', error?.message || 'Unable to submit course.');
+      Alert.alert('Submit Failed', issue?.message || 'Unable to submit course.');
     }
   };
 

@@ -62,7 +62,7 @@ export default function ServiceDetailsScreen() {
       };
       setService(mockService);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load service details');
+      Alert.alert('Issue', 'Failed to load service details');
     } finally {
       setLoading(false);
     }
@@ -92,7 +92,7 @@ export default function ServiceDetailsScreen() {
       await createChatIfNotExists(user?.uid || '', service.consultantId);
       navigation.navigate('Chat', { consultantId: service.consultantId });
     } catch (error) {
-      Alert.alert('Error', 'Failed to open chat');
+      Alert.alert('Issue', 'Failed to open chat');
     }
   };
 

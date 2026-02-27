@@ -109,7 +109,7 @@ const WorkPreferences = ({ navigation }: any) => {
     }
     
     if (errors.length > 0) {
-      Alert.alert('Validation Error', errors.join('\n\n'));
+      Alert.alert('Validation Issue', issues.join('\n\n'));
       return;
     }
 
@@ -120,7 +120,7 @@ const WorkPreferences = ({ navigation }: any) => {
       navigation.goBack();
     } catch (error) {
       logger.error('Error saving work preferences:', error);
-      Alert.alert('Error', 'Failed to update work preferences. Please try again.');
+      Alert.alert('Issue', 'Failed to update work preferences. Please try again.');
     } finally {
       setSaving(false);
     }
