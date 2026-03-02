@@ -18,9 +18,11 @@ import { Mail, MessageCircle, FlaskConical } from 'lucide-react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import { SupportService } from '../../../services/support.service';
 import { helpStyles } from '../../../constants/styles/helpStyles';
-import { AIProvider, AIService } from '../../../services/ai.service';
+import { AIService } from '../../../services/ai.service';
 
 const SUPPORT_EMAIL = 'umi342606@gmail.com';
+const PROMPT_STUDIO_SYSTEM_PROMPT =
+  'You are Tray Prompt Studio Assistant. Provide professional, concise, and practical responses. Keep context from prior turns and answer the latest user prompt clearly. If request is ambiguous, ask one focused clarifying question.';
 
 const Help = ({ navigation }: any) => {
   const { user } = useAuth();
@@ -29,10 +31,20 @@ const Help = ({ navigation }: any) => {
       {
         role: 'assistant' as const,
         content:
-          "Hi, I'm Tray AI Support. Ask me about resumes, job posts, or account help.",
+          "Hello, I'm Tray Support Assistant. I can help with resumes, job posts, profile setup, and account questions.",
       },
     ],
     []
+  );
+  const initialPromptStudioMessages = useMemo(
+    () => [
+      {
+        role: 'assistant' as const,
+        content:
+          'Prompt Studio is ready. Enter a prompt to test multi-turn responses.',
+      },
+    ],
+    [],
   );
 
   const initialName = useMemo(() => {
@@ -55,15 +67,14 @@ const Help = ({ navigation }: any) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAIModalVisible, setIsAIModalVisible] = useState(false);
   const [isAIDebugModalVisible, setIsAIDebugModalVisible] = useState(false);
-  const [aiProvider, setAiProvider] = useState<AIProvider>('openai');
   const [aiMessages, setAiMessages] = useState(initialAIMessages);
   const [aiInput, setAiInput] = useState('');
   const [isAiSending, setIsAiSending] = useState(false);
-  const [debugProvider, setDebugProvider] = useState<AIProvider>('openai');
-  const [debugSystemPrompt, setDebugSystemPrompt] = useState('You are concise and helpful.');
-  const [debugUserPrompt, setDebugUserPrompt] = useState('');
-  const [debugOutput, setDebugOutput] = useState('');
-  const [isDebugLoading, setIsDebugLoading] = useState(false);
+  const [promptStudioMessages, setPromptStudioMessages] = useState(
+    initialPromptStudioMessages,
+  );
+  const [promptStudioInput, setPromptStudioInput] = useState('');
+  const [isPromptStudioSending, setIsPromptStudioSending] = useState(false);
 
   const resetForm = () => {
     setName(initialName);
@@ -137,8 +148,8 @@ const Help = ({ navigation }: any) => {
   };
 
   const handleOpenAIDebugModal = () => {
-    setDebugOutput('');
-    setDebugUserPrompt('');
+    setPromptStudioMessages(initialPromptStudioMessages);
+    setPromptStudioInput('');
     setIsAIDebugModalVisible(true);
   };
 
@@ -161,7 +172,7 @@ const Help = ({ navigation }: any) => {
         content: messageItem.content,
       }));
       const response = await AIService.chatbotMessage({
-        provider: aiProvider,
+        provider: 'openai',
         message: input,
         history,
         user_context: {
@@ -182,12 +193,10 @@ const Help = ({ navigation }: any) => {
       if (__DEV__) {
         console.error('AI support chat failed:', err);
       }
-      const isQuotaError = err?.response?.status === 429;
-      const fallbackMessage = isQuotaError
-        ? 'OpenAI quota exceeded. Add billing/credits to OpenAI, or switch provider to Claude.'
-        : err?.response?.data?.detail ||
-          err?.message ||
-          'I am having trouble right now. Please try again.';
+      const fallbackMessage =
+        err?.response?.data?.detail ||
+        err?.message ||
+        'AI support is temporarily unavailable. Please try again.';
       setAiMessages(prev => [
         ...prev,
         {
@@ -200,32 +209,60 @@ const Help = ({ navigation }: any) => {
     }
   };
 
-  const handleRunAIDebug = async () => {
-    if (!debugUserPrompt.trim()) {
-      Alert.alert('Prompt Required', 'Please enter a user prompt.');
+  const handleSendPromptStudioMessage = async () => {
+    const input = promptStudioInput.trim();
+    if (!input || isPromptStudioSending) {
       return;
     }
 
+    const nextMessages = [
+      ...promptStudioMessages,
+      { role: 'user' as const, content: input },
+    ];
+    setPromptStudioMessages(nextMessages);
+    setPromptStudioInput('');
+
     try {
-      setIsDebugLoading(true);
+      setIsPromptStudioSending(true);
+      const transcript = nextMessages
+        .slice(-12)
+        .map(item => `${item.role === 'user' ? 'User' : 'Assistant'}: ${item.content}`)
+        .join('\n\n');
+
       const result = await AIService.generateGeneric({
-        provider: debugProvider,
-        system_prompt: debugSystemPrompt.trim() || 'You are concise and helpful.',
-        user_prompt: debugUserPrompt.trim(),
+        provider: 'openai',
+        system_prompt: PROMPT_STUDIO_SYSTEM_PROMPT,
+        user_prompt: `Continue this conversation and answer the latest user prompt.
+
+Conversation:
+${transcript}`,
         max_tokens: 500,
       });
-      setDebugOutput(result?.output?.trim() || 'No output returned.');
+
+      const reply = result?.output?.trim();
+      setPromptStudioMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: reply || 'No output returned. Please try again.',
+        },
+      ]);
     } catch (err: any) {
       if (__DEV__) {
-        console.error('AI debug request failed:', err);
+        console.error('Prompt studio request failed:', err);
       }
-      setDebugOutput(
-        err?.response?.data?.detail ||
-          err?.message ||
-          'AI debug request failed.'
-      );
+      setPromptStudioMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content:
+            err?.response?.data?.detail ||
+            err?.message ||
+            'Prompt Studio is temporarily unavailable. Please try again.',
+        },
+      ]);
     } finally {
-      setIsDebugLoading(false);
+      setIsPromptStudioSending(false);
     }
   };
 
@@ -269,7 +306,7 @@ const Help = ({ navigation }: any) => {
               </View>
               <View style={styles.contactContent}>
                 <Text style={styles.contactTitle}>AI Support Chat</Text>
-                <Text style={styles.responseTime}>Tap to chat with OpenAI or Claude</Text>
+                <Text style={styles.responseTime}>Get instant support guidance</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -281,8 +318,8 @@ const Help = ({ navigation }: any) => {
                 <FlaskConical size={24} color={COLORS.green} />
               </View>
               <View style={styles.contactContent}>
-                <Text style={styles.contactTitle}>AI Prompt Test</Text>
-                <Text style={styles.responseTime}>Test /api/ai/generate quickly</Text>
+                <Text style={styles.contactTitle}>AI Prompt Studio</Text>
+                <Text style={styles.responseTime}>Test prompts in a multi-turn chat flow</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -403,28 +440,6 @@ const Help = ({ navigation }: any) => {
             </View>
 
             <View style={styles.modalBody}>
-              <View style={styles.providerRow}>
-                {(['openai', 'claude'] as AIProvider[]).map(provider => {
-                  const active = aiProvider === provider;
-                  return (
-                    <TouchableOpacity
-                      key={provider}
-                      onPress={() => setAiProvider(provider)}
-                      style={[styles.providerChip, active && styles.providerChipActive]}
-                    >
-                      <Text
-                        style={[
-                          styles.providerChipText,
-                          active && styles.providerChipTextActive,
-                        ]}
-                      >
-                        {provider === 'openai' ? 'OpenAI' : 'Claude'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
               <ScrollView
                 style={styles.chatContainer}
                 contentContainerStyle={styles.modalBodyContent}
@@ -489,76 +504,66 @@ const Help = ({ navigation }: any) => {
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>AI Prompt Test</Text>
+              <Text style={styles.modalTitle}>AI Prompt Studio</Text>
               <TouchableOpacity onPress={handleCloseAIDebugModal} style={styles.modalCloseButton}>
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
-              <View style={styles.providerRow}>
-                {(['openai', 'claude'] as AIProvider[]).map(provider => {
-                  const active = debugProvider === provider;
+            <View style={styles.modalBody}>
+              <Text style={styles.modalDescription}>
+                Validate prompt behavior with an ongoing conversation. The system prompt is managed internally.
+              </Text>
+
+              <ScrollView
+                style={styles.chatContainer}
+                contentContainerStyle={styles.modalBodyContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {promptStudioMessages.map((chat, idx) => {
+                  const isUser = chat.role === 'user';
                   return (
-                    <TouchableOpacity
-                      key={provider}
-                      onPress={() => setDebugProvider(provider)}
-                      style={[styles.providerChip, active && styles.providerChipActive]}
+                    <View
+                      key={`${chat.role}-${idx}`}
+                      style={isUser ? styles.chatBubbleUser : styles.chatBubbleAssistant}
                     >
                       <Text
                         style={[
-                          styles.providerChipText,
-                          active && styles.providerChipTextActive,
+                          styles.chatBubbleText,
+                          isUser && styles.chatBubbleTextUser,
                         ]}
                       >
-                        {provider === 'openai' ? 'OpenAI' : 'Claude'}
+                        {chat.content}
                       </Text>
-                    </TouchableOpacity>
+                    </View>
                   );
                 })}
-              </View>
+              </ScrollView>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>System Prompt</Text>
+              <View style={styles.chatInputRow}>
                 <TextInput
-                  value={debugSystemPrompt}
-                  onChangeText={setDebugSystemPrompt}
-                  placeholder="You are concise and helpful."
+                  value={promptStudioInput}
+                  onChangeText={setPromptStudioInput}
+                  placeholder="Enter a prompt to test..."
                   placeholderTextColor={COLORS.lightGray}
-                  style={[styles.input, styles.textAreaCompact]}
+                  style={styles.chatInput}
                   multiline
                 />
+                <TouchableOpacity
+                  onPress={handleSendPromptStudioMessage}
+                  disabled={isPromptStudioSending || !promptStudioInput.trim()}
+                  style={[
+                    styles.sendAiButton,
+                    (isPromptStudioSending || !promptStudioInput.trim()) &&
+                      styles.sendAiButtonDisabled,
+                  ]}
+                >
+                  <Text style={styles.sendAiButtonText}>
+                    {isPromptStudioSending ? '...' : 'Send'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>User Prompt</Text>
-                <TextInput
-                  value={debugUserPrompt}
-                  onChangeText={setDebugUserPrompt}
-                  placeholder="Write your test prompt..."
-                  placeholderTextColor={COLORS.lightGray}
-                  style={[styles.input, styles.textAreaCompact]}
-                  multiline
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.submitButton, isDebugLoading && styles.submitButtonDisabled]}
-                onPress={handleRunAIDebug}
-                disabled={isDebugLoading}
-              >
-                <Text style={styles.submitButtonText}>
-                  {isDebugLoading ? 'Running…' : 'Run Test'}
-                </Text>
-              </TouchableOpacity>
-
-              {debugOutput ? (
-                <View style={styles.debugOutputCard}>
-                  <Text style={styles.inputLabel}>Output</Text>
-                  <Text style={styles.debugOutputText}>{debugOutput}</Text>
-                </View>
-              ) : null}
-            </ScrollView>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>

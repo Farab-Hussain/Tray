@@ -46,6 +46,11 @@ export const UserService = {
       linkedin?: string;
       github?: string;
       portfolio?: string;
+      links?: Array<{
+        id: string;
+        platform: 'linkedin' | 'github' | 'portfolio' | 'personal';
+        url: string;
+      }>;
     };
   }) {
     // Map avatarUrl to profileImage for backend compatibility

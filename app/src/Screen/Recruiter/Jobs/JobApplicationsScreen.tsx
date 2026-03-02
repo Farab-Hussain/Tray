@@ -6,7 +6,6 @@ import {
   Text,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -244,18 +243,7 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
     }
   }, [buildLocalRanking, jobId, loadSnapshotHistory]);
 
-  const openProviderPicker = (
-    title: string,
-    action: (provider: AIProvider) => Promise<void> | void,
-  ) => {
-    Alert.alert(title, 'Choose AI provider', [
-      { text: 'OpenAI', onPress: () => action('openai') },
-      { text: 'Claude', onPress: () => action('claude') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
-  const handleAIRankCandidates = async (provider: AIProvider) => {
+  const handleAIRankCandidates = async () => {
     if (!applications.length) {
       showError('No candidates available to rank');
       return;
@@ -274,7 +262,7 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       }));
 
       const result = await AIService.generateGeneric({
-        provider,
+        provider: 'openai',
         json_mode: true,
         max_tokens: 700,
         system_prompt:
@@ -294,7 +282,7 @@ ${JSON.stringify(promptPayload)}`,
       const ranked = applyRankOrderFromAI(baseRanked, parsed);
       setRankedApplications(ranked);
       try {
-        await saveTrendSnapshot(ranked, provider, 'ai_ranking');
+        await saveTrendSnapshot(ranked, 'openai', 'ai_ranking');
         await loadSnapshotHistory();
       } catch (snapshotError) {
         if (__DEV__) {
@@ -326,7 +314,7 @@ ${JSON.stringify(promptPayload)}`,
     }
   };
 
-  const handleTalentShortageAdvice = async (provider: AIProvider) => {
+  const handleTalentShortageAdvice = async () => {
     try {
       setTalentAdviceLoading(true);
       const topMissing = (displayedApplications || [])
@@ -336,7 +324,7 @@ ${JSON.stringify(promptPayload)}`,
         .slice(0, 10);
 
       const result = await AIService.generateGeneric({
-        provider,
+        provider: 'openai',
         json_mode: true,
         max_tokens: 600,
         system_prompt:
@@ -369,7 +357,12 @@ Return JSON:
         ? rankedApplications
         : buildLocalRanking(applications);
       try {
-        await saveTrendSnapshot(baseRanked, provider, 'shortage_advice', combinedAdvice);
+        await saveTrendSnapshot(
+          baseRanked,
+          'openai',
+          'shortage_advice',
+          combinedAdvice,
+        );
         await loadSnapshotHistory();
       } catch (snapshotError) {
         if (__DEV__) {
@@ -546,9 +539,7 @@ Return JSON:
             </Text>
           ) : null}
           <TouchableOpacity
-            onPress={() =>
-              openProviderPicker('AI Rank Candidates', handleAIRankCandidates)
-            }
+            onPress={handleAIRankCandidates}
             disabled={aiRankingLoading || !applications.length}
             style={[
               styles.aiActionButton,
@@ -570,12 +561,7 @@ Return JSON:
               No ready-now candidate match detected for this role.
             </Text>
             <TouchableOpacity
-              onPress={() =>
-                openProviderPicker(
-                  'AI Talent Shortage Advice',
-                  handleTalentShortageAdvice,
-                )
-              }
+              onPress={handleTalentShortageAdvice}
               disabled={talentAdviceLoading}
               style={[
                 styles.aiActionButton,

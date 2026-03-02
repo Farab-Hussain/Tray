@@ -19,7 +19,7 @@ import { showError, showSuccess } from '../../../utils/toast';
 import { Plus, X, ChevronDown } from 'lucide-react-native';
 import { postJobScreenStyles } from '../../../constants/styles/postJobScreenStyles';
 import { getCurrencyByCode, getCurrenciesArray } from '../../../constants/data/currencies';
-import { AIProvider, AIService } from '../../../services/ai.service';
+import { AIService } from '../../../services/ai.service';
 
 const PostJobScreen = ({ navigation }: any) => {
   const [title, setTitle] = useState('');
@@ -169,18 +169,7 @@ const PostJobScreen = ({ navigation }: any) => {
     };
   }, []);
 
-  const openProviderPicker = (
-    action: string,
-    onSelect: (provider: AIProvider) => void
-  ) => {
-    Alert.alert(action, 'Choose AI provider', [
-      { text: 'OpenAI', onPress: () => onSelect('openai') },
-      { text: 'Claude', onPress: () => onSelect('claude') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
-  const handleGenerateDescription = async (provider: AIProvider) => {
+  const handleGenerateDescription = async () => {
     if (!title.trim()) {
       showError('Add a job title before generating description');
       return;
@@ -189,7 +178,7 @@ const PostJobScreen = ({ navigation }: any) => {
     try {
       setAiGenerating(true);
       const result = await AIService.generateJobPost({
-        provider,
+        provider: 'openai',
         role_title: title.trim(),
         company_name: company.trim() || 'Your Company',
         location: location.trim() || 'Remote',
@@ -219,7 +208,7 @@ const PostJobScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleImproveDescription = async (provider: AIProvider, type: string) => {
+  const handleImproveDescription = async (type: string) => {
     if (!description.trim()) {
       showError('Add description before improving with AI');
       return;
@@ -228,7 +217,7 @@ const PostJobScreen = ({ navigation }: any) => {
     try {
       setAiImproving(true);
       const result = await AIService.improveJobPost({
-        provider,
+        provider: 'openai',
         existing_post: description.trim(),
         improvement_type: type,
       });
@@ -249,18 +238,15 @@ const PostJobScreen = ({ navigation }: any) => {
     Alert.alert('Improve Description', 'Select improvement type', [
       {
         text: 'Clarity',
-        onPress: () =>
-          openProviderPicker('Choose Provider', provider => handleImproveDescription(provider, 'clarity')),
+        onPress: () => handleImproveDescription('clarity'),
       },
       {
         text: 'Tone',
-        onPress: () =>
-          openProviderPicker('Choose Provider', provider => handleImproveDescription(provider, 'tone')),
+        onPress: () => handleImproveDescription('tone'),
       },
       {
         text: 'Inclusivity',
-        onPress: () =>
-          openProviderPicker('Choose Provider', provider => handleImproveDescription(provider, 'inclusivity')),
+        onPress: () => handleImproveDescription('inclusivity'),
       },
       { text: 'Cancel', style: 'cancel' },
     ]);
@@ -275,7 +261,7 @@ const PostJobScreen = ({ navigation }: any) => {
     return JSON.parse(cleaned);
   };
 
-  const handleOptimizeJobPost = async (provider: AIProvider) => {
+  const handleOptimizeJobPost = async () => {
     if (!title.trim() || !description.trim()) {
       showError('Add title and description before running optimizer');
       return;
@@ -284,7 +270,7 @@ const PostJobScreen = ({ navigation }: any) => {
     try {
       setAiOptimizing(true);
       const result = await AIService.generateGeneric({
-        provider,
+        provider: 'openai',
         json_mode: true,
         max_tokens: 900,
         system_prompt:
@@ -332,7 +318,7 @@ ${JSON.stringify({
     }
   };
 
-  const handleExtractSkills = async (provider: AIProvider) => {
+  const handleExtractSkills = async () => {
     if (!description.trim()) {
       showError('Add description before extracting skills');
       return;
@@ -341,7 +327,7 @@ ${JSON.stringify({
     try {
       setAiExtractingSkills(true);
       const result = await AIService.extractJobSkills({
-        provider,
+        provider: 'openai',
         job_description: description.trim(),
       });
       const suggested = Array.isArray(result?.required_skills) ? result.required_skills : [];
@@ -580,7 +566,7 @@ ${JSON.stringify({
         />
         <View style={{ flexDirection: 'row', marginTop: 8, marginBottom: 8, gap: 8 }}>
           <TouchableOpacity
-            onPress={() => openProviderPicker('Generate Description', handleGenerateDescription)}
+            onPress={handleGenerateDescription}
             disabled={aiGenerating || aiImproving}
             style={{
               backgroundColor: COLORS.blue,
@@ -610,9 +596,7 @@ ${JSON.stringify({
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() =>
-              openProviderPicker('Optimize Job Post', handleOptimizeJobPost)
-            }
+            onPress={handleOptimizeJobPost}
             disabled={aiGenerating || aiImproving || aiOptimizing}
             style={{
               backgroundColor: '#0B6B57',
@@ -798,7 +782,7 @@ ${JSON.stringify({
           </View>
         )}
         <TouchableOpacity
-          onPress={() => openProviderPicker('Extract Skills', handleExtractSkills)}
+          onPress={handleExtractSkills}
           disabled={aiExtractingSkills || !description.trim()}
           style={{
             backgroundColor: COLORS.orange,

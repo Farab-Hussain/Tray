@@ -27,7 +27,7 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import CompanyService from '../../../services/company.service';
-import { AIProvider, AIService } from '../../../services/ai.service';
+import { AIService } from '../../../services/ai.service';
 
 interface JobPost {
   title: string;
@@ -108,8 +108,7 @@ const PostJobScreen = ({ navigation }: any) => {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiImproving, setAiImproving] = useState(false);
   const [aiSuggestingSkills, setAiSuggestingSkills] = useState(false);
-  const [aiAutocompleteProvider, setAiAutocompleteProvider] =
-    useState<AIProvider>('openai');
+  const aiAutocompleteProvider = 'openai';
   const [requiredSkillSuggestions, setRequiredSkillSuggestions] = useState<
     string[]
   >([]);
@@ -614,7 +613,7 @@ const PostJobScreen = ({ navigation }: any) => {
     }, 350);
   };
 
-  const handleAIGenerateJobPost = async (provider: AIProvider) => {
+  const handleAIGenerateJobPost = async () => {
     if (!jobPost.title.trim()) {
       Alert.alert(
         'Job Title Required',
@@ -626,7 +625,7 @@ const PostJobScreen = ({ navigation }: any) => {
     try {
       setAiGenerating(true);
       const generated = await AIService.generateJobPost({
-        provider,
+        provider: 'openai',
         role_title: jobPost.title.trim(),
         company_name: selectedCompany?.name || 'Your Company',
         company_description: selectedCompany?.description || undefined,
@@ -670,18 +669,7 @@ const PostJobScreen = ({ navigation }: any) => {
     }
   };
 
-  const openGenerateProviderPicker = () => {
-    Alert.alert('Choose AI Provider', 'Select model provider for generation.', [
-      { text: 'OpenAI', onPress: () => handleAIGenerateJobPost('openai') },
-      { text: 'Claude', onPress: () => handleAIGenerateJobPost('claude') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
-  const handleAIImproveDescription = async (
-    provider: AIProvider,
-    improvementType: string,
-  ) => {
+  const handleAIImproveDescription = async (improvementType: string) => {
     if (!jobPost.description.trim()) {
       Alert.alert(
         'Description Required',
@@ -693,7 +681,7 @@ const PostJobScreen = ({ navigation }: any) => {
     try {
       setAiImproving(true);
       const improved = await AIService.improveJobPost({
-        provider,
+        provider: 'openai',
         existing_post: jobPost.description.trim(),
         improvement_type: improvementType,
       });
@@ -723,35 +711,17 @@ const PostJobScreen = ({ navigation }: any) => {
 
   const openImprovePicker = () => {
     Alert.alert('Improve Job Description', 'Pick an improvement type.', [
-      { text: 'Clarity', onPress: () => openImproveProviderPicker('clarity') },
+      { text: 'Clarity', onPress: () => handleAIImproveDescription('clarity') },
       {
         text: 'Inclusivity',
-        onPress: () => openImproveProviderPicker('inclusivity'),
+        onPress: () => handleAIImproveDescription('inclusivity'),
       },
-      { text: 'Tone', onPress: () => openImproveProviderPicker('tone') },
+      { text: 'Tone', onPress: () => handleAIImproveDescription('tone') },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
-  const openImproveProviderPicker = (improvementType: string) => {
-    Alert.alert(
-      'Choose AI Provider',
-      'Select model provider for improvement.',
-      [
-        {
-          text: 'OpenAI',
-          onPress: () => handleAIImproveDescription('openai', improvementType),
-        },
-        {
-          text: 'Claude',
-          onPress: () => handleAIImproveDescription('claude', improvementType),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
-  };
-
-  const handleAISuggestSkills = async (provider: AIProvider) => {
+  const handleAISuggestSkills = async () => {
     if (!jobPost.description.trim()) {
       Alert.alert(
         'Description Required',
@@ -763,7 +733,7 @@ const PostJobScreen = ({ navigation }: any) => {
     try {
       setAiSuggestingSkills(true);
       const extracted = await AIService.extractJobSkills({
-        provider,
+        provider: 'openai',
         job_description: jobPost.description.trim(),
       });
 
@@ -803,18 +773,6 @@ const PostJobScreen = ({ navigation }: any) => {
     } finally {
       setAiSuggestingSkills(false);
     }
-  };
-
-  const openSuggestSkillsProviderPicker = () => {
-    Alert.alert(
-      'Choose AI Provider',
-      'Select model provider for skill suggestions.',
-      [
-        { text: 'OpenAI', onPress: () => handleAISuggestSkills('openai') },
-        { text: 'Claude', onPress: () => handleAISuggestSkills('claude') },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
   };
 
   if (loading) {
@@ -1040,7 +998,7 @@ const PostJobScreen = ({ navigation }: any) => {
               />
               <View style={{ flexDirection: 'row', marginTop: 10 }}>
                 <TouchableOpacity
-                  onPress={openGenerateProviderPicker}
+                  onPress={handleAIGenerateJobPost}
                   disabled={aiGenerating || aiImproving}
                   style={{
                     backgroundColor: COLORS.blue,
@@ -1374,64 +1332,6 @@ const PostJobScreen = ({ navigation }: any) => {
             >
               Skills
             </Text>
-            <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-              <TouchableOpacity
-                onPress={() => setAiAutocompleteProvider('openai')}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: COLORS.lightGray,
-                  backgroundColor:
-                    aiAutocompleteProvider === 'openai'
-                      ? COLORS.blue
-                      : COLORS.white,
-                  marginRight: 8,
-                }}
-              >
-                <Text
-                  style={{
-                    color:
-                      aiAutocompleteProvider === 'openai'
-                        ? COLORS.white
-                        : COLORS.black,
-                    fontWeight: '600',
-                    fontSize: 12,
-                  }}
-                >
-                  OpenAI
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setAiAutocompleteProvider('claude')}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: COLORS.lightGray,
-                  backgroundColor:
-                    aiAutocompleteProvider === 'claude'
-                      ? COLORS.blue
-                      : COLORS.white,
-                }}
-              >
-                <Text
-                  style={{
-                    color:
-                      aiAutocompleteProvider === 'claude'
-                        ? COLORS.white
-                        : COLORS.black,
-                    fontWeight: '600',
-                    fontSize: 12,
-                  }}
-                >
-                  Claude
-                </Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Required Skills */}
             <View style={{ marginBottom: 16 }}>
               <Text
@@ -1520,7 +1420,7 @@ const PostJobScreen = ({ navigation }: any) => {
                 </View>
               ) : null}
               <TouchableOpacity
-                onPress={openSuggestSkillsProviderPicker}
+                onPress={handleAISuggestSkills}
                 disabled={aiSuggestingSkills || !jobPost.description.trim()}
                 style={{
                   backgroundColor: COLORS.orange,

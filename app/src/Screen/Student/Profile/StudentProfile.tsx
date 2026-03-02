@@ -41,7 +41,7 @@ import { useRefresh } from '../../../hooks/useRefresh';
 import Loader from '../../../components/ui/Loader';
 import { UserService } from '../../../services/user.service';
 import { ResumeService } from '../../../services/resume.service';
-import { AIProvider, AIService } from '../../../services/ai.service';
+import { AIService } from '../../../services/ai.service';
 import { logger } from '../../../utils/logger';
 
 const StudentProfile = ({ navigation }: any) => {
@@ -55,6 +55,36 @@ const StudentProfile = ({ navigation }: any) => {
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [locationInput, setLocationInput] = useState('');
+
+  const getExternalProfilesList = (externalProfiles: any) => {
+    if (!externalProfiles) return [];
+
+    const linksFromArray = Array.isArray(externalProfiles.links)
+      ? externalProfiles.links
+          .filter((item: any) => item?.url && item?.platform)
+          .map((item: any, index: number) => ({
+            id: item.id || `${item.platform}-${index}`,
+            platform: item.platform,
+            url: item.url,
+          }))
+      : [];
+
+    if (linksFromArray.length > 0) {
+      return linksFromArray;
+    }
+
+    const fallback = [];
+    if (externalProfiles.linkedin) {
+      fallback.push({ id: 'linkedin', platform: 'linkedin', url: externalProfiles.linkedin });
+    }
+    if (externalProfiles.github) {
+      fallback.push({ id: 'github', platform: 'github', url: externalProfiles.github });
+    }
+    if (externalProfiles.portfolio) {
+      fallback.push({ id: 'portfolio', platform: 'portfolio', url: externalProfiles.portfolio });
+    }
+    return fallback;
+  };
   const getWorkEligibilitySummaryStatus = (): string => {
     const statuses = Object.values(
       resume?.workEligibilityChecklist?.verificationStatusBySection || {},
@@ -66,7 +96,7 @@ const StudentProfile = ({ navigation }: any) => {
     return 'Not started';
   };
 
-  const handleAnalyzeProfile = async (provider: AIProvider) => {
+  const handleAnalyzeProfile = async () => {
     try {
       setAiAnalyzing(true);
       const experience = Array.isArray(resume?.experience)
@@ -86,7 +116,7 @@ const StudentProfile = ({ navigation }: any) => {
         : [];
 
       const result = await AIService.profileInsights({
-        provider,
+        provider: 'openai',
         name: backendProfile?.name || user?.displayName || '',
         email: backendProfile?.email || user?.email || '',
         phone: backendProfile?.phone || '',
@@ -142,18 +172,6 @@ const StudentProfile = ({ navigation }: any) => {
     }
   };
 
-  const openProfileInsightsPicker = () => {
-    Alert.alert(
-      'Choose AI Provider',
-      'Select provider for profile insights.',
-      [
-        { text: 'OpenAI', onPress: () => handleAnalyzeProfile('openai') },
-        { text: 'Claude', onPress: () => handleAnalyzeProfile('claude') },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
-  };
-
   const handleSaveLocation = async () => {
     if (!user) return;
     try {
@@ -162,7 +180,7 @@ const StudentProfile = ({ navigation }: any) => {
       setLocationModalVisible(false);
       Alert.alert('Success', 'Location updated');
     } catch (error: any) {
-      Alert.alert('Issue', issue?.message || 'Failed to update location');
+      Alert.alert('Issue', error?.message || 'Failed to update location');
     }
   };
 
@@ -207,7 +225,7 @@ const StudentProfile = ({ navigation }: any) => {
       }
 
       // Calculate profile completion based on actual data
-      const calculateProfileCompletion = (profileData: any, resumeData: any) => {
+      const calculateProfileCompletion = (profileData: any, resumePayload: any) => {
         let completion = 0;
         const maxCompletion = 100;
         
@@ -217,41 +235,41 @@ const StudentProfile = ({ navigation }: any) => {
         if (profileData?.profileImage || user?.photoURL) completion += 10;
         
         // Resume (25%)
-        if (resumeData) {
-          if (resumeData.skills && resumeData.skills.length > 0) completion += 10;
-          if (resumeData.experience && resumeData.experience.length > 0) completion += 10;
-          if (resumeData.education && resumeData.education.length > 0) completion += 5;
+        if (resumePayload) {
+          if (resumePayload.skills && resumePayload.skills.length > 0) completion += 10;
+          if (resumePayload.experience && resumePayload.experience.length > 0) completion += 10;
+          if (resumePayload.education && resumePayload.education.length > 0) completion += 5;
         }
         
         // Work preferences (20%)
         // Check if work preferences exist in the resume data
-        if (resumeData) {
-          if (resumeData.shiftFlexibility?.days && resumeData.shiftFlexibility.days.length > 0) completion += 10;
-          if (resumeData.transportationStatus && resumeData.transportationStatus !== 'none') completion += 5;
-          if (resumeData.workRestrictions && resumeData.workRestrictions.length > 0) completion += 5;
+        if (resumePayload) {
+          if (resumePayload.shiftFlexibility?.days && resumePayload.shiftFlexibility.days.length > 0) completion += 10;
+          if (resumePayload.transportationStatus && resumePayload.transportationStatus !== 'none') completion += 5;
+          if (resumePayload.workRestrictions && resumePayload.workRestrictions.length > 0) completion += 5;
         }
         
         // Career goals (15%)
-        if (resumeData) {
+        if (resumePayload) {
           let careerGoalsCompletion = 0;
           
-          if (resumeData.careerInterests && resumeData.careerInterests.length > 0) {
+          if (resumePayload.careerInterests && resumePayload.careerInterests.length > 0) {
             careerGoalsCompletion += 8;
             if (__DEV__) {
-              logger.debug('✅ [ProfileCompletion] Career interests found:', resumeData.careerInterests.length);
+              logger.debug('✅ [ProfileCompletion] Career interests found:', resumePayload.careerInterests.length);
             }
           }
-          if (resumeData.targetIndustries && resumeData.targetIndustries.length > 0) {
+          if (resumePayload.targetIndustries && resumePayload.targetIndustries.length > 0) {
             careerGoalsCompletion += 7;
             if (__DEV__) {
-              logger.debug('✅ [ProfileCompletion] Target industries found:', resumeData.targetIndustries.length);
+              logger.debug('✅ [ProfileCompletion] Target industries found:', resumePayload.targetIndustries.length);
             }
           }
           
           // If no interests or industries but salary is set, give partial credit
-          if (careerGoalsCompletion === 0 && resumeData.salaryExpectation) {
-            const hasValidSalary = (resumeData.salaryExpectation.min && resumeData.salaryExpectation.min > 0) ||
-                                 (resumeData.salaryExpectation.max && resumeData.salaryExpectation.max > 0);
+          if (careerGoalsCompletion === 0 && resumePayload.salaryExpectation) {
+            const hasValidSalary = (resumePayload.salaryExpectation.min && resumePayload.salaryExpectation.min > 0) ||
+                                 (resumePayload.salaryExpectation.max && resumePayload.salaryExpectation.max > 0);
             if (hasValidSalary) {
               careerGoalsCompletion = 5; // Partial credit for salary only
               if (__DEV__) {
@@ -264,9 +282,9 @@ const StudentProfile = ({ navigation }: any) => {
           
           if (__DEV__) {
             logger.debug('📊 [ProfileCompletion] Career goals data:', {
-              hasCareerInterests: !!(resumeData.careerInterests && resumeData.careerInterests.length > 0),
-              hasTargetIndustries: !!(resumeData.targetIndustries && resumeData.targetIndustries.length > 0),
-              hasSalaryExpectation: !!(resumeData.salaryExpectation),
+              hasCareerInterests: !!(resumePayload.careerInterests && resumePayload.careerInterests.length > 0),
+              hasTargetIndustries: !!(resumePayload.targetIndustries && resumePayload.targetIndustries.length > 0),
+              hasSalaryExpectation: !!(resumePayload.salaryExpectation),
               careerGoalsCompletion
             });
           }
@@ -274,33 +292,32 @@ const StudentProfile = ({ navigation }: any) => {
         
         // External profiles (10%)
         if (profileData?.externalProfiles) {
-          if (profileData.externalProfiles.linkedin || profileData.externalProfiles.github || profileData.externalProfiles.portfolio) {
-            completion += 10;
-          }
+          const links = getExternalProfilesList(profileData.externalProfiles);
+          if (links.length > 0) completion += 10;
         }
         
         return {
           overallCompletion: Math.min(completion, maxCompletion),
           basicProfile: !!(profileData?.name || user?.displayName) && !!(profileData?.email || user?.email),
-          workPreferences: !!(resumeData && (
-            (resumeData.shiftFlexibility?.days && resumeData.shiftFlexibility.days.length > 0) ||
-            resumeData.transportationStatus !== 'none' ||
-            (resumeData.workRestrictions && resumeData.workRestrictions.length > 0)
+          workPreferences: !!(resumePayload && (
+            (resumePayload.shiftFlexibility?.days && resumePayload.shiftFlexibility.days.length > 0) ||
+            resumePayload.transportationStatus !== 'none' ||
+            (resumePayload.workRestrictions && resumePayload.workRestrictions.length > 0)
           )),
-          authorization: !!(resumeData?.workAuthorized),
-          careerGoals: !!(resumeData && (
-            (resumeData.careerInterests && resumeData.careerInterests.length > 0) ||
-            (resumeData.targetIndustries && resumeData.targetIndustries.length > 0) ||
-            (resumeData.salaryExpectation && (
-              (resumeData.salaryExpectation.min && resumeData.salaryExpectation.min > 0) ||
-              (resumeData.salaryExpectation.max && resumeData.salaryExpectation.max > 0)
+          authorization: !!(resumePayload?.workAuthorized),
+          careerGoals: !!(resumePayload && (
+            (resumePayload.careerInterests && resumePayload.careerInterests.length > 0) ||
+            (resumePayload.targetIndustries && resumePayload.targetIndustries.length > 0) ||
+            (resumePayload.salaryExpectation && (
+              (resumePayload.salaryExpectation.min && resumePayload.salaryExpectation.min > 0) ||
+              (resumePayload.salaryExpectation.max && resumePayload.salaryExpectation.max > 0)
             ))
           )),
-          externalProfiles: !!(profileData?.externalProfiles),
-          hasResume: !!resumeData,
-          hasSkills: !!(resumeData?.skills && resumeData.skills.length > 0),
-          hasExperience: !!(resumeData?.experience && resumeData.experience.length > 0),
-          hasEducation: !!(resumeData?.education && resumeData.education.length > 0),
+          externalProfiles: !!(profileData?.externalProfiles) && getExternalProfilesList(profileData.externalProfiles).length > 0,
+          hasResume: !!resumePayload,
+          hasSkills: !!(resumePayload?.skills && resumePayload.skills.length > 0),
+          hasExperience: !!(resumePayload?.experience && resumePayload.experience.length > 0),
+          hasEducation: !!(resumePayload?.education && resumePayload.education.length > 0),
         };
       };
 
@@ -385,6 +402,7 @@ const StudentProfile = ({ navigation }: any) => {
   const displayName = backendProfile?.name || user?.displayName || 'No name set';
   const email = backendProfile?.email || user?.email || 'No email';
   const location = backendProfile?.location || '';
+  const externalProfileList = getExternalProfilesList(backendProfile?.externalProfiles);
 
   // Calculate profile completion percentage
   const completionPercentage = profileCompletion?.overallCompletion || 0;
@@ -471,7 +489,7 @@ const StudentProfile = ({ navigation }: any) => {
                 paddingHorizontal: 12,
                 opacity: aiAnalyzing ? 0.7 : 1,
               }}
-              onPress={openProfileInsightsPicker}
+              onPress={handleAnalyzeProfile}
               disabled={aiAnalyzing}
             >
               <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '700' }}>
@@ -740,27 +758,29 @@ const StudentProfile = ({ navigation }: any) => {
               onPress: () => navigation.navigate('ExternalProfilesScreen'),
               rightIcon: ChevronRight,
             },
-            ...(backendProfile?.externalProfiles?.linkedin ? [{
-              label: 'LinkedIn',
-              value: 'LinkedIn profile connected',
-              icon: Linkedin,
-              iconColor: COLORS.blue,
-              showSeparator: false,
-            }] : []),
-            ...(backendProfile?.externalProfiles?.github ? [{
-              label: 'GitHub',
-              value: 'GitHub profile connected',
-              icon: Github,
-              iconColor: COLORS.gray,
-              showSeparator: false,
-            }] : []),
-            ...(backendProfile?.externalProfiles?.portfolio ? [{
-              label: 'Portfolio',
-              value: 'Portfolio website connected',
-              icon: Globe,
-              iconColor: COLORS.green,
-              showSeparator: false,
-            }] : []),
+            ...externalProfileList.map((profile: any, index: number) => {
+              const platform = String(profile.platform || '').toLowerCase();
+              const isLinkedIn = platform === 'linkedin';
+              const isGithub = platform === 'github';
+              const label = isLinkedIn
+                ? 'LinkedIn'
+                : isGithub
+                ? 'GitHub'
+                : platform === 'portfolio'
+                ? 'Portfolio'
+                : 'External Link';
+
+              const icon = isLinkedIn ? Linkedin : isGithub ? Github : Globe;
+              const iconColor = isLinkedIn ? COLORS.blue : isGithub ? COLORS.gray : COLORS.green;
+
+              return {
+                label,
+                value: profile.url,
+                icon,
+                iconColor,
+                showSeparator: index !== externalProfileList.length - 1,
+              };
+            }),
           ]}
         />
       </ScrollView>

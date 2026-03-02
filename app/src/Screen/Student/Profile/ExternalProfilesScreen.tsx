@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,35 @@ interface ExternalProfile {
   displayText: string;
 }
 
+const getDisplayText = (
+  url: string,
+  platform: ExternalProfile['platform'],
+): string => {
+  const platformPrefixes: Record<ExternalProfile['platform'], string> = {
+    linkedin: 'https://linkedin.com/in/',
+    github: 'https://github.com/',
+    portfolio: '',
+    personal: '',
+  };
+
+  const prefix = platformPrefixes[platform];
+  if (prefix && url.startsWith(prefix)) {
+    return url.replace(prefix, '');
+  }
+  return url.replace(/^https?:\/\//, '');
+};
+
+type ExternalProfilesPayload = {
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
+  links?: Array<{
+    id: string;
+    platform: ExternalProfile['platform'];
+    url: string;
+  }>;
+};
+
 const ExternalProfilesScreen = ({ navigation }: any) => {
   const [profiles, setProfiles] = useState<ExternalProfile[]>([]);
   const [newProfile, setNewProfile] = useState({
@@ -38,18 +67,34 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
   });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadExternalProfiles();
-  }, []);
-
-  const loadExternalProfiles = async () => {
+  const loadExternalProfiles = useCallback(async () => {
     try {
       const response = await UserService.getProfile();
-      if (response.profile && response.profile.externalProfiles) {
-        const externalProfiles = response.profile.externalProfiles;
-        const loadedProfiles: ExternalProfile[] = [];
-        
-        // Convert backend format to frontend format
+      const externalProfiles: ExternalProfilesPayload | undefined =
+        response?.externalProfiles || response?.profile?.externalProfiles;
+
+      if (!externalProfiles) {
+        setProfiles([]);
+        return;
+      }
+
+      const loadedProfiles: ExternalProfile[] = [];
+
+      // Preferred format: links array (multiple links per platform supported)
+      if (Array.isArray(externalProfiles.links)) {
+        externalProfiles.links.forEach((link, index) => {
+          if (!link?.url || !link?.platform) return;
+          loadedProfiles.push({
+            id: link.id || `${link.platform}-${index}`,
+            platform: link.platform,
+            url: link.url,
+            displayText: getDisplayText(link.url, link.platform),
+          });
+        });
+      }
+
+      // Backward compatibility: single-link object fields
+      if (loadedProfiles.length === 0) {
         if (externalProfiles.linkedin) {
           loadedProfiles.push({
             id: 'linkedin',
@@ -74,18 +119,22 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
             displayText: getDisplayText(externalProfiles.portfolio, 'portfolio'),
           });
         }
-        
-        setProfiles(loadedProfiles);
-        if (__DEV__) {
-          logger.debug('📥 [ExternalProfilesScreen] Loaded external profiles:', loadedProfiles);
-        }
+      }
+
+      setProfiles(loadedProfiles);
+      if (__DEV__) {
+        logger.debug('📥 [ExternalProfilesScreen] Loaded external profiles:', loadedProfiles);
       }
     } catch (error) {
       if (__DEV__) {
         logger.error('Error loading external profiles:', error);
       }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadExternalProfiles();
+  }, [loadExternalProfiles]);
 
   const platformConfig = {
     linkedin: {
@@ -127,7 +176,6 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
     }
 
     // Platform-specific validation
-    const config = platformConfig[platform];
     if (platform === 'linkedin' && !url.includes('linkedin.com')) {
       return false;
     }
@@ -149,15 +197,6 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
       return;
     }
 
-    // Check for duplicate platforms
-    if (profiles.some(profile => profile.platform === platform)) {
-      Alert.alert(
-        'Duplicate Entry', 
-        `You already have a ${platformConfig[platform].name} profile added`
-      );
-      return;
-    }
-
     const profile: ExternalProfile = {
       id: Date.now().toString(),
       platform,
@@ -170,14 +209,6 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
       platform: 'linkedin',
       url: '',
     });
-  };
-
-  const getDisplayText = (url: string, platform: ExternalProfile['platform']): string => {
-    const config = platformConfig[platform];
-    if (config.prefix && url.startsWith(config.prefix)) {
-      return url.replace(config.prefix, '');
-    }
-    return url.replace(/^https?:\/\//, '');
   };
 
   const removeProfile = (id: string) => {
@@ -194,22 +225,24 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
     setLoading(true);
     
     try {
-      // Convert frontend format to backend format
-      const externalProfilesData: any = {};
-      
-      profiles.forEach(profile => {
-        switch (profile.platform) {
-          case 'linkedin':
-            externalProfilesData.linkedin = profile.url;
-            break;
-          case 'github':
-            externalProfilesData.github = profile.url;
-            break;
-          case 'portfolio':
-            externalProfilesData.portfolio = profile.url;
-            break;
-        }
-      });
+      // Save both:
+      // 1) links[] for multi-link support
+      // 2) legacy single-link fields for older screens/services
+      const externalProfilesData: ExternalProfilesPayload = {
+        links: profiles.map((profile, index) => ({
+          id: profile.id || `${profile.platform}-${index}`,
+          platform: profile.platform,
+          url: profile.url,
+        })),
+      };
+
+      const firstLinkedIn = profiles.find((p) => p.platform === 'linkedin');
+      const firstGithub = profiles.find((p) => p.platform === 'github');
+      const firstPortfolio = profiles.find((p) => p.platform === 'portfolio');
+
+      if (firstLinkedIn?.url) externalProfilesData.linkedin = firstLinkedIn.url;
+      if (firstGithub?.url) externalProfilesData.github = firstGithub.url;
+      if (firstPortfolio?.url) externalProfilesData.portfolio = firstPortfolio.url;
 
       if (__DEV__) {
         logger.debug('💾 [ExternalProfilesScreen] Saving external profiles:', externalProfilesData);
@@ -428,7 +461,7 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
               • Ensure profiles are professional and up-to-date{'\n'}
               • Use public profiles that employers can view{'\n'}
               • Double-check URLs before saving{'\n'}
-              • One profile per platform allowed
+              • You can add multiple links across platforms
             </Text>
           </View>
         </View>

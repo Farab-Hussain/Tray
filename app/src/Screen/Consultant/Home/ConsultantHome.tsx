@@ -15,7 +15,7 @@ import { showSuccess, handleApiError } from '../../../utils/toast';
 import { api } from '../../../lib/fetcher';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useRefresh } from '../../../hooks/useRefresh';
-import { AIProvider, AIService } from '../../../services/ai.service';
+import { AIService } from '../../../services/ai.service';
 import { logger } from '../../../utils/logger';
 import {
   normalizeAvatarUrl,
@@ -90,35 +90,33 @@ const ConsultantHome = ({ navigation }: any) => {
     try {
       logger.debug('🔍 [ConsultantHome] Fetching booking requests for consultant:', user.uid);
       
-      // Fetch consultant availability to check slot availability (only if not refreshing)
-      if (!refreshing) {
-        try {
-          const availabilityResponse = await ConsultantService.getConsultantAvailability(user.uid);
-          const availability = availabilityResponse.data;
-          
-          // Calculate available slots from availability data
-          let totalSlotsCount = 0;
-          let availableSlotsCount = 0;
-          
-          if (availability?.availabilitySlots && Array.isArray(availability.availabilitySlots)) {
-            availability.availabilitySlots.forEach((slotGroup: any) => {
-              if (slotGroup.timeSlots && Array.isArray(slotGroup.timeSlots)) {
-                totalSlotsCount += slotGroup.timeSlots.length;
-                // For now, assume all slots are available (in real app, you'd check against booked slots)
-                availableSlotsCount += slotGroup.timeSlots.length;
-              }
-            });
-          }
-          
-          setTotalSlots(totalSlotsCount);
-          setAvailableSlots(availableSlotsCount);
-          
-          logger.debug(`📊 [ConsultantHome] Slot availability: ${availableSlotsCount}/${totalSlotsCount} slots available`);
-        } catch {
-          logger.debug('⚠️ [ConsultantHome] Could not fetch availability, using default values');
-          setTotalSlots(0);
-          setAvailableSlots(0);
+      // Fetch consultant availability to check slot availability.
+      try {
+        const availabilityResponse = await ConsultantService.getConsultantAvailability(user.uid);
+        const availability = availabilityResponse.data;
+        
+        // Calculate available slots from availability data
+        let totalSlotsCount = 0;
+        let availableSlotsCount = 0;
+        
+        if (availability?.availabilitySlots && Array.isArray(availability.availabilitySlots)) {
+          availability.availabilitySlots.forEach((slotGroup: any) => {
+            if (slotGroup.timeSlots && Array.isArray(slotGroup.timeSlots)) {
+              totalSlotsCount += slotGroup.timeSlots.length;
+              // For now, assume all slots are available (in real app, you'd check against booked slots)
+              availableSlotsCount += slotGroup.timeSlots.length;
+            }
+          });
         }
+        
+        setTotalSlots(totalSlotsCount);
+        setAvailableSlots(availableSlotsCount);
+        
+        logger.debug(`📊 [ConsultantHome] Slot availability: ${availableSlotsCount}/${totalSlotsCount} slots available`);
+      } catch {
+        logger.debug('⚠️ [ConsultantHome] Could not fetch availability, using default values');
+        setTotalSlots(0);
+        setAvailableSlots(0);
       }
       
       // Fetch real booking requests from API
@@ -349,18 +347,7 @@ const ConsultantHome = ({ navigation }: any) => {
     }
   };
 
-  const openProviderPicker = (
-    title: string,
-    action: (provider: AIProvider) => Promise<void> | void,
-  ) => {
-    Alert.alert(title, 'Choose AI provider', [
-      { text: 'OpenAI', onPress: () => action('openai') },
-      { text: 'Claude', onPress: () => action('claude') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
-  const handleLeadMatchingAI = async (provider: AIProvider) => {
+  const handleLeadMatchingAI = async () => {
     if (!bookingRequests.length) {
       Alert.alert('No Leads', 'No pending booking requests available to rank.');
       return;
@@ -376,7 +363,7 @@ const ConsultantHome = ({ navigation }: any) => {
       }));
 
       const result = await AIService.generateGeneric({
-        provider,
+        provider: 'openai',
         json_mode: true,
         max_tokens: 700,
         system_prompt:
@@ -471,9 +458,7 @@ ${JSON.stringify(leadPayload)}`,
               (leadAiLoading || !bookingRequests.length) &&
                 consultantHome.aiActionButtonDisabled,
             ]}
-            onPress={() =>
-              openProviderPicker('AI Lead Matching', handleLeadMatchingAI)
-            }
+            onPress={handleLeadMatchingAI}
             disabled={leadAiLoading || !bookingRequests.length}
             activeOpacity={0.8}
           >

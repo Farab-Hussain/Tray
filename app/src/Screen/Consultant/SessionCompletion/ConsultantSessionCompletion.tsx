@@ -10,7 +10,7 @@ import {
 import { EmailService } from '../../../services/email.service';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { sessionCompletionStyles } from '../../../constants/styles/sessionCompletionStyles';
-import { AIProvider, AIService } from '../../../services/ai.service';
+import { AIService } from '../../../services/ai.service';
 import { logger } from '../../../utils/logger';
 
 interface ConsultantSessionCompletionProps {
@@ -179,22 +179,11 @@ const ConsultantSessionCompletion: React.FC<
     );
   };
 
-  const openProviderPicker = (
-    title: string,
-    action: (provider: AIProvider) => Promise<void> | void,
-  ) => {
-    Alert.alert(title, 'Choose AI provider', [
-      { text: 'OpenAI', onPress: () => action('openai') },
-      { text: 'Claude', onPress: () => action('claude') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
-  const handleGenerateSessionPrep = async (provider: AIProvider) => {
+  const handleGenerateSessionPrep = async () => {
     try {
       setPrepLoading(true);
       const result = await AIService.generateGeneric({
-        provider,
+        provider: 'openai',
         json_mode: true,
         max_tokens: 700,
         system_prompt:
@@ -287,12 +276,7 @@ Return JSON:
                 sessionCompletionStyles.aiActionButton,
                 prepLoading && sessionCompletionStyles.aiActionButtonDisabled,
               ]}
-              onPress={() =>
-                openProviderPicker(
-                  'AI Session Prep Assistant',
-                  handleGenerateSessionPrep,
-                )
-              }
+              onPress={handleGenerateSessionPrep}
               disabled={prepLoading}
               activeOpacity={0.8}
             >

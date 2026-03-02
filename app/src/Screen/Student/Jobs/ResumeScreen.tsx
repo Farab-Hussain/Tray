@@ -43,7 +43,7 @@ try {
 }
 import UploadService from '../../../services/upload.service';
 import { Linking } from 'react-native';
-import { AIProvider, AIService } from '../../../services/ai.service';
+import { AIService } from '../../../services/ai.service';
 
 interface Experience {
   title: string;
@@ -1151,7 +1151,7 @@ const ResumeScreen = ({ navigation }: any) => {
   }, [experience]);
 
   const handleGenerateBackground = useCallback(
-    async (provider: AIProvider) => {
+    async () => {
       if (skills.length === 0) {
         showError('Add at least one skill before generating AI summary');
         return;
@@ -1160,7 +1160,7 @@ const ResumeScreen = ({ navigation }: any) => {
       try {
         setAiGenerating(true);
         const result = await AIService.generateResumeSummary({
-          provider,
+          provider: 'openai',
           job_title: experience[0]?.title?.trim() || 'Professional',
           years_experience: getEstimatedYearsExperience(),
           skills: skills.filter(skill => skill.trim()),
@@ -1193,19 +1193,11 @@ const ResumeScreen = ({ navigation }: any) => {
   );
 
   const openAIGeneratePicker = useCallback(() => {
-    Alert.alert(
-      'Choose AI Provider',
-      'Select which model provider to use for summary generation.',
-      [
-        { text: 'OpenAI', onPress: () => handleGenerateBackground('openai') },
-        { text: 'Claude', onPress: () => handleGenerateBackground('claude') },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
+    handleGenerateBackground();
   }, [handleGenerateBackground]);
 
   const handleValidateBackground = useCallback(
-    async (provider: AIProvider) => {
+    async () => {
       if (!backgroundInformation.trim()) {
         showError('Add background information before validating');
         return;
@@ -1214,7 +1206,7 @@ const ResumeScreen = ({ navigation }: any) => {
       try {
         setAiValidating(true);
         const result = await AIService.validateResumeField({
-          provider,
+          provider: 'openai',
           field_name: 'background_information',
           field_value: backgroundInformation.trim(),
           context: experience[0]?.title?.trim() || undefined,
@@ -1252,9 +1244,7 @@ const ResumeScreen = ({ navigation }: any) => {
           console.error('Failed to validate background info:', error);
         }
         if (error?.response?.status === 429) {
-          showError(
-            'OpenAI quota exceeded. Add billing/credits or switch provider to Claude.',
-          );
+          showError('AI usage limit reached. Check billing/quota and retry.');
         } else {
           showError(
             error?.response?.data?.detail ||
@@ -1270,11 +1260,7 @@ const ResumeScreen = ({ navigation }: any) => {
   );
 
   const openAIValidatePicker = useCallback(() => {
-    Alert.alert('Choose AI Provider', 'Select provider for validation.', [
-      { text: 'OpenAI', onPress: () => handleValidateBackground('openai') },
-      { text: 'Claude', onPress: () => handleValidateBackground('claude') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    handleValidateBackground();
   }, [handleValidateBackground]);
 
   const buildResumeTextForScoring = useCallback(() => {
@@ -1390,11 +1376,11 @@ const ResumeScreen = ({ navigation }: any) => {
   ]);
 
   const handleAnalyzeProfileInsights = useCallback(
-    async (provider: AIProvider) => {
+    async () => {
       try {
         setAiAnalyzingProfile(true);
         const result = await AIService.profileInsights({
-          provider,
+          provider: 'openai',
           ...buildProfileInsightsPayload(),
         });
 
@@ -1453,25 +1439,11 @@ const ResumeScreen = ({ navigation }: any) => {
   );
 
   const openAIProfileInsightsPicker = useCallback(() => {
-    Alert.alert(
-      'Choose AI Provider',
-      'Select provider for profile insights.',
-      [
-        {
-          text: 'OpenAI',
-          onPress: () => handleAnalyzeProfileInsights('openai'),
-        },
-        {
-          text: 'Claude',
-          onPress: () => handleAnalyzeProfileInsights('claude'),
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
+    handleAnalyzeProfileInsights();
   }, [handleAnalyzeProfileInsights]);
 
   const handleScoreResume = useCallback(
-    async (provider: AIProvider) => {
+    async () => {
       const resumeText = buildResumeTextForScoring();
       if (!resumeText.trim()) {
         showError('Please add resume details before scoring');
@@ -1481,7 +1453,7 @@ const ResumeScreen = ({ navigation }: any) => {
       try {
         setAiScoring(true);
         const result = await AIService.scoreResume({
-          provider,
+          provider: 'openai',
           resume_text: resumeText,
           target_job: experience[0]?.title?.trim() || undefined,
         });
@@ -1492,9 +1464,7 @@ const ResumeScreen = ({ navigation }: any) => {
           console.error('Failed to score resume:', error);
         }
         if (error?.response?.status === 429) {
-          showError(
-            'OpenAI quota exceeded. Add billing/credits or switch provider to Claude.',
-          );
+          showError('AI usage limit reached. Check billing/quota and retry.');
         } else {
           showError(
             error?.response?.data?.detail ||
@@ -1510,11 +1480,7 @@ const ResumeScreen = ({ navigation }: any) => {
   );
 
   const openAIScorePicker = useCallback(() => {
-    Alert.alert('Choose AI Provider', 'Select provider for ATS scoring.', [
-      { text: 'OpenAI', onPress: () => handleScoreResume('openai') },
-      { text: 'Claude', onPress: () => handleScoreResume('claude') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    handleScoreResume();
   }, [handleScoreResume]);
 
   // Handle back button with unsaved changes check
