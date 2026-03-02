@@ -23,7 +23,6 @@ import { markMessagesSeen, setTypingStatus, listenToTypingStatus } from '../../.
 import * as OfflineQueue from '../../../services/offline-message-queue.service';
 import type { Message } from '../../../types/chatTypes';
 import { Modal, Alert } from 'react-native';
-import { ChatDebugComponent } from '../../../components/ChatDebugComponent';
 
 const ChatScreen = ({ navigation, route }: any) => {
   const [message, setMessage] = useState('');
@@ -561,7 +560,6 @@ const ChatScreen = ({ navigation, route }: any) => {
   return (
     <SafeAreaView style={chatStyles.container} edges={['top']}>
       {/* Debug Component - Temporary for testing */}
-      {__DEV__ && <ChatDebugComponent />}
       
       {/* Selection Mode Bar */}
       {isSelectionMode && (

@@ -751,7 +751,7 @@ const BookingSlots = ({ navigation, route }: any) => {
             <View style={mergedStyles.errorContainer}>
               <Text style={mergedStyles.errorText}>
                 {sanitizeUserMessage(
-                  \"This consultant hasn't set their availability yet.\\nPlease check back later.\",
+                  "This consultant hasn't set their availability yet.\nPlease check back later.",
                 )}
               </Text>
             </View>
