@@ -252,12 +252,29 @@ const PublicProfileScreen: React.FC = () => {
       role === 'recruiter'
         ? (
         profile.profileImage ||
+        profile.avatarUrl ||
+        profile.photoURL ||
+        profile.avatar ||
         profile.company?.logoUrl ||
         ''
       )
         : role === 'consultant'
-        ? (profile.profileImage || profile.personalInfo?.profileImage || '')
-        : (profile.profileImage || profile.personalInfo?.profileImage || '');
+        ? (
+          profile.profileImage ||
+          profile.personalInfo?.profileImage ||
+          profile.avatarUrl ||
+          profile.photoURL ||
+          profile.avatar ||
+          ''
+        )
+        : (
+          profile.profileImage ||
+          profile.personalInfo?.profileImage ||
+          profile.avatarUrl ||
+          profile.photoURL ||
+          profile.avatar ||
+          ''
+        );
     return typeof image === 'string' ? image.trim() : '';
   }, [profile, role]);
 

@@ -344,6 +344,12 @@ const Home = ({ navigation }: any) => {
             rating={topConsultant.rating ?? 0}
             consultantId={topConsultant.uid}
             navigation={navigation}
+            onAvatarPress={() =>
+              navigation.navigate('PublicProfile', {
+                uid: topConsultant.uid,
+                role: 'consultant',
+              })
+            }
             onChatPress={async () => {
               await handleIconPress(
                 'message',
@@ -408,6 +414,12 @@ const Home = ({ navigation }: any) => {
                       : undefined
                   }
                   rating={item.rating ?? 0}
+                  onAvatarPress={() =>
+                    navigation.navigate('PublicProfile', {
+                      uid: item.uid,
+                      role: 'consultant',
+                    })
+                  }
                   onBookPress={() => {
                     if (__DEV__) {
                       logger.debug('📍 Book Now Clicked - Home Screen');

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, Alert, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, Alert, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ConsultantCard from '../../../components/ui/ConsultantCard';
@@ -10,7 +10,6 @@ import { BookingService } from '../../../services/booking.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { showError } from '../../../utils/toast';
-import { COLORS } from '../../../constants/core/colors';
 import { useRefresh } from '../../../hooks/useRefresh';
 import LoadMoreButton from '../../../components/ui/LoadMoreButton';
 import { logger } from '../../../utils/logger';
@@ -254,6 +253,12 @@ const AllConsultants = ({ navigation }: any) => {
                       : undefined
                   }
                   rating={item.rating ?? 0}
+                  onAvatarPress={() =>
+                    navigation.navigate('PublicProfile', {
+                      uid: item.uid,
+                      role: 'consultant',
+                    })
+                  }
                   onBookPress={() => {
                     logger.debug('📍 Book Now Clicked - AllConsultants Screen', {
                       uid: item.uid,
@@ -278,18 +283,6 @@ const AllConsultants = ({ navigation }: any) => {
                   onCallPress={() => handleIconPress('phone', item.uid, item)}
                   onVideoCallPress={() => handleIconPress('video', item.uid, item)}
                 />
-                <TouchableOpacity
-                  style={styles.profileButton}
-                  onPress={() =>
-                    navigation.navigate('PublicProfile', {
-                      uid: item.uid,
-                      role: 'consultant',
-                    })
-                  }
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.profileButtonText}>View Consultant Profile</Text>
-                </TouchableOpacity>
               </View>
             ))}
             <LoadMoreButton
@@ -305,23 +298,5 @@ const AllConsultants = ({ navigation }: any) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  profileButton: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: COLORS.green,
-    borderRadius: 8,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    backgroundColor: COLORS.white,
-  },
-  profileButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.green,
-    textAlign: 'center',
-  },
-});
 
 export default AllConsultants;

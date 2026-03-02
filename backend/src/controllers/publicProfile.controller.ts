@@ -147,9 +147,39 @@ export const getPublicConsultantProfile = async (req: Request, res: Response) =>
 
     const personal = profile.personalInfo || {};
     const professional = profile.professionalInfo || {};
+    const [userDoc, consultantDoc] = await Promise.all([
+      db.collection('users').doc(uid).get(),
+      db.collection('consultants').doc(uid).get(),
+    ]);
+    const userData = userDoc.exists ? userDoc.data() || {} : {};
+    const consultantData = consultantDoc.exists ? consultantDoc.data() || {} : {};
+
+    const resolvedProfileImage =
+      personal?.profileImage ||
+      consultantData?.profileImage ||
+      userData?.profileImage ||
+      userData?.avatarUrl ||
+      userData?.photoURL ||
+      userData?.avatar ||
+      null;
+
+    const resolvedName =
+      personal?.fullName ||
+      consultantData?.name ||
+      userData?.name ||
+      null;
+
+    const resolvedEmail =
+      personal?.email ||
+      consultantData?.email ||
+      userData?.email ||
+      null;
 
     const publicProfile = {
       uid,
+      name: resolvedName,
+      email: resolvedEmail,
+      profileImage: resolvedProfileImage,
       ...pick(personal, ['fullName', 'email', 'profileImage', 'bio', 'experience']),
       status: profile.status,
       qualifications: toArray(personal?.qualifications),

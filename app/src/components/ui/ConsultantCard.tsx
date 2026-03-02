@@ -9,6 +9,7 @@ type ConsultantCardProps = {
   title: string;
   avatarUri?: ImageSourcePropType;
   rating: number;
+  onAvatarPress?: () => void;
   onBookPress?: () => void;
   onChatPress?: () => void;
   onCallPress?: () => void;
@@ -20,6 +21,7 @@ const ConsultantCard: React.FC<ConsultantCardProps> = ({
   title,
   avatarUri,
   rating,
+  onAvatarPress,
   onBookPress,
   onChatPress,
   onCallPress,
@@ -29,22 +31,24 @@ const ConsultantCard: React.FC<ConsultantCardProps> = ({
       <View style={consultantCard.card}>
         {/* Left side: Avatar + Info + Button + Contact Icons */}
         <View style={consultantCard.leftBox}>
-          {avatarUri ? (
-            <Image
-              source={avatarUri}
-              style={consultantCard.avatar}
-              key={typeof avatarUri === 'object' && 'uri' in avatarUri ? avatarUri.uri : undefined}
-            />
-          ) : (
-            <View
-              style={[
-                consultantCard.avatar,
-                { backgroundColor: '#A5AFBD', alignItems: 'center', justifyContent: 'center' },
-              ]}
-            >
-              <UserRound size={22} color={COLORS.gray} />
-            </View>
-          )}
+          <TouchableOpacity onPress={onAvatarPress} activeOpacity={0.8} disabled={!onAvatarPress}>
+            {avatarUri ? (
+              <Image
+                source={avatarUri}
+                style={consultantCard.avatar}
+                key={typeof avatarUri === 'object' && 'uri' in avatarUri ? avatarUri.uri : undefined}
+              />
+            ) : (
+              <View
+                style={[
+                  consultantCard.avatar,
+                  { backgroundColor: '#A5AFBD', alignItems: 'center', justifyContent: 'center' },
+                ]}
+              >
+                <UserRound size={22} color={COLORS.gray} />
+              </View>
+            )}
+          </TouchableOpacity>
 
           <Text 
             style={consultantCard.cardTitle}

@@ -257,25 +257,35 @@ const BookedConsultants = ({ navigation }: any) => {
                 <View key={consultant.uid || consultant.id || consultant.bookingId} style={bookedConsultantsStyles.consultantCard}>
                   {/* Header with avatar and basic info */}
                   <View style={bookedConsultantsStyles.cardHeader}>
-                    {consultantImage ? (
-                      <Image 
-                        source={consultantImage} 
-                        style={bookedConsultantsStyles.avatar}
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          bookedConsultantsStyles.avatar,
-                          {
-                            backgroundColor: '#A5AFBD',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          },
-                        ]}
-                      >
-                        <UserRound size={20} color={COLORS.gray} />
-                      </View>
-                    )}
+                    <TouchableOpacity
+                      onPress={() =>
+                        navigation.navigate('PublicProfile', {
+                          uid: consultant.uid || consultant.id,
+                          role: 'consultant',
+                        })
+                      }
+                      activeOpacity={0.8}
+                    >
+                      {consultantImage ? (
+                        <Image 
+                          source={consultantImage} 
+                          style={bookedConsultantsStyles.avatar}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            bookedConsultantsStyles.avatar,
+                            {
+                              backgroundColor: '#A5AFBD',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            },
+                          ]}
+                        >
+                          <UserRound size={20} color={COLORS.gray} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
                     <View style={bookedConsultantsStyles.consultantInfo}>
                       <Text style={bookedConsultantsStyles.consultantName} numberOfLines={1}>
                         {consultant.name || consultant.consultantName || 'Consultant'}
@@ -404,18 +414,6 @@ const BookedConsultants = ({ navigation }: any) => {
                   >
                     <Star size={16} color={COLORS.white} />
                     <Text style={bookedConsultantsStyles.reviewButtonText}>Review</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={bookedConsultantsStyles.profileButton}
-                    onPress={() =>
-                      navigation.navigate('PublicProfile', {
-                        uid: consultant.uid || consultant.id,
-                        role: 'consultant',
-                      })
-                    }
-                  >
-                    <UserRound size={16} color={COLORS.white} />
-                    <Text style={bookedConsultantsStyles.profileButtonText}>Profile</Text>
                   </TouchableOpacity>
                 </View>
                 {/* View Bookings Button */}
