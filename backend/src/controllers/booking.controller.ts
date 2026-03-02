@@ -212,6 +212,38 @@ export const createBooking = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Idempotency guard:
+    // If the client retries the same paid booking request (network flake/timeouts),
+    // return the existing booking instead of creating duplicates.
+    if (paymentIntentId) {
+      const existingByIntent = await db
+        .collection("bookings")
+        .where("studentId", "==", studentId)
+        .where("paymentIntentId", "==", paymentIntentId)
+        .get();
+
+      const existingBooking = existingByIntent.docs.find((doc) => {
+        const data = doc.data();
+        return (
+          data.consultantId === consultantId &&
+          data.serviceId === serviceId &&
+          data.date === date &&
+          data.time === time
+        );
+      });
+
+      if (existingBooking) {
+        console.log(
+          "♻️ [createBooking] Duplicate retry detected, returning existing booking:",
+          existingBooking.id,
+        );
+        return res.status(200).json({
+          message: "Booking already exists (idempotent retry)",
+          bookingId: existingBooking.id,
+        });
+      }
+    }
+
     const newBookingRef = db.collection("bookings").doc();
 
     const bookingData = {
@@ -235,55 +267,59 @@ export const createBooking = async (req: Request, res: Response) => {
 
     console.log('✅ [createBooking] Booking created successfully with ID:', newBookingRef.id);
 
-    // Send email notifications if payment is successful
-    if (paymentStatus === 'paid') {
-      try {
-        // Get student and consultant details for email
-        const [studentDoc, consultantDoc, serviceDoc] = await Promise.all([
-          db.collection("users").doc(studentId).get(),
-          db.collection("consultants").doc(consultantId).get(),
-          db.collection("services").doc(serviceId).get()
-        ]);
-
-        const student = studentDoc.data();
-        const consultant = consultantDoc.data();
-        const service = serviceDoc.data();
-
-        if (student && consultant && service) {
-          // Send confirmation email to student
-          await emailBookingConfirmation(
-            student.name || 'Student',
-            student.email,
-            consultant.name || 'Consultant',
-            service.title || 'Service',
-            date,
-            time,
-            amount
-          );
-
-          // Send notification email to consultant
-          await emailConsultantNewBooking(
-            consultant.name || 'Consultant',
-            consultant.email,
-            student.name || 'Student',
-            service.title || 'Service',
-            date,
-            time,
-            amount
-          );
-
-          console.log('✅ [createBooking] Email notifications sent successfully');
-        }
-      } catch (emailError) {
-        console.error('❌ [createBooking] Email notification failed:', emailError);
-        // Don't fail the booking if email fails
-      }
-    }
-
     res.status(201).json({
       message: "Booking created successfully",
       bookingId: newBookingRef.id,
     });
+
+    // Send email notifications asynchronously after responding.
+    // This keeps booking creation fast and prevents client-side network timeouts.
+    if (paymentStatus === "paid") {
+      setImmediate(async () => {
+        try {
+          const [studentDoc, consultantDoc, serviceDoc] = await Promise.all([
+            db.collection("users").doc(studentId).get(),
+            db.collection("consultants").doc(consultantId).get(),
+            db.collection("services").doc(serviceId).get(),
+          ]);
+
+          const student = studentDoc.data();
+          const consultant = consultantDoc.data();
+          const service = serviceDoc.data();
+
+          if (student && consultant && service) {
+            await emailBookingConfirmation(
+              student.name || "Student",
+              student.email,
+              consultant.name || "Consultant",
+              service.title || "Service",
+              date,
+              time,
+              amount,
+            );
+
+            await emailConsultantNewBooking(
+              consultant.name || "Consultant",
+              consultant.email,
+              student.name || "Student",
+              service.title || "Service",
+              date,
+              time,
+              amount,
+            );
+
+            console.log(
+              "✅ [createBooking] Email notifications sent successfully (async)",
+            );
+          }
+        } catch (emailError) {
+          console.error(
+            "❌ [createBooking] Async email notification failed:",
+            emailError,
+          );
+        }
+      });
+    }
   } catch (error: any) {
     console.error("Create booking error:", error);
     res.status(500).json({ error: error.message });

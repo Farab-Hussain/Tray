@@ -304,6 +304,30 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       const userAny = user as any;
       const studentName = userAny?.name || user?.email?.split('@')[0] || 'Student';
       const studentAvatar = normalizeAvatarUrl(userAny);
+      const findExistingBooking = async (bookingData: any) => {
+        try {
+          const myBookingsResponse = await BookingService.getMyBookings();
+          const myBookings = Array.isArray(myBookingsResponse?.bookings)
+            ? myBookingsResponse.bookings
+            : Array.isArray(myBookingsResponse)
+            ? myBookingsResponse
+            : [];
+
+          return myBookings.find((booking: any) => {
+            return (
+              booking?.studentId === bookingData.studentId &&
+              booking?.consultantId === bookingData.consultantId &&
+              booking?.serviceId === bookingData.serviceId &&
+              booking?.date === bookingData.date &&
+              booking?.time === bookingData.time &&
+              booking?.paymentIntentId === bookingData.paymentIntentId &&
+              booking?.paymentStatus === 'paid'
+            );
+          });
+        } catch {
+          return null;
+        }
+      };
 
       for (let i = 0; i < bookingRequests.length; i++) {
         try {
@@ -368,6 +392,26 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
                     if (__DEV__) {
             logger.error(`❌ Booking ${i + 1}/${bookingRequests.length} failed:`, error)
           };
+
+          const isNetworkLikeFailure =
+            !error?.response &&
+            (error?.message?.includes('Network Error') ||
+              error?.code === 'ERR_NETWORK' ||
+              error?.code === 'ECONNABORTED');
+
+          if (isNetworkLikeFailure) {
+            const { bookingData } = bookingRequests[i];
+            const existingBooking = await findExistingBooking(bookingData);
+            if (existingBooking?.id) {
+              results.push({ bookingId: existingBooking.id, recovered: true });
+              if (__DEV__) {
+                logger.debug(
+                  `♻️ Recovered booking ${i + 1}/${bookingRequests.length} from backend after network error: ${existingBooking.id}`,
+                );
+              }
+              continue;
+            }
+          }
           
           if (error.response?.status === 409) {
             // Conflict error - slot already booked

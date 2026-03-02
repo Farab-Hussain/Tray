@@ -59,7 +59,7 @@ export const validateEnvironment = (): ValidationResult => {
       );
     } else if (API_URL.includes('localhost') || API_URL.includes('127.0.0.1')) {
       warnings.push(
-        'API_URL is using localhost - this will not work on mobile devices',
+        'API_URL is using localhost - works on simulator, but physical devices need LAN IP or tunnel URL',
       );
     } else if (API_URL.includes('ngrok')) {
       // In development, log success for ngrok URLs
@@ -151,4 +151,3 @@ export const validateEnvironmentOrThrow = (): void => {
     );
   }
 };
-

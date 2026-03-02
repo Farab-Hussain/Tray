@@ -21,31 +21,25 @@ import { helpStyles } from '../../../constants/styles/helpStyles';
 import { AIService } from '../../../services/ai.service';
 
 const SUPPORT_EMAIL = 'umi342606@gmail.com';
+const INITIAL_AI_MESSAGES = [
+  {
+    role: 'assistant' as const,
+    content:
+      "Hello, I'm Tray Support Assistant. I can help with resumes, job posts, profile setup, and account questions.",
+  },
+];
+const INITIAL_PROMPT_STUDIO_MESSAGES = [
+  {
+    role: 'assistant' as const,
+    content:
+      'Prompt Studio is ready. Enter a prompt to test multi-turn responses.',
+  },
+];
 const PROMPT_STUDIO_SYSTEM_PROMPT =
   'You are Tray Prompt Studio Assistant. Provide professional, concise, and practical responses. Keep context from prior turns and answer the latest user prompt clearly. If request is ambiguous, ask one focused clarifying question.';
 
 const Help = ({ navigation }: any) => {
   const { user } = useAuth();
-  const initialAIMessages = useMemo(
-    () => [
-      {
-        role: 'assistant' as const,
-        content:
-          "Hello, I'm Tray Support Assistant. I can help with resumes, job posts, profile setup, and account questions.",
-      },
-    ],
-    []
-  );
-  const initialPromptStudioMessages = useMemo(
-    () => [
-      {
-        role: 'assistant' as const,
-        content:
-          'Prompt Studio is ready. Enter a prompt to test multi-turn responses.',
-      },
-    ],
-    [],
-  );
 
   const initialName = useMemo(() => {
     if (user?.displayName && user.displayName.trim()) {
@@ -67,11 +61,11 @@ const Help = ({ navigation }: any) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAIModalVisible, setIsAIModalVisible] = useState(false);
   const [isAIDebugModalVisible, setIsAIDebugModalVisible] = useState(false);
-  const [aiMessages, setAiMessages] = useState(initialAIMessages);
+  const [aiMessages, setAiMessages] = useState(INITIAL_AI_MESSAGES);
   const [aiInput, setAiInput] = useState('');
   const [isAiSending, setIsAiSending] = useState(false);
   const [promptStudioMessages, setPromptStudioMessages] = useState(
-    initialPromptStudioMessages,
+    INITIAL_PROMPT_STUDIO_MESSAGES,
   );
   const [promptStudioInput, setPromptStudioInput] = useState('');
   const [isPromptStudioSending, setIsPromptStudioSending] = useState(false);
@@ -138,7 +132,7 @@ const Help = ({ navigation }: any) => {
   };
 
   const handleOpenAIModal = () => {
-    setAiMessages(initialAIMessages);
+    setAiMessages(INITIAL_AI_MESSAGES);
     setAiInput('');
     setIsAIModalVisible(true);
   };
@@ -148,7 +142,7 @@ const Help = ({ navigation }: any) => {
   };
 
   const handleOpenAIDebugModal = () => {
-    setPromptStudioMessages(initialPromptStudioMessages);
+    setPromptStudioMessages(INITIAL_PROMPT_STUDIO_MESSAGES);
     setPromptStudioInput('');
     setIsAIDebugModalVisible(true);
   };

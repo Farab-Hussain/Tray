@@ -35,10 +35,10 @@ const validateApiUrl = (): string => {
   if (__DEV__) {
     if (!API_URL || API_URL.includes('localhost')) {
       console.warn(
-        '⚠️ API_URL is using localhost - this will not work on mobile devices!',
+        '⚠️ API_URL is using localhost (OK on simulator). Physical devices need LAN IP or tunnel URL.',
       );
       console.warn(
-        '⚠️ Please set API_URL in .env to your backend URL (e.g., ngrok URL for mobile development)',
+        '⚠️ Set API_URL in .env to your backend URL (LAN/ngrok) when testing on a real phone.',
       );
     }
   }
@@ -305,6 +305,9 @@ api.interceptors.response.use(
     const config = (error.config || {}) as ExtendedAxiosRequestConfig;
     const url = config.url || '';
     const status = error.response?.status;
+    const method = (config.method || 'get').toLowerCase();
+    const isIdempotentMethod =
+      method === 'get' || method === 'head' || method === 'options';
 
     // Check if this is already a retry attempt (prevent infinite loops)
     const isRetry = config.__isRetry === true;
@@ -374,6 +377,7 @@ api.interceptors.response.use(
         error.response?.data?.action === 'create_consultant_profile'
       ) &&
       !(isUploadRequest && isTimeoutError) && // Don't retry uploads on timeout
+      isIdempotentMethod &&
       // Only retry for network errors, client-side timeouts, or transient server errors
       (error.code === 'ECONNABORTED' ||
         error.code === 'ERR_NETWORK' ||
