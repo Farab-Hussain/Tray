@@ -15,7 +15,7 @@ import {
 import Video from 'react-native-video';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ArrowLeft, ArrowRight } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Volume2, VolumeX } from 'lucide-react-native';
 import { COLORS } from '../../../constants/core/colors';
 import { useAuth } from '../../../contexts/AuthContext';
 import { courseService, CourseInput, Course } from '../../../services/course.service';
@@ -151,6 +151,7 @@ export default function CourseCreationScreen() {
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdCourseTitle, setCreatedCourseTitle] = useState('');
   const [successVerb, setSuccessVerb] = useState<'created' | 'updated'>('created');
@@ -1873,19 +1874,39 @@ export default function CourseCreationScreen() {
 
             <View style={{ aspectRatio: 16 / 9, backgroundColor: '#000' }}>
               {nativeVideoAvailable ? (
-                <Video
-                  ref={videoRef}
-                  source={{ uri: currentVideoUrl }}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="contain"
-                  controls={true}
-                  paused={!isVideoPlaying}
-                  onLoad={() => setIsVideoPlaying(true)}
-                  onError={(error: any) => {
-                    logger.error('❌ [CourseCreation] Video error:', error);
-                    Alert.alert('Preview issue', 'Could not play this video.');
-                  }}
-                />
+                <View style={{ flex: 1 }}>
+                  <Video
+                    ref={videoRef}
+                    source={{ uri: currentVideoUrl }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="contain"
+                    controls={true}
+                    paused={!isVideoPlaying}
+                    muted={isMuted}
+                    onLoad={() => setIsVideoPlaying(true)}
+                    onError={(error: any) => {
+                      logger.error('❌ [CourseCreation] Video error:', error);
+                      Alert.alert('Preview issue', 'Could not play this video.');
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setIsMuted(prev => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: 12,
+                      top: 12,
+                      padding: 8,
+                      borderRadius: 18,
+                      backgroundColor: 'rgba(0,0,0,0.5)',
+                    }}
+                  >
+                    {isMuted ? (
+                      <VolumeX size={18} color="#fff" />
+                    ) : (
+                      <Volume2 size={18} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <View
                   style={{

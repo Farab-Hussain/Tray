@@ -311,43 +311,29 @@ export const studentProfileStyles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
     gap: 12,
+    marginTop: 10,
   },
   cancelButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
     backgroundColor: COLORS.lightGray,
   },
   cancelButtonText: {
     color: COLORS.black,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   saveButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
     backgroundColor: COLORS.green,
   },
   saveButtonText: {
     color: COLORS.white,
     fontWeight: '700',
-  },
-  cancelButton: {
-    backgroundColor: COLORS.lightGray,
-  },
-  cancelButtonText: {
-    color: COLORS.black,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: COLORS.green,
-  },
-  saveButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
   // Certificate viewer styles
   certificateViewerContent: {

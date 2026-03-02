@@ -150,7 +150,7 @@ export default function CourseManagementHomeScreen() {
               await loadCourses();
               Alert.alert('Deleted', 'Course deleted successfully.');
             } catch (error: any) {
-              Alert.alert('Delete Failed', issue?.message || 'Unable to delete course.');
+              Alert.alert('Delete Failed', error?.response?.data?.error || error?.message || 'Unable to delete course.');
             }
           },
         },
@@ -164,7 +164,7 @@ export default function CourseManagementHomeScreen() {
       await loadCourses();
       Alert.alert('Submitted', course.rejectionReason ? 'Course re-submitted for approval.' : 'Course sent for approval.');
     } catch (error: any) {
-      Alert.alert('Submit Failed', issue?.message || 'Unable to submit course.');
+      Alert.alert('Submit Failed', error?.response?.data?.error || error?.message || 'Unable to submit course.');
     }
   };
 

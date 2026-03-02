@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Switch,
   StyleSheet,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -27,6 +28,8 @@ import Loader from '../../../components/ui/Loader';
 import { useRefresh } from '../../../hooks/useRefresh';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import { showSuccess, showError } from '../../../utils/toast';
+
+const numericFields = ['maxCaseload', 'placementRate', 'retentionRate', 'revenueGenerated', 'clientSatisfactionRating'];
 
 const ConsultantProfile = ({ navigation }: any) => {
   const { user } = useAuth();
@@ -105,6 +108,8 @@ const ConsultantProfile = ({ navigation }: any) => {
 
   // Edit functions
   const openEditModal = (field: string, currentValue: string, title: string) => {
+    setSpecialtyModalVisible(false);
+    setQualificationModalVisible(false);
     setEditField(field);
     setEditValue(currentValue);
     setEditTitle(title);
@@ -828,7 +833,12 @@ const ConsultantProfile = ({ navigation }: any) => {
         onRequestClose={closeEditModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <KeyboardAvoidingView
+            behavior="padding"
+            style={{ width: '90%', maxWidth: 400, alignSelf: 'center' }}
+            enabled
+          >
+          <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit {editTitle}</Text>
               <TouchableOpacity onPress={closeEditModal}>
@@ -841,6 +851,7 @@ const ConsultantProfile = ({ navigation }: any) => {
               value={editValue}
               onChangeText={setEditValue}
               placeholder={`Enter ${editTitle.toLowerCase()}`}
+              keyboardType={editField && numericFields.some(f => editField.endsWith(f)) ? 'numeric' : 'default'}
               multiline={editTitle === 'Professional Bio'}
               numberOfLines={editTitle === 'Professional Bio' ? 4 : 1}
             />
@@ -865,6 +876,7 @@ const ConsultantProfile = ({ navigation }: any) => {
               </TouchableOpacity>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -876,7 +888,7 @@ const ConsultantProfile = ({ navigation }: any) => {
         onRequestClose={() => setSpecialtyModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Specialty</Text>
               <TouchableOpacity onPress={() => setSpecialtyModalVisible(false)}>
@@ -918,7 +930,7 @@ const ConsultantProfile = ({ navigation }: any) => {
         onRequestClose={() => setQualificationModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Certification</Text>
               <TouchableOpacity onPress={() => setQualificationModalVisible(false)}>

@@ -19,6 +19,7 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import SearchBar from '../../../components/shared/SearchBar';
 import ConsultantServiceCard from '../../../components/ui/ConsultantServiceCard';
 import { serviceService } from '../../../services/service.service';
+import { ConsultantService } from '../../../services/consultant.service';
 import UploadService from '../../../services/upload.service';
 import { useFocusEffect } from '@react-navigation/native';
 import { RefreshControl } from 'react-native';
@@ -69,9 +70,11 @@ const ConsultantServices = ({ navigation }: any) => {
     price: number;
     isFree: boolean;
     duration: number;
+    durationText: string;
     tags: string[];
     imageUrl: string;
     sessionPrice: number;
+    sessionPriceText: string;
     pricingModel: 'one_time';
   }>({
     title: '',
@@ -80,10 +83,12 @@ const ConsultantServices = ({ navigation }: any) => {
     category: '',
     price: 0,
     isFree: false,
-    duration: 60,
+    duration: 0,
+    durationText: '',
     tags: [''],
     imageUrl: '',
     sessionPrice: 0,
+    sessionPriceText: '',
     pricingModel: 'one_time',
   });
 
@@ -122,12 +127,12 @@ const ConsultantServices = ({ navigation }: any) => {
             Alert.alert('Success', 'Image uploaded successfully!');
           } catch (uploadError) {
             logger.error('Image upload error:', uploadError);
-            Alert.alert('Issue', 'Failed to upload image. Please try again.');
+            Alert.alert('Note', 'Failed to upload image. Please try again.');
           }
         }
       });
     } catch (pickError) {
-      Alert.alert('Issue', 'Failed to pick image');
+      Alert.alert('Note', 'Failed to pick image');
       logger.error('Image picker error:', pickError);
     }
   };
@@ -251,10 +256,12 @@ const ConsultantServices = ({ navigation }: any) => {
       category: '',
       price: 0,
       isFree: false,
-      duration: 60,
+      duration: 0,
+      durationText: '',
       tags: [''],
       imageUrl: '',
       sessionPrice: 0,
+      sessionPriceText: '',
       pricingModel: 'one_time',
     });
   };
@@ -263,6 +270,43 @@ const ConsultantServices = ({ navigation }: any) => {
     setEditingService(null);
     resetForm();
     setShowCreateModal(true);
+  };
+
+  // Helpers to validate duration against availability slots
+  const parseTime = (timeStr: string): number => {
+    if (!timeStr || typeof timeStr !== 'string') return 0;
+    const [time, period] = timeStr.split(' ');
+    if (!time || !period) return 0;
+    const [hours, minutes] = time.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return 0;
+    let totalMinutes = hours * 60 + minutes;
+    if (period === 'PM' && hours !== 12) totalMinutes += 12 * 60;
+    if (period === 'AM' && hours === 12) totalMinutes -= 12 * 60;
+    return totalMinutes;
+  };
+
+  const parseSlotLabel = (
+    slotLabel: string,
+  ): { startMinutes: number; endMinutes: number } | null => {
+    const [startLabel, endLabel] = slotLabel.split(' - ').map(label => label?.trim());
+    if (!startLabel || !endLabel) return null;
+    const startMinutes = parseTime(startLabel);
+    const endMinutes = parseTime(endLabel);
+    if (endMinutes <= startMinutes) return null;
+    return { startMinutes, endMinutes };
+  };
+
+  const getMaxSlotMinutes = (availabilitySlots: Array<{ timeSlots: string[] }>) => {
+    let maxMinutes = 0;
+    availabilitySlots?.forEach(slot => {
+      slot.timeSlots?.forEach(label => {
+        const parsed = parseSlotLabel(label);
+        if (parsed) {
+          maxMinutes = Math.max(maxMinutes, parsed.endMinutes - parsed.startMinutes);
+        }
+      });
+    });
+    return maxMinutes;
   };
 
   const closeServiceModal = () => {
@@ -282,11 +326,18 @@ const ConsultantServices = ({ navigation }: any) => {
       category: service.category || '',
       price: Number(service.price || 0),
       isFree: Number(service.price || 0) === 0,
-      duration: Number(service.duration || 60),
+      duration: Number(service.duration || 0),
+      durationText: service.duration ? String(service.duration) : '',
       tags: Array.isArray(service.tags) && service.tags.length ? service.tags : [''],
       imageUrl: service.imageUrl || '',
       pricingModel: 'one_time',
       sessionPrice: Number(paymentOptions?.sessionPrice ?? service.price ?? 0),
+      sessionPriceText:
+        paymentOptions?.sessionPrice !== undefined
+          ? String(paymentOptions.sessionPrice)
+          : service.price
+          ? String(service.price)
+          : '',
     });
     setShowCreateModal(true);
   };
@@ -310,7 +361,7 @@ const ConsultantServices = ({ navigation }: any) => {
               Alert.alert('Deleted', 'Service deleted successfully.');
             } catch (error) {
               logger.error('Delete service error:', error);
-              Alert.alert('Issue', 'Failed to delete service. Please try again.');
+              Alert.alert('Note', 'Failed to delete service. Please try again.');
             }
           },
         },
@@ -327,12 +378,48 @@ const ConsultantServices = ({ navigation }: any) => {
     try {
       // Validate form data
       if (!formData.title.trim() || !formData.description.trim()) {
-        Alert.alert('Issue', 'Title and description are required');
+        Alert.alert('Note', 'Title and description are required');
+        return;
+      }
+      if (!formData.duration || formData.durationText.trim() === '') {
+        Alert.alert('Note', 'Duration is required');
+        return;
+      }
+      if (formData.duration < 30) {
+        Alert.alert('Note', 'Duration must be at least 30 minutes.');
         return;
       }
       if (!formData.imageUrl) {
-        Alert.alert('Issue', 'Please upload a service thumbnail image from your device');
+        Alert.alert('Note', 'Please upload a service thumbnail image from your device');
         return;
+      }
+      if (!formData.isFree && (formData.sessionPrice === 0 || Number.isNaN(formData.sessionPrice))) {
+        Alert.alert(
+          'Price required',
+          'Please set a price above $0, or enable the Free Service toggle if this should be free.',
+        );
+        return;
+      }
+
+      // Validate that duration fits inside at least one availability slot
+      if (user?.uid) {
+        try {
+          const availability = await ConsultantService.getConsultantAvailability(user.uid);
+          const slots = availability?.availabilitySlots || [];
+          const longestSlot = getMaxSlotMinutes(slots);
+          if (slots.length > 0 && longestSlot > 0 && formData.duration > longestSlot) {
+            const longestHours = (longestSlot / 60).toFixed(1);
+            Alert.alert(
+              'Adjust Duration or Availability',
+              `Your longest available slot is ${longestSlot} minutes (${longestHours} hrs). ` +
+              `Current service duration is ${formData.duration} minutes. ` +
+              'Please shorten the duration or extend your availability slots before saving.',
+            );
+            return;
+          }
+        } catch (availabilityError) {
+          logger.warn('⚠️ Unable to validate duration against availability:', availabilityError);
+        }
       }
 
       const selectedPrice = formData.isFree ? 0 : formData.sessionPrice;
@@ -342,7 +429,7 @@ const ConsultantServices = ({ navigation }: any) => {
         title: formData.title.trim(),
         description: formData.description.trim(),
         details: formData.shortDescription?.trim(),
-        duration: formData.duration || 60,
+        duration: formData.duration,
         price: selectedPrice || formData.price || 0,
         imageUrl: formData.imageUrl || '',
         category: formData.category || 'Business & Career',
@@ -368,7 +455,7 @@ const ConsultantServices = ({ navigation }: any) => {
         consultantId: user?.uid || '',
         title: formData.title.trim(),
         description: formData.description.trim(),
-        duration: formData.duration || 60,
+        duration: formData.duration,
         price: selectedPrice || 0,
         imageUrl: formData.imageUrl || '',
         category: formData.category || 'Business & Career',
@@ -520,9 +607,15 @@ const ConsultantServices = ({ navigation }: any) => {
               <Text style={styles.label}>Duration (minutes)</Text>
               <TextInput
                 style={styles.input}
-                value={String(formData.duration)}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, duration: parseInt(text, 10) || 60 }))}
-                placeholder="60"
+                value={formData.durationText}
+                onChangeText={(text) =>
+                  setFormData(prev => ({
+                    ...prev,
+                    durationText: text,
+                    duration: text.trim() === '' ? 0 : parseInt(text, 10) || 0,
+                  }))
+                }
+                placeholder="e.g., 60"
                 keyboardType="numeric"
               />
             </View>
@@ -586,9 +679,15 @@ const ConsultantServices = ({ navigation }: any) => {
                   <Text style={styles.label}>Session Price ($)</Text>
                   <TextInput
                     style={styles.input}
-                    value={String(formData.sessionPrice)}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, sessionPrice: parseFloat(text) || 0 }))}
-                    placeholder="49.99"
+                    value={formData.sessionPriceText}
+                    onChangeText={(text) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        sessionPriceText: text,
+                        sessionPrice: text.trim() === '' ? 0 : parseFloat(text) || 0,
+                      }))
+                    }
+                    placeholder="e.g., 49.99"
                     keyboardType="numeric"
                   />
                 </>
