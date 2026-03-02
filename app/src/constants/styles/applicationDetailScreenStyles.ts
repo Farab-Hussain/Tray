@@ -48,6 +48,21 @@ export const applicationDetailScreenStyles = StyleSheet.create({
     marginBottom: 12,
     flexWrap: 'wrap',
   },
+  companyProfileButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginBottom: 12,
+    backgroundColor: COLORS.white,
+  },
+  companyProfileButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.green,
+  },
   jobInfoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -194,4 +209,3 @@ export const applicationDetailScreenStyles = StyleSheet.create({
     marginTop: 4,
   },
 });
-

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ScrollView, View, Text, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, Image, Alert } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
@@ -404,6 +404,18 @@ const BookedConsultants = ({ navigation }: any) => {
                   >
                     <Star size={16} color={COLORS.white} />
                     <Text style={bookedConsultantsStyles.reviewButtonText}>Review</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={bookedConsultantsStyles.profileButton}
+                    onPress={() =>
+                      navigation.navigate('PublicProfile', {
+                        uid: consultant.uid || consultant.id,
+                        role: 'consultant',
+                      })
+                    }
+                  >
+                    <UserRound size={16} color={COLORS.white} />
+                    <Text style={bookedConsultantsStyles.profileButtonText}>Profile</Text>
                   </TouchableOpacity>
                 </View>
                 {/* View Bookings Button */}

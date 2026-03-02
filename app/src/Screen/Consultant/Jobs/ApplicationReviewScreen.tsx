@@ -84,6 +84,19 @@ const ApplicationReviewScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const handleViewStudentProfile = () => {
+    const studentUid = application?.user?.uid || application?.userId;
+    if (!studentUid) {
+      showError('Student profile is not available');
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      uid: studentUid,
+      role: 'student',
+    });
+  };
+
 
   if (loading) {
     return (
@@ -155,6 +168,13 @@ const ApplicationReviewScreen = ({ navigation, route }: any) => {
              application.user?.email || 
              'No email available'}
           </Text>
+          <TouchableOpacity
+            onPress={handleViewStudentProfile}
+            style={styles.secondaryProfileButton}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.secondaryProfileButtonText}>View Student Profile</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Match Breakdown */}

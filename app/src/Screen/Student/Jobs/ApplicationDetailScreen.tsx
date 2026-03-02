@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TouchableOpacity, Linking, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import Loader from '../../../components/ui/Loader';
@@ -71,6 +71,19 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const handleViewCompanyProfile = () => {
+    const recruiterUid = application?.job?.postedBy;
+    if (!recruiterUid) {
+      showError('Company profile is not available');
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      uid: recruiterUid,
+      role: 'recruiter',
+    });
+  };
+
 
   if (loading) {
     return (
@@ -111,6 +124,15 @@ const ApplicationDetailScreen = ({ navigation, route }: any) => {
             <Text style={styles.companyName} numberOfLines={2} ellipsizeMode="tail">
               {application.job.company}
             </Text>
+          )}
+          {!!application.job?.postedBy && (
+            <TouchableOpacity
+              onPress={handleViewCompanyProfile}
+              style={styles.companyProfileButton}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.companyProfileButtonText}>View Company Profile</Text>
+            </TouchableOpacity>
           )}
           {application.job?.location && (
             <View style={styles.jobInfoRow}>

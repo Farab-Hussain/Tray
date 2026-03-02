@@ -190,6 +190,21 @@ export const jobApplicationsScreenStyles = StyleSheet.create({
     color: COLORS.gray,
     fontWeight: '500',
   },
+  profileLinkButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.white,
+  },
+  profileLinkButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.green,
+  },
   summaryValueGold: {
     fontSize: 24,
     fontWeight: '700',

@@ -194,6 +194,23 @@ export const bookedConsultantsStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600' as const,
   },
+  profileButton: {
+    flex: 1,
+    minWidth: 80,
+    backgroundColor: COLORS.green,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  profileButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
   browseAllButton: {
     backgroundColor: COLORS.green,
     paddingHorizontal: 12,

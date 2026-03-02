@@ -67,6 +67,21 @@ export const recruiterApplicationReviewScreenStyles = StyleSheet.create({
     color: COLORS.gray,
     fontWeight: '500',
   },
+  secondaryProfileButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: COLORS.white,
+  },
+  secondaryProfileButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.green,
+  },
   section: {
     marginBottom: 24,
   },
@@ -360,6 +375,21 @@ export const consultantApplicationReviewScreenStyles = StyleSheet.create({
     color: COLORS.gray,
     fontWeight: '500',
   },
+  secondaryProfileButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: COLORS.white,
+  },
+  secondaryProfileButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.green,
+  },
   section: {
     marginBottom: 24,
   },
@@ -531,4 +561,3 @@ export const consultantApplicationReviewScreenStyles = StyleSheet.create({
     color: COLORS.white,
   },
 });
-

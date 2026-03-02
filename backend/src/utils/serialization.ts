@@ -45,6 +45,9 @@ export const serializeApplication = (application: any): any => {
       // Optional fields
       reviewNotes: application.reviewNotes || undefined,
       complianceEvaluation: application.complianceEvaluation || undefined,
+      user: application.user || undefined,
+      resume: application.resume || undefined,
+      job: application.job || undefined,
     };
     
     // Remove undefined fields to keep response clean

@@ -148,5 +148,19 @@ export const myApplicationsScreenStyles = StyleSheet.create({
     color: COLORS.gray,
     fontWeight: '500',
   },
+  companyProfileButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.white,
+  },
+  companyProfileButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.green,
+  },
 });
-

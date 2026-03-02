@@ -569,6 +569,7 @@ export const getMyApplications = async (req: Request, res: Response) => {
               title: job.title,
               company: job.company,
               location: job.location,
+              postedBy: job.postedBy,
               status: job.status,
               requiredSkills: job.requiredSkills || [],
             },
@@ -668,6 +669,7 @@ export const getApplicationById = async (req: Request, res: Response) => {
         title: job.title,
         company: job.company || '',
         location: job.location || '',
+        postedBy: job.postedBy || '',
         requiredSkills: job.requiredSkills,
       } : undefined,
     });

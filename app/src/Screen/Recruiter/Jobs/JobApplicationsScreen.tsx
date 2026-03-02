@@ -12,7 +12,7 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import Loader from '../../../components/ui/Loader';
 import { JobService } from '../../../services/job.service';
 import { COLORS } from '../../../constants/core/colors';
-import { showError, showSuccess } from '../../../utils/toast';
+import { showError, showSuccess, showInfo } from '../../../utils/toast';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { jobApplicationsScreenStyles } from '../../../constants/styles/jobApplicationsScreenStyles';
 import { getStatusColor } from '../../../utils/statusUtils';
@@ -383,6 +383,19 @@ Return JSON:
     }
   };
 
+  const handleViewStudentProfile = (application: any) => {
+    const studentUid = application?.user?.uid || application?.userId;
+    if (!studentUid) {
+      showInfo('Student profile is not available.');
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      uid: studentUid,
+      role: 'student',
+    });
+  };
+
   const displayedApplications = useMemo(() => {
     return rankedApplications.length ? rankedApplications : applications;
   }, [applications, rankedApplications]);
@@ -695,6 +708,16 @@ Return JSON:
                   {formatApplicationDate(application.appliedAt, application.createdAt)}
                 </Text>
               </View>
+              <TouchableOpacity
+                onPress={(e: any) => {
+                  e?.stopPropagation?.();
+                  handleViewStudentProfile(application);
+                }}
+                style={styles.profileLinkButton}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.profileLinkButtonText}>View Student Profile</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           ))
         )}

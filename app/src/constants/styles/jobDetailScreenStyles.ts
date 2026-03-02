@@ -155,6 +155,21 @@ export const jobDetailScreenStyles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.gray,
     fontWeight: '500',
+    marginBottom: 10,
+  },
+  secondaryActionButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.white,
+  },
+  secondaryActionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.green,
   },
   infoCard: {
     backgroundColor: COLORS.white,
@@ -259,4 +274,3 @@ export const jobDetailScreenStyles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-

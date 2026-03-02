@@ -168,6 +168,21 @@ export const jobListScreenStyles = StyleSheet.create({
   applyButton: {
     marginTop: 0,
   },
+  companyProfileButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: COLORS.white,
+  },
+  companyProfileButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.green,
+  },
   loadMoreButton: {
     backgroundColor: COLORS.green,
     padding: 16,
@@ -184,4 +199,3 @@ export const jobListScreenStyles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

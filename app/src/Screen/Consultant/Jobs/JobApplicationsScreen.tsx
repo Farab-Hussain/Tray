@@ -6,7 +6,7 @@ import ScreenHeader from '../../../components/shared/ScreenHeader';
 import Loader from '../../../components/ui/Loader';
 import { JobService } from '../../../services/job.service';
 import { COLORS } from '../../../constants/core/colors';
-import { showError } from '../../../utils/toast';
+import { showError, showInfo } from '../../../utils/toast';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { consultantJobApplicationsScreenStyles } from '../../../constants/styles/consultantJobApplicationsScreenStyles';
 import { getStatusColor } from '../../../utils/statusUtils';
@@ -60,6 +60,19 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
       case 'basic': return 'Basic';
       default: return 'N/A';
     }
+  };
+
+  const handleViewStudentProfile = (application: any) => {
+    const studentUid = application?.user?.uid || application?.userId;
+    if (!studentUid) {
+      showInfo('Student profile is not available.');
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      uid: studentUid,
+      role: 'student',
+    });
   };
 
 
@@ -164,6 +177,16 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
                   {application.appliedAt ? new Date(application.appliedAt.seconds * 1000).toLocaleDateString() : 'N/A'}
                 </Text>
               </View>
+              <TouchableOpacity
+                onPress={(e: any) => {
+                  e?.stopPropagation?.();
+                  handleViewStudentProfile(application);
+                }}
+                style={styles.profileLinkButton}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.profileLinkButtonText}>View Student Profile</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           ))
         )}

@@ -5,18 +5,12 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
-import { screenStyles } from '../../../constants/styles/screenStyles';
-import { COLORS } from '../../../constants/core/colors';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
-import { jobDetailStyles } from '../../../constants/styles/jobDetailStyles';
 import { JobService } from '../../../services/job.service';
-import { ApplicationService } from '../../../services/application.service';
 import { ResumeService } from '../../../services/resume.service';
 import FitScoreDisplay from '../../../components/ui/FitScoreDisplay';
 import { showError, showSuccess, showInfo } from '../../../utils/toast';
@@ -24,6 +18,7 @@ import { jobDetailScreenStyles } from '../../../constants/styles/jobDetailScreen
 import { useRefresh } from '../../../hooks/useRefresh';
 import { logger } from '../../../utils/logger';
 import Loader from '../../../components/ui/Loader';
+import AppButton from '../../../components/ui/AppButton';
 
 const JobDetailScreen = ({ navigation, route }: any) => {
   const { jobId } = route.params;
@@ -290,13 +285,16 @@ const JobDetailScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const getRatingColor = (rating?: string) => {
-    switch (rating) {
-      case 'gold': return '#FFD700';
-      case 'silver': return '#C0C0C0';
-      case 'bronze': return '#CD7F32';
-      default: return COLORS.gray;
+  const handleViewCompanyProfile = () => {
+    if (!job?.postedBy) {
+      showInfo('Company profile is not available for this job yet.');
+      return;
     }
+
+    navigation.navigate('PublicProfile', {
+      uid: job.postedBy,
+      role: 'recruiter',
+    });
   };
 
   if (loading) {
@@ -343,6 +341,13 @@ const JobDetailScreen = ({ navigation, route }: any) => {
         <View style={styles.headerSection}>
           <Text style={styles.jobTitle}>{job.title}</Text>
           <Text style={styles.companyName}>{job.company}</Text>
+          <TouchableOpacity
+            onPress={handleViewCompanyProfile}
+            style={styles.secondaryActionButton}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.secondaryActionButtonText}>View Company Profile</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Job Info Card */}

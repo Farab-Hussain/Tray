@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, View, Text, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import Loader from '../../../components/ui/Loader';
 import { JobService } from '../../../services/job.service';
@@ -68,6 +67,18 @@ const MyApplicationsScreen = ({ navigation }: any) => {
       case 'basic': return 'Basic';
       default: return 'N/A';
     }
+  };
+
+  const handleViewCompanyProfile = (postedBy?: string) => {
+    if (!postedBy) {
+      showError('Company profile is not available');
+      return;
+    }
+
+    navigation.navigate('PublicProfile', {
+      uid: postedBy,
+      role: 'recruiter',
+    });
   };
 
 
@@ -153,6 +164,15 @@ const MyApplicationsScreen = ({ navigation }: any) => {
                 <Text style={styles.dateText}>
                   Applied: {formatDate(application.appliedAt || application.createdAt || new Date())}
                 </Text>
+                {!!application.job?.postedBy && (
+                  <TouchableOpacity
+                    onPress={() => handleViewCompanyProfile(application.job?.postedBy)}
+                    style={styles.companyProfileButton}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.companyProfileButtonText}>View Company Profile</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </TouchableOpacity>
           ))
