@@ -855,6 +855,10 @@ class CourseService {
     sort?: 'newest' | 'oldest' | 'rating-high' | 'rating-low' | 'helpful';
   } = {}): Promise<{ reviews: CourseReview[]; total: number }> {
     try {
+      if (!courseId) {
+        logger.error('Error fetching course reviews: missing courseId');
+        return { reviews: [], total: 0 };
+      }
       // Build query string manually
       const queryParts: string[] = [];
       Object.entries(filters).forEach(([key, value]) => {

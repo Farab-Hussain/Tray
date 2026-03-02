@@ -45,6 +45,9 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
   const [imageLoadError, setImageLoadError] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const stringImageUri = typeof imageUri === 'string' ? imageUri : undefined;
+  const isDisabledCloud = stringImageUri?.includes('res.cloudinary.com/dkblutnml');
+  const shouldShowImage = !!imageUri && !imageLoadError && !isDisabledCloud;
 
   // VIDEO UPLOAD CODE - COMMENTED OUT
   // const handlePlayVideo = () => {
@@ -83,8 +86,26 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
 
   // Debug: Log which rendering path we're taking
     if (__DEV__) {
-    console.log(`🎨 [ConsultantServiceCard] ${title} - imageUri: ${!!imageUri}, imageLoadError: ${imageLoadError}, will show: ${imageUri && !imageLoadError ? 'Image' : 'Custom Background'}`)
+    console.log(`🎨 [ConsultantServiceCard] ${title} - imageUri: ${!!imageUri}, imageLoadError: ${imageLoadError}, will show: ${shouldShowImage ? 'Image' : 'Custom Background'}`)
   };
+
+  // If cloud is disabled, fail fast to avoid noisy retries
+  useEffect(() => {
+    if (isDisabledCloud) {
+            if (__DEV__) {
+        console.log('🚫 [ConsultantServiceCard] Cloudinary cloud is disabled, falling back:', stringImageUri);
+      };
+      setImageLoadError(true);
+      setImageLoading(false);
+      if (imageLoadTimeoutRef.current) {
+        clearTimeout(imageLoadTimeoutRef.current);
+        imageLoadTimeoutRef.current = null;
+      }
+    } else if (imageUri) {
+      // Reset error when a different/valid image is supplied
+      setImageLoadError(false);
+    }
+  }, [isDisabledCloud, imageUri, stringImageUri]);
 
   // Set up image load timeout
   useEffect(() => {
@@ -94,7 +115,7 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
       imageLoadTimeoutRef.current = null;
     }
 
-    if (imageUri && !imageLoadError) {
+    if (shouldShowImage) {
             if (__DEV__) {
         console.log('🔄 [ConsultantServiceCard] Starting image load for:', imageUri)
       };
@@ -122,7 +143,7 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
           {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
           {/* {videoUrl ? (
             ... video display code with play button ...
-          ) : */ imageUri && !imageLoadError ? (
+          ) : */ shouldShowImage ? (
             <>
               <Image 
                 source={typeof imageUri === 'string' ? { uri: imageUri } : imageUri} 
@@ -275,7 +296,7 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
               showsVerticalScrollIndicator={false}
             >
               {/* Service Image */}
-              {imageUri ? (
+              {shouldShowImage ? (
                 <Image source={typeof imageUri === 'string' ? { uri: imageUri } : imageUri} style={styles.modalImage} />
               ) : (
                 <View style={styles.modalPlaceholderImage}>

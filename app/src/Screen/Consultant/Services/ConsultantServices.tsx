@@ -71,12 +71,8 @@ const ConsultantServices = ({ navigation }: any) => {
     duration: number;
     tags: string[];
     imageUrl: string;
-    pricingModel: 'one_time' | 'package' | 'weekly' | 'monthly';
     sessionPrice: number;
-    packageSessions: number;
-    packagePrice: number;
-    weeklyPrice: number;
-    monthlyPrice: number;
+    pricingModel: 'one_time';
   }>({
     title: '',
     description: '',
@@ -87,12 +83,8 @@ const ConsultantServices = ({ navigation }: any) => {
     duration: 60,
     tags: [''],
     imageUrl: '',
-    pricingModel: 'one_time',
     sessionPrice: 0,
-    packageSessions: 3,
-    packagePrice: 0,
-    weeklyPrice: 0,
-    monthlyPrice: 0,
+    pricingModel: 'one_time',
   });
 
   // const categories = ['Business', 'Technology', 'Design', 'Marketing', 'Personal Development', 'Health & Fitness'];
@@ -262,12 +254,8 @@ const ConsultantServices = ({ navigation }: any) => {
       duration: 60,
       tags: [''],
       imageUrl: '',
-      pricingModel: 'one_time',
       sessionPrice: 0,
-      packageSessions: 3,
-      packagePrice: 0,
-      weeklyPrice: 0,
-      monthlyPrice: 0,
+      pricingModel: 'one_time',
     });
   };
 
@@ -286,12 +274,6 @@ const ConsultantServices = ({ navigation }: any) => {
   const openEditModal = (service: Service) => {
     setEditingService(service);
     const paymentOptions: any = (service as any).paymentOptions || {};
-    const normalizedType =
-      paymentOptions?.type === 'package' ||
-      paymentOptions?.type === 'weekly' ||
-      paymentOptions?.type === 'monthly'
-        ? paymentOptions.type
-        : 'one_time';
 
     setFormData({
       title: service.title || '',
@@ -303,12 +285,8 @@ const ConsultantServices = ({ navigation }: any) => {
       duration: Number(service.duration || 60),
       tags: Array.isArray(service.tags) && service.tags.length ? service.tags : [''],
       imageUrl: service.imageUrl || '',
-      pricingModel: normalizedType,
+      pricingModel: 'one_time',
       sessionPrice: Number(paymentOptions?.sessionPrice ?? service.price ?? 0),
-      packageSessions: Number(paymentOptions?.packageSessions ?? 3),
-      packagePrice: Number(paymentOptions?.packagePrice ?? 0),
-      weeklyPrice: Number(paymentOptions?.weeklyPrice ?? 0),
-      monthlyPrice: Number(paymentOptions?.monthlyPrice ?? 0),
     });
     setShowCreateModal(true);
   };
@@ -357,15 +335,7 @@ const ConsultantServices = ({ navigation }: any) => {
         return;
       }
 
-      const selectedPrice = formData.isFree
-        ? 0
-        : formData.pricingModel === 'package'
-        ? formData.packagePrice
-        : formData.pricingModel === 'weekly'
-        ? formData.weeklyPrice
-        : formData.pricingModel === 'monthly'
-        ? formData.monthlyPrice
-        : formData.sessionPrice;
+      const selectedPrice = formData.isFree ? 0 : formData.sessionPrice;
 
       const payload = {
         consultantId: user?.uid || '',
@@ -378,12 +348,8 @@ const ConsultantServices = ({ navigation }: any) => {
         category: formData.category || 'Business & Career',
         tags: formData.tags?.filter(Boolean) || [],
         paymentOptions: {
-          type: formData.isFree ? 'one_time' : formData.pricingModel,
+          type: 'one_time',
           sessionPrice: formData.sessionPrice || 0,
-          packageSessions: formData.packageSessions || 0,
-          packagePrice: formData.packagePrice || 0,
-          weeklyPrice: formData.weeklyPrice || 0,
-          monthlyPrice: formData.monthlyPrice || 0,
         },
       };
 
@@ -594,26 +560,14 @@ const ConsultantServices = ({ navigation }: any) => {
             {/* Pricing Model */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Pricing Model</Text>
-              
               <View style={styles.categoryContainer}>
-                {[
-                  { type: 'one_time', label: 'One-time Session' },
-                  { type: 'package', label: 'Session Package' },
-                  { type: 'weekly', label: 'Weekly Plan' },
-                  { type: 'monthly', label: 'Monthly Plan' },
-                ].map((option) => (
-                  <TouchableOpacity
-                    key={option.type}
-                    style={[
-                      styles.categoryOption,
-                      formData.pricingModel === option.type && styles.selectedCategory,
-                    ]}
-                    onPress={() => setFormData(prev => ({ ...prev, pricingModel: option.type as any }))}
-                  >
-                    <Text style={styles.categoryText}>{option.label}</Text>
-                  </TouchableOpacity>
-                ))}
+                <View style={[styles.categoryOption, styles.selectedCategory]}>
+                  <Text style={styles.categoryText}>One-time Session</Text>
+                </View>
               </View>
+              <Text style={styles.helperText}>
+                Services can only be offered as single sessions.
+              </Text>
               
               <View style={styles.switchContainer}>
                 <Text style={styles.label}>Free Service</Text>
@@ -623,74 +577,20 @@ const ConsultantServices = ({ navigation }: any) => {
                     ...prev, 
                     isFree: value, 
                     sessionPrice: value ? 0 : prev.sessionPrice,
-                    packagePrice: value ? 0 : prev.packagePrice,
-                    weeklyPrice: value ? 0 : prev.weeklyPrice,
-                    monthlyPrice: value ? 0 : prev.monthlyPrice,
                   }))}
                 />
               </View>
               
               {!formData.isFree && (
                 <>
-                  {formData.pricingModel === 'one_time' && (
-                    <>
-                      <Text style={styles.label}>Session Price ($)</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={String(formData.sessionPrice)}
-                        onChangeText={(text) => setFormData(prev => ({ ...prev, sessionPrice: parseFloat(text) || 0 }))}
-                        placeholder="49.99"
-                        keyboardType="numeric"
-                      />
-                    </>
-                  )}
-
-                  {formData.pricingModel === 'package' && (
-                    <>
-                      <Text style={styles.label}>Number of Sessions</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={String(formData.packageSessions)}
-                        onChangeText={(text) => setFormData(prev => ({ ...prev, packageSessions: parseInt(text, 10) || 3 }))}
-                        placeholder="3"
-                        keyboardType="numeric"
-                      />
-                      <Text style={styles.label}>Package Price ($)</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={String(formData.packagePrice)}
-                        onChangeText={(text) => setFormData(prev => ({ ...prev, packagePrice: parseFloat(text) || 0 }))}
-                        placeholder="129.99"
-                        keyboardType="numeric"
-                      />
-                    </>
-                  )}
-
-                  {formData.pricingModel === 'weekly' && (
-                    <>
-                      <Text style={styles.label}>Weekly Plan Price ($)</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={String(formData.weeklyPrice)}
-                        onChangeText={(text) => setFormData(prev => ({ ...prev, weeklyPrice: parseFloat(text) || 0 }))}
-                        placeholder="99.99"
-                        keyboardType="numeric"
-                      />
-                    </>
-                  )}
-
-                  {formData.pricingModel === 'monthly' && (
-                    <>
-                      <Text style={styles.label}>Monthly Plan Price ($)</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={String(formData.monthlyPrice)}
-                        onChangeText={(text) => setFormData(prev => ({ ...prev, monthlyPrice: parseFloat(text) || 0 }))}
-                        placeholder="299.99"
-                        keyboardType="numeric"
-                      />
-                    </>
-                  )}
+                  <Text style={styles.label}>Session Price ($)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={String(formData.sessionPrice)}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, sessionPrice: parseFloat(text) || 0 }))}
+                    placeholder="49.99"
+                    keyboardType="numeric"
+                  />
                 </>
               )}
             </View>
@@ -885,6 +785,11 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 14,
     color: COLORS.black,
+  },
+  helperText: {
+    fontSize: 13,
+    color: COLORS.gray,
+    marginBottom: 12,
   },
   imageUploadCard: {
     borderWidth: 1,
