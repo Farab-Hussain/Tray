@@ -1,19 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
-  TextInput, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
   FlatList,
-  KeyboardAvoidingView, 
+  KeyboardAvoidingView,
   Platform,
-  Keyboard
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
 import { chatStyles } from '../../../constants/styles/chatStyles';
-import { ChevronLeft, Phone, Video, Send, Trash2, X, Check, CheckCheck, Clock, UserRound } from 'lucide-react-native';
+import { ChevronLeft, Phone, Video, Send, Trash2, X, Check, CheckCheck, Clock } from 'lucide-react-native';
 import { useChat } from '../../../hooks/useChat';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useNotificationContext } from '../../../contexts/NotificationContext';
@@ -23,6 +22,7 @@ import { markMessagesSeen, setTypingStatus, listenToTypingStatus } from '../../.
 import * as OfflineQueue from '../../../services/offline-message-queue.service';
 import type { Message } from '../../../types/chatTypes';
 import { Modal, Alert } from 'react-native';
+import ProfileAvatar from '../../../components/ui/ProfileAvatar';
 
 const ChatScreen = ({ navigation, route }: any) => {
   const [message, setMessage] = useState('');
@@ -30,8 +30,9 @@ const ChatScreen = ({ navigation, route }: any) => {
   const [inputKey, setInputKey] = useState(0); // Key to force TextInput re-render
   const isSendingRef = useRef(false); // Ref-based lock to prevent race conditions
   const [otherUserName, setOtherUserName] = useState<string>('');
-  const [otherUserAvatar, setOtherUserAvatar] = useState<any>(null);
+  const [otherUserAvatar, setOtherUserAvatar] = useState<string | null>(null);
   const [otherUserTitle, setOtherUserTitle] = useState<string>('User');
+  const [otherUserRole, setOtherUserRole] = useState<'student' | 'consultant' | 'recruiter' | string>('student');
   const flatListRef = useRef<FlatList>(null);
   const textInputRef = useRef<TextInput>(null);
   
@@ -282,6 +283,14 @@ const ChatScreen = ({ navigation, route }: any) => {
   // Get consultant info from route params
   const consultantFromParams = route?.params?.consultant;
 
+  // Normalize avatar to string URL
+  const extractAvatarUrl = (avatar: any): string | null => {
+    if (!avatar) return null;
+    if (typeof avatar === 'string') return avatar;
+    if (avatar?.uri) return avatar.uri;
+    return null;
+  };
+
   // Fetch real user name if not properly set
   useEffect(() => {
     const fetchOtherUserInfo = async () => {
@@ -300,11 +309,11 @@ const ChatScreen = ({ navigation, route }: any) => {
           if (consultantData?.personalInfo) {
             setOtherUserName(consultantData.personalInfo.fullName || consultantFromParams?.name || 'User');
             setOtherUserAvatar(
-              consultantData.personalInfo.profileImage
-                ? { uri: consultantData.personalInfo.profileImage }
-                : consultantFromParams?.avatar || null
+              extractAvatarUrl(consultantData.personalInfo.profileImage) ||
+              extractAvatarUrl(consultantFromParams?.avatar)
             );
             setOtherUserTitle(consultantData.professionalInfo?.title || consultantFromParams?.title || 'Consultant');
+            setOtherUserRole('consultant');
           } else {
             // Fall back to regular user data
             const userData = await UserService.getUserById(otherUserId);
@@ -314,15 +323,16 @@ const ChatScreen = ({ navigation, route }: any) => {
               };
               setOtherUserName(userData.name || consultantFromParams?.name || 'User');
               setOtherUserAvatar(
-                userData.profileImage || userData.avatarUrl 
-                  ? { uri: userData.profileImage || userData.avatarUrl }
-                  : consultantFromParams?.avatar || null
+                extractAvatarUrl(userData.profileImage || userData.avatarUrl) ||
+                extractAvatarUrl(consultantFromParams?.avatar)
               );
               setOtherUserTitle(userData.role || consultantFromParams?.title || 'User');
+              setOtherUserRole(userData.role || consultantFromParams?.role || 'student');
             } else if (consultantFromParams) {
               setOtherUserName(consultantFromParams.name || 'User');
-              setOtherUserAvatar(consultantFromParams.avatar);
+              setOtherUserAvatar(extractAvatarUrl(consultantFromParams.avatar));
               setOtherUserTitle(consultantFromParams.title || 'User');
+              setOtherUserRole(consultantFromParams.role || 'student');
             }
           }
         } catch (error: any) {
@@ -334,14 +344,16 @@ const ChatScreen = ({ navigation, route }: any) => {
           }
           if (consultantFromParams) {
             setOtherUserName(consultantFromParams.name || 'User');
-            setOtherUserAvatar(consultantFromParams.avatar);
+            setOtherUserAvatar(extractAvatarUrl(consultantFromParams.avatar));
             setOtherUserTitle(consultantFromParams.title || 'User');
+            setOtherUserRole(consultantFromParams.role || 'student');
           }
         }
       } else if (consultantFromParams) {
         setOtherUserName(consultantFromParams.name || 'User');
-        setOtherUserAvatar(consultantFromParams.avatar);
+        setOtherUserAvatar(extractAvatarUrl(consultantFromParams.avatar));
         setOtherUserTitle(consultantFromParams.title || 'User');
+        setOtherUserRole(consultantFromParams.role || 'student');
       }
     };
 
@@ -352,7 +364,8 @@ const ChatScreen = ({ navigation, route }: any) => {
   const consultant = {
     name: otherUserName || consultantFromParams?.name || 'User',
     title: otherUserTitle || consultantFromParams?.title || 'User',
-    avatar: otherUserAvatar || consultantFromParams?.avatar || null,
+    avatar: extractAvatarUrl(otherUserAvatar || consultantFromParams?.avatar),
+    role: (otherUserRole || consultantFromParams?.role || 'student') as 'student' | 'consultant' | 'recruiter' | string,
     isOnline: consultantFromParams?.isOnline || true
   };
 
@@ -601,22 +614,14 @@ const ChatScreen = ({ navigation, route }: any) => {
           
           <View style={chatStyles.contactInfo}>
             <View style={chatStyles.avatarContainer}>
-              {consultant.avatar ? (
-                <Image source={consultant.avatar} style={chatStyles.avatar} />
-              ) : (
-                <View
-                  style={[
-                    chatStyles.avatar,
-                    {
-                      backgroundColor: '#A5AFBD',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    },
-                  ]}
-                >
-                  <UserRound size={18} color={COLORS.gray} />
-                </View>
-              )}
+              <ProfileAvatar
+                uid={otherUserId}
+                role={(consultant.role as any) || 'student'}
+                imageUri={consultant.avatar || undefined}
+                size={(chatStyles.avatar as any)?.width || 40}
+                style={chatStyles.avatar}
+                fallbackText={consultant.name}
+              />
               {consultant.isOnline && <View style={chatStyles.onlineIndicator} />}
             </View>
             <View style={chatStyles.contactDetails}>
