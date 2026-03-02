@@ -23,6 +23,7 @@ import { showError, showSuccess, showInfo } from '../../../utils/toast';
 import { jobDetailScreenStyles } from '../../../constants/styles/jobDetailScreenStyles';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { logger } from '../../../utils/logger';
+import Loader from '../../../components/ui/Loader';
 
 const JobDetailScreen = ({ navigation, route }: any) => {
   const { jobId } = route.params;

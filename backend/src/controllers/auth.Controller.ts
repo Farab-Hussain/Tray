@@ -646,7 +646,6 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
             <p style="font-size: 16px;">Thank you for registering with Tray! Please verify your email address by clicking one of the buttons below:</p>
             <div style="text-align: center; margin: 30px 0;">
               ${webLink ? `<a href="${webLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; margin: 10px; width: 200px;">Verify on Web</a>` : ''}
-              <a href="${mobileLink}" style="background: #22c55e; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; margin: 10px; width: 200px;">Open in App</a>
             </div>
             <div style="background: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea;">
               <p style="font-size: 14px; color: #666; margin: 0 0 10px 0;"><strong>📱 For Mobile Users:</strong></p>

@@ -8,6 +8,7 @@ import { getConsultantProfile } from '../../services/consultantFlow.service';
 import { User } from 'lucide-react-native';
 import { homeHeaderStyles } from '../../constants/styles/homeHeaderStyles';
 import { normalizeAvatarUrl } from '../../utils/normalize';
+import ProfileAvatar from '../ui/ProfileAvatar';
 import { logger } from '../../utils/logger';
 
 interface HomeHeaderProps {
@@ -135,26 +136,13 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({
         </View>
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
-      {userAvatarUri ? (
-        <Image
-          source={{ uri: `${userAvatarUri}?t=${imageCacheKey}` }}
-          style={styles.avatar}
-          key={`${userAvatarUri}-${imageCacheKey}`}
-          onError={() => {
-            logger.warn('⚠️ [HomeHeader] Failed to load profile image');
-          }}
-        />
-      ) : (
-        <View style={styles.avatarPlaceholder}>
-          {role === 'student' ? (
-            <User size={24} color={COLORS.gray} />
-          ) : (
-            <Text style={styles.avatarPlaceholderText}>
-              {displayName.charAt(0).toUpperCase()}
-            </Text>
-          )}
-        </View>
-      )}
+      <ProfileAvatar
+        uid={user?.uid || ''}
+        role={role || 'student'}
+        imageUri={userAvatarUri ? `${userAvatarUri}?t=${imageCacheKey}` : undefined}
+        fallbackText={displayName}
+        size={44}
+      />
     </View>
   );
 };

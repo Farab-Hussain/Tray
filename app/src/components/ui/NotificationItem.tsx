@@ -6,6 +6,7 @@ import { COLORS } from '../../constants/core/colors';
 import type { AppNotification } from '../../services/notification-storage.service';
 import { notificationItemStyles } from '../../constants/styles/notificationItemStyles';
 import { normalizeAvatarUrl, normalizeTimestampToDate } from '../../utils/normalize';
+import ProfileAvatar from './ProfileAvatar';
 
 type NotificationItemProps = {
   notification: AppNotification;
@@ -50,7 +51,7 @@ const NotificationItem = ({ notification: notif, onPress }: NotificationItemProp
   };
 
   const senderAvatar = normalizeAvatarUrl({ profileImage: notif.senderAvatar });
-  const avatarSource = senderAvatar ? { uri: senderAvatar } : null;
+  const senderRole = (notif.senderRole as any) || 'student';
 
   return (
     <TouchableOpacity
@@ -65,24 +66,14 @@ const NotificationItem = ({ notification: notif, onPress }: NotificationItemProp
       {!notif.read && <View style={styles.unreadIndicator} />}
       
       <View style={styles.avatarContainer}>
-        {avatarSource ? (
-          <Image source={avatarSource} style={notification.avatar} />
-        ) : (
-          <View
-            style={[
-              notification.avatar,
-              {
-                backgroundColor: '#A5AFBD',
-                alignItems: 'center',
-                justifyContent: 'center',
-              },
-            ]}
-          >
-            <UserRound size={20} color={COLORS.gray} />
-          </View>
-        )}
+        <ProfileAvatar
+          uid={notif.senderId || ''}
+          role={senderRole}
+          imageUri={senderAvatar || undefined}
+          size={42}
+          fallbackText={notif.title || ''}
+        />
         <Text style={styles.iconBadge}>{getNotificationIcon()}</Text>
-          {/* Unread badge on avatar */}
         {!notif.read && <View style={styles.avatarUnreadBadge} />}
       </View>
       <View style={notification.contentContainer}>

@@ -24,6 +24,7 @@ import consultantContentRoutes from "./routes/consultantContent.routes";
 import fileSecurityRoutes from "./routes/fileSecurity.routes";
 import companyRoutes from "./routes/company.routes";
 import courseRoutes from "./routes/course.routes";
+import publicProfileRoutes from "./routes/publicProfile.routes";
 
 dotenv.config();
 
@@ -174,6 +175,7 @@ app.use("/consultant-content", consultantContentRoutes);
 app.use("/files", fileSecurityRoutes);
 app.use("/companies", companyRoutes);
 app.use("/courses", courseRoutes);
+app.use("/public", publicProfileRoutes);
 registerSupportRoutes(app);
 
 // 404 handler for unmatched routes

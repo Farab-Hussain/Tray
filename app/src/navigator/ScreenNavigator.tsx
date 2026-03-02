@@ -69,6 +69,7 @@ import RecruiterJobApplicationsScreen from '../Screen/Recruiter/Jobs/JobApplicat
 import RecruiterApplicationReviewScreen from '../Screen/Recruiter/Jobs/ApplicationReviewScreen';
 // Course Management screens
 import CourseCreationScreen from '../Screen/Consultant/CourseManagement/CourseCreationScreen';
+import PublicProfileScreen from '../Screen/common/PublicProfile/PublicProfileScreen';
 import { ActivityIndicator, View } from 'react-native';
 
 const Stack = createStackNavigator();
@@ -950,6 +951,15 @@ const ScreenNavigator = () => {
       <Stack.Screen 
         name="CourseCreation" 
         component={CourseCreationScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+
+      <Stack.Screen
+        name="PublicProfile"
+        component={PublicProfileScreen}
         options={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,
