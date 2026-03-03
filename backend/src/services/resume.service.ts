@@ -62,6 +62,28 @@ export interface AdditionalDocument {
   mimeType?: string;
 }
 
+// Remove undefined values recursively so Firestore accepts the payload
+const removeUndefinedDeep = (value: any): any => {
+  if (value === undefined) return undefined;
+  if (value instanceof Timestamp) return value;
+
+  if (Array.isArray(value)) {
+    return value
+      .map(removeUndefinedDeep)
+      .filter((item) => item !== undefined);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .map(([key, val]) => [key, removeUndefinedDeep(val)])
+        .filter(([, val]) => val !== undefined)
+    );
+  }
+
+  return value;
+};
+
 export const resumeServices = {
   /**
    * Create or update resume (upsert)
@@ -307,7 +329,7 @@ export const resumeServices = {
     try {
       const existingResume = await this.getByUserId(uid);
 
-      const updateData = {
+      const updateData = removeUndefinedDeep({
         careerInterests: goals.careerInterests,
         targetIndustries: goals.targetIndustries,
         salaryExpectation: goals.salaryExpectation,
@@ -315,7 +337,8 @@ export const resumeServices = {
         employmentGapExplanation: goals.employmentGapExplanation,
         picsAssessmentCompleted: goals.picsAssessmentCompleted,
         picsAssessmentCompletedAt: goals.picsAssessmentCompletedAt,
-      };
+        picsAssessmentProof: goals.picsAssessmentProof,
+      }) as Partial<Resume>;
 
       return this.update(existingResume.id, updateData);
     } catch (error: any) {
@@ -334,8 +357,8 @@ export const resumeServices = {
           skills: [],
           experience: [],
           education: [],
-          careerInterests: goals.careerInterests,
-          targetIndustries: goals.targetIndustries,
+          careerInterests: goals.careerInterests || [],
+          targetIndustries: goals.targetIndustries || [],
           salaryExpectation: goals.salaryExpectation,
           industriesToAvoid: goals.industriesToAvoid,
           employmentGapExplanation: goals.employmentGapExplanation,
@@ -346,8 +369,9 @@ export const resumeServices = {
           updatedAt: now,
         };
 
-        await resumeRef.set(resumeData);
-        return resumeData;
+        const sanitizedResumeData = removeUndefinedDeep(resumeData) as Resume;
+        await resumeRef.set(sanitizedResumeData);
+        return sanitizedResumeData;
       }
       throw error;
     }
@@ -395,7 +419,12 @@ export const resumeServices = {
       return {
         careerInterests: resume.careerInterests || [],
         targetIndustries: resume.targetIndustries || [],
+        industriesToAvoid: resume.industriesToAvoid || [],
         salaryExpectation: resume.salaryExpectation || { min: 0, max: 0 },
+        employmentGapExplanation: resume.employmentGapExplanation || '',
+        picsAssessmentCompleted: !!resume.picsAssessmentCompleted,
+        picsAssessmentCompletedAt: resume.picsAssessmentCompletedAt,
+        picsAssessmentProof: resume.picsAssessmentProof,
       };
     } catch (error: any) {
       // If no resume exists, return default career goals
@@ -403,7 +432,10 @@ export const resumeServices = {
         return {
           careerInterests: [],
           targetIndustries: [],
+          industriesToAvoid: [],
           salaryExpectation: { min: 0, max: 0 },
+          employmentGapExplanation: '',
+          picsAssessmentCompleted: false,
         };
       }
       throw error;

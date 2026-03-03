@@ -844,17 +844,26 @@ const StudentProfile = ({ navigation }: any) => {
                       ? [trimmed, ...(resume?.careerInterests?.slice(1) || [])]
                       : [];
 
-                    await ResumeService.updateCareerGoals({
+                    const payload: any = {
                       careerInterests: updatedInterests,
                       targetIndustries: resume?.targetIndustries || [],
                       industriesToAvoid: resume?.industriesToAvoid || [],
                       salaryExpectation: resume?.salaryExpectation || {},
                       employmentGapExplanation:
                         resume?.employmentGapExplanation || '',
-                      picsAssessmentCompleted:
-                        resume?.picsAssessmentCompleted || false,
-                      picsAssessmentProof: resume?.picsAssessmentProof,
-                    });
+                    };
+
+                    // Preserve PICS status only if a proof exists to avoid Firestore undefined errors
+                    const hasPicsProof = !!resume?.picsAssessmentProof?.fileUrl;
+                    payload.picsAssessmentCompleted =
+                      !!resume?.picsAssessmentCompleted && hasPicsProof;
+                    if (hasPicsProof) {
+                      payload.picsAssessmentProof = resume?.picsAssessmentProof;
+                    } else {
+                      delete payload.picsAssessmentProof;
+                    }
+
+                    await ResumeService.updateCareerGoals(payload);
 
                     setResume(prev => ({
                       ...(prev || {}),

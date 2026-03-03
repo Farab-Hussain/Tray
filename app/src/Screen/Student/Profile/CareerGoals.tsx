@@ -16,6 +16,7 @@ import { COLORS } from '../../../constants/core/colors';
 import { studentProfileStyles } from '../../../constants/styles/studentProfileStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { logger } from '../../../utils/logger';
+import { showError, showSuccess } from '../../../utils/toast';
 import {
   Target,
   DollarSign,
@@ -73,6 +74,10 @@ const CareerGoals = ({ navigation }: any) => {
       picsAssessmentCompleted: !!response.goals.picsAssessmentCompleted,
       picsAssessmentProof: response.goals.picsAssessmentProof,
           };
+        
+        if (response.goals.picsAssessmentProof) {
+          setPicsProof(response.goals.picsAssessmentProof);
+        }
         
         if (__DEV__) {
           logger.debug('📥 [CareerGoals] Loaded career goals:', loadedGoals);
@@ -163,24 +168,49 @@ const CareerGoals = ({ navigation }: any) => {
     try {
       setSaving(true);
       
-      const careerGoalsData = {
-        careerInterests: careerGoals.careerInterests,
-        targetIndustries: careerGoals.targetIndustries,
-        salaryExpectation: {
-          min: careerGoals.salaryExpectation.min ? parseInt(careerGoals.salaryExpectation.min, 10) : 0,
-          max: careerGoals.salaryExpectation.max ? parseInt(careerGoals.salaryExpectation.max, 10) : 0
-        },
-        employmentGapExplanation: careerGoals.employmentGapExplanation || undefined,
-        picsAssessmentCompleted: careerGoals.picsAssessmentCompleted,
-        picsAssessmentCompletedAt: careerGoals.picsAssessmentCompleted ? new Date().toISOString() : undefined,
-        picsAssessmentProof: picsProof,
+      const minSalary = careerGoals.salaryExpectation.min?.trim();
+      const maxSalary = careerGoals.salaryExpectation.max?.trim();
+
+      const hasPicsProof = !!picsProof?.fileUrl;
+
+      const careerGoalsData: Record<string, any> = {
+        careerInterests: careerGoals.careerInterests ?? [],
+        targetIndustries: careerGoals.targetIndustries ?? [],
+        industriesToAvoid: careerGoals.industriesToAvoid ?? [],
       };
 
-      if (__DEV__) {
-        logger.debug('💾 [CareerGoals] Saving career goals data:', careerGoalsData);
+      if (minSalary || maxSalary) {
+        careerGoalsData.salaryExpectation = {
+          min: minSalary ? parseInt(minSalary, 10) : 0,
+          max: maxSalary ? parseInt(maxSalary, 10) : 0
+        };
       }
 
-      await ResumeService.updateCareerGoals(careerGoalsData);
+      if (careerGoals.employmentGapExplanation?.trim()) {
+        careerGoalsData.employmentGapExplanation = careerGoals.employmentGapExplanation.trim();
+      }
+
+      // Only mark completed if a proof with fileUrl exists to avoid undefined Firestore values
+      careerGoalsData.picsAssessmentCompleted = !!careerGoals.picsAssessmentCompleted && hasPicsProof;
+      if (careerGoalsData.picsAssessmentCompleted) {
+        careerGoalsData.picsAssessmentCompletedAt = new Date().toISOString();
+        careerGoalsData.picsAssessmentProof = picsProof;
+      } else {
+        // Explicitly drop proof fields to avoid sending undefined to Firestore
+        delete careerGoalsData.picsAssessmentProof;
+        delete careerGoalsData.picsAssessmentCompletedAt;
+      }
+
+      // Remove undefined values to avoid Firestore errors
+      const sanitizedPayload = Object.fromEntries(
+        Object.entries(careerGoalsData).filter(([_, value]) => value !== undefined)
+      );
+
+      if (__DEV__) {
+        logger.debug('💾 [CareerGoals] Saving career goals data:', sanitizedPayload);
+      }
+
+      await ResumeService.updateCareerGoals(sanitizedPayload);
       Alert.alert('Success', 'Career goals updated successfully!');
       navigation.goBack();
     } catch (error) {

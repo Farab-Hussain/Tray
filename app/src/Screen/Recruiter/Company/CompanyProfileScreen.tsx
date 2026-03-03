@@ -862,7 +862,8 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
               </TouchableOpacity>
             )}
           </View>
-          </ScrollView>
+        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
