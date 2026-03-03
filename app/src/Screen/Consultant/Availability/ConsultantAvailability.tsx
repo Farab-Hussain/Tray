@@ -584,6 +584,16 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
       logger.debug('🚨🚨🚨 SAVE AVAILABILITY SLOTS FUNCTION CALLED 🚨🚨🚨')
     };
 
+    // Prevent saving past-date slots (extra safety even if filtered elsewhere)
+    const pastSlot = draftSlots.find(slot => isPastDate(slot.date));
+    if (pastSlot) {
+      Alert.alert(
+        'Invalid Date',
+        `You cannot create availability in the past (found ${pastSlot.date}). Please remove past dates before saving.`,
+      );
+      return;
+    }
+
     if (!user?.uid) {
             if (__DEV__) {
         logger.error('❌ [ConsultantAvailability] No user UID available')

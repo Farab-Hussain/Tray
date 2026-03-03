@@ -328,7 +328,11 @@ Return JSON:
       <View style={consultantContentStyles.section}>
         <Text style={consultantContentStyles.sectionTitle}>Content Type</Text>
         <View style={consultantContentStyles.sectionContent}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+          >
             <View style={consultantContentStyles.contentTypeContainer}>
               {contentTypes.map((type) => {
                 const Icon = type.icon;

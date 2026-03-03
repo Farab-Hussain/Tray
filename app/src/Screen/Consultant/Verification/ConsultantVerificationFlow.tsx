@@ -223,8 +223,10 @@ export default function ConsultantVerificationFlow() {
         (navigation as any).navigate('ConsultantProfileFlow');
         break;
       case 'profile_pending':
+        (navigation as any).navigate('ConsultantTabs');
+        break;
       case 'profile_rejected':
-        (navigation as any).navigate('PendingApproval');
+        (navigation as any).navigate('ConsultantProfileFlow');
         break;
       case 'no_services':
         (navigation as any).navigate('ConsultantDashboard');
@@ -315,4 +317,3 @@ export default function ConsultantVerificationFlow() {
     </SafeAreaView>
   );
 }
-

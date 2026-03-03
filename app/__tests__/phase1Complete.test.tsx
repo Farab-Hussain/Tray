@@ -74,21 +74,18 @@ jest.mock('react-native', () => ({
   },
 }));
 
-// Mock expo-image-picker
-jest.mock('expo-image-picker', () => ({
-  launchImageLibraryAsync: jest.fn(() => Promise.resolve({
-    canceled: false,
-    uri: 'test-image-uri',
-    fileName: 'test-image.jpg',
-  })),
-  MediaTypeOptions: {
-    Images: 'Images',
-    Videos: 'Videos',
-  },
+// Mock image picker
+jest.mock('react-native-image-picker', () => ({
+  launchImageLibrary: jest.fn(() =>
+    Promise.resolve({
+      didCancel: false,
+      assets: [{ uri: 'test-image-uri', fileName: 'test-image.jpg' }],
+    })
+  ),
 }));
 
 // Mock services
-jest.mock('../../services/resume.service', () => ({
+jest.mock('../src/services/resume.service', () => ({
   ResumeService: {
     updateResume: jest.fn(() => Promise.resolve({ success: true })),
     getResume: jest.fn(() => Promise.resolve({

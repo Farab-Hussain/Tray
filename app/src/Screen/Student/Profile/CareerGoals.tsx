@@ -7,6 +7,8 @@ import {
   ScrollView,
   Alert,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ResumeService } from '../../../services/resume.service';
@@ -154,7 +156,7 @@ const CareerGoals = ({ navigation }: any) => {
     }
     
     if (errors.length > 0) {
-      Alert.alert('Validation Issue', issues.join('\n\n'));
+      Alert.alert('Validation Issue', errors.join('\n\n'));
       return;
     }
 
@@ -209,12 +211,20 @@ const CareerGoals = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={studentProfileStyles.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
       <ScreenHeader 
         title="Career Goals" 
         onBackPress={() => navigation.goBack()} 
       />
       
-      <ScrollView style={studentProfileStyles.scrollView}>
+      <ScrollView
+        style={studentProfileStyles.scrollView}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>Career Interests</Text>
           
@@ -500,6 +510,7 @@ const CareerGoals = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   </SafeAreaView>
   );
 };

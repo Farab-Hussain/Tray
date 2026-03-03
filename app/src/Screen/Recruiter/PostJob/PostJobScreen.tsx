@@ -8,6 +8,8 @@ import {
   TextInput,
   Switch,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -796,11 +798,16 @@ const PostJobScreen = ({ navigation }: any) => {
     <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
       <ScreenHeader title="Post Job" onBackPress={() => navigation.goBack()} />
 
-      <ScrollView
-        style={{ flex: 1, backgroundColor: '#FAFAFA' }}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
       >
-        <View style={{ padding: 16 }}>
+        <ScrollView
+          style={{ flex: 1, backgroundColor: '#FAFAFA' }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ padding: 16 }}>
           {/* Company Selection */}
           <View
             style={{
@@ -852,7 +859,11 @@ const PostJobScreen = ({ navigation }: any) => {
                 </Text>
               </View>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+              >
                 {companies.map(company => (
                   <TouchableOpacity
                     key={company.id}
@@ -1126,7 +1137,11 @@ const PostJobScreen = ({ navigation }: any) => {
               >
                 Job Type
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+              >
                 {jobTypes.map(type => (
                   <TouchableOpacity
                     key={type.value}
@@ -1177,7 +1192,11 @@ const PostJobScreen = ({ navigation }: any) => {
               >
                 Shift Type
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+              >
                 {shiftTypes.map(type => (
                   <TouchableOpacity
                     key={type.value}
@@ -1228,7 +1247,11 @@ const PostJobScreen = ({ navigation }: any) => {
               >
                 Experience Level
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+              >
                 {experienceLevels.map(level => (
                   <TouchableOpacity
                     key={level.value}
@@ -1279,7 +1302,11 @@ const PostJobScreen = ({ navigation }: any) => {
               >
                 Education Level
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+              >
                 {educationLevels.map(level => (
                   <TouchableOpacity
                     key={level.value}
@@ -2328,8 +2355,9 @@ const PostJobScreen = ({ navigation }: any) => {
               </View>
             </View>
           )}
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

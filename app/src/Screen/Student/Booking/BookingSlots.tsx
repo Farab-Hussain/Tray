@@ -433,6 +433,13 @@ const BookingSlots = ({ navigation, route }: any) => {
     return dates.slice(0, 20);
   }, [consultantAvailability, getDayName]);
 
+  // Auto-select the first available date to make the slot picker usable immediately (helps release builds)
+  useEffect(() => {
+    if (!selectedDate && upcomingAvailableDates.length > 0) {
+      setSelectedDate(upcomingAvailableDates[0].date);
+    }
+  }, [upcomingAvailableDates, selectedDate]);
+
   const parseSlotTime = useCallback(
     (slot: string): { startDisplay: string; endDisplay: string } => {
       if (!slot) {
@@ -816,6 +823,7 @@ const BookingSlots = ({ navigation, route }: any) => {
               ) : (
                 <ScrollView
                   horizontal
+                  nestedScrollEnabled
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={mergedStyles.availableDatesScroll}
                 >

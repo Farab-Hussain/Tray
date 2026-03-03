@@ -57,10 +57,16 @@ jest.mock('firebase/database', () => ({
   })),
 }));
 
-// Mock expo-image-picker
-jest.mock('expo-image-picker', () => ({
-  launchImageLibraryAsync: jest.fn(() => Promise.resolve({
-    canceled: false,
-    uri: 'test-image-uri',
-  })),
+// Mock react-native-image-picker
+jest.mock('react-native-image-picker', () => ({
+  launchImageLibrary: jest.fn((_, cb) => {
+    const result = { didCancel: false, assets: [{ uri: 'test-image-uri' }] };
+    cb && cb(result);
+    return Promise.resolve(result);
+  }),
+  launchCamera: jest.fn((_, cb) => {
+    const result = { didCancel: false, assets: [{ uri: 'test-camera-uri' }] };
+    cb && cb(result);
+    return Promise.resolve(result);
+  }),
 }));

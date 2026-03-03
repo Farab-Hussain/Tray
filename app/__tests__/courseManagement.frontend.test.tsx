@@ -23,18 +23,6 @@ jest.mock('@react-navigation/native', () => ({
   }),
 }));
 
-// Mock Ionicons
-jest.mock('@expo/vector-icons', () => ({
-  Ionicons: {
-    add: 'AddIcon',
-    create: 'CreateIcon',
-    rocket: 'RocketIcon',
-    trash: 'TrashIcon',
-    search: 'SearchIcon',
-    book: 'BookIcon',
-  },
-}));
-
 // Mock Alert
 jest.mock('react-native/Libraries/Alert/Alert', () => ({
   alert: jest.fn(),

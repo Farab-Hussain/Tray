@@ -83,10 +83,11 @@ const EmailVerification = ({ route }: any) => {
           // Navigate based on role
           if (userRole === 'consultant') {
                         if (__DEV__) {
-              console.log('EmailVerification - Navigating to consultant flow')
+              console.log('EmailVerification - Navigating to consultant tabs')
             };
             (navigation as any).replace('Screen', {
-              screen: 'PendingApproval',
+              screen: 'MainTabs',
+              params: { role: userRole },
             });
           } else {
             // Student or recruiter - navigate to MainTabs

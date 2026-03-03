@@ -299,7 +299,12 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
         onBackPress={() => navigation.goBack()} 
       />
       
-      <ScrollView style={studentProfileStyles.scrollView}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+      <ScrollView style={studentProfileStyles.scrollView} keyboardShouldPersistTaps="handled">
         {/* Current Profiles */}
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>Your Profiles</Text>
@@ -352,7 +357,11 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
             <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 10 }}>
               Select Platform:
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+            >
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 15 }}>
                 {Object.entries(platformConfig).map(([key, config]) => {
                   const Icon = config.icon;
@@ -509,6 +518,7 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

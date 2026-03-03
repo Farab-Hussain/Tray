@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 // Mock the fetcher API
-jest.mock('../../lib/fetcher', () => ({
+jest.mock('../lib/fetcher', () => ({
   api: {
     post: jest.fn(),
     defaults: {
@@ -13,7 +13,7 @@ jest.mock('../../lib/fetcher', () => ({
   }
 }));
 
-import UploadService from '../../services/upload.service';
+import UploadService from '../services/upload.service';
 
 describe('Service Upload Integration Tests', () => {
   beforeEach(() => {

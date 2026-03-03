@@ -46,7 +46,6 @@ import BrowseServicesScreen from '../Screen/Consultant/Applications/BrowseServic
 import ConsultantAvailability from '../Screen/Consultant/Availability/ConsultantAvailability';
 import ConsultantSlots from '../Screen/Consultant/Slots/ConsultantSlots';
 import StudentAvailability from '../Screen/Student/Availability/StudentAvailability';
-import PendingApproval from '../Screen/Consultant/PendingApproval';
 import ConsultantVerificationFlow from '../Screen/Consultant/Verification/ConsultantVerificationFlow';
 import CreateProfile from '../Screen/common/Profile/CreateProfile';
 import StripePaymentSetup from '../Screen/Consultant/Payment/StripePaymentSetup';
@@ -621,6 +620,16 @@ const ScreenNavigator = () => {
         }}
       />
       
+      {/* Student Notifications */}
+      <Stack.Screen
+        name="Notifications"
+        component={Notifications}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      
       {/* Chat Screen */}
       <Stack.Screen 
         name="ChatScreen" 
@@ -849,34 +858,25 @@ const ScreenNavigator = () => {
         }}
       />
 
-        <Stack.Screen
-          name="ConsultantAvailability"
-          component={ConsultantAvailability}
-          options={{
-            headerShown: false,
-            cardStyleInterpolator: slideFromRight,
-          }}
-        />
-        <Stack.Screen
-          name="ConsultantSlots"
-          component={ConsultantSlots}
-          options={{
-            headerShown: false,
-            cardStyleInterpolator: slideFromRight,
-          }}
-        />
-        <Stack.Screen
-          name="StudentAvailability"
-          component={StudentAvailability}
-          options={{
-            headerShown: false,
-            cardStyleInterpolator: slideFromRight,
-          }}
-        />
-
+      <Stack.Screen
+        name="ConsultantAvailability"
+        component={ConsultantAvailability}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
       <Stack.Screen 
-        name="PendingApproval" 
-        component={PendingApproval}
+        name="ConsultantSlots"
+        component={ConsultantSlots}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+      <Stack.Screen
+        name="StudentAvailability"
+        component={StudentAvailability}
         options={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,

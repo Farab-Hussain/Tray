@@ -389,7 +389,11 @@ const JobApplicationsScreen = ({ navigation, route }: any) => {
             />
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+          >
             <TouchableOpacity
               style={{
                 backgroundColor: filterStatus === 'all' ? COLORS.green : '#F5F5F5',

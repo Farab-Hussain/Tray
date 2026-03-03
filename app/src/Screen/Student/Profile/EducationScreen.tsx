@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
@@ -28,7 +30,7 @@ interface Education {
   field: string;
   startDate: string;
   endDate: string;
-  gpa?: string;
+  gpa?: number;
 }
 
 const EducationScreen = ({ navigation }: any) => {
@@ -73,9 +75,16 @@ const EducationScreen = ({ navigation }: any) => {
       return;
     }
 
+    const gpaValue = newEducation.gpa.trim() ? parseFloat(newEducation.gpa) : undefined;
+
     const education: Education = {
       id: Date.now().toString(),
-      ...newEducation,
+      institution: newEducation.institution.trim(),
+      degree: newEducation.degree.trim(),
+      field: newEducation.field.trim(),
+      startDate: newEducation.startDate.trim(),
+      endDate: newEducation.endDate.trim(),
+      gpa: isNaN(gpaValue as number) ? undefined : gpaValue,
     };
 
     setEducationList(prev => [...prev, education]);
@@ -105,7 +114,7 @@ const EducationScreen = ({ navigation }: any) => {
     }
     
     if (errors.length > 0) {
-      Alert.alert('Validation Issue', issues.join('\n\n'));
+      Alert.alert('Validation Issue', errors.join('\n\n'));
       return;
     }
 
@@ -115,9 +124,17 @@ const EducationScreen = ({ navigation }: any) => {
       if (__DEV__) {
         logger.debug('💾 [EducationScreen] Saving education:', educationList);
       }
-      
+
+      const normalizedEducation = educationList.map(edu => ({
+        ...edu,
+        gpa:
+          edu.gpa === undefined || edu.gpa === null
+            ? undefined
+            : parseFloat(String(edu.gpa)),
+      }));
+
       // Use existing updateResume endpoint instead of specific education endpoint
-      await ResumeService.updateResume({ education: educationList });
+      await ResumeService.updateResume({ education: normalizedEducation });
       Alert.alert('Success', 'Education information saved successfully!');
       navigation.goBack();
     } catch (error) {
@@ -152,8 +169,12 @@ const EducationScreen = ({ navigation }: any) => {
         title="Education" 
         onBackPress={() => navigation.goBack()} 
       />
-      
-      <ScrollView style={studentProfileStyles.scrollView}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+      <ScrollView style={studentProfileStyles.scrollView} keyboardShouldPersistTaps="handled">
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>Education History</Text>
           
@@ -230,16 +251,27 @@ const EducationScreen = ({ navigation }: any) => {
                 style={{
                   width: 80,
                   borderWidth: 1,
-                  borderColor: COLORS.lightGray,
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 16
-                }}
-                placeholder="GPA"
-                value={newEducation.gpa}
-                onChangeText={(value) => setNewEducation(prev => ({ ...prev, gpa: value }))}
-              />
-            </View>
+              borderColor: COLORS.lightGray,
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16
+            }}
+            placeholder="GPA"
+            keyboardType="decimal-pad"
+            inputMode="decimal"
+            value={newEducation.gpa}
+            onChangeText={(value) => {
+              // Allow digits and a single decimal point
+              const sanitized = value.replace(/[^0-9.]/g, '');
+              const parts = sanitized.split('.');
+              let normalized = parts.shift() || '';
+              if (parts.length > 0) {
+                normalized += `.${parts.join('')}`;
+              }
+              setNewEducation(prev => ({ ...prev, gpa: normalized }));
+            }}
+          />
+        </View>
             
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
               <TextInput
@@ -334,6 +366,7 @@ const EducationScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

@@ -34,17 +34,18 @@ const prepareFileForUpload = async (file: any, defaultMimeType: string = 'image/
   let fileToUpload: any;
 
   if (Platform.OS === 'android') {
-    // On Android, use the original URI from react-native-image-picker
-    // It should already be in the correct format (file:///path/to/file)
-    // React Native FormData will handle the conversion internally
-    
-    // Get file path for verification
+    // On Android, handle both file:// and content:// URIs from pickers
+    const isContentUri = fileUri.startsWith('content://');
+
+    // Get file path for verification when it's a file:// URI
     let filePath = fileUri;
-    if (filePath.startsWith('file://')) {
-      filePath = filePath.replace('file://', '');
-    }
-    if (filePath.startsWith('file:///')) {
-      filePath = filePath.replace('file:///', '/');
+    if (!isContentUri) {
+      if (filePath.startsWith('file://')) {
+        filePath = filePath.replace('file://', '');
+      }
+      if (filePath.startsWith('file:///')) {
+        filePath = filePath.replace('file:///', '/');
+      }
     }
     
     if (__DEV__) {
@@ -53,10 +54,12 @@ const prepareFileForUpload = async (file: any, defaultMimeType: string = 'image/
       logger.debug('📤 [UploadService] File path for verification:', filePath);
     }
 
-    // Verify file exists
-    const fileExists = await RNFS.exists(filePath);
-    if (!fileExists) {
-      throw new Error(`File not found: ${filePath}`);
+    // Verify file exists only for file:// URIs; content:// cannot be checked with RNFS.exists
+    if (!isContentUri) {
+      const fileExists = await RNFS.exists(filePath);
+      if (!fileExists) {
+        throw new Error(`File not found: ${filePath}`);
+      }
     }
 
     // Determine MIME type from file extension if not provided
@@ -71,8 +74,7 @@ const prepareFileForUpload = async (file: any, defaultMimeType: string = 'image/
       else if (ext === 'docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     }
 
-    // Use the original URI as-is - react-native-image-picker provides correct format
-    // React Native FormData on Android will handle file:// URIs correctly
+    // Use the original URI as-is - React Native FormData handles content:// and file://
     fileToUpload = {
       uri: fileUri, // Use original URI - React Native FormData handles it
       type: mimeType, // Ensure correct MIME type
@@ -84,7 +86,7 @@ const prepareFileForUpload = async (file: any, defaultMimeType: string = 'image/
         uri: fileToUpload.uri,
         type: fileToUpload.type,
         name: fileToUpload.name,
-        fileExists: true,
+        fileExists: isContentUri ? 'skipped (content uri)' : true,
       });
     }
   } else {

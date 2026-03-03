@@ -8,9 +8,11 @@ import {
   TextInput,
   Switch,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ActionSheetIOS, Platform } from 'react-native';
+import { ActionSheetIOS } from 'react-native';
 import { useAuth } from '../../../contexts/AuthContext';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
@@ -329,9 +331,13 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
   return (
     <SafeAreaView style={screenStyles.safeAreaWhite} edges={['top']}>
       <ScreenHeader title="Company Profile" onBackPress={() => navigation.goBack()} />
-      
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ padding: 16 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          <View style={{ padding: 16 }}>
           {/* Basic Information */}
           <View style={{ marginBottom: 24 }}>
             <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 16, color: COLORS.black }}>
@@ -856,8 +862,8 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
               </TouchableOpacity>
             )}
           </View>
-        </View>
-      </ScrollView>
+          </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

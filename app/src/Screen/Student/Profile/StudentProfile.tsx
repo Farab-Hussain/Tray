@@ -9,6 +9,8 @@ import {
   Alert,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -55,6 +57,8 @@ const StudentProfile = ({ navigation }: any) => {
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [locationInput, setLocationInput] = useState('');
+  const [jobInterestModalVisible, setJobInterestModalVisible] = useState(false);
+  const [jobInterestInput, setJobInterestInput] = useState('');
 
   const getExternalProfilesList = (externalProfiles: any) => {
     if (!externalProfiles) return [];
@@ -206,6 +210,9 @@ const StudentProfile = ({ navigation }: any) => {
         if (resumeResponse.resume) {
           setResume(resumeResponse.resume);
           resumeData = resumeResponse.resume;
+          // Pre-fill job interest from the first career interest if available
+          const firstInterest = resumeResponse.resume?.careerInterests?.[0] || '';
+          setJobInterestInput(firstInterest);
           if (__DEV__) {
             logger.debug('✅ [StudentProfile] Resume data loaded:', {
               careerInterests: resumeData.careerInterests,
@@ -403,6 +410,7 @@ const StudentProfile = ({ navigation }: any) => {
   const email = backendProfile?.email || user?.email || 'No email';
   const location = backendProfile?.location || '';
   const externalProfileList = getExternalProfilesList(backendProfile?.externalProfiles);
+  const primaryJobInterest = resume?.careerInterests?.[0] || '';
 
   // Calculate profile completion percentage
   const completionPercentage = profileCompletion?.overallCompletion || 0;
@@ -416,14 +424,20 @@ const StudentProfile = ({ navigation }: any) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader title="Profile" onBackPress={() => navigation.goBack()} />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
       >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Profile Image Section */}
         <View style={styles.profileImageSection}>
           <View style={styles.profileImageContainer}>
@@ -679,9 +693,18 @@ const StudentProfile = ({ navigation }: any) => {
 
         {/* Career Goals Section */}
         <ProfileSectionCard
-          title="Career Goals"
-          icon={Target}
-          items={[
+        title="Career Goals"
+        icon={Target}
+        items={[
+            {
+              label: 'Job Interest',
+              value: primaryJobInterest || 'Add your primary job interest',
+              onPress: () => {
+                setJobInterestInput(primaryJobInterest);
+                setJobInterestModalVisible(true);
+              },
+              rightIcon: Edit2,
+            },
             {
               label: 'Manage Goals',
               subtext: 'Define your career interests and salary expectations',
@@ -784,6 +807,78 @@ const StudentProfile = ({ navigation }: any) => {
           ]}
         />
       </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Job Interest modal */}
+      <Modal
+        visible={jobInterestModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setJobInterestModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Job Interest</Text>
+            <Text style={styles.modalSubtitle}>Add the main role you’re targeting</Text>
+            <View style={styles.modalInputWrapper}>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., Frontend Developer"
+                value={jobInterestInput}
+                onChangeText={setJobInterestInput}
+              />
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setJobInterestModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={async () => {
+                  try {
+                    const trimmed = jobInterestInput.trim();
+                    const updatedInterests = trimmed
+                      ? [trimmed, ...(resume?.careerInterests?.slice(1) || [])]
+                      : [];
+
+                    await ResumeService.updateCareerGoals({
+                      careerInterests: updatedInterests,
+                      targetIndustries: resume?.targetIndustries || [],
+                      industriesToAvoid: resume?.industriesToAvoid || [],
+                      salaryExpectation: resume?.salaryExpectation || {},
+                      employmentGapExplanation:
+                        resume?.employmentGapExplanation || '',
+                      picsAssessmentCompleted:
+                        resume?.picsAssessmentCompleted || false,
+                      picsAssessmentProof: resume?.picsAssessmentProof,
+                    });
+
+                    setResume(prev => ({
+                      ...(prev || {}),
+                      careerInterests: updatedInterests,
+                    }));
+
+                    Alert.alert('Success', 'Job interest updated');
+                    setJobInterestModalVisible(false);
+                  } catch (error: any) {
+                    Alert.alert(
+                      'Issue',
+                      error?.response?.data?.error ||
+                        error?.message ||
+                        'Failed to update job interest',
+                    );
+                  }
+                }}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Location modal */}
       <Modal

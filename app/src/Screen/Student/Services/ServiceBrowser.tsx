@@ -205,6 +205,7 @@ export default function ServiceBrowser() {
           {/* Categories */}
           <ScrollView
             horizontal
+            nestedScrollEnabled
             showsHorizontalScrollIndicator={false}
             style={styles.categoriesContainer}
           >
@@ -234,6 +235,7 @@ export default function ServiceBrowser() {
             <Text style={styles.sortLabel}>Sort by:</Text>
             <ScrollView
               horizontal
+              nestedScrollEnabled
               showsHorizontalScrollIndicator={false}
               style={styles.sortOptionsContainer}
             >

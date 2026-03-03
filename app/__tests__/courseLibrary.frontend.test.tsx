@@ -107,7 +107,7 @@ describe('Course Library Frontend Tests', () => {
       hasMore: false,
     } as any);
 
-    const { getByText, getByPlaceholderText } = render(<CourseLibraryScreen />););
+    const { getByText, getByPlaceholderText } = render(<CourseLibraryScreen />);
 
     await waitFor(() => {
       expect(getByText('Course Library')).toBeTruthy();

@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/core/colors';
@@ -193,8 +195,13 @@ const SkillsScreen = ({ navigation }: any) => {
         title="Skills & Languages" 
         onBackPress={() => navigation.goBack()} 
       />
-      
-      <ScrollView style={studentProfileStyles.scrollView}>
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+      <ScrollView style={studentProfileStyles.scrollView} keyboardShouldPersistTaps="handled">
         {/* Technical Skills Section */}
         <View style={studentProfileStyles.section}>
           <Text style={studentProfileStyles.sectionTitle}>Technical Skills</Text>
@@ -368,7 +375,11 @@ const SkillsScreen = ({ navigation }: any) => {
               <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 5 }}>
                 Proficiency Level:
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+              >
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {languageProficiencyLevels.map((level) => (
                     <TouchableOpacity
@@ -458,6 +469,7 @@ const SkillsScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

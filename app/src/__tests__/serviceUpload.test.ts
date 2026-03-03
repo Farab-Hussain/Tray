@@ -3,13 +3,13 @@
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { launchImageLibrary } from 'react-native-image-picker';
-import UploadService from '../../services/upload.service';
-import { api } from '../../lib/fetcher';
+import UploadService from '../services/upload.service';
+import { api } from '../lib/fetcher';
 
 // Mock the modules
 jest.mock('react-native-image-picker');
-jest.mock('../../services/upload.service');
-jest.mock('../../lib/fetcher');
+jest.mock('../services/upload.service');
+jest.mock('../lib/fetcher');
 
 const mockLaunchImageLibrary = launchImageLibrary as jest.MockedFunction<typeof launchImageLibrary>;
 const mockUploadService = UploadService as jest.Mocked<typeof UploadService>;

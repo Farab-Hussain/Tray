@@ -119,7 +119,7 @@ export const ServiceApplicationForm: React.FC<ServiceApplicationFormProps> = ({
             onPress: () => {
               // Call onSuccess callback first (if provided)
               onSuccess?.();
-              // Navigate back - the PendingApproval screen will refresh on focus
+              // Navigate back - parent screen will refresh on focus
               navigation.goBack();
             },
           },

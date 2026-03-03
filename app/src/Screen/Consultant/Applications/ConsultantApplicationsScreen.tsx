@@ -491,22 +491,6 @@ const [currentServiceBookingsCount, setCurrentServiceBookingsCount] = useState<n
               text: 'OK',
               onPress: async () => {
                 await refreshConsultantStatus();
-
-                try {
-                  const applications = await getConsultantApplications();
-                  const approvedServices = applications.filter(app => app.status === 'approved');
-
-                  if (approvedServices.length > 0) {
-                    navigation.goBack();
-                  } else {
-                    navigation.navigate('PendingApproval' as never);
-                  }
-                } catch (error) {
-                                    if (__DEV__) {
-                    logger.error('Error checking approved services:', error)
-                  };
-                  navigation.navigate('PendingApproval' as never);
-                }
               },
             },
           ],

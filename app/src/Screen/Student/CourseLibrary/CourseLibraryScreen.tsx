@@ -336,10 +336,18 @@ export default function CourseLibraryScreen() {
         borderBottomWidth: 1,
         borderBottomColor: COLORS.lightGray,
       }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+        >
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {/* Category Filter */}
-            <ScrollView horizontal style={{ marginRight: 16 }}>
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              style={{ marginRight: 16 }}
+            >
               {categories.map((category) => (
                 <TouchableOpacity
                   key={category}
@@ -364,7 +372,10 @@ export default function CourseLibraryScreen() {
             </ScrollView>
 
             {/* Level Filter */}
-            <ScrollView horizontal>
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+            >
               {levels.map((level) => (
                 <TouchableOpacity
                   key={level}

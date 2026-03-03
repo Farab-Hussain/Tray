@@ -319,7 +319,11 @@ const ExternalProfilesScreen = ({ navigation }: any) => {
             <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 10 }}>
               Select Platform:
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+            >
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 15 }}>
                 {Object.entries(platformConfig).map(([key, config]) => {
                   const Icon = config.icon;

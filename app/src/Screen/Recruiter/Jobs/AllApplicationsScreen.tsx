@@ -322,6 +322,7 @@ const AllApplicationsScreen = ({ navigation }: any) => {
         {/* Combined Sort and Filter Row */}
         <ScrollView
           horizontal
+          nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.combinedFilterContainer}
           style={styles.combinedRow}
@@ -408,6 +409,7 @@ const AllApplicationsScreen = ({ navigation }: any) => {
           <View style={styles.subFilterRow}>
             <ScrollView
               horizontal
+              nestedScrollEnabled
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.subFilterContainer}
             >
@@ -630,4 +632,3 @@ const AllApplicationsScreen = ({ navigation }: any) => {
 const styles = allApplicationsScreenStyles;
 
 export default AllApplicationsScreen;
-

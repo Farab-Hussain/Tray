@@ -324,7 +324,12 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
   const renderHorizontalCourseList = (courseList: Course[], title: string, seeAll?: string) => (
     <View style={styles.section}>
       {renderSectionHeader(title, seeAll)}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={false}
+        style={styles.horizontalScroll}
+      >
         {courseList.map((course) => (
           <TouchableOpacity
             key={course.id}
