@@ -1,2 +1,190 @@
-# Updated contributor information
+# =========================
+# OS
+# =========================
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =========================
+# Xcode / iOS
+# =========================
+build/
+DerivedData
+xcuserdata
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.xcuserstate
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+!default.pbxuser
+!default.mode1v3
+!default.mode2v3
+!default.perspectivev3
+**/.xcode.env.local
+
+# =========================
+# Android / IntelliJ
+# =========================
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+*.keystore
+!debug.keystore
+.kotlin/
+android/keystore.properties
+
+# =========================
+# Node.js / JS / TS
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.yarn-integrity
+.npm
+.node_repl_history
+
+# =========================
+# Environment Variables
+# =========================
 .env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.staging
+.env.test
+
+# =========================
+# Firebase
+# =========================
+.firebase/
+firebase-debug.log
+firestore-debug.log
+*firebase-adminsdk*.json
+serviceAccountKey.json
+firebase-key.json
+firebase-credentials.json
+GoogleService-Info.plist
+*GoogleService-Info.plist
+android/app/google-services.json
+*google-services.json
+src/config/*firebase*.json
+**/firebase-adminsdk-*.json
+
+# =========================
+# Build Outputs
+# =========================
+dist/
+build/
+out/
+.next
+.nuxt
+.cache
+.parcel-cache
+public
+storybook-static
+.out
+.storybook-out
+
+# =========================
+# Coverage / Testing
+# =========================
+coverage/
+*.lcov
+.nyc_output/
+
+# =========================
+# Logs / Runtime
+# =========================
+logs
+*.log
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+# Package Managers / Misc
+# =========================
+bower_components
+jspm_packages/
+.typings/
+.lock-wscript
+Release
+*.tgz
+*.tar.gz
+.vercel
+
+# =========================
+# TypeScript
+# =========================
+*.tsbuildinfo
+next-env.d.ts
+
+# =========================
+# Caches
+# =========================
+.eslintcache
+.stylelintcache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# =========================
+# Metro / React Native
+# =========================
+.metro-health-check*
+
+# =========================
+# Ruby / CocoaPods
+# =========================
+**/Pods/
+/vendor/bundle/
+
+# =========================
+# Fastlane
+# =========================
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+
+# =========================
+# Temp Files
+# =========================
+tmp/
+temp/
+
+# =========================
+# Editor
+# =========================
+.vscode/
+*.swp
+*.swo
+*~
+
+
+#=========================
+#Documents
+#=========================
+doc
