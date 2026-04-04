@@ -72,6 +72,7 @@ interface EmailOptions {
   subject: string;
   html: string;
   text?: string;
+  bcc?: string | string[];
 }
 
 
@@ -90,6 +91,7 @@ export const sendEmail = async (options: EmailOptions): Promise<{ sent: boolean;
     const mailOptions = {
       from: SMTP_FROM,
       to: options.to,
+      bcc: options.bcc,
       subject: options.subject,
       html: options.html,
       text: options.text || options.html.replace(/<[^>]*>/g, ""),
@@ -659,4 +661,3 @@ export const emailConsultantNewBooking = (
     `,
   });
 };
-

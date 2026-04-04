@@ -160,6 +160,20 @@ export const activityAPI = {
     api.get('/admin/activities/recent', { params: { limit } }),
 };
 
+// ========== Admin Newsletter & Broadcast API ==========
+
+export const newsletterAPI = {
+  sendNewsletter: (data: { subject: string; body: string; roles?: string[] }) =>
+    api.post('/admin/newsletter/send', data),
+};
+
+export type BroadcastAudience = 'all' | 'students' | 'consultants' | 'recruiters' | 'admins';
+
+export const broadcastAPI = {
+  sendBroadcast: (data: { title: string; body: string; audience?: BroadcastAudience; link?: string }) =>
+    api.post('/admin/broadcast/send', data),
+};
+
 export const uploadAdminAPI = {
   getFileAccessUrl: (publicId: string) =>
     api.get('/upload/file-access-url', { params: { publicId } }),

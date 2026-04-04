@@ -24,7 +24,8 @@ import consultantContentRoutes from "./routes/consultantContent.routes";
 import fileSecurityRoutes from "./routes/fileSecurity.routes";
 import companyRoutes from "./routes/company.routes";
 import courseRoutes from "./routes/course.routes";
-import publicProfileRoutes from "./routes/publicProfile.routes";
+import newsletterRoutes from "./routes/newsletter.routes";
+import broadcastRoutes from "./routes/broadcast.routes";
 
 dotenv.config();
 
@@ -46,18 +47,17 @@ app.use(
   })
 );
 
-// Apply JSON parsing middleware at app level
-app.use(express.json({ limit: '10mb' }));
-
-// Verbose debug logs only outside production.
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    console.log(`🔍 [App Middleware] ${req.method} ${req.path} - Content-Type: ${req.headers['content-type']}`);
-    console.log(`🔍 [App Middleware] ${req.method} ${req.path} - Content-Length: ${req.headers['content-length']}`);
-    console.log(`🔍 [App Middleware] JSON body parsed:`, req.body ? '✅' : '❌');
+// Only parse JSON for non-multipart requests
+// Multer will handle multipart/form-data, so we need to skip JSON parsing for those
+app.use((req, res, next) => {
+  if (req.headers['content-type']?.includes('multipart/form-data')) {
+    // Skip JSON parsing for multipart requests - multer will handle it
     next();
-  });
-}
+  } else {
+    // Parse JSON for other requests
+    express.json()(req, res, next);
+  }
+});
 
 app.use(requestLogger); // Auto-log all requests
 
@@ -175,7 +175,8 @@ app.use("/consultant-content", consultantContentRoutes);
 app.use("/files", fileSecurityRoutes);
 app.use("/companies", companyRoutes);
 app.use("/courses", courseRoutes);
-app.use("/public", publicProfileRoutes);
+app.use("/admin/newsletter", newsletterRoutes);
+app.use("/admin/broadcast", broadcastRoutes);
 registerSupportRoutes(app);
 
 // 404 handler for unmatched routes

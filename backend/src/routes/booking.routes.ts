@@ -1,4 +1,3 @@
-// src/routes/bookingRoutes.ts
 import express from "express";
 import {
   createBooking,

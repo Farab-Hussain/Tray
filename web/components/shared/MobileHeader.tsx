@@ -89,6 +89,18 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ title, onSearch }) => {
       href: '/admin/settings',
       icon: SettingsIcon,
       current: pathname.startsWith('/admin/settings')
+    },
+    {
+      name: 'Broadcast Email',
+      href: '/admin/newsletter',
+      icon: MessageSquare,
+      current: pathname.startsWith('/admin/newsletter')
+    },
+    {
+      name: 'Broadcast Push',
+      href: '/admin/broadcast',
+      icon: Bell,
+      current: pathname.startsWith('/admin/broadcast')
     }
   ];
 

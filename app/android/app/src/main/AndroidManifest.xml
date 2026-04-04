@@ -2,6 +2,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 13+ runtime notification permission (required for FCM)
+         Without this, notifications are silently blocked even though FCM accepts the message. -->
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS"
+        tools:targetApi="33" />
     
     <!-- Storage Permissions for File Uploads (Images, PDFs, etc.) -->
     <!-- For Android 12 and below -->

@@ -4,14 +4,14 @@ import {
   PanelRight, 
   Users, 
   FileText, 
-  BookOpen,
   BarChart3, 
   Settings, 
   Shield, 
   Activity,
   TrendingUp,
   LogOut,
-  ClipboardCheck
+  Mail,
+  Bell
 } from "lucide-react";
 import Image from "next/image";
 import React, { useState } from "react";
@@ -69,31 +69,10 @@ const LeftSide = () => {
       showWhenCollapsed: true
     },
     {
-      href: "/admin/course-approvals",
-      label: "Course Approvals",
-      icon: BookOpen,
-      isActive: pathname.includes("/admin/course-approvals"),
-      showWhenCollapsed: true
-    },
-    {
       href: "/admin/users",
       label: "User Management",
       icon: Shield,
       isActive: pathname.includes("/admin/users"),
-      showWhenCollapsed: true
-    },
-    {
-      href: "/admin/work-eligibility",
-      label: "Work Eligibility",
-      icon: ClipboardCheck,
-      isActive: pathname.includes("/admin/work-eligibility"),
-      showWhenCollapsed: true
-    },
-    {
-      href: "/admin/company-verifications",
-      label: "Company Verifications",
-      icon: ClipboardCheck,
-      isActive: pathname.includes("/admin/company-verifications"),
       showWhenCollapsed: true
     },
     {
@@ -102,6 +81,20 @@ const LeftSide = () => {
       icon: TrendingUp,
       isActive: pathname.includes("/admin/analytics"),
       showWhenCollapsed: false
+    },
+    {
+      href: "/admin/newsletter",
+      label: "Broadcast Email",
+      icon: Mail,
+      isActive: pathname.includes("/admin/newsletter"),
+      showWhenCollapsed: true
+    },
+    {
+      href: "/admin/broadcast",
+      label: "Broadcast Push",
+      icon: Bell,
+      isActive: pathname.includes("/admin/broadcast"),
+      showWhenCollapsed: true
     },
     {
       href: "/admin/activity",

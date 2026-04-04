@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Alert } from 'react-native';
 
 // Test configuration
-const API_BASE_URL = 'https://semiexpansible-unescheated-genoveva.ngrok-free.dev';
+const API_BASE_URL = 'https://semiexpansible-unescheated-genoveva.ngrok-free.dev/';
 const TIMEOUT_DURATION = 60000; // 1 minute for testing
 
 // Create axios instance for testing
