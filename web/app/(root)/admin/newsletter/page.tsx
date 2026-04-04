@@ -57,6 +57,15 @@ const NewsletterPage = () => {
       return;
     }
 
+    const extractErrorMessage = (error: unknown): string | undefined => {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const resp = (error as { response?: { data?: { error?: string } } }).response;
+        return resp?.data?.error;
+      }
+      if (error instanceof Error) return error.message;
+      return undefined;
+    };
+
     try {
       setIsSending(true);
       await newsletterAPI.sendNewsletter({
@@ -68,8 +77,8 @@ const NewsletterPage = () => {
       setSubject('');
       setBody('');
       setRoleFilters(['all']);
-    } catch (error: any) {
-      const apiMessage = error?.response?.data?.error || error?.message;
+    } catch (error: unknown) {
+      const apiMessage = extractErrorMessage(error);
       setErrorMessage(apiMessage || 'Failed to send newsletter.');
     } finally {
       setIsSending(false);
@@ -234,4 +243,3 @@ const NewsletterPage = () => {
 };
 
 export default NewsletterPage;
-

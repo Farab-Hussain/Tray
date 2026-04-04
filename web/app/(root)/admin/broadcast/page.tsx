@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Bell, ExternalLink, Loader2, Send, ShieldCheck, Target, Users } from 'lucide-react';
+import { AlertTriangle, Bell, ExternalLink, Loader2, Send, ShieldCheck, Target } from 'lucide-react';
 import AdminSection from '@/components/admin/AdminSection';
 import MobileHeader from '@/components/shared/MobileHeader';
 import { broadcastAPI, BroadcastAudience } from '@/utils/api';
@@ -24,6 +24,15 @@ const BroadcastPage = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canSend = useMemo(() => title.trim() && body.trim(), [title, body]);
+
+  const extractErrorMessage = (error: unknown): string | undefined => {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const resp = (error as { response?: { data?: { error?: string } } }).response;
+      return resp?.data?.error;
+    }
+    if (error instanceof Error) return error.message;
+    return undefined;
+  };
 
   const handleSend = async () => {
     setErrorMessage(null);
@@ -50,8 +59,8 @@ const BroadcastPage = () => {
       setBody('');
       setLink('');
       setAudience('all');
-    } catch (error: any) {
-      const apiMessage = error?.response?.data?.error || error?.message;
+    } catch (error: unknown) {
+      const apiMessage = extractErrorMessage(error);
       setErrorMessage(apiMessage || 'Failed to send broadcast.');
     } finally {
       setIsSending(false);
@@ -220,4 +229,3 @@ const BroadcastPage = () => {
 };
 
 export default BroadcastPage;
-
