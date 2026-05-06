@@ -206,6 +206,12 @@ SMTP_USER=your_email@gmail.com     # SMTP username (usually same as email)
 SMTP_PASSWORD=your_app_password    # SMTP password or app-specific password
 SMTP_FROM=noreply@tray.com         # From email address
 
+# Twilio Network Traversal Service
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_TOKEN_TTL=3600              # Optional, defaults to 3600 seconds
+TWILIO_REGION=global               # Optional. Pin to a region like frankfurt or singapore
+
 # Firebase Cloud Messaging (Optional)
 FCM_SERVER_KEY=your_fcm_server_key # Optional - Firebase Admin handles most push duties
 ```
@@ -215,6 +221,31 @@ FCM_SERVER_KEY=your_fcm_server_key # Optional - Firebase Admin handles most push
 - For mobile development, use an ngrok URL or deployed backend URL (not localhost)
 - Copy service account JSON to `src/config/` or set `SERVICE_ACCOUNT_PATH` to secure location
 - When SMTP credentials are missing, emails are logged but not sent (useful for development)
+- Twilio credentials must stay on the backend only. The mobile app should request `/webrtc/ice-servers` and receive short-lived ICE servers, not your Twilio auth token
+
+## Twilio Network Traversal Service
+
+Tray uses `react-native-webrtc` for audio and video calls, so production call reliability depends on STUN and TURN.
+
+### Recommended Flow
+
+1. Backend reads `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`
+2. Backend creates a Twilio Network Traversal token
+3. Backend returns the `ice_servers` array to the mobile app
+4. Mobile app passes those ICE servers into `RTCPeerConnection`
+
+### Backend Route
+
+- `GET /webrtc/ice-servers`
+
+This route is authenticated and returns Twilio ICE servers for the app to use.
+
+### Why Twilio
+
+- Better call reliability on mobile data, office Wi-Fi, and restrictive networks
+- No need to self-host and maintain TURN infrastructure
+- Short-lived credentials are safer than hardcoding TURN usernames and passwords
+- Global infrastructure helps the app behave consistently across regions
 
 ## Installation
 

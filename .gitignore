@@ -34,6 +34,7 @@ xcuserdata
 # =========================
 .idea
 .gradle
+app/android/.gradle-cache/
 local.properties
 *.iml
 *.hprof

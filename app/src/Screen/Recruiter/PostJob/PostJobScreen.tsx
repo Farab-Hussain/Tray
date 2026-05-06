@@ -10,13 +10,15 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import AppButton from '../../../components/ui/AppButton';
 import { COLORS } from '../../../constants/core/colors';
 import { screenStyles } from '../../../constants/styles/screenStyles';
-import { JobService } from '../../../services/job.service';
+import { JobService, JobType } from '../../../services/job.service';
 import {
   Briefcase,
   DollarSign,
@@ -27,6 +29,7 @@ import {
   X,
   CreditCard,
   AlertCircle,
+  ChevronDown,
 } from 'lucide-react-native';
 import CompanyService from '../../../services/company.service';
 import { AIService } from '../../../services/ai.service';
@@ -49,6 +52,7 @@ interface JobPost {
   educationLevel: string;
   workAuthorization: string[];
   backgroundCheckRequired: boolean;
+  backgroundProcessDisclosure: string;
   fairChanceHiring: {
     banTheBoxCompliant: boolean;
     felonyFriendly: boolean;
@@ -96,6 +100,88 @@ interface JobPost {
   companyId?: string;
 }
 
+const backgroundProcessDisclosureOptions = [
+  {
+    value: 'skills_interview',
+    label:
+      'We interview to hire based on skills to determine the best fit for the role.',
+  },
+  {
+    value: 'no_background_check',
+    label: 'No background check required',
+  },
+  {
+    value: 'no_background_and_drug_screening',
+    label: 'No background and drug screening is required',
+  },
+  {
+    value: 'must_pass_background_check',
+    label: 'Must pass a background check',
+  },
+] as const;
+
+const sanitizeRequiredSkill = (skill: string) => {
+  const trimmed = skill.trim();
+  if (!trimmed) return '';
+
+  const cleaned = trimmed
+    .replace(/^\s*\d+\+?\s*(?:years?|yrs?|yr)\s*(?:of|in|with)?\s*/i, '')
+    .replace(/^\s*(?:years?|yrs?|yr)\s*(?:of|in|with)?\s*/i, '')
+    .replace(/^\s*experience\s*(?:in|with|as)?\s*/i, '')
+    .replace(/\s+experience\s*$/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+
+  if (/\b(?:years?|yrs?|yr)\b/i.test(cleaned)) return '';
+  if (/\bexperience\b/i.test(cleaned)) return '';
+
+  return cleaned;
+};
+
+const normalizeUniqueSkills = (items: string[]) => {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  items.forEach(item => {
+    const cleaned = sanitizeRequiredSkill(item);
+    if (!cleaned) return;
+
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) return;
+
+    seen.add(key);
+    normalized.push(cleaned);
+  });
+
+  return normalized;
+};
+
+const getAIText = (value: any): string => {
+  if (!value) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value !== 'object') return '';
+
+  const preferredKeys = [
+    'job_post',
+    'improved_post',
+    'output',
+    'description',
+    'text',
+    'response',
+    'result',
+    'data',
+  ];
+
+  for (const key of preferredKeys) {
+    const nested = getAIText(value[key]);
+    if (nested) return nested;
+  }
+
+  return '';
+};
+
 const PostJobScreen = ({ navigation }: any) => {
   const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -117,6 +203,8 @@ const PostJobScreen = ({ navigation }: any) => {
   const [preferredSkillSuggestions, setPreferredSkillSuggestions] = useState<
     string[]
   >([]);
+  const [isBackgroundDisclosurePickerVisible, setIsBackgroundDisclosurePickerVisible] =
+    useState(false);
   const [loadingRequiredSuggestions, setLoadingRequiredSuggestions] =
     useState(false);
   const [loadingPreferredSuggestions, setLoadingPreferredSuggestions] =
@@ -213,6 +301,12 @@ const PostJobScreen = ({ navigation }: any) => {
         }
         return '';
 
+      case 'backgroundProcessDisclosure':
+        if (!value || value.trim() === '') {
+          return 'Please select a background process disclosure';
+        }
+        return '';
+
       default:
         return '';
     }
@@ -229,6 +323,10 @@ const PostJobScreen = ({ navigation }: any) => {
     newErrors.requiredSkills = validateField(
       'requiredSkills',
       jobPost.requiredSkills,
+    );
+    newErrors.backgroundProcessDisclosure = validateField(
+      'backgroundProcessDisclosure',
+      jobPost.backgroundProcessDisclosure,
     );
     newErrors.salaryMin = validateField('salaryMin', jobPost.salaryRange.min);
     newErrors.salaryMax = validateField('salaryMax', jobPost.salaryRange.max);
@@ -271,6 +369,7 @@ const PostJobScreen = ({ navigation }: any) => {
     educationLevel: 'high-school',
     workAuthorization: ['us-citizen'],
     backgroundCheckRequired: true,
+    backgroundProcessDisclosure: '',
     fairChanceHiring: {
       banTheBoxCompliant: false,
       felonyFriendly: false,
@@ -317,11 +416,13 @@ const PostJobScreen = ({ navigation }: any) => {
     isActive: true,
   });
 
-  const jobTypes = [
+  const jobTypes: Array<{ value: JobType; label: string }> = [
     { value: 'full-time', label: 'Full Time' },
     { value: 'part-time', label: 'Part Time' },
     { value: 'contract', label: 'Contract' },
     { value: 'internship', label: 'Internship' },
+    { value: 'on-call', label: 'On-Call' },
+    { value: 'temp-to-perm', label: 'Temp-to-Perm' },
   ];
 
   const shiftTypes = [
@@ -394,14 +495,8 @@ const PostJobScreen = ({ navigation }: any) => {
       description: jobPost.description.trim(),
       company: selectedCompany?.name || '', // Send company name instead of ID
       location: jobPost.location.trim(),
-      jobType: jobPost.jobType as
-        | 'full-time'
-        | 'part-time'
-        | 'contract'
-        | 'internship',
-      requiredSkills: jobPost.requiredSkills.filter(
-        skill => skill.trim() !== '',
-      ), // Filter out empty strings
+      jobType: jobPost.jobType as JobType,
+      requiredSkills: normalizeUniqueSkills(jobPost.requiredSkills),
       salaryRange: {
         min: jobPost.salaryRange.min,
         max: jobPost.salaryRange.max,
@@ -417,6 +512,7 @@ const PostJobScreen = ({ navigation }: any) => {
           : 10,
       educationRequired: jobPost.educationLevel,
       backgroundCheckRequired: jobPost.backgroundCheckRequired,
+      backgroundProcessDisclosure: jobPost.backgroundProcessDisclosure,
       fairChanceHiring: {
         banTheBox: jobPost.fairChanceHiring.banTheBoxCompliant,
         felonyFriendly: jobPost.fairChanceHiring.felonyFriendly,
@@ -448,19 +544,23 @@ const PostJobScreen = ({ navigation }: any) => {
         setPaymentAmount(error.response.data.paymentAmount);
         setPaymentUrl(error.response.data.paymentUrl);
 
-        Alert.alert('Payment Required', issue.response.data.message, [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Pay Now',
-            onPress: () => {
-              navigation.navigate('JobPostingPayment', {
-                paymentUrl: error.response.data.paymentUrl,
-                jobData: jobDataForAPI,
-                companyId: selectedCompany?.id,
-              });
+        Alert.alert(
+          'Payment Required',
+          error.response?.data?.message || 'Payment is required to post this job.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Pay Now',
+              onPress: () => {
+                navigation.navigate('JobPostingPayment', {
+                  paymentUrl: error.response.data.paymentUrl,
+                  jobData: jobDataForAPI,
+                  companyId: selectedCompany?.id,
+                });
+              },
             },
-          },
-        ]);
+          ],
+        );
       } else {
         Alert.alert(
           'Error',
@@ -473,10 +573,16 @@ const PostJobScreen = ({ navigation }: any) => {
   };
 
   const addSkill = () => {
-    if (newSkill.trim() && !jobPost.requiredSkills.includes(newSkill.trim())) {
+    const cleanedSkill = sanitizeRequiredSkill(newSkill);
+    if (
+      cleanedSkill &&
+      !jobPost.requiredSkills.some(
+        existing => existing.toLowerCase() === cleanedSkill.toLowerCase(),
+      )
+    ) {
       setJobPost(prev => ({
         ...prev,
-        requiredSkills: [...prev.requiredSkills, newSkill.trim()],
+        requiredSkills: [...prev.requiredSkills, cleanedSkill],
       }));
       setNewSkill('');
       setRequiredSkillSuggestions([]);
@@ -493,13 +599,16 @@ const PostJobScreen = ({ navigation }: any) => {
   };
 
   const addPreferredSkill = () => {
+    const cleanedSkill = sanitizeRequiredSkill(newPreferredSkill);
     if (
-      newPreferredSkill.trim() &&
-      !jobPost.preferredSkills.includes(newPreferredSkill.trim())
+      cleanedSkill &&
+      !jobPost.preferredSkills.some(
+        existing => existing.toLowerCase() === cleanedSkill.toLowerCase(),
+      )
     ) {
       setJobPost(prev => ({
         ...prev,
-        preferredSkills: [...prev.preferredSkills, newPreferredSkill.trim()],
+        preferredSkills: [...prev.preferredSkills, cleanedSkill],
       }));
       setNewPreferredSkill('');
       setPreferredSkillSuggestions([]);
@@ -527,16 +636,6 @@ const PostJobScreen = ({ navigation }: any) => {
       },
     }));
   };
-
-  const normalizeUniqueSkills = (items: string[]) =>
-    Array.from(
-      new Set(
-        items
-          .map(item => item?.trim())
-          .filter(Boolean)
-          .map(item => item as string),
-      ),
-    );
 
   const fetchSkillAutocomplete = async (
     text: string,
@@ -645,7 +744,7 @@ const PostJobScreen = ({ navigation }: any) => {
         tone: 'professional',
       });
 
-      const generatedText = generated?.job_post?.trim();
+      const generatedText = getAIText(generated);
       if (!generatedText) {
         Alert.alert(
           'AI Error',
@@ -688,7 +787,7 @@ const PostJobScreen = ({ navigation }: any) => {
         improvement_type: improvementType,
       });
 
-      const improvedText = improved?.improved_post?.trim();
+      const improvedText = getAIText(improved);
       if (!improvedText) {
         Alert.alert('AI Issue', 'Improved text was empty. Please try again.');
         return;
@@ -1877,6 +1976,78 @@ const PostJobScreen = ({ navigation }: any) => {
             </View>
           </View>
 
+          {/* Background Process Disclosure */}
+          <View style={{ marginBottom: 24 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <AlertCircle
+                size={20}
+                color={COLORS.blue}
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                style={{ fontSize: 18, fontWeight: '600', color: COLORS.black }}
+              >
+                Background Process Disclosure
+              </Text>
+            </View>
+
+            <Text style={{ fontSize: 12, color: COLORS.gray, marginBottom: 12 }}>
+              Select the disclosure candidates will see about your background process.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setIsBackgroundDisclosurePickerVisible(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 14,
+                backgroundColor: '#F8F9FA',
+              }}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={{
+                  flex: 1,
+                  marginRight: 12,
+                  color: jobPost.backgroundProcessDisclosure
+                    ? COLORS.black
+                    : COLORS.gray,
+                  fontSize: 14,
+                  lineHeight: 20,
+                }}
+                numberOfLines={2}
+              >
+                {backgroundProcessDisclosureOptions.find(
+                  option => option.value === jobPost.backgroundProcessDisclosure,
+                )?.label || 'Select a disclosure'}
+              </Text>
+              <ChevronDown size={18} color={COLORS.gray} />
+            </TouchableOpacity>
+
+            {jobPost.backgroundProcessDisclosure ? (
+              <Text style={{ fontSize: 12, color: COLORS.blue, marginTop: 8 }}>
+                This disclosure will be included with the job post.
+              </Text>
+            ) : null}
+
+            {errors.backgroundProcessDisclosure ? (
+              <Text style={{ fontSize: 12, color: COLORS.red, marginTop: 8 }}>
+                {errors.backgroundProcessDisclosure}
+              </Text>
+            ) : null}
+          </View>
+
           {/* Role-Based Requirements & Compliance */}
           <View style={{ marginBottom: 24 }}>
             <Text
@@ -2303,6 +2474,101 @@ const PostJobScreen = ({ navigation }: any) => {
               />
             </View>
           </View>
+
+          <Modal
+            visible={isBackgroundDisclosurePickerVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setIsBackgroundDisclosurePickerVisible(false)}
+          >
+            <Pressable
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0,0,0,0.45)',
+                justifyContent: 'center',
+                padding: 20,
+              }}
+              onPress={() => setIsBackgroundDisclosurePickerVisible(false)}
+            >
+              <Pressable
+                style={{
+                  backgroundColor: COLORS.white,
+                  borderRadius: 20,
+                  padding: 20,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.18,
+                  shadowRadius: 12,
+                  elevation: 6,
+                }}
+                onPress={() => {}}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 16,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: '700',
+                      color: COLORS.black,
+                      flex: 1,
+                      paddingRight: 12,
+                    }}
+                  >
+                    Select Disclosure
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setIsBackgroundDisclosurePickerVisible(false)}
+                  >
+                    <X size={20} color={COLORS.gray} />
+                  </TouchableOpacity>
+                </View>
+
+                {backgroundProcessDisclosureOptions.map(option => {
+                  const isSelected =
+                    jobPost.backgroundProcessDisclosure === option.value;
+
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      onPress={() => {
+                        setJobPost(prev => ({
+                          ...prev,
+                          backgroundProcessDisclosure: option.value,
+                        }));
+                        setIsBackgroundDisclosurePickerVisible(false);
+                      }}
+                      style={{
+                        paddingVertical: 14,
+                        paddingHorizontal: 14,
+                        borderRadius: 14,
+                        marginBottom: 10,
+                        borderWidth: 1,
+                        borderColor: isSelected ? COLORS.green : '#E9ECEF',
+                        backgroundColor: isSelected ? '#F0F9FF' : '#F8F9FA',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: COLORS.black,
+                          fontSize: 14,
+                          lineHeight: 20,
+                          fontWeight: isSelected ? '700' : '500',
+                        }}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </Pressable>
+            </Pressable>
+          </Modal>
 
           {/* Action Button */}
           <AppButton

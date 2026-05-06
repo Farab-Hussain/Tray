@@ -1,11 +1,6 @@
 // Avoid static import from 'react-native-webrtc' because it throws if pods aren't installed
 import { Alert, Platform } from 'react-native';
-import { getIceServers } from '../config/webrtc.config';
-
-// Export ICE servers for use in peer connection
-// Configuration is managed in app/src/config/webrtc.config.ts
-// See docs/COTURN_SETUP.md for setup instructions
-export const iceServers = getIceServers();
+import { WebRTCService } from '../services/webrtc.service';
 
 export interface CreatePeerParams {
   isCaller: boolean;
@@ -42,6 +37,8 @@ export async function createPeer({
     Alert.alert('WebRTC native module not found', installHint);
     throw new Error('WebRTC native module missing');
   }
+
+  const iceServers = await WebRTCService.getIceServers();
 
   // Log ICE server configuration for debugging
   if (__DEV__) {
@@ -997,5 +994,4 @@ export async function addRemoteIce(pc: any, candidate: any) {
     await pc.addIceCandidate(iceCandidate);
   } catch { }
 }
-
 

@@ -174,7 +174,7 @@ const RecruiterHome = ({ navigation }: any) => {
       >
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>Welcome, Recruiter!</Text>
+          <Text style={styles.welcomeTitle}>Welcome, Hiring Manager!</Text>
           <Text style={styles.welcomeSubtitle}>
             Manage your job postings and find the best candidates
           </Text>
@@ -357,4 +357,3 @@ const RecruiterHome = ({ navigation }: any) => {
 const styles = recruiterHomeStyles;
 
 export default RecruiterHome;
-

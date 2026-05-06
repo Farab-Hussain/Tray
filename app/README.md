@@ -65,6 +65,15 @@ Tray is a multi-platform consultant booking and job management system connecting
 - **Firebase Project**: Configured Firebase project with Firestore, Authentication, Cloud Messaging, and Realtime Database enabled
 - **Backend API**: Running backend server (Node.js/Express) accessible via API_URL
 
+## Twilio WebRTC Setup
+
+Tray uses Twilio Network Traversal Service for reliable audio/video calling in production.
+
+- Full setup guide: [docs/TWILIO_TURN_GUIDE.md](docs/TWILIO_TURN_GUIDE.md)
+- Backend endpoint: `GET /webrtc/ice-servers`
+- Twilio credentials must stay in `backend/.env`, not in the mobile app
+- The app fetches short-lived ICE servers from the backend before creating a peer connection
+
 ## Project Structure
 
 ```

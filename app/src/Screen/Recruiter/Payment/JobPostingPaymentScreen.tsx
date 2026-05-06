@@ -14,7 +14,7 @@ import { COLORS } from '../../../constants/core/colors';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import PaymentService from '../../../services/payment.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
-import { Check, Shield, CreditCard, Lock, AlertCircle } from 'lucide-react-native';
+import { Lock, AlertCircle } from 'lucide-react-native';
 
 interface JobPostingPaymentScreenProps {
   navigation: any;
@@ -91,7 +91,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
       const { error } = await presentPaymentSheet();
 
       if (error) {
-        Alert.alert('Payment Failed', issue.message);
+        Alert.alert('Payment Failed', error.message);
         console.error('Payment error:', error);
       } else {
         // Payment successful - confirm and record

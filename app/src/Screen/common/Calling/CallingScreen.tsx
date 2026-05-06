@@ -199,11 +199,11 @@ const CallingScreen = ({ navigation, route }: any) => {
             Alert.alert(
               'Connection Failed',
               'Unable to establish connection. This usually happens when devices are on different networks.\n\n' +
-                'To fix this, you need to configure a TURN server. See docs/TURN_SERVER_QUICK_SETUP.md for setup instructions.\n\n' +
+                'Tray now uses Twilio Network Traversal Service for TURN. Make sure the backend is returning ICE servers from /webrtc/ice-servers.\n\n' +
                 'Quick options:\n' +
-                '• Use Twilio TURN (free tier available)\n' +
-                '• Use Metered.ca paid TURN\n' +
-                '• Self-host Coturn server',
+                '• Verify TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in backend/.env\n' +
+                '• Check the Twilio guide in app/docs/TWILIO_TURN_GUIDE.md\n' +
+                '• Test on a real device or restricted network',
               [
                 {
                   text: 'OK',
@@ -375,7 +375,7 @@ const CallingScreen = ({ navigation, route }: any) => {
                       if (__DEV__) {
                         console.log('✅ [Caller] Audio session reactivated for playback');
                       }
-                    } catch (e) {
+                    } catch {
                       // Ignore errors
                     }
                   }
@@ -451,7 +451,7 @@ const CallingScreen = ({ navigation, route }: any) => {
                       if (__DEV__) {
                         console.log('✅ [Caller] Audio session reactivated after connection');
                       }
-                    } catch (e) {
+                    } catch {
                       // Ignore errors
                     }
                   }
@@ -1216,11 +1216,11 @@ const CallingScreen = ({ navigation, route }: any) => {
           Alert.alert(
             'Connection Failed',
             'Unable to establish connection. This usually happens when devices are on different networks.\n\n' +
-              'To fix this, you need to configure a TURN server. See docs/TURN_SERVER_QUICK_SETUP.md for setup instructions.\n\n' +
+              'Tray now uses Twilio Network Traversal Service for TURN. Make sure the backend is returning ICE servers from /webrtc/ice-servers.\n\n' +
               'Quick options:\n' +
-              '• Use Twilio TURN (free tier available)\n' +
-              '• Use Metered.ca paid TURN\n' +
-              '• Self-host Coturn server',
+              '• Verify TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in backend/.env\n' +
+              '• Check the Twilio guide in app/docs/TWILIO_TURN_GUIDE.md\n' +
+              '• Test on a real device or restricted network',
             [
               {
                 text: 'OK',
@@ -1392,7 +1392,7 @@ const CallingScreen = ({ navigation, route }: any) => {
                     if (__DEV__) {
                       console.log('✅ [Receiver] Audio session reactivated for playback');
                     }
-                  } catch (e) {
+                  } catch {
                     // Ignore errors
                   }
                 }
@@ -1596,7 +1596,7 @@ const CallingScreen = ({ navigation, route }: any) => {
                     if (__DEV__) {
                       console.log('✅ [Receiver] Audio session reactivated after connection');
                     }
-                  } catch (e) {
+                  } catch {
                     // Ignore errors
                   }
                 }
@@ -1940,7 +1940,7 @@ const CallingScreen = ({ navigation, route }: any) => {
               if (__DEV__) {
                 console.log('✅ [InCallManager] Audio session reactivated for playback');
               }
-            } catch (e) {
+            } catch {
               // Ignore errors
             }
           }
@@ -2021,7 +2021,7 @@ const CallingScreen = ({ navigation, route }: any) => {
                 if (InCallManager) {
                   try {
                     InCallManager.start({ media: 'audio', auto: true });
-                  } catch (e) {
+                  } catch {
                     // Ignore errors
                   }
                 }

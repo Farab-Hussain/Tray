@@ -1,6 +1,14 @@
 import { api, fetcher } from '../lib/fetcher';
 import { logger } from '../utils/logger';
 
+export type JobType =
+  | 'full-time'
+  | 'part-time'
+  | 'contract'
+  | 'internship'
+  | 'on-call'
+  | 'temp-to-perm';
+
 export const JobService = {
   /**
    * Get all active jobs (paginated, filterable)
@@ -58,7 +66,7 @@ export const JobService = {
     description: string;
     company: string;
     location: string;
-    jobType: 'full-time' | 'part-time' | 'contract' | 'internship';
+    jobType: JobType;
     requiredSkills: string[];
     salaryRange?: {
       min: number;
@@ -67,6 +75,7 @@ export const JobService = {
     };
     experienceRequired?: number;
     educationRequired?: string;
+    backgroundProcessDisclosure?: string;
     status?: 'active' | 'closed' | 'draft';
     complianceRequirements?: {
       drivingTransportation?: {
@@ -126,13 +135,14 @@ export const JobService = {
     description: string;
     company: string;
     location: string;
-    jobType: 'full-time' | 'part-time' | 'contract' | 'internship';
+    jobType: JobType;
     requiredSkills: string[];
     salaryRange?: {
       min: number;
       max: number;
       currency: string;
     };
+    backgroundProcessDisclosure?: string;
     status: 'active' | 'closed' | 'draft';
   }>) {
     const response = await api.put(`/jobs/${jobId}`, jobData);

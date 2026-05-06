@@ -1,21 +1,16 @@
 /**
  * WebRTC Configuration
  * 
- * This file configures STUN and TURN servers for WebRTC connections.
+ * This file provides fallback STUN/TURN servers for WebRTC connections.
  * 
- * For production, you MUST configure a reliable TURN server (e.g., Coturn).
- * 
- * Setup Instructions for Coturn:
- * 1. Install Coturn on your server: https://github.com/coturn/coturn
- * 2. Configure Coturn with authentication (see docs/COTURN_SETUP.md)
- * 3. Update the TURN_SERVER configuration below with your server details
- * 4. For security, use environment variables in production (see .env.example)
+ * Production should load Twilio ICE servers from the backend endpoint
+ * and use these values only as a development fallback.
  */
 
 // TURN Server Configuration
-// Set these values to your Coturn server details
+// Set these values to your own fallback TURN server details if needed
 export const TURN_SERVER = {
-  // Your Coturn server URL (e.g., 'turn:your-server.com:3478')
+  // Your TURN server URL (e.g., 'turn:your-server.com:3478')
   // For TLS: 'turns:your-server.com:5349'
   urls: [
     // Add your TURN server URLs here
@@ -24,11 +19,9 @@ export const TURN_SERVER = {
   ],
   
   // Username for TURN authentication
-  // For Coturn, this is typically configured in turnserver.conf
   username: '',
   
   // Credential/password for TURN authentication
-  // For Coturn, this is typically configured in turnserver.conf
   credential: '',
   
   // Enable/disable this TURN server
@@ -45,7 +38,7 @@ export const STUN_SERVERS = [
 ];
 
 // Fallback TURN servers (for testing only - unreliable)
-// Remove these in production and use your own Coturn server
+// Remove these in production and prefer Twilio ICE servers from the backend
 // These are free/public TURN servers that may be rate-limited or unreliable
 export const FALLBACK_TURN_SERVERS = [
   // Metered.ca Open Relay Project (may be rate-limited)
@@ -110,7 +103,7 @@ export function getIceServers(): any[] {
         console.log('🌐 [ICE] Using TURN server from environment variables');
       }
     }
-  } catch (error) {
+  } catch {
     // Environment variable access failed, continue to check config
   }
 
@@ -132,11 +125,10 @@ export function getIceServers(): any[] {
   if (!useCustomTurn) {
     if (__DEV__) {
       console.warn('⚠️ [ICE] No custom TURN server configured. Using fallback servers (unreliable).');
-      console.warn('⚠️ [ICE] For production, configure a Coturn server in webrtc.config.ts');
+      console.warn('⚠️ [ICE] For production, use Twilio ICE servers from /webrtc/ice-servers');
     }
     servers.push(...FALLBACK_TURN_SERVERS);
   }
 
   return servers;
 }
-

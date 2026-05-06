@@ -26,6 +26,7 @@ import companyRoutes from "./routes/company.routes";
 import courseRoutes from "./routes/course.routes";
 import newsletterRoutes from "./routes/newsletter.routes";
 import broadcastRoutes from "./routes/broadcast.routes";
+import webrtcRoutes from "./routes/webrtc.routes";
 
 dotenv.config();
 
@@ -177,6 +178,7 @@ app.use("/companies", companyRoutes);
 app.use("/courses", courseRoutes);
 app.use("/admin/newsletter", newsletterRoutes);
 app.use("/admin/broadcast", broadcastRoutes);
+app.use("/webrtc", webrtcRoutes);
 registerSupportRoutes(app);
 
 // 404 handler for unmatched routes
