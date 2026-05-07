@@ -45,6 +45,7 @@ import { UserService } from '../../../services/user.service';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import * as NotificationStorage from '../../../services/notification-storage.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import { AudioSessionManager } from '../../../utils/audioSessionManager';
 
 const CallingScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
@@ -74,6 +75,8 @@ const CallingScreen = ({ navigation, route }: any) => {
   const iceCandidateQueueRef = useRef<
     Array<{ senderId: string; candidate: any }>
   >([]);
+  const lastHandledRemoteOfferSdpRef = useRef<string | null>(null);
+  const handlingRemoteOfferSdpRef = useRef<string | null>(null);
   const isMutedRef = useRef<boolean>(false);
   const { callId, isCaller, callerId, receiverId } = route?.params || {};
   const type: 'audio' = 'audio';
@@ -948,10 +951,25 @@ const CallingScreen = ({ navigation, route }: any) => {
           // Handle new offer (for ICE restart scenarios when call is already active)
           if (data.offer && pcRef.current && data.status === 'active') {
             try {
+              const currentOfferSdp =
+                typeof data.offer === 'string' ? data.offer : data.offer.sdp || '';
+
+              if (!currentOfferSdp) {
+                return;
+              }
+
+              if (
+                lastHandledRemoteOfferSdpRef.current === currentOfferSdp ||
+                handlingRemoteOfferSdpRef.current === currentOfferSdp
+              ) {
+                return;
+              }
+
               const currentState = pcRef.current.signalingState;
               // Only apply if we're in a state that can accept a new offer
               if (currentState === 'stable' || currentState === 'have-local-answer') {
-                                if (__DEV__) {
+                handlingRemoteOfferSdpRef.current = currentOfferSdp;
+                if (__DEV__) {
                   console.log('📞 Receiver: Received new offer (ICE restart), applying...')
                 };
                 await pcRef.current.setRemoteDescription(data.offer);
@@ -966,14 +984,19 @@ const CallingScreen = ({ navigation, route }: any) => {
                       sdp: newAnswer.sdp,
                     };
                 await answerCall(callId, answerToStore);
-                                if (__DEV__) {
+                lastHandledRemoteOfferSdpRef.current = currentOfferSdp;
+                if (__DEV__) {
                   console.log('✅ Receiver: New answer created and sent for ICE restart')
                 };
               }
             } catch (error: any) {
-                            if (__DEV__) {
+              if (__DEV__) {
                 console.error('❌ Receiver: Error handling new offer:', error.message)
               };
+            } finally {
+              if (handlingRemoteOfferSdpRef.current) {
+                handlingRemoteOfferSdpRef.current = null;
+              }
             }
           }
 
@@ -1099,17 +1122,103 @@ const CallingScreen = ({ navigation, route }: any) => {
   );
 
   const handleHangup = async () => {
-    if (callId) {
+    if (!callId) {
+      if (__DEV__) {
+        console.warn('⚠️ [handleHangup] No call ID available')
+      };
+      return;
+    }
+    
+    // Prevent multiple simultaneous hangups
+    if (statusRef.current === 'ended' || statusRef.current === 'missed') {
+      if (__DEV__) {
+        console.warn('⚠️ [handleHangup] Call already ended - ignoring duplicate hangup')
+      };
+      return;
+    }
+    
+    try {
       // If call is active, hanging up should always end the call for both sides.
       // Use 'missed' only when receiver declines during ringing.
       const nextStatus =
         !isCaller && statusRef.current === 'ringing' ? 'missed' : 'ended';
-      await endCall(callId, nextStatus, user?.uid).catch(error => {
+      
+      if (__DEV__) {
+        console.log('📞 [handleHangup] Ending call with status:', nextStatus)
+      };
+      
+      await endCall(callId, nextStatus, user?.uid);
+      
+      // Stop audio session
+      try {
+        await AudioSessionManager.stopSession();
         if (__DEV__) {
-          console.warn('⚠️ [handleHangup] Failed to update call status:', error);
+          console.log('✅ [handleHangup] Audio session stopped')
+        };
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('⚠️ [handleHangup] Error stopping audio session:', error)
+        };
+      }
+      
+      // Clean up peer connection
+      if (pcRef.current) {
+        try {
+          pcRef.current.close();
+          pcRef.current = null;
+          if (__DEV__) {
+            console.log('✅ [handleHangup] Peer connection closed')
+          };
+        } catch (error) {
+          if (__DEV__) {
+            console.warn('⚠️ [handleHangup] Error closing peer connection:', error)
+          };
         }
-      });
+      }
+      
+      // Navigate away based on role
+      if (role === 'consultant') {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'ConsultantTabs' as never }],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' as never }],
+        });
+      }
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('❌ [handleHangup] Error ending call:', error)
+      };
+      
+      // Show error to user but still navigate away
+      Alert.alert(
+        'Call Error',
+        'Error ending call. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Force navigation on error
+              if (role === 'consultant') {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'ConsultantTabs' as never }],
+                });
+              } else {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' as never }],
+                });
+              }
+            },
+          },
+        ]
+      );
     }
+  };
 
     // Use reset to prevent showing verification screen again
     // Reset navigation stack directly to home screen based on role
@@ -1135,12 +1244,14 @@ const CallingScreen = ({ navigation, route }: any) => {
             if (__DEV__) {
         console.error('❌ [handleAccept] Missing required parameters')
       };
+      Alert.alert('Error', 'Unable to accept call - missing information');
       return;
     }
     
-    if (pcRef.current) {
+    // Prevent multiple simultaneous accepts
+    if (pcRef.current || statusRef.current !== 'ringing') {
             if (__DEV__) {
-        console.warn('⚠️ [handleAccept] Peer connection already exists - call may already be accepted')
+        console.warn('⚠️ [handleAccept] Call already being processed - ignoring duplicate accept')
       };
       return;
     }
@@ -1173,36 +1284,17 @@ const CallingScreen = ({ navigation, route }: any) => {
       };
 
       // Start audio session BEFORE creating peer connection
-      if (InCallManager) {
-        try {
-          // Configure audio session for voice calls with proper category and mode
-          InCallManager.start({ 
-            media: 'audio', 
-            auto: true,
-            // iOS: Set audio session category to PlayAndRecord with VoiceChat mode
-            // Android: Configure audio routing for voice calls
-          });
-          InCallManager.setForceSpeakerphoneOn(false);
-          InCallManager.setMicrophoneMute(isMutedRef.current);
-          InCallManager.setSpeakerphoneOn(false);
-          // Ensure audio session is active for both recording and playback
-          if (Platform.OS === 'ios') {
-            // On iOS, explicitly set audio session category for voice calls
-            InCallManager.setSpeakerphoneOn(false); // Use earpiece
-          }
-          if (__DEV__) {
-            console.log(
-              '✅ [Receiver] Audio session started before peer connection (configured for recording and playback)',
-            );
-          }
-        } catch (error: any) {
-                    if (__DEV__) {
-            console.warn(
-            '⚠️ [Receiver] Error starting audio session:',
-            error.message,
-          )
-          };
+      try {
+        await AudioSessionManager.initializeForCall(false); // Audio only call
+        if (__DEV__) {
+          console.log('✅ [Receiver] Audio session initialized for audio call');
         }
+      } catch (error: any) {
+        if (__DEV__) {
+          console.warn('⚠️ [Receiver] Error starting audio session:', error.message);
+        }
+        Alert.alert('Audio Error', 'Unable to initialize audio for call. Please try again.');
+        return;
       }
 
       const { pc, localDescription } = await createPeer({
@@ -1832,27 +1924,40 @@ const CallingScreen = ({ navigation, route }: any) => {
             if (__DEV__) {
         console.log('✅ Call accepted successfully')
       };
-    } catch (error) {
+    } catch (error: any) {
             if (__DEV__) {
         console.error('❌ Error accepting call:', error)
       };
-      await endCall(callId, 'missed').catch(() => {});
-      // Use reset to prevent showing verification screen again
-      if (role === 'consultant') {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'ConsultantTabs' as never }],
-        });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' as never }],
-        });
-      }
+      
+      // Show user-friendly error message
+      Alert.alert(
+        'Call Failed',
+        'Unable to accept call. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Clean up and navigate away
+              endCall(callId, 'missed').catch(() => {});
+              if (role === 'consultant') {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'ConsultantTabs' as never }],
+                });
+              } else {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' as never }],
+                });
+              }
+            },
+          },
+        ]
+      );
     }
   };
 
-  const handleMute = () => {
+  const handleMute = async () => {
     if (!localStreamRef.current) return;
 
     const audioTracks = localStreamRef.current.getAudioTracks();
@@ -1868,23 +1973,18 @@ const CallingScreen = ({ navigation, route }: any) => {
       };
     });
 
-    // Sync with InCallManager
-    if (InCallManager) {
-      try {
-        InCallManager.setMicrophoneMute(newMutedState);
-                if (__DEV__) {
-          console.log(
-          `🎤 [Mute] InCallManager microphone muted: ${newMutedState}`,
+    // Sync with AudioSessionManager
+    try {
+      await AudioSessionManager.setMicrophoneMute(newMutedState);
+      if (__DEV__) {
+        console.log(
+          `🎤 [Mute] AudioSessionManager microphone muted: ${newMutedState}`,
         )
-        };
-      } catch (error: any) {
-                if (__DEV__) {
-          console.warn(
-          '⚠️ [Mute] Error setting InCallManager mute state:',
-          error.message,
-        )
-        };
-      }
+      };
+    } catch (error) {
+            if (__DEV__) {
+        console.warn('⚠️ [Mute] Error setting microphone mute:', error)
+      };
     }
 
     setIsMuted(newMutedState);

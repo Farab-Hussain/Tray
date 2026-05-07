@@ -61,7 +61,7 @@ export async function createPeer({
   // Create peer connection with better configuration
   const pc = new RTCPeerConnection({
     iceServers,
-    iceCandidatePoolSize: 0, // Set to 0 to avoid pre-gathering (can cause delays if TURN servers are slow)
+    iceCandidatePoolSize: 10, // Increased to pre-gather candidates and speed up connection
     bundlePolicy: 'max-bundle', // Bundle RTP and RTCP for efficiency
     rtcpMuxPolicy: 'require',
     // Add ICE transport policy to prefer direct connections but allow relay
@@ -70,12 +70,14 @@ export async function createPeer({
   });
   
   if (__DEV__) {
-    console.log('✅ [ICE] Peer connection created with ICE server configuration');
+    console.log('✅ [ICE] Peer connection created with ICE server configuration (Pool size: 10)');
   }
 
   // Monitor ICE connection state changes for debugging
   let iceStateCheckCount = 0;
   let iceStateCheckInterval: any = null;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 3;
   
   const startIceStateMonitoring = () => {
     if (iceStateCheckInterval) {
@@ -104,6 +106,25 @@ export async function createPeer({
         }
       }
     }, 2000);
+  };
+
+  // Add connection recovery mechanism
+  const attemptReconnection = () => {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            if (__DEV__) {
+        console.error('❌ [ICE] Max reconnection attempts reached')
+      };
+      onError?.('Connection failed after multiple attempts. Please check your network and try again.');
+      return;
+    }
+    
+    reconnectAttempts++;
+        if (__DEV__) {
+      console.log(`🔄 [ICE] Attempting reconnection ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`)
+    };
+    
+    // Restart ICE gathering
+    pc.restartIce?.();
   };
   
   // Start monitoring when peer connection is created
@@ -169,6 +190,10 @@ export async function createPeer({
             if (__DEV__) {
         console.warn(`⚠️ [ICE] Connection disconnected - attempting to reconnect...`)
       };
+      // Attempt reconnection
+      setTimeout(() => {
+        attemptReconnection();
+      }, 1000);
       // Restart monitoring if disconnected
       startIceStateMonitoring();
     } else if (state === 'closed') {
@@ -684,8 +709,14 @@ export async function createPeer({
           };
         }
       }
+      // Always pass the candidate to the callback
       onIce?.(e.candidate);
     } else {
+      // ICE Gathering complete (e.candidate is null)
+      if (__DEV__) {
+        console.log('🧊 [ICE] Gathering complete - sending null candidate');
+      }
+      onIce?.(null);
       iceGatheringComplete = true;
       if (iceGatheringTimeout) {
         clearTimeout(iceGatheringTimeout);

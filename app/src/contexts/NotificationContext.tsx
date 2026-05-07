@@ -6,6 +6,7 @@ import React, {
   useState,
   useCallback,
 } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from './AuthContext';
 import * as NotificationService from '../services/notification.service';
 import * as NotificationStorage from '../services/notification-storage.service';
@@ -43,6 +44,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
 
   const triggerChatRefreshIfNeeded = useCallback((nextNotifications: AppNotification[]) => {
     const unreadChatNotifications = nextNotifications.filter(
@@ -59,6 +61,41 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     lastChatRefreshTriggerAtRef.current = now;
     refreshChats();
   }, [refreshChats]);
+
+  // Handle app state changes (background/foreground)
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      logger.debug('📱 [NotificationContext] App state changed:', appState, '->', nextAppState);
+      
+      if (appState === 'background' && nextAppState === 'active') {
+        logger.debug('📱 [NotificationContext] App came to foreground - checking for missed calls');
+        // Check for any calls that might have been missed while app was backgrounded
+        checkForMissedCalls();
+      }
+      
+      setAppState(nextAppState);
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+    };
+  }, [appState]);
+
+  // Check for missed calls when app comes to foreground
+  const checkForMissedCalls = useCallback(async () => {
+    if (!user?.uid) return;
+    
+    try {
+      // This would query Firestore for any calls that were missed while backgrounded
+      // Implementation depends on your call data structure
+      logger.debug('📞 [NotificationContext] Checking for missed calls for user:', user.uid);
+      // TODO: Implement missed call checking logic
+    } catch (error) {
+      logger.error('❌ [NotificationContext] Error checking missed calls:', error);
+    }
+  }, [user?.uid]);
 
   // Log provider mount
   useEffect(() => {

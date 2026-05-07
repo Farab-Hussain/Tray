@@ -38,6 +38,14 @@
     <!-- Screen sharing support (optional) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    
+    <!-- Background Call Permissions -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
       android:name=".MainApplication"
@@ -94,5 +102,38 @@
           android:name="android.support.FILE_PROVIDER_PATHS"
           android:resource="@xml/file_provider_paths" />
       </provider>
+      
+      <!-- Call Service for background handling -->
+      <service
+        android:name=".services.CallService"
+        android:enabled="true"
+        android:exported="false"
+        android:foregroundServiceType="phoneCall" />
+      
+      <!-- Call Broadcast Receiver -->
+      <receiver
+        android:name=".receivers.CallBroadcastReceiver"
+        android:enabled="true"
+        android:exported="true">
+        <intent-filter>
+          <action android:name="android.intent.action.BOOT_COMPLETED" />
+          <action android:name="android.intent.action.PHONE_STATE" />
+          <action android:name="com.tray.INCOMING_CALL" />
+        </intent-filter>
+      </receiver>
+      
+      <!-- Full-screen intent for incoming calls -->
+      <activity
+        android:name=".IncomingCallActivity"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+        android:launchMode="singleTop"
+        android:excludeFromRecents="true"
+        android:showOnLockScreen="true"
+        android:turnScreenOn="true">
+        <intent-filter>
+          <action android:name="android.intent.action.MAIN" />
+          <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+      </activity>
     </application>
 </manifest>

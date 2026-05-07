@@ -61,15 +61,108 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   );
 
   const handleHangup = async () => {
-    if (callId) {
+    if (!callId) {
+      if (__DEV__) {
+        console.warn('⚠️ [VideoHandleHangup] No call ID available')
+      };
+      return;
+    }
+    
+    // Prevent multiple simultaneous hangups
+    if (status === 'ended' || status === 'missed') {
+      if (__DEV__) {
+        console.warn('⚠️ [VideoHandleHangup] Call already ended - ignoring duplicate hangup')
+      };
+      return;
+    }
+    
+    try {
       if (isCaller) {
         // Caller cancels call
-        await endCall(callId, 'ended').catch(() => {});
+        await endCall(callId, 'ended');
+        if (__DEV__) {
+          console.log('📞 [VideoHandleHangup] Caller ended call')
+        };
       } else {
         // Receiver declines call
-        await endCall(callId, 'missed').catch(() => {});
+        await endCall(callId, 'missed');
+        if (__DEV__) {
+          console.log('📞 [VideoHandleHangup] Receiver declined call')
+        };
       }
+      
+      // Stop audio session
+      if (InCallManager) {
+        try {
+          InCallManager.stop();
+          if (__DEV__) {
+            console.log('✅ [VideoHandleHangup] Audio session stopped')
+          };
+        } catch (error) {
+          if (__DEV__) {
+            console.warn('⚠️ [VideoHandleHangup] Error stopping audio session:', error)
+          };
+        }
+      }
+      
+      // Clean up peer connection
+      if (pcRef.current) {
+        try {
+          pcRef.current.close();
+          pcRef.current = null;
+          if (__DEV__) {
+            console.log('✅ [VideoHandleHangup] Peer connection closed')
+          };
+        } catch (error) {
+          if (__DEV__) {
+            console.warn('⚠️ [VideoHandleHangup] Error closing peer connection:', error)
+          };
+        }
+      }
+      
+      // Navigate away based on role
+      if (role === 'consultant') {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'ConsultantTabs' as never }],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' as never }],
+        });
+      }
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error('❌ [VideoHandleHangup] Error ending call:', error)
+      };
+      
+      // Show error to user but still navigate away
+      Alert.alert(
+        'Call Error',
+        'Error ending call. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Force navigation on error
+              if (role === 'consultant') {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'ConsultantTabs' as never }],
+                });
+              } else {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' as never }],
+                });
+              }
+            },
+          },
+        ]
+      );
     }
+  };
     
     // Use reset to prevent showing verification screen again
     // Reset navigation stack directly to home screen based on role
@@ -87,8 +180,19 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   };
 
   const handleAccept = async () => {
-    if (!callId || !callerId || !receiverId || pcRef.current) {
-      // Already answered or missing parameters
+    if (!callId || !callerId || !receiverId) {
+      if (__DEV__) {
+        console.error('❌ [VideoHandleAccept] Missing required parameters')
+      };
+      Alert.alert('Error', 'Unable to accept call - missing information');
+      return;
+    }
+    
+    // Prevent multiple simultaneous accepts
+    if (pcRef.current || status !== 'ringing') {
+      if (__DEV__) {
+        console.warn('⚠️ [VideoHandleAccept] Call already being processed - ignoring duplicate accept')
+      };
       return;
     }
     

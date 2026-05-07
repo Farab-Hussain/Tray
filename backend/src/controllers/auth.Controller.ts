@@ -7,6 +7,10 @@ import { randomUUID, randomBytes, createHash } from "crypto";
 import axios from "axios";
 import { cache } from "../utils/cache";
 import { consultantFlowService } from "../services/consultantFlow.service";
+import { JWTUtils } from "../utils/jwtUtils";
+
+// Validate JWT secret on startup
+JWTUtils.validateSecret();
 
 
 /**
@@ -312,8 +316,23 @@ export const login = async (req: Request, res: Response) => {
     const profile = userDoc.exists ? userDoc.data() : null;
 
     console.log(`✅ [POST /auth/login] - User logged in successfully: ${decodedToken.uid}`);
+    
+    // Generate JWT token for authenticated user
+    const jwtToken = JWTUtils.generateToken({
+      userId: decodedToken.uid,
+      email: decodedToken.email,
+      role: profile?.role || 'user',
+      firstName: profile?.firstName || '',
+      lastName: profile?.lastName || ''
+    });
+
+    const tokenExpiration = JWTUtils.getTokenExpiration(jwtToken);
+
     res.json({
       valid: true,
+      token: jwtToken,
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+      expiresAt: tokenExpiration,
       user: {
         uid: decodedToken.uid,
         email: decodedToken.email,

@@ -5,13 +5,19 @@ import ReactAppDependencyProvider
 import Firebase
 import UserNotifications
 import FBSDKCoreKit
+import PushKit
+import CallKit
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ReactNativeDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
+  
+  // CallKit and PushKit
+  var callKitProvider: CXProvider?
+  var pushRegistry: PKPushRegistry?
 
   func application(
     _ application: UIApplication,
@@ -36,6 +42,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // Register for remote notifications
     application.registerForRemoteNotifications()
+    
+    // Initialize PushKit for VoIP calls
+    setupPushKit()
+    
+    // Initialize CallKit
+    setupCallKit()
     
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
@@ -84,6 +96,67 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
     return ApplicationDelegate.shared.application(app, open: url, options: options)
+  }
+  
+  // MARK: - PushKit and CallKit Setup
+  
+  func setupPushKit() {
+    pushRegistry = PKPushRegistry(queue: DispatchQueue.main)
+    pushRegistry?.delegate = self
+    pushRegistry?.desiredPushTypes = [.voIP]
+    print("✅ [AppDelegate] PushKit configured for VoIP calls")
+  }
+  
+  func setupCallKit() {
+    let configuration = CXProviderConfiguration(localizedName: "Tray")
+    configuration.maximumCallGroups = 1
+    configuration.maximumCallsPerCallGroup = 1
+    configuration.supportsVideo = true
+    configuration.supportedHandleTypes = [.generic]
+    
+    callKitProvider = CXProvider(configuration: configuration)
+    print("✅ [AppDelegate] CallKit configured")
+  }
+  
+  // MARK: - PKPushRegistryDelegate
+  
+  func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
+    print("📱 [AppDelegate] PushKit credentials updated")
+  }
+  
+  func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
+    print("⚠️ [AppDelegate] PushKit token invalidated")
+  }
+  
+  func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
+    if type == .voIP {
+      print("📞 [AppDelegate] ⚡ VoIP push received!")
+      
+      guard let dictionary = payload.dictionaryPayload,
+            let callId = dictionary["callId"] as? String,
+            let callType = dictionary["callType"] as? String else {
+        print("❌ [AppDelegate] Invalid VoIP push payload")
+        return
+      }
+      
+      // Report incoming call to CallKit
+      let update = CXCallUpdate()
+      update.remoteHandle = CXHandle(type: .generic, value: callId)
+      update.hasVideo = (callType == "video")
+      update.localizedCallerName = "Incoming Call"
+      update.supportsHolding = false
+      update.supportsGrouping = false
+      update.supportsUngrouping = false
+      update.supportsDTMF = false
+      
+      callKitProvider?.reportNewIncomingCall(with: UUID(), update: update) { error in
+        if let error = error {
+          print("❌ [AppDelegate] Error reporting incoming call: \(error.localizedDescription)")
+        } else {
+          print("✅ [AppDelegate] Incoming call reported to CallKit")
+        }
+      }
+    }
   }
 }
 

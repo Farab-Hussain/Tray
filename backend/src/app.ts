@@ -32,10 +32,44 @@ dotenv.config();
 
 const app = express();
 
+// CORS Configuration for different environments
+const getAllowedOrigins = () => {
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  
+  if (nodeEnv === 'production') {
+    // Production: Allow specific domains
+    return [
+      'https://tray-ecru.vercel.app', // Your Vercel frontend
+      'https://www.tray-ecru.vercel.app',
+      'https://tray-app.com', // Custom domain (if applicable)
+      'https://www.tray-app.com'
+    ];
+  } else if (nodeEnv === 'staging') {
+    // Staging: Allow staging domains
+    return [
+      'https://staging.tray-ecru.vercel.app',
+      'http://localhost:3000', // React Native development
+      'http://localhost:19006', // React Native Metro bundler
+      'exp://192.168.1.100:8081' // Expo development
+    ];
+  } else {
+    // Development: Allow all origins for local development
+    return [
+      'http://localhost:3000', // Web development
+      'http://localhost:19006', // React Native Metro bundler
+      'exp://192.168.1.100:8081', // Expo development
+      'http://127.0.0.1:19006', // Local React Native
+      'http://192.168.1.100:3000', // Local network development
+      'ionic://localhost', // Ionic/Capacitor
+      'capacitor://localhost' // Capacitor
+    ];
+  }
+};
+
 // Middleware
 app.use(
   cors({
-    origin: true, // Allow all origins in development
+    origin: getAllowedOrigins(), // Dynamic origin based on environment
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -43,8 +77,16 @@ app.use(
       'Authorization',
       'ngrok-skip-browser-warning',
       'Cache-Control',
-      'Pragma'
-    ]
+      'Pragma',
+      'X-Requested-With'
+    ],
+    exposedHeaders: [
+      'Content-Length',
+      'X-Total-Count',
+      'X-Page-Count'
+    ],
+    maxAge: 86400, // 24 hours
+    preflightContinue: false
   })
 );
 

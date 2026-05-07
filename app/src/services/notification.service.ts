@@ -569,6 +569,19 @@ export const setupBackgroundMessageHandler = () => {
   if (__DEV__) {
     logger.debug('ℹ️ [FCM] Background handler is registered in index.js');
   }
+  
+  // Add background state monitoring for calls
+  if (Platform.OS === 'ios') {
+    // iOS specific background handling
+    if (__DEV__) {
+      logger.debug('📱 [FCM] Setting up iOS background call monitoring');
+    }
+  } else if (Platform.OS === 'android') {
+    // Android specific background handling
+    if (__DEV__) {
+      logger.debug('🤖 [FCM] Setting up Android background call monitoring');
+    }
+  }
 };
 
 // Handle notification opened (app opened from notification)

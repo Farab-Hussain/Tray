@@ -28,6 +28,10 @@ target 'app' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
+  
+  # Add PushKit and CallKit for VoIP calls
+  pod 'PushKit', :modular_headers => true
+  pod 'CallKit', :modular_headers => true
 
   post_install do |installer|
     react_native_post_install(
