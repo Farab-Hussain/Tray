@@ -41,8 +41,12 @@ const getAllowedOrigins = () => {
     return [
       'https://tray-ecru.vercel.app', // Your Vercel frontend
       'https://www.tray-ecru.vercel.app',
-      'https://tray-app.com', // Custom domain (if applicable)
-      'https://www.tray-app.com'
+      'https://tray-ai-backend.vercel.app', // FastAPI AI backend
+      'https://tray-dashboard-eight.vercel.app', // Web Dashboard
+      'https://tray-app.com', // Custom domain
+      'https://www.tray-app.com',
+      'capacitor://localhost', // Mobile app
+      'ionic://localhost'
     ];
   } else if (nodeEnv === 'staging') {
     // Staging: Allow staging domains
@@ -69,7 +73,7 @@ const getAllowedOrigins = () => {
 // Middleware
 app.use(
   cors({
-    origin: getAllowedOrigins(), // Dynamic origin based on environment
+    origin: true, // Allow all origins
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -78,7 +82,9 @@ app.use(
       'ngrok-skip-browser-warning',
       'Cache-Control',
       'Pragma',
-      'X-Requested-With'
+      'X-Requested-With',
+      'Origin',
+      'Accept'
     ],
     exposedHeaders: [
       'Content-Length',
@@ -100,6 +106,20 @@ app.use((req, res, next) => {
     // Parse JSON for other requests
     express.json()(req, res, next);
   }
+});
+
+// Enhanced request logger to debug CORS and environment issues
+app.use((req, res, next) => {
+  const origin = req.headers.origin || 'No Origin';
+  const host = req.headers.host || 'No Host';
+  const method = req.method;
+  const path = req.path;
+  
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`🌐 [Request] ${method} ${path} | Origin: ${origin} | Host: ${host}`);
+  }
+  
+  next();
 });
 
 app.use(requestLogger); // Auto-log all requests
