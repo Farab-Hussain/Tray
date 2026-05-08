@@ -42,7 +42,7 @@ if (!admin.apps.length) {
     
     firebaseApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
-      projectId: serviceAccount.project_id,
+      projectId: firebaseConfig.project_id,
     });
     console.log("✅ Firebase Admin SDK initialized successfully");
     console.log(`✅ Project ID: ${firebaseConfig.project_id}`);

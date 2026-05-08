@@ -353,7 +353,7 @@ export const sendCallNotification = async (req: Request, res: Response) => {
     // Handle failed tokens (clean up invalid tokens)
     const failedTokenDocs: admin.firestore.QueryDocumentSnapshot[] = [];
     
-    results.forEach((result, index) => {
+    results.forEach((result: any, index) => {
       if (!result.success && result.error) {
         console.error('❌ FCM Error Detail:', JSON.stringify(result.error, null, 2));
         console.error('❌ Failed to send to token:', tokens[index], result.error.message);
