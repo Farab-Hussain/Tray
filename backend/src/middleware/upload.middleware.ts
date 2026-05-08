@@ -84,35 +84,30 @@ export const uploadMultiple = (fieldName: string, maxCount: number = 5) =>
   upload.array(fieldName, maxCount);
 
 // Mixed files upload (video + thumbnail) with proper limits
-export const uploadMixed = () => multer.fields([
+export const uploadMixed = () => upload.fields([
   { 
     name: 'video', 
-    maxCount: 1,
-    maxFileSize: 1024 * 1024 * 1024 // 1GB for video
+    maxCount: 1
   },
   { 
     name: 'thumbnail', 
-    maxCount: 1,
-    maxFileSize: 10 * 1024 * 1024 // 10MB for thumbnail
+    maxCount: 1
   },
   { 
     name: 'resources', 
-    maxCount: 10,
-    maxFileSize: 10 * 1024 * 1024 // 10MB for resources
+    maxCount: 10
   },
 ]);
 
 // Enhanced mixed upload with type-specific limits
-export const uploadVideoWithThumbnail = () => multer.fields([
+export const uploadVideoWithThumbnail = () => upload.fields([
   { 
     name: 'video', 
-    maxCount: 1,
-    maxFileSize: 1024 * 1024 * 1024 // 1GB for video
+    maxCount: 1
   },
   { 
     name: 'thumbnail', 
-    maxCount: 1,
-    maxFileSize: 10 * 1024 * 1024 // 10MB for thumbnail
+    maxCount: 1
   },
 ]);
 

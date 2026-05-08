@@ -1,6 +1,6 @@
 // src/controllers/notification.controller.ts
 import { Request, Response } from "express";
-import { db, admin } from "../config/firebase";
+import { db, admin, firebaseApp } from "../config/firebase";
 import { Logger } from "../utils/logger";
 
 /**
@@ -305,73 +305,67 @@ export const sendCallNotification = async (req: Request, res: Response) => {
       console.log('⚠️ No valid FCM tokens found');
       return res.json({ success: true, message: 'No valid tokens' });
     }
-
     console.log('📱 Sending call notification to tokens:', tokens.length);
-
-    const message: admin.messaging.MulticastMessage = {
-      tokens,
-      notification: notification,
-      data: data,
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1,
-            'content-available': 1,
-            'alert': {
-              'title': notification.title,
-              'body': notification.body,
+    
+    const sendPromises = tokens.map(token => {
+      const singleMessage = {
+        token,
+        notification: {
+          title: 'Incoming Call',
+          body: `Incoming audio call`,
+        },
+        data: {
+          type: 'call',
+          callId,
+          callerId,
+          callType,
+        },
+        android: {
+          priority: 'high' as const,
+          ttl: 30000,
+        },
+        apns: {
+          payload: {
+            aps: {
+              alert: {
+                title: 'Incoming Call',
+                body: `Incoming audio call`,
+              },
+              sound: 'default',
+              'content-available': 1,
             },
-            'mutable-content': 1,
-            'category': 'CALL_CATEGORY', // Notification category
           },
         },
-        fcmOptions: {
-          // FCM options for iOS
-        },
-        headers: {
-          'apns-priority': '10',
-          'apns-push-type': 'alert',
-        },
-      },
-      android: {
-        notification: {
-          sound: 'default',
-          channelId: 'calls', // Notification channel
-          priority: 'high' as const,
-          visibility: 'public' as const,
-          defaultSound: true,
-          defaultVibrateTimings: true,
-          defaultLightSettings: true,
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-          // Note: Android notification actions are handled via data payload
-          // The app should read action data from the notification data
-        },
-        priority: 'high' as const,
-        ttl: 30, // Call notifications expire after 30 seconds
-      },
-    };
+      };
+      
+      // Use the specific firebaseApp.messaging() instance
+      return (firebaseApp || admin).messaging().send(singleMessage)
+        .then(response => ({ success: true, response }))
+        .catch(error => ({ success: false, error }));
+    });
 
-    const responses = await admin.messaging().sendEachForMulticast(message);
+    const results = await Promise.all(sendPromises);
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.length - successCount;
 
-    console.log('✅ Call notification sent successfully');
+    console.log(`✅ Call notification attempt finished. Success: ${successCount}, Fail: ${failureCount}`);
 
     // Handle failed tokens (clean up invalid tokens)
     const failedTokenDocs: admin.firestore.QueryDocumentSnapshot[] = [];
     
-    if (responses.responses) {
-      responses.responses.forEach((result, index) => {
-        if (result.error) {
-          console.error('❌ Failed to send to token:', tokens[index], result.error);
-          if (
-            result.error.code === 'messaging/invalid-registration-token' ||
-            result.error.code === 'messaging/registration-token-not-registered'
-          ) {
-            failedTokenDocs.push(tokenDocs[index]);
-          }
+    results.forEach((result, index) => {
+      if (!result.success && result.error) {
+        console.error('❌ FCM Error Detail:', JSON.stringify(result.error, null, 2));
+        console.error('❌ Failed to send to token:', tokens[index], result.error.message);
+        if (
+          result.error.code === 'messaging/invalid-registration-token' ||
+          result.error.code === 'messaging/registration-token-not-registered' ||
+          result.error.code === 'messaging/third-party-auth-error'
+        ) {
+          failedTokenDocs.push(tokenDocs[index]);
         }
-      });
-    }
+      }
+    });
 
     // Clean up failed tokens
     if (failedTokenDocs.length > 0) {
@@ -381,7 +375,14 @@ export const sendCallNotification = async (req: Request, res: Response) => {
     }
 
     Logger.success(route, callerId, `Call notification sent to ${receiverId}`);
-    res.json({ success: true, sent: responses.successCount, failed: responses.failureCount });
+    const sentToAny = successCount > 0;
+    res.json({ 
+      success: true, 
+      sent: successCount, 
+      failed: failureCount,
+      offline: tokens.length === 0,
+      delivered: sentToAny
+    });
   } catch (error) {
     Logger.error(route, "", "Error sending call notification", error);
     res.status(500).json({ error: 'Failed to send call notification' });

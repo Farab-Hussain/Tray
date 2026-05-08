@@ -19,10 +19,11 @@ export interface AuthRequest extends Request {
 }
 
 export const authenticateToken: RequestHandler = async (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
+  const authReq = req as AuthRequest;
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
@@ -49,7 +50,7 @@ export const authenticateToken: RequestHandler = async (
       return;
     }
     
-    req.user = {
+    authReq.user = {
       id: userDoc.id,
       email: userData.email,
       role: userData.role,

@@ -3,7 +3,7 @@ require Pod::Executable.execute_command('node', ['-p',
   'require.resolve(
     "react-native/scripts/react_native_pods.rb",
     {paths: [process.argv[1]]},
-  )', __dir__]).strip
+  )', __dir__]).strip rescue nil
 
 platform :ios, '17.0'  # React Native Firebase and React Native require iOS 15.1 or higher
 prepare_react_native_project!
@@ -29,9 +29,7 @@ target 'app' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
   
-  # Add PushKit and CallKit for VoIP calls
-  pod 'PushKit', :modular_headers => true
-  pod 'CallKit', :modular_headers => true
+  # PushKit and CallKit are included in iOS SDK by default
 
   post_install do |installer|
     react_native_post_install(

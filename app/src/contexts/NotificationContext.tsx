@@ -137,10 +137,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Check current call status in Firestore to avoid race conditions
         try {
-          const { getCallOnce } = require('../services/call.service');
+          const { getCallOnce, markCallDelivered } = require('../services/call.service');
           const callDoc = await getCallOnce(callId);
           if (callDoc.exists()) {
             const currentCallData = callDoc.data();
+            
+            // Mark call as delivered so the caller knows we've received it
+            if (!currentCallData?.delivered) {
+              await markCallDelivered(callId);
+            }
+            
             const currentStatus = currentCallData?.status;
             logger.debug('📞 [NotificationContext] Current call status in Firestore:', currentStatus);
             

@@ -5,16 +5,17 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 
 export const validateInstructor = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  if (!req.user) {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
-  if (req.user.role !== 'instructor' && req.user.role !== 'admin') {
+  if (authReq.user.role !== 'instructor' && authReq.user.role !== 'admin') {
     res.status(403).json({ error: 'Instructor access required' });
     return;
   }
@@ -23,16 +24,17 @@ export const validateInstructor = (
 };
 
 export const validateAdmin = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  if (!req.user) {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
-  if (req.user.role !== 'admin') {
+  if (authReq.user.role !== 'admin') {
     res.status(403).json({ error: 'Admin access required' });
     return;
   }
@@ -41,16 +43,17 @@ export const validateAdmin = (
 };
 
 export const validateStudent = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  if (!req.user) {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
-  if (req.user.role !== 'student' && req.user.role !== 'admin') {
+  if (authReq.user.role !== 'student' && authReq.user.role !== 'admin') {
     res.status(403).json({ error: 'Student access required' });
     return;
   }
@@ -59,11 +62,12 @@ export const validateStudent = (
 };
 
 export const validateAny = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  if (!req.user) {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }

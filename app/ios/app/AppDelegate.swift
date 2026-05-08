@@ -132,8 +132,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     if type == .voIP {
       print("📞 [AppDelegate] ⚡ VoIP push received!")
       
-      guard let dictionary = payload.dictionaryPayload,
-            let callId = dictionary["callId"] as? String,
+      let dictionary = payload.dictionaryPayload
+      guard let callId = dictionary["callId"] as? String,
             let callType = dictionary["callType"] as? String else {
         print("❌ [AppDelegate] Invalid VoIP push payload")
         return

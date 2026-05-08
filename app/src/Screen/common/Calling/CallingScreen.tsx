@@ -56,6 +56,8 @@ const CallingScreen = ({ navigation, route }: any) => {
   const [status, setStatus] = useState<
     'ringing' | 'active' | 'ended' | 'missed'
   >('ringing');
+  const [isDelivered, setIsDelivered] = useState(false);
+  const [isReceiverOffline, setIsReceiverOffline] = useState(false);
   const [_local, setLocal] = useState<any | null>(null);
   const [_remote, setRemote] = useState<any | null>(null);
   const [otherUser, setOtherUser] = useState<{
@@ -739,15 +741,23 @@ const CallingScreen = ({ navigation, route }: any) => {
         // Send push notification to receiver
         try {
           const { api } = require('../../../lib/fetcher');
-          await api.post('/notifications/send-call', {
+          const response = await api.post('/notifications/send-call', {
             callId,
             callerId,
             receiverId,
             callType: type,
           });
-                    if (__DEV__) {
-            console.log('✅ Call notification sent to receiver')
-          };
+          
+          if (response.data?.offline) {
+            if (__DEV__) {
+              console.log('⚠️ Receiver appears to be offline (no push tokens)');
+            }
+            setIsReceiverOffline(true);
+          } else if (response.data?.delivered) {
+            if (__DEV__) {
+              console.log('✅ Call notification sent to receiver');
+            }
+          }
         } catch (error) {
                     if (__DEV__) {
             console.warn('⚠️ Failed to send call notification:', error)
@@ -759,6 +769,11 @@ const CallingScreen = ({ navigation, route }: any) => {
           const callStatus = data.status;
           setStatus(callStatus);
           statusRef.current = callStatus;
+          
+          if (data.delivered && !isDelivered) {
+            setIsDelivered(true);
+            setIsReceiverOffline(false); // If it's delivered, they aren't offline
+          }
 
           // Only apply answer if call is still active (not ended/missed)
           if (
@@ -1220,20 +1235,6 @@ const CallingScreen = ({ navigation, route }: any) => {
     }
   };
 
-    // Use reset to prevent showing verification screen again
-    // Reset navigation stack directly to home screen based on role
-    if (role === 'consultant') {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'ConsultantTabs' as never }],
-      });
-    } else {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'MainTabs' as never }],
-      });
-    }
-  };
 
   const handleAccept = async () => {
         if (__DEV__) {
@@ -1824,27 +1825,40 @@ const CallingScreen = ({ navigation, route }: any) => {
             console.log('🔄 [Receiver] Attempting ICE restart...')
           };
           
-          // Create new answer with ICE restart
-          const newAnswer = await peerConnection.createAnswer({ iceRestart: true });
-          await peerConnection.setLocalDescription(newAnswer);
-          
-          // Update call document with new answer
-          const answerToStore = newAnswer.toJSON
-            ? newAnswer.toJSON()
-            : {
-                type: newAnswer.type,
-                sdp: newAnswer.sdp,
-              };
-          
-          await answerCall(callId, answerToStore);
-                    if (__DEV__) {
-            console.log('✅ [Receiver] ICE restart - new answer created and sent')
-          };
+          // Only create answer if we have a remote offer to answer
+          // If we are in 'stable' state, we can't create an answer without a new offer from the caller
+          if (peerConnection.signalingState === 'have-remote-offer' || peerConnection.signalingState === 'have-local-pranswer') {
+            const newAnswer = await peerConnection.createAnswer({ iceRestart: true });
+            await peerConnection.setLocalDescription(newAnswer);
+            
+            // Update call document with new answer
+            const answerToStore = newAnswer.toJSON
+              ? newAnswer.toJSON()
+              : {
+                  type: newAnswer.type,
+                  sdp: newAnswer.sdp,
+                };
+            
+            await answerCall(callId, answerToStore);
+            if (__DEV__) {
+              console.log('✅ [Receiver] ICE restart - new answer created and sent')
+            };
+          } else {
+            if (__DEV__) {
+              console.log('ℹ️ [Receiver] ICE restart skipped - no pending remote offer. Waiting for caller to re-offer.')
+            };
+          }
         } catch (error: any) {
-                    if (__DEV__) {
+          if (__DEV__) {
             console.error('❌ [Receiver] ICE restart failed:', error.message)
           };
-          iceRestartAttempted = false; // Allow retry
+          iceRestartAttempted = false;
+          
+          // If connection is totally failed, we might need to end the call
+          if (peerConnection.connectionState === 'failed') {
+            logger.error('❌ [Receiver] Connection failed during ICE restart');
+            // Optionally trigger a cleanup or end call here if needed
+          }
         }
       };
 
@@ -2494,7 +2508,11 @@ const CallingScreen = ({ navigation, route }: any) => {
             {otherUser.name}
           </Text>
           <Text style={{ color: COLORS.white, fontSize: 14, marginTop: 4 }}>
-            {status === 'ringing' ? 'Ringing...' : status === 'active' ? 'In Call' : status}
+            {status === 'active' ? 'In Call' : 
+             status === 'ringing' ? (
+               isReceiverOffline ? 'User is offline (Calling...)' : 
+               isDelivered ? 'Ringing...' : 'Calling...'
+             ) : status}
           </Text>
         </View>
       )}

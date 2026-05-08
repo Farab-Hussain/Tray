@@ -11,7 +11,10 @@ export const firebaseConfig = {
   private_key_id: process.env.FIREBASE_MAIN_PRIVATE_KEY_ID || "",
   // Handle private key with newlines - supports both \n and actual newlines
   private_key: process.env.FIREBASE_MAIN_PRIVATE_KEY
-    ? process.env.FIREBASE_MAIN_PRIVATE_KEY.replace(/\\n/g, "\n")
+    ? process.env.FIREBASE_MAIN_PRIVATE_KEY
+        .trim()
+        .replace(/^["']|["']$/g, "") // Strip surrounding quotes
+        .replace(/\\n/g, "\n")       // Handle escaped newlines
     : "",
   client_email: process.env.FIREBASE_MAIN_CLIENT_EMAIL || "",
   client_id: process.env.FIREBASE_MAIN_CLIENT_ID || "",

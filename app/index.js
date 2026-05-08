@@ -32,15 +32,16 @@ try {
     ) {
       // Register background message handler
       messagingInstance.setBackgroundMessageHandler(async remoteMessage => {
-        console.log('📨 [Background] Message received:', remoteMessage);
+          console.log('📨 [Background] Message received at:', new Date().toISOString());
+          console.log('📨 [Background] Message received:', remoteMessage);
 
-        try {
-          // Extract message data
-          const messageData = remoteMessage.data || {};
-          const notificationData = remoteMessage.notification || {};
+          try {
+            // Extract message data
+            const messageData = remoteMessage.data || {};
+            const notificationData = remoteMessage.notification || {};
 
-          console.log('📨 [Background] Processing message data:', messageData);
-          console.log('📨 [Background] Notification data:', notificationData);
+            console.log('📨 [Background] Processing message data:', JSON.stringify(messageData));
+            console.log('📨 [Background] Notification data:', JSON.stringify(notificationData));
 
           // Handle different types of background messages
           if (messageData.type === 'call' || messageData.callId) {

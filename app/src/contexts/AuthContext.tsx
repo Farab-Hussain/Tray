@@ -102,6 +102,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  const refreshConsultantStatus = useCallback(async () => {
+    if (!user?.uid) return;
+
+    // Prevent duplicate calls within 10 seconds
+    const now = Date.now();
+    if (isFetchingStatus.current || now - lastStatusFetchTime.current < 10000) {
+      if (__DEV__) {
+        console.log(
+          '⚠️ Skipping consultant status fetch (too soon or already fetching)',
+        );
+      }
+      return;
+    }
+
+    isFetchingStatus.current = true;
+
+    try {
+      const statusRes = await api.get('/consultant-flow/status');
+
+      // Map backend status to our verification status
+      const backendStatus = statusRes.data?.status;
+      let verificationStatus:
+        | 'incomplete'
+        | 'pending'
+        | 'approved'
+        | 'rejected';
+
+      if (backendStatus === 'no_profile') {
+        verificationStatus = 'incomplete';
+      } else if (backendStatus === 'pending') {
+        verificationStatus = 'pending';
+      } else if (backendStatus === 'approved') {
+        verificationStatus = 'approved';
+      } else if (backendStatus === 'rejected') {
+        verificationStatus = 'rejected';
+      } else {
+        verificationStatus = 'incomplete';
+      }
+
+      setConsultantVerificationStatus(verificationStatus);
+      await AsyncStorage.setItem(
+        'consultantVerificationStatus',
+        verificationStatus,
+      );
+      lastStatusFetchTime.current = now;
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Error fetching consultant status:', error);
+      }
+      // If profile doesn't exist, set as incomplete
+      setConsultantVerificationStatus('incomplete');
+    } finally {
+      isFetchingStatus.current = false;
+    }
+  }, [user]);
+
   const fetchUserRole = useCallback(
     async (force = false, retryCount = 0) => {
       // Prevent duplicate calls within 5 seconds unless forced
@@ -287,64 +343,102 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         isFetchingRole.current = false;
       }
     },
-    [logout],
+    [logout, refreshConsultantStatus],
   );
 
-  const refreshConsultantStatus = useCallback(async () => {
-    if (!user?.uid) return;
+  const refreshUser = useCallback(async () => {
+    if (auth.currentUser) {
+      try {
+        // Reload the Firebase Auth user to get updated profile data (photoURL, displayName, etc.)
+        await auth.currentUser.reload();
 
-    // Prevent duplicate calls within 10 seconds
-    const now = Date.now();
-    if (isFetchingStatus.current || now - lastStatusFetchTime.current < 10000) {
-      if (__DEV__) {
-        console.log(
-          '⚠️ Skipping consultant status fetch (too soon or already fetching)',
-        );
+        // Also fetch backend profile to get profileImage (which might be different from photoURL)
+        try {
+          const backendProfile = await api.get('/auth/me');
+          const backendProfileImage = backendProfile.data?.profileImage;
+          let finalProfileImage =
+            backendProfileImage || auth.currentUser.photoURL;
+
+          // If main profile has no image, check consultant profile as fallback (if user has consultant role)
+          if (
+            !finalProfileImage &&
+            backendProfile.data?.roles?.includes('consultant')
+          ) {
+            try {
+              if (__DEV__) {
+                console.log(
+                  '🔄 [refreshUser] Main profile has no image, checking consultant profile as fallback...',
+                );
+              }
+              const consultantProfile = await getConsultantProfile(
+                auth.currentUser.uid,
+              );
+              const consultantProfileImage =
+                consultantProfile?.personalInfo?.profileImage;
+
+              if (
+                consultantProfileImage &&
+                consultantProfileImage.trim() !== ''
+              ) {
+                if (__DEV__) {
+                  console.log(
+                    '✅ [refreshUser] Found consultant profile image as fallback:',
+                    consultantProfileImage,
+                  );
+                }
+                finalProfileImage = consultantProfileImage.trim();
+              } else {
+                if (__DEV__) {
+                  console.log(
+                    'ℹ️ [refreshUser] No consultant profile image found either',
+                  );
+                }
+              }
+            } catch (consultantError) {
+              // If consultant profile fetch fails, continue with main profile
+              if (__DEV__) {
+                console.warn(
+                  '⚠️ [refreshUser] Failed to fetch consultant profile as fallback:',
+                  consultantError,
+                );
+              }
+            }
+          }
+
+          // Merge Firebase Auth data with backend profileImage
+          // If backend has profileImage, use it; otherwise use Firebase photoURL
+          const updatedUser = {
+            ...auth.currentUser,
+            photoURL: finalProfileImage || auth.currentUser.photoURL,
+          };
+
+          setUser(updatedUser as User);
+          if (__DEV__) {
+            console.log(
+              '✅ [refreshUser] User refreshed with profileImage:',
+              finalProfileImage || 'none',
+            );
+          }
+        } catch (backendError) {
+          // If backend fetch fails, just use Firebase Auth data
+          if (__DEV__) {
+            console.warn(
+              '⚠️ Failed to fetch backend profile, using Firebase Auth data only:',
+              backendError,
+            );
+          }
+          setUser({ ...auth.currentUser });
+        }
+
+        // Refresh role data as well
+        await fetchUserRole(true);
+      } catch (error) {
+        if (__DEV__) {
+          console.error('Error refreshing user:', error);
+        }
       }
-      return;
     }
-
-    isFetchingStatus.current = true;
-
-    try {
-      const statusRes = await api.get('/consultant-flow/status');
-
-      // Map backend status to our verification status
-      const backendStatus = statusRes.data?.status;
-      let verificationStatus:
-        | 'incomplete'
-        | 'pending'
-        | 'approved'
-        | 'rejected';
-
-      if (backendStatus === 'no_profile') {
-        verificationStatus = 'incomplete';
-      } else if (backendStatus === 'pending') {
-        verificationStatus = 'pending';
-      } else if (backendStatus === 'approved') {
-        verificationStatus = 'approved';
-      } else if (backendStatus === 'rejected') {
-        verificationStatus = 'rejected';
-      } else {
-        verificationStatus = 'incomplete';
-      }
-
-      setConsultantVerificationStatus(verificationStatus);
-      await AsyncStorage.setItem(
-        'consultantVerificationStatus',
-        verificationStatus,
-      );
-      lastStatusFetchTime.current = now;
-    } catch (error) {
-      if (__DEV__) {
-        console.error('Error fetching consultant status:', error);
-      }
-      // If profile doesn't exist, set as incomplete
-      setConsultantVerificationStatus('incomplete');
-    } finally {
-      isFetchingStatus.current = false;
-    }
-  }, [user]);
+  }, [fetchUserRole]);
 
   const requestConsultantRole = useCallback(async () => {
     try {
@@ -443,100 +537,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     [refreshConsultantStatus, refreshUser],
   );
-
-  const refreshUser = useCallback(async () => {
-    if (auth.currentUser) {
-      try {
-        // Reload the Firebase Auth user to get updated profile data (photoURL, displayName, etc.)
-        await auth.currentUser.reload();
-
-        // Also fetch backend profile to get profileImage (which might be different from photoURL)
-        try {
-          const backendProfile = await api.get('/auth/me');
-          const backendProfileImage = backendProfile.data?.profileImage;
-          let finalProfileImage =
-            backendProfileImage || auth.currentUser.photoURL;
-
-          // If main profile has no image, check consultant profile as fallback (if user has consultant role)
-          if (
-            !finalProfileImage &&
-            backendProfile.data?.roles?.includes('consultant')
-          ) {
-            try {
-              if (__DEV__) {
-                console.log(
-                  '🔄 [refreshUser] Main profile has no image, checking consultant profile as fallback...',
-                );
-              }
-              const consultantProfile = await getConsultantProfile(
-                auth.currentUser.uid,
-              );
-              const consultantProfileImage =
-                consultantProfile?.personalInfo?.profileImage;
-
-              if (
-                consultantProfileImage &&
-                consultantProfileImage.trim() !== ''
-              ) {
-                if (__DEV__) {
-                  console.log(
-                    '✅ [refreshUser] Found consultant profile image as fallback:',
-                    consultantProfileImage,
-                  );
-                }
-                finalProfileImage = consultantProfileImage.trim();
-              } else {
-                if (__DEV__) {
-                  console.log(
-                    'ℹ️ [refreshUser] No consultant profile image found either',
-                  );
-                }
-              }
-            } catch (consultantError) {
-              // If consultant profile fetch fails, continue with main profile
-              if (__DEV__) {
-                console.warn(
-                  '⚠️ [refreshUser] Failed to fetch consultant profile as fallback:',
-                  consultantError,
-                );
-              }
-            }
-          }
-
-          // Merge Firebase Auth data with backend profileImage
-          // If backend has profileImage, use it; otherwise use Firebase photoURL
-          const updatedUser = {
-            ...auth.currentUser,
-            photoURL: finalProfileImage || auth.currentUser.photoURL,
-          };
-
-          setUser(updatedUser as User);
-          if (__DEV__) {
-            console.log(
-              '✅ [refreshUser] User refreshed with profileImage:',
-              finalProfileImage || 'none',
-            );
-          }
-        } catch (backendError) {
-          // If backend fetch fails, just use Firebase Auth data
-          if (__DEV__) {
-            console.warn(
-              '⚠️ Failed to fetch backend profile, using Firebase Auth data only:',
-              backendError,
-            );
-          }
-          setUser({ ...auth.currentUser });
-        }
-
-        // Refresh role data as well
-        await fetchUserRole(true);
-      } catch (error) {
-        if (__DEV__) {
-          console.error('Error refreshing user:', error);
-        }
-      }
-    }
-  }, [fetchUserRole]);
 
   useEffect(() => {
     const initAuth = async () => {

@@ -613,7 +613,7 @@ api.interceptors.response.use(
           console.error('  - Status Text:', error.response?.statusText);
         }
         if (__DEV__) {
-          console.error('  - Response Data:', error.response?.data);
+          console.error('  - Response Data:', JSON.stringify(error.response?.data, null, 2));
         }
         if (__DEV__) {
           console.error('  - Error Message:', error.message);

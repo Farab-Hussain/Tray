@@ -242,11 +242,9 @@ const ConsultantAccount = ({ navigation }: any) => {
             style={authStyles.profileImageWrapper}
           >
             <Image
-              source={{
-                uri: profileImageUrl ? `${profileImageUrl}?t=${imageCacheKey}` : ''
-              }}
+              source={profileImageUrl ? { uri: `${profileImageUrl}?t=${imageCacheKey}` } : require('../../../assets/image/profile.png')}
               style={Profile.avatar}
-              key={`profile-${profileImageUrl}-${imageCacheKey}`} // Force re-render when image URL or cache key changes
+              key={`profile-${profileImageUrl}-${imageCacheKey}`}
               defaultSource={require('../../../assets/image/profile.png')}
             />
             

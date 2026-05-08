@@ -51,10 +51,12 @@ export class JWTUtils {
       exp: now + this.parseExpirationTime(this.JWT_EXPIRES_IN),
     };
 
-    return jwt.sign(tokenPayload, this.JWT_SECRET, {
-      algorithm: this.ALGORITHM,
-      expiresIn: this.JWT_EXPIRES_IN,
-    });
+    const options: jwt.SignOptions = {
+      algorithm: this.ALGORITHM as jwt.Algorithm,
+      expiresIn: this.JWT_EXPIRES_IN as any,
+    };
+
+    return jwt.sign(tokenPayload, this.JWT_SECRET as string, options);
   }
 
   /**
@@ -64,9 +66,9 @@ export class JWTUtils {
     this.validateSecret();
 
     try {
-      const decoded = jwt.verify(token, this.JWT_SECRET, {
-        algorithms: [this.ALGORITHM],
-      }) as JWTPayload;
+      const decoded = jwt.verify(token, this.JWT_SECRET as string, {
+        algorithms: [this.ALGORITHM as jwt.Algorithm],
+      }) as unknown as JWTPayload;
 
       return decoded;
     } catch (error: any) {
@@ -87,8 +89,8 @@ export class JWTUtils {
     this.validateSecret();
 
     try {
-      const decoded = jwt.verify(oldToken, this.JWT_SECRET, {
-        algorithms: [this.ALGORITHM],
+      const decoded = jwt.verify(oldToken, this.JWT_SECRET as string, {
+        algorithms: [this.ALGORITHM as jwt.Algorithm],
         ignoreExpiration: true,
       }) as any;
 

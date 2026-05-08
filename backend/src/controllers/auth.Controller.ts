@@ -318,12 +318,13 @@ export const login = async (req: Request, res: Response) => {
     console.log(`✅ [POST /auth/login] - User logged in successfully: ${decodedToken.uid}`);
     
     // Generate JWT token for authenticated user
+    const userProfile = profile as any;
     const jwtToken = JWTUtils.generateToken({
       userId: decodedToken.uid,
-      email: decodedToken.email,
-      role: profile?.role || 'user',
-      firstName: profile?.firstName || '',
-      lastName: profile?.lastName || ''
+      email: decodedToken.email || "",
+      role: userProfile?.role || 'user',
+      firstName: userProfile?.firstName || '',
+      lastName: userProfile?.lastName || ''
     });
 
     const tokenExpiration = JWTUtils.getTokenExpiration(jwtToken);

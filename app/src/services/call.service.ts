@@ -9,6 +9,7 @@ export interface CallDocument {
   receiverId: string;
   type: 'audio' | 'video';
   status: CallStatus;
+  delivered?: boolean;
   offer?: any;
   answer?: any;
   startedAt: any;
@@ -36,6 +37,15 @@ export const getCallOnce = async (callId: string) => {
 export const answerCall = async (callId: string, answer: any) => {
   const ref = doc(firestore, 'calls', callId);
   await updateDoc(ref, { answer, status: 'active' });
+};
+
+export const markCallDelivered = async (callId: string) => {
+  const ref = doc(firestore, 'calls', callId);
+  try {
+    await updateDoc(ref, { delivered: true });
+  } catch (error) {
+    logger.error('❌ Error marking call as delivered:', error);
+  }
 };
 
 export const endCall = async (

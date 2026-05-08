@@ -29,7 +29,7 @@ public class CallService extends Service {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Incoming " + callType + " Call")
                 .setContentText("Tap to answer")
-                .setSmallIcon(android.R.drawable.ic_call_accept)
+                .setSmallIcon(com.tray.R.mipmap.ic_launcher)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setFullScreenIntent(createFullScreenIntent(callId, callType), true)

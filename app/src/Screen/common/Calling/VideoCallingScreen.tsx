@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler, Platform } from 'react-native';
+import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler, Platform, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Phone, Mic, MicOff, Camera, UserRound } from 'lucide-react-native';
+import { Phone, PhoneOff, Mic, MicOff, Camera, UserRound } from 'lucide-react-native';
 // Safely import InCallManager - may not be available until native module is linked
 let InCallManager: any = null;
 try {
@@ -30,6 +30,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [status, setStatus] = useState<'ringing' | 'active' | 'ended' | 'missed'>('ringing');
+  const [isDelivered, setIsDelivered] = useState(false);
+  const [isReceiverOffline, setIsReceiverOffline] = useState(false);
   const [local, setLocal] = useState<any | null>(null);
   const [remote, setRemote] = useState<any | null>(null);
   const [otherUser, setOtherUser] = useState<{ name: string; profileImage?: string } | null>(null);
@@ -164,20 +166,6 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
     }
   };
     
-    // Use reset to prevent showing verification screen again
-    // Reset navigation stack directly to home screen based on role
-    if (role === 'consultant') {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'ConsultantTabs' as never }],
-      });
-    } else {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'MainTabs' as never }],
-      });
-    }
-  };
 
   const handleAccept = async () => {
     if (!callId || !callerId || !receiverId) {
@@ -1176,15 +1164,23 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         // Send push notification to receiver
         try {
           const { api } = require('../../../lib/fetcher');
-          await api.post('/notifications/send-call', {
+          const response = await api.post('/notifications/send-call', {
             callId,
             callerId,
             receiverId,
             callType: 'video',
           });
-                    if (__DEV__) {
-            console.log('✅ Call notification sent to receiver')
-          };
+          
+          if (response.data?.offline) {
+            if (__DEV__) {
+              console.log('⚠️ Receiver appears to be offline (no push tokens)');
+            }
+            setIsReceiverOffline(true);
+          } else if (response.data?.delivered) {
+            if (__DEV__) {
+              console.log('✅ Call notification sent to receiver');
+            }
+          }
         } catch (error) {
                     if (__DEV__) {
             console.warn('⚠️ Failed to send call notification:', error)
@@ -1375,6 +1371,10 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         // Receiver: Wait for user to accept/decline - don't auto-answer
         let lastOfferSdp: string | null = null;
         unsubCall = listenCall(callId, async (data) => {
+          if (data.delivered && !isDelivered) {
+            setIsDelivered(true);
+            setIsReceiverOffline(false);
+          }
           setStatus((prevStatus) => {
             // Only update if status actually changed
             if (prevStatus !== data.status) {
@@ -1743,7 +1743,11 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             {otherUser.name}
           </Text>
           <Text style={{ color: COLORS.white, fontSize: 14, marginTop: 4 }}>
-            {status === 'ringing' ? 'Ringing...' : status === 'active' ? 'In Call' : status}
+            {status === 'active' ? 'In Call' : 
+             status === 'ringing' ? (
+               isReceiverOffline ? 'User is offline (Calling...)' : 
+               isDelivered ? 'Ringing...' : 'Calling...'
+             ) : status}
           </Text>
         </View>
       )}
@@ -1780,12 +1784,12 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         {!isCaller && status === 'ringing' ? (
           // Receiver: Show Accept and Decline buttons
           <>
-                   <TouchableOpacity
-                     style={[callingStyles.controlButton, callingStyles.videoDeclineButton]}
-                     onPress={handleHangup}
-                   >
-                     <Phone size={28} color={COLORS.white} style={{ transform: [{ rotate: '135deg' }] }} />
-                   </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[callingStyles.controlButton, callingStyles.videoDeclineButton]}
+                      onPress={handleHangup}
+                    >
+                      <PhoneOff size={28} color={COLORS.white} />
+                    </TouchableOpacity>
                    <TouchableOpacity
                      style={[callingStyles.controlButton, callingStyles.videoAcceptButton]}
                      onPress={handleAccept}
@@ -1812,10 +1816,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           ]}
           onPress={handleHangup}
         >
-          <Phone
+          <PhoneOff
             size={24}
             color={COLORS.white}
-            style={{ transform: [{ rotate: '135deg' }] }}
           />
         </TouchableOpacity>
             {status === 'active' && (

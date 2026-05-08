@@ -246,7 +246,9 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
   res.status(500).json({
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred',
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    route: `${req.method} ${req.path}`
   });
 });
 
