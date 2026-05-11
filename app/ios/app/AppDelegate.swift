@@ -3,6 +3,7 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import Firebase
+import FirebaseMessaging
 import UserNotifications
 import FBSDKCoreKit
 import PushKit
@@ -69,7 +70,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
   
   // Handle registration for remote notifications
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    // React Native Firebase handles this automatically
+    Messaging.messaging().apnsToken = deviceToken
     print("✅ [AppDelegate] Registered for remote notifications")
   }
   
@@ -121,7 +122,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
   // MARK: - PKPushRegistryDelegate
   
   func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
-    print("📱 [AppDelegate] PushKit credentials updated")
+    let token = credentials.token.map { String(format: "%02x", $0) }.joined()
+    let tokenPreview = token.count > 12 ? "\(token.prefix(6))...\(token.suffix(6))" : token
+    print("📱 [AppDelegate] PushKit credentials updated: \(tokenPreview)")
   }
   
   func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {

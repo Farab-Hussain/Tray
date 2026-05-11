@@ -11,7 +11,8 @@ import { useAuth } from './AuthContext';
 import * as NotificationService from '../services/notification.service';
 import * as NotificationStorage from '../services/notification-storage.service';
 import { useChatContext } from './ChatContext';
-import { listenIncomingCalls } from '../services/call.service';
+import { listenIncomingCalls, markCallDelivered } from '../services/call.service';
+import { navigateToIncomingCallIfNeeded } from '../services/call-navigation.service';
 import type { AppNotification } from '../services/notification-storage.service';
 import { logger } from '../utils/logger';
 
@@ -38,9 +39,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   const chatUnreadNotificationCountRef = useRef<number>(0);
   const lastChatRefreshTriggerAtRef = useRef<number>(0);
   
-  // Track handled calls to prevent duplicate navigation - persists across renders
-  const handledCallsRef = useRef<Set<string>>(new Set());
-
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +60,20 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     refreshChats();
   }, [refreshChats]);
 
+  // Check for missed calls when app comes to foreground
+  const checkForMissedCalls = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      // This would query Firestore for any calls that were missed while backgrounded
+      // Implementation depends on your call data structure
+      logger.debug('📞 [NotificationContext] Checking for missed calls for user:', user.uid);
+      // TODO: Implement missed call checking logic
+    } catch (error) {
+      logger.error('❌ [NotificationContext] Error checking missed calls:', error);
+    }
+  }, [user?.uid]);
+
   // Handle app state changes (background/foreground)
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -81,21 +93,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       subscription?.remove();
     };
-  }, [appState]);
-
-  // Check for missed calls when app comes to foreground
-  const checkForMissedCalls = useCallback(async () => {
-    if (!user?.uid) return;
-    
-    try {
-      // This would query Firestore for any calls that were missed while backgrounded
-      // Implementation depends on your call data structure
-      logger.debug('📞 [NotificationContext] Checking for missed calls for user:', user.uid);
-      // TODO: Implement missed call checking logic
-    } catch (error) {
-      logger.error('❌ [NotificationContext] Error checking missed calls:', error);
-    }
-  }, [user?.uid]);
+  }, [appState, checkForMissedCalls]);
 
   // Log provider mount
   useEffect(() => {
@@ -110,16 +108,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
     if (!user?.uid) {
       logger.debug('⏳ [NotificationContext] Waiting for user authentication...');
-      // Clear handled calls when user logs out
-      handledCallsRef.current.clear();
       return;
     }
 
     logger.debug('🔔 [NotificationContext] User authenticated, initializing notifications for:', user.uid);
     
-    // Clear handled calls when user changes (in case user switches accounts)
-    handledCallsRef.current.clear();
-
     // Setup global incoming call listener (Firestore-based) - ALWAYS set up, regardless of FCM token
     // This is critical for incoming calls to work
     logger.debug('📞 [NotificationContext] Setting up incoming call listener for user:', user.uid);
@@ -135,144 +128,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           status: callData.status,
         });
 
-        // Check current call status in Firestore to avoid race conditions
         try {
-          const { getCallOnce, markCallDelivered } = require('../services/call.service');
-          const callDoc = await getCallOnce(callId);
-          if (callDoc.exists()) {
-            const currentCallData = callDoc.data();
-            
-            // Mark call as delivered so the caller knows we've received it
-            if (!currentCallData?.delivered) {
-              await markCallDelivered(callId);
-            }
-            
-            const currentStatus = currentCallData?.status;
-            logger.debug('📞 [NotificationContext] Current call status in Firestore:', currentStatus);
-            
-            // If call is already active, ended, or missed, don't navigate
-            if (currentStatus === 'active' || currentStatus === 'ended' || currentStatus === 'missed') {
-              logger.debug('📞 [NotificationContext] Call is already', currentStatus, '- skipping navigation');
-              handledCallsRef.current.add(callId);
-              return;
-            }
+          if (!callData.delivered) {
+            await markCallDelivered(callId);
           }
-        } catch (error: any) {
-          logger.warn('⚠️ [NotificationContext] Error checking call status:', error);
-          // Continue anyway - might be a network issue
-        }
-
-        // Only navigate if call is still ringing (not already answered/ended)
-        if (callData.status !== 'ringing') {
-          logger.debug('📞 [NotificationContext] Call is not ringing anymore, skipping navigation');
-          // Keep in handled set if call is active or ended (prevent re-navigation)
-          if (callData.status === 'active' || callData.status === 'ended' || callData.status === 'missed') {
-            handledCallsRef.current.add(callId);
-            // Remove after 60 seconds to allow new calls with same ID
-            setTimeout(() => {
-              handledCallsRef.current.delete(callId);
-              logger.debug('📞 [NotificationContext] Removed ended/active call from handled set:', callId);
-            }, 60000);
-          }
-          return;
-        }
-
-        // Check if we've already handled this call
-        if (handledCallsRef.current.has(callId)) {
-          logger.debug('📞 [NotificationContext] Call already handled, skipping navigation:', callId);
-          return;
-        }
-
-        // Navigate to calling screen
-        try {
-          const { navigate, getCurrentRoute } = require('../navigator/navigationRef');
-          
-          // Check if we're already on this specific call screen
-          const currentRoute = getCurrentRoute?.();
-          logger.debug('📞 [NotificationContext] Current route:', currentRoute?.name, currentRoute?.params);
-          
-          if (currentRoute?.name === 'CallingScreen' || currentRoute?.name === 'VideoCallingScreen') {
-            // Check if it's the same call
-            const currentCallId = currentRoute?.params?.callId;
-            if (currentCallId === callId) {
-              logger.debug('📞 [NotificationContext] Already on this call screen, skipping navigation');
-              // Mark as handled and keep it in the set until call ends
-              handledCallsRef.current.add(callId);
-              // Don't remove it automatically - let it stay until call ends
-              return;
-            }
-            // If it's a different call, we might want to navigate anyway
-            logger.debug('📞 [NotificationContext] Different call detected, navigating to new call');
-          }
-
-          const screenName = callData.type === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
-          
-          logger.debug('📞 [NotificationContext] ⚡ NAVIGATING TO CALLING SCREEN:', screenName);
-          
-          // Mark this call as handled immediately - don't remove it automatically
-          // It will be removed when call status changes to active/ended/missed
-          handledCallsRef.current.add(callId);
-          
-          // Navigate immediately
-          navigate('Screen', {
-            screen: screenName,
-            params: {
+          await navigateToIncomingCallIfNeeded(
+            {
               callId,
-              isCaller: false,
+              callType: callData.type,
               callerId: callData.callerId,
               receiverId: user.uid,
             },
-          });
-          
-          logger.debug('✅ [NotificationContext] ⚡ NAVIGATED TO CALLING SCREEN');
-          
-          // Keep call in handled set - it will be removed when status changes to active/ended
-          // Don't auto-remove it, as that allows the same call to trigger navigation again
-        } catch (navError: any) {
-          logger.error('❌ [NotificationContext] Error navigating:', navError);
-          logger.error('❌ [NotificationContext] Navigation error details:', navError.message, navError.stack);
-          // Remove from handled set on error so we can retry
-          handledCallsRef.current.delete(callId);
-          // Retry navigation
-          setTimeout(() => {
-            try {
-              const { navigate, getCurrentRoute } = require('../navigator/navigationRef');
-              
-              // Check again if we're already on this call
-              const currentRoute = getCurrentRoute?.();
-              if (currentRoute?.name === 'CallingScreen' || currentRoute?.name === 'VideoCallingScreen') {
-                const currentCallId = currentRoute?.params?.callId;
-                if (currentCallId === callId) {
-                  logger.debug('📞 [NotificationContext] Already on call screen during retry, skipping');
-                  handledCallsRef.current.add(callId);
-                  return;
-                }
-              }
-              
-              if (handledCallsRef.current.has(callId)) {
-                logger.debug('📞 [NotificationContext] Call already handled during retry, skipping');
-                return;
-              }
-              
-              const screenName = callData.type === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
-              logger.debug('📞 [NotificationContext] Retrying navigation to:', screenName);
-              
-              handledCallsRef.current.add(callId);
-              navigate('Screen', {
-                screen: screenName,
-                params: {
-                  callId,
-                  isCaller: false,
-                  callerId: callData.callerId,
-                  receiverId: user.uid,
-                },
-              });
-              logger.debug('✅ [NotificationContext] Retry navigation successful');
-            } catch (retryError: any) {
-              logger.error('❌ [NotificationContext] Retry navigation failed:', retryError);
-              handledCallsRef.current.delete(callId);
-            }
-          }, 500);
+            'firestore-listener',
+          );
+        } catch (error: any) {
+          logger.warn('⚠️ [NotificationContext] Error handling incoming call:', error);
         }
       });
       cleanupRef.current.push(unsubscribeIncomingCalls);

@@ -7,7 +7,7 @@ import { Phone, PhoneOff, Mic, MicOff, Camera, UserRound } from 'lucide-react-na
 let InCallManager: any = null;
 try {
   InCallManager = require('react-native-incall-manager').default;
-} catch (error) {
+} catch {
   if (__DEV__) {
     console.log('ℹ️ [InCallManager] Native module not linked yet - run pod install and rebuild');
   }
@@ -18,12 +18,11 @@ import { createPeer, applyAnswer, addRemoteIce } from '../../../webrtc/peer';
 import { addIceCandidate, answerCall, createCall, endCall, listenCall, listenCandidates, getCallOnce, getExistingCandidates, type CallDocument } from '../../../services/call.service';
 import { UserService } from '../../../services/user.service';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
-import { useAuth } from '../../../contexts/AuthContext';
+import { markCallTerminal } from '../../../services/call-navigation.service';
 // Avoid static RTCView import; require dynamically to prevent crashes if pod not installed
 
 const VideoCallingScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
-  const { role } = useAuth();
 
   const [isSwapped, setIsSwapped] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -42,7 +41,19 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const RTCViewRef = useRef<any>(null);
   const iceCandidateQueueRef = useRef<Array<{ senderId: string; candidate: any }>>([]);
   const isMutedRef = useRef<boolean>(false);
+  const didResetAfterCallEndRef = useRef(false);
   const { callId, isCaller, callerId, receiverId, switchingFromAudio } = route?.params || {};
+  const resetToHome = React.useCallback(() => {
+    if (didResetAfterCallEndRef.current) {
+      return;
+    }
+    didResetAfterCallEndRef.current = true;
+    markCallTerminal(callId);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs' as never }],
+    });
+  }, [callId, navigation]);
 
   useEffect(() => {
     setAvatarLoadFailed(false);
@@ -79,19 +90,14 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
     }
     
     try {
-      if (isCaller) {
-        // Caller cancels call
-        await endCall(callId, 'ended');
-        if (__DEV__) {
-          console.log('📞 [VideoHandleHangup] Caller ended call')
-        };
-      } else {
-        // Receiver declines call
-        await endCall(callId, 'missed');
-        if (__DEV__) {
-          console.log('📞 [VideoHandleHangup] Receiver declined call')
-        };
-      }
+      // If call is active, hanging up should always end the call for both sides.
+      // Use 'missed' only when receiver declines during ringing.
+      const nextStatus = !isCaller && status === 'ringing' ? 'missed' : 'ended';
+      setStatus(nextStatus);
+      await endCall(callId, nextStatus);
+      if (__DEV__) {
+        console.log('📞 [VideoHandleHangup] Ending call with status:', nextStatus)
+      };
       
       // Stop audio session
       if (InCallManager) {
@@ -122,18 +128,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         }
       }
       
-      // Navigate away based on role
-      if (role === 'consultant') {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'ConsultantTabs' as never }],
-        });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' as never }],
-        });
-      }
+      resetToHome();
     } catch (error: any) {
       if (__DEV__) {
         console.error('❌ [VideoHandleHangup] Error ending call:', error)
@@ -148,17 +143,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             text: 'OK',
             onPress: () => {
               // Force navigation on error
-              if (role === 'consultant') {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'ConsultantTabs' as never }],
-                });
-              } else {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'MainTabs' as never }],
-                });
-              }
+              resetToHome();
             },
           },
         ]
@@ -249,7 +234,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                   channelCount: settings.channelCount,
                 })
                 };
-              } catch (e) {
+              } catch {
                 // Settings might not be available
               }
             });
@@ -315,7 +300,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                   channelCount: settings.channelCount,
                 })
                 };
-              } catch (e) {
+              } catch {
                 // Settings might not be available
               }
             });
@@ -342,7 +327,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                     if (__DEV__) {
                       console.log('✅ [Receiver] Audio session reactivated for playback');
                     }
-                  } catch (e) {
+                  } catch {
                     // Ignore errors
                   }
                 }
@@ -525,18 +510,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         console.error('❌ Error accepting call:', error)
       };
       await endCall(callId, 'missed').catch(() => {});
-      // Use reset to prevent showing verification screen again
-      if (role === 'consultant') {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'ConsultantTabs' as never }],
-        });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' as never }],
-        });
-      }
+      resetToHome();
     }
   };
 
@@ -785,27 +759,23 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                 if (__DEV__) {
           console.log('✅ [InCallManager] Starting audio session for video call...')
         };
-        InCallManager.start({ media: 'audio', auto: true });
-        // For video calls, optionally use speakerphone by default
-        // User can toggle via UI if needed
-        InCallManager.setForceSpeakerphoneOn(false); // Use earpiece by default, user can toggle
-        // Ensure audio session is active for playback
-        if (Platform.OS === 'ios') {
-          InCallManager.setSpeakerphoneOn(false); // Use earpiece
-        }
+        InCallManager.start({ media: 'video', auto: true });
+        // For video calls, use speakerphone by default
+        InCallManager.setForceSpeakerphoneOn(true);
+        InCallManager.setSpeakerphoneOn(true);
         if (__DEV__) {
-          console.log('✅ [InCallManager] Audio session started for video call (earpiece mode)');
-          console.log('✅ [InCallManager] Audio route should be: earpiece');
+          console.log('✅ [InCallManager] Audio session started for video call (speaker mode)');
         }
         // Reactivate audio session after a short delay to ensure it's fully configured for playback
         setTimeout(() => {
           if (InCallManager && status === 'active' && pcRef.current) {
             try {
-              InCallManager.start({ media: 'audio', auto: true });
+              InCallManager.start({ media: 'video', auto: true });
+              InCallManager.setSpeakerphoneOn(true);
               if (__DEV__) {
-                console.log('✅ [InCallManager] Audio session reactivated for playback');
+                console.log('✅ [InCallManager] Audio session reactivated for playback (speaker mode)');
               }
-            } catch (e) {
+            } catch {
               // Ignore errors
             }
           }
@@ -865,7 +835,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           };
         }
         // Silently skip if addListener is not available - this is optional debug functionality
-      } catch (error: any) {
+      } catch {
         // Silently fail - audio route listener is optional debug feature
       }
     }
@@ -957,7 +927,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                     channelCount: settings.channelCount,
                   })
                   };
-                } catch (e) {
+                } catch {
                   // Settings might not be available
                 }
               });
@@ -1023,7 +993,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                     channelCount: settings.channelCount,
                   })
                   };
-                } catch (e) {
+                } catch {
                   // Settings might not be available
                 }
               });
@@ -1032,25 +1002,23 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             // Ensure audio session is active for playback when remote stream arrives
             if (InCallManager) {
               try {
-                InCallManager.start({ media: 'audio', auto: true });
-                InCallManager.setForceSpeakerphoneOn(false);
+                InCallManager.start({ media: 'video', auto: true });
+                InCallManager.setForceSpeakerphoneOn(true);
                 InCallManager.setMicrophoneMute(isMutedRef.current);
-                InCallManager.setSpeakerphoneOn(false);
-                if (Platform.OS === 'ios') {
-                  InCallManager.setSpeakerphoneOn(false); // Use earpiece
-                }
+                InCallManager.setSpeakerphoneOn(true);
                 if (__DEV__) {
-                  console.log('✅ [Caller] Audio session activated for remote stream playback');
+                  console.log('✅ [Caller] Audio session activated for remote stream playback (speaker mode)');
                 }
                 // Reactivate audio session after a short delay to ensure playback
                 setTimeout(() => {
                   if (InCallManager) {
                     try {
-                      InCallManager.start({ media: 'audio', auto: true });
+                      InCallManager.start({ media: 'video', auto: true });
+                      InCallManager.setSpeakerphoneOn(true);
                       if (__DEV__) {
-                        console.log('✅ [Caller] Audio session reactivated for playback');
+                        console.log('✅ [Caller] Audio session reactivated for playback (speaker mode)');
                       }
-                    } catch (e) {
+                    } catch {
                       // Ignore errors
                     }
                   }
@@ -1352,26 +1320,14 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           }
           
           if (callStatus === 'ended' || callStatus === 'missed') {
-            // Use reset to prevent showing verification screen again
-            // Reset navigation stack directly to home screen based on role
-            if (role === 'consultant') {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'ConsultantTabs' as never }],
-              });
-            } else {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' as never }],
-              });
-            }
+            resetToHome();
           }
         });
       } else {
         // Receiver: Wait for user to accept/decline - don't auto-answer
         let lastOfferSdp: string | null = null;
         unsubCall = listenCall(callId, async (data) => {
-          if (data.delivered && !isDelivered) {
+          if (data.delivered) {
             setIsDelivered(true);
             setIsReceiverOffline(false);
           }
@@ -1443,12 +1399,12 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                           if (InCallManager) {
                             try {
                               InCallManager.start({ media: 'audio', auto: true });
-                            } catch (e) {
+                            } catch {
                               // Ignore errors
                             }
                           }
                         }, 100);
-                      } catch (e) {
+                      } catch {
                         // Ignore errors
                       }
                     }
@@ -1486,19 +1442,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           // Don't auto-answer - wait for user to press accept button
           
           if (data.status === 'ended' || data.status === 'missed') {
-            // Use reset to prevent showing verification screen again
-            // Reset navigation stack directly to home screen based on role
-            if (role === 'consultant') {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'ConsultantTabs' as never }],
-              });
-            } else {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' as never }],
-              });
-            }
+            resetToHome();
           }
         });
       }
@@ -1567,7 +1511,15 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       }
       clearTimeout(hangTimer);
     };
-  }, [callId, isCaller, callerId, receiverId, navigation, role]); // Removed 'status' from dependencies
+  }, [
+    callId,
+    isCaller,
+    callerId,
+    receiverId,
+    navigation,
+    resetToHome,
+    switchingFromAudio,
+  ]); // Removed 'status' from dependencies
 
   // Determine which video to show in main view and inset view
   // By default: remote in main (full screen), local in inset (small)
@@ -1635,7 +1587,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   }, [local, remote, isSwapped, status, mainVideoStream, insetVideoStream, mainHasVideo, insetHasVideo, shouldShowMainVideo, shouldShowInsetVideo]);
 
   // Force re-render when remote stream tracks change
-  const [remoteTrackCount, setRemoteTrackCount] = useState(0);
+  const [_remoteTrackCount, setRemoteTrackCount] = useState(0);
   const [remoteVideoTrackIds, setRemoteVideoTrackIds] = useState<string[]>([]);
   const [streamVersion, setStreamVersion] = useState(0); // Version counter to force RTCView updates
   const prevTrackDataRef = useRef<{ count: number; videoTrackIds: string; streamId: string }>({ 
@@ -1677,7 +1629,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             audioTracks: audioTracks.length,
             totalTracks: currentTrackCount,
             videoTrackIds: currentVideoTrackIds,
-            streamURL: remote.toURL(),
+            streamURL: remote.id,
           });
         }
       }
@@ -1698,7 +1650,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       {shouldShowMainVideo && mainVideoStream ? (
         <RTCViewRef.current 
           key={`main-${mainVideoStream.id || 'main'}-${isSwapped ? 'local' : 'remote'}-${mainVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
-          streamURL={mainVideoStream.toURL()} 
+          streamURL={mainVideoStream.id} 
           style={callingStyles.mainVideoFeed} 
           objectFit="cover" 
           mirror={mainVideoStream === local && facingMode === 'user'}
@@ -1765,7 +1717,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         >
           <RTCViewRef.current 
             key={`inset-${insetVideoStream.id || 'inset'}-${isSwapped ? 'remote' : 'local'}-${insetVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
-            streamURL={insetVideoStream.toURL()} 
+            streamURL={insetVideoStream.id} 
             style={callingStyles.insetVideo} 
             objectFit="cover" 
             mirror={insetVideoStream === local && facingMode === 'user'}
@@ -1788,13 +1740,13 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                       style={[callingStyles.controlButton, callingStyles.videoDeclineButton]}
                       onPress={handleHangup}
                     >
-                      <PhoneOff size={28} color={COLORS.white} />
+                      <PhoneOff size={32} color={COLORS.white} />
                     </TouchableOpacity>
                    <TouchableOpacity
                      style={[callingStyles.controlButton, callingStyles.videoAcceptButton]}
                      onPress={handleAccept}
                    >
-                     <Phone size={28} color={COLORS.white} />
+                     <Phone size={32} color={COLORS.white} />
                    </TouchableOpacity>
           </>
         ) : (
@@ -1816,10 +1768,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           ]}
           onPress={handleHangup}
         >
-          <PhoneOff
-            size={24}
-            color={COLORS.white}
-          />
+          <PhoneOff size={28} color={COLORS.white} />
         </TouchableOpacity>
             {status === 'active' && (
         <TouchableOpacity

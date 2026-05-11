@@ -311,28 +311,51 @@ export const sendCallNotification = async (req: Request, res: Response) => {
       const singleMessage = {
         token,
         notification: {
-          title: 'Incoming Call',
-          body: `Incoming audio call`,
+          title: notification.title,
+          body: notification.body,
         },
         data: {
           type: 'call',
           callId,
           callerId,
+          receiverId,
           callType,
+          category: 'call',
+          link: `tray://call/${callId}`,
+          callerName,
         },
         android: {
           priority: 'high' as const,
           ttl: 30000,
+          notification: {
+            title: notification.title,
+            body: notification.body,
+            sound: 'default',
+            channelId: 'incoming_calls',
+            priority: 'max' as const,
+            visibility: 'public' as const,
+            defaultSound: true,
+            defaultVibrateTimings: true,
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          },
         },
         apns: {
+          headers: {
+            'apns-priority': '10',
+            'apns-push-type': 'alert',
+          },
           payload: {
             aps: {
               alert: {
-                title: 'Incoming Call',
-                body: `Incoming audio call`,
+                title: notification.title,
+                body: notification.body,
               },
               sound: 'default',
+              badge: 1,
               'content-available': 1,
+              'mutable-content': 1,
+              category: 'CALL_CATEGORY',
+              'thread-id': callId,
             },
           },
         },
@@ -388,4 +411,3 @@ export const sendCallNotification = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to send call notification' });
   }
 };
-

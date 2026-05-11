@@ -82,6 +82,8 @@
 	<string>This app needs access to your microphone to make audio and video calls</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to upload profile pictures and images</string>
+	<key>NSVoIPUsageDescription</key>
+	<string></string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIBackgroundModes</key>

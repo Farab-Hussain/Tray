@@ -63,32 +63,44 @@ export const createTwilioIceServers = async (): Promise<TwilioIceServerResponse>
   const endpoint = `${TWILIO_API_BASE}/Accounts/${accountSid}/Tokens.json`;
   const body = new URLSearchParams({ Ttl: ttl.toString() });
 
-  const response = await axios.post<TwilioTokenApiResponse>(
-    endpoint,
-    body.toString(),
-    {
-      auth: {
-        username: accountSid,
-        password: authToken,
+  try {
+    const response = await axios.post<TwilioTokenApiResponse>(
+      endpoint,
+      body.toString(),
+      {
+        auth: {
+          username: accountSid,
+          password: authToken,
+        },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout: 15000,
       },
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      timeout: 15000,
-    },
-  );
+    );
 
-  const rawServers =
-    response.data.ice_servers || response.data.iceServers || [];
-  const iceServers = applyRegionPinning(rawServers, region);
+    const rawServers =
+      response.data.ice_servers || response.data.iceServers || [];
+    const iceServers = applyRegionPinning(rawServers, region);
 
-  if (!Array.isArray(iceServers) || iceServers.length === 0) {
-    throw new Error('Twilio returned no ICE servers');
+    if (!Array.isArray(iceServers) || iceServers.length === 0) {
+      throw new Error('Twilio returned no ICE servers');
+    }
+
+    return {
+      iceServers,
+      ttl: Number(response.data.ttl || ttl),
+      source: 'twilio',
+    };
+  } catch (error: any) {
+    if (axios.isAxiosError(error)) {
+      console.error('❌ [Twilio Service] API Error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw new Error(`Twilio API Error: ${error.response?.status} - ${JSON.stringify(error.response?.data) || error.message}`);
+    }
+    throw error;
   }
-
-  return {
-    iceServers,
-    ttl: Number(response.data.ttl || ttl),
-    source: 'twilio',
-  };
 };

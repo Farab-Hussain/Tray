@@ -46,10 +46,11 @@ import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import * as NotificationStorage from '../../../services/notification-storage.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AudioSessionManager } from '../../../utils/audioSessionManager';
+import { markCallTerminal } from '../../../services/call-navigation.service';
 
 const CallingScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
-  const { user, role } = useAuth();
+  const { user } = useAuth();
 
   // State for mute and video
   const [isMuted, setIsMuted] = useState(false);
@@ -80,8 +81,20 @@ const CallingScreen = ({ navigation, route }: any) => {
   const lastHandledRemoteOfferSdpRef = useRef<string | null>(null);
   const handlingRemoteOfferSdpRef = useRef<string | null>(null);
   const isMutedRef = useRef<boolean>(false);
+  const didResetAfterCallEndRef = useRef(false);
   const { callId, isCaller, callerId, receiverId } = route?.params || {};
   const type: 'audio' = 'audio';
+  const resetToHome = React.useCallback(() => {
+    if (didResetAfterCallEndRef.current) {
+      return;
+    }
+    didResetAfterCallEndRef.current = true;
+    markCallTerminal(callId);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs' as never }],
+    });
+  }, [callId, navigation]);
   const callerNameDefault = useMemo(() => {
     if (user?.displayName && user.displayName.trim()) {
       return user.displayName;
@@ -770,7 +783,7 @@ const CallingScreen = ({ navigation, route }: any) => {
           setStatus(callStatus);
           statusRef.current = callStatus;
           
-          if (data.delivered && !isDelivered) {
+          if (data.delivered) {
             setIsDelivered(true);
             setIsReceiverOffline(false); // If it's delivered, they aren't offline
           }
@@ -942,19 +955,7 @@ const CallingScreen = ({ navigation, route }: any) => {
           }
 
           if (callStatus === 'ended' || callStatus === 'missed') {
-            // Use reset to prevent showing verification screen again
-            // Reset navigation stack directly to home screen based on role
-            if (role === 'consultant') {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'ConsultantTabs' as never }],
-              });
-            } else {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' as never }],
-              });
-            }
+            resetToHome();
           }
         });
       } else {
@@ -1020,19 +1021,7 @@ const CallingScreen = ({ navigation, route }: any) => {
           // The receiver will create peer when they press accept button
 
           if (data.status === 'ended' || data.status === 'missed') {
-            // Use reset to prevent showing verification screen again
-            // Reset navigation stack directly to home screen based on role
-            if (role === 'consultant') {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'ConsultantTabs' as never }],
-              });
-            } else {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' as never }],
-              });
-            }
+            resetToHome();
           }
         });
       }
@@ -1114,7 +1103,7 @@ const CallingScreen = ({ navigation, route }: any) => {
     receiverId,
     navigation,
     type,
-    role,
+    resetToHome,
     callerNameDefault,
     callerAvatarDefault,
   ]);
@@ -1157,6 +1146,8 @@ const CallingScreen = ({ navigation, route }: any) => {
       // Use 'missed' only when receiver declines during ringing.
       const nextStatus =
         !isCaller && statusRef.current === 'ringing' ? 'missed' : 'ended';
+      statusRef.current = nextStatus;
+      setStatus(nextStatus);
       
       if (__DEV__) {
         console.log('📞 [handleHangup] Ending call with status:', nextStatus)
@@ -1191,18 +1182,7 @@ const CallingScreen = ({ navigation, route }: any) => {
         }
       }
       
-      // Navigate away based on role
-      if (role === 'consultant') {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'ConsultantTabs' as never }],
-        });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' as never }],
-        });
-      }
+      resetToHome();
     } catch (error: any) {
       if (__DEV__) {
         console.error('❌ [handleHangup] Error ending call:', error)
@@ -1217,17 +1197,7 @@ const CallingScreen = ({ navigation, route }: any) => {
             text: 'OK',
             onPress: () => {
               // Force navigation on error
-              if (role === 'consultant') {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'ConsultantTabs' as never }],
-                });
-              } else {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'MainTabs' as never }],
-                });
-              }
+              resetToHome();
             },
           },
         ]
@@ -1855,8 +1825,10 @@ const CallingScreen = ({ navigation, route }: any) => {
           iceRestartAttempted = false;
           
           // If connection is totally failed, we might need to end the call
-          if (peerConnection.connectionState === 'failed') {
-            logger.error('❌ [Receiver] Connection failed during ICE restart');
+          if (pcRef.current?.connectionState === 'failed') {
+            if (__DEV__) {
+              console.error('❌ [Receiver] Connection failed during ICE restart');
+            }
             // Optionally trigger a cleanup or end call here if needed
           }
         }
@@ -1953,17 +1925,7 @@ const CallingScreen = ({ navigation, route }: any) => {
             onPress: () => {
               // Clean up and navigate away
               endCall(callId, 'missed').catch(() => {});
-              if (role === 'consultant') {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'ConsultantTabs' as never }],
-                });
-              } else {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'MainTabs' as never }],
-                });
-              }
+              resetToHome();
             },
           },
         ]
@@ -2531,13 +2493,13 @@ const CallingScreen = ({ navigation, route }: any) => {
               style={[callingStyles.controlButton, callingStyles.videoDeclineButton]}
               onPress={handleHangup}
             >
-              <PhoneOff size={28} color={COLORS.white} />
+              <PhoneOff size={32} color={COLORS.white} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[callingStyles.controlButton, callingStyles.videoAcceptButton]}
               onPress={handleAccept}
             >
-              <Phone size={28} color={COLORS.white} />
+              <Phone size={32} color={COLORS.white} />
             </TouchableOpacity>
           </>
         ) : (
@@ -2550,7 +2512,7 @@ const CallingScreen = ({ navigation, route }: any) => {
               ]}
               onPress={handleHangup}
             >
-              <PhoneOff size={24} color={COLORS.white} />
+              <PhoneOff size={28} color={COLORS.white} />
             </TouchableOpacity>
             {status === 'active' && (
               <TouchableOpacity

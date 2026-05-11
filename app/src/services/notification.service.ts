@@ -2,6 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { api } from '../lib/fetcher';
 import { logger } from '../utils/logger';
+import {
+  markCallTerminal,
+  navigateToIncomingCallIfNeeded,
+} from './call-navigation.service';
 
 const FCM_TOKEN_KEY = 'fcm_token';
 
@@ -267,7 +271,7 @@ export const getFCMToken = async (): Promise<string | null> => {
             try {
               await messagingInstance.registerDeviceForRemoteMessages();
               await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
-            } catch (e) {
+            } catch {
               // Ignore registration errors
             }
           }
@@ -443,92 +447,14 @@ export const setupForegroundMessageHandler = () => {
       })
       };
       
-      // Verify call exists in Firestore before navigating
       try {
-        const { getCallOnce } = require('./call.service');
-        const callDoc = await getCallOnce(callId);
-        if (!callDoc.exists()) {
-                    if (__DEV__) {
-            logger.warn('⚠️ [Foreground] Call document not found:', callId)
-          };
-          // Still try to navigate - call might be created after notification
-        } else {
-          const callData = callDoc.data();
-                    if (__DEV__) {
-            logger.debug('📞 [Foreground] Call document found:', callData)
-          };
-          if (callData?.status !== 'ringing') {
-                        if (__DEV__) {
-              logger.warn('⚠️ [Foreground] Call is not ringing anymore:', callData?.status)
-            };
-            return;
-          }
-        }
+        await navigateToIncomingCallIfNeeded(
+          { callId, callType, callerId, receiverId },
+          'foreground-fcm',
+        );
       } catch (error: any) {
                 if (__DEV__) {
-          logger.warn('⚠️ [Foreground] Error checking call document:', error)
-        };
-        // Continue anyway - navigate to call screen
-      }
-      
-      // Navigate to calling screen immediately
-      try {
-        const { navigate } = require('../navigator/navigationRef');
-        
-        // Navigate to the appropriate calling screen
-        const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
-        
-                if (__DEV__) {
-          logger.debug('📞 [Foreground] Navigating to calling screen:', screenName, 'with callId:', callId)
-        };
-        
-        // Small delay to ensure navigation is ready
-        setTimeout(() => {
-          try {
-            navigate('Screen', {
-              screen: screenName,
-              params: {
-                callId,
-                isCaller: false,
-                callerId,
-                receiverId,
-              },
-            });
-            
-                        if (__DEV__) {
-              logger.debug('✅ [Foreground] Navigated to calling screen:', screenName)
-            };
-          } catch (navError: any) {
-                        if (__DEV__) {
-              logger.error('❌ [Foreground] Error navigating:', navError)
-            };
-            // Retry navigation
-            setTimeout(() => {
-              try {
-                const { navigate: retryNavigate } = require('../navigator/navigationRef');
-                retryNavigate('Screen', {
-                  screen: screenName,
-                  params: {
-                    callId,
-                    isCaller: false,
-                    callerId,
-                    receiverId,
-                  },
-                });
-                                if (__DEV__) {
-                  logger.debug('✅ [Foreground] Retry navigation successful')
-                };
-              } catch (retryError: any) {
-                                if (__DEV__) {
-                  logger.error('❌ [Foreground] Retry navigation failed:', retryError)
-                };
-              }
-            }, 1000);
-          }
-        }, 200);
-      } catch (error: any) {
-                if (__DEV__) {
-          logger.error('❌ [Foreground] Error setting up navigation:', error.message || error)
+          logger.error('❌ [Foreground] Error handling call notification:', error.message || error)
         };
       }
       
@@ -690,7 +616,7 @@ export const setupNotificationOpenedHandlerWithNavigation = (navigation: any) =>
 /**
  * Handle notification actions (reply, accept, decline, etc.)
  */
-const handleNotificationAction = (remoteMessage: any, navigation: any) => {
+const handleNotificationAction = async (remoteMessage: any, navigation: any) => {
   const messageData = remoteMessage.data || {};
   const action = messageData.action || remoteMessage.action; // Action from notification button
   
@@ -706,38 +632,20 @@ const handleNotificationAction = (remoteMessage: any, navigation: any) => {
     const receiverId = messageData.receiverId;
     
     if (action === 'accept') {
-      // Navigate to call screen and auto-accept
-      const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
-      setTimeout(() => {
-        navigation.navigate('Screen', {
-          screen: screenName,
-          params: {
-            callId,
-            isCaller: false,
-            callerId,
-            receiverId,
-            autoAccept: true, // Flag to auto-accept
-          },
-        });
-      }, 200);
+      await navigateToIncomingCallIfNeeded(
+        { callId, callType, callerId, receiverId, autoAccept: true },
+        'notification-action-accept',
+      );
     } else if (action === 'decline') {
       // Decline the call
       const { endCall } = require('./call.service');
+      markCallTerminal(callId);
       endCall(callId, 'missed').catch(() => {});
     } else {
-      // Default: navigate to call screen
-      const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
-      setTimeout(() => {
-        navigation.navigate('Screen', {
-          screen: screenName,
-          params: {
-            callId,
-            isCaller: false,
-            callerId,
-            receiverId,
-          },
-        });
-      }, 200);
+      await navigateToIncomingCallIfNeeded(
+        { callId, callType, callerId, receiverId },
+        'notification-action-open',
+      );
     }
     return;
   }
@@ -757,9 +665,6 @@ const handleNotificationAction = (remoteMessage: any, navigation: any) => {
         });
       }, 200);
     } else if (action === 'mark_read') {
-      // Mark messages as read
-      const { markMessagesSeen } = require('./chat.Service');
-      const { useAuth } = require('../contexts/AuthContext');
       // Note: This would need user context - handled in ChatContext
     } else {
       // Default: navigate to chat screen
@@ -788,7 +693,7 @@ const handleNotificationAction = (remoteMessage: any, navigation: any) => {
 };
 
 // Handle incoming call notification - navigate to calling screen
-const handleIncomingCallNotification = (data: any) => {
+const handleIncomingCallNotification = async (data: any) => {
   const callId = data.callId;
   const callType = data.callType || 'audio'; // 'audio' or 'video'
   const callerId = data.callerId;
@@ -805,41 +710,11 @@ const handleIncomingCallNotification = (data: any) => {
     return;
   }
   
-  // Navigate to calling screen
   try {
-    const { navigate } = require('../navigator/navigationRef');
-    
-    // Navigate to the appropriate calling screen
-    const screenName = callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
-    
-    // Wait a bit for navigation to be ready, then navigate
-    const navigateToCall = () => {
-      try {
-        // Navigate to Screen navigator first, then to calling screen
-        navigate('Screen', {
-          screen: screenName,
-          params: {
-            callId,
-            isCaller: false,
-            callerId,
-            receiverId,
-          },
-        });
-        
-        if (__DEV__) {
-          logger.debug('✅ [Call Notification] Navigated to calling screen:', screenName);
-        }
-      } catch (error: any) {
-        if (__DEV__) {
-          logger.error('❌ [Call Notification] Error navigating:', error.message || error);
-        }
-        // Retry after a short delay
-        setTimeout(navigateToCall, 500);
-      }
-    };
-    
-    // Try to navigate immediately
-    navigateToCall();
+    await navigateToIncomingCallIfNeeded(
+      { callId, callType, callerId, receiverId },
+      'notification-open',
+    );
   } catch (error: any) {
         if (__DEV__) {
       logger.error('❌ [Call Notification] Error setting up navigation:', error.message || error)
@@ -871,4 +746,3 @@ export const setBadgeCount = async (count: number): Promise<void> => {
     };
   }
 };
-
