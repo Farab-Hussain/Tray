@@ -169,10 +169,18 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
         snapshot.forEach((doc) => {
           const callData = doc.data() as CallDocument;
           const callId = doc.id;
-          // Only trigger callback if status is still ringing
-          if (callData.status === 'ringing') {
+          
+          // Check if call is stale (older than 60 seconds)
+          const now = Date.now();
+          const startedAt = callData.startedAt?.toMillis ? callData.startedAt.toMillis() : now;
+          const isStale = (now - startedAt) > 60000; // 60 seconds timeout
+
+          // Only trigger callback if status is still ringing and not stale
+          if (callData.status === 'ringing' && !isStale) {
             logger.debug('📞 [Incoming Call] Existing ringing call detected:', callId, callData);
             cb(callId, callData);
+          } else if (callData.status === 'ringing' && isStale) {
+            logger.debug('📞 [listenIncomingCalls] Found stale ringing call', callId, '- skipping');
           } else {
             logger.debug('📞 [listenIncomingCalls] Existing call status is', callData.status, '- skipping');
           }

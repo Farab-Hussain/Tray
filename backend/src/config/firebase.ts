@@ -56,7 +56,15 @@ if (!admin.apps.length) {
         console.log("✅ [Auth Test] Messaging access: OK");
       })
       .catch((error: any) => {
-        if (error.code === 'messaging/invalid-registration-token' || error.code === 'messaging/registration-token-not-registered') {
+        // These errors indicate the request REACHED Firebase and was rejected for the token,
+        // which means the service account credentials themselves are valid.
+        const validCredentialErrors = [
+          'messaging/invalid-registration-token',
+          'messaging/registration-token-not-registered',
+          'messaging/invalid-argument'
+        ];
+
+        if (validCredentialErrors.includes(error.code)) {
           console.log("✅ [Auth Test] Messaging access: OK (Credentials verified)");
         } else {
           console.error("❌ [Auth Test] Messaging failed with AUTH ERROR:", error.message);

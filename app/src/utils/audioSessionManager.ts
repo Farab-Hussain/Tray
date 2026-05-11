@@ -37,13 +37,21 @@ export class AudioSessionManager {
       });
 
       // Configure audio routing
-      if (Platform.OS === 'ios') {
-        // On iOS, use earpiece by default for calls
-        InCallManager.setForceSpeakerphoneOn(false);
-        InCallManager.setSpeakerphoneOn(false);
+      if (isVideo) {
+        InCallManager.setForceSpeakerphoneOn(true);
+        InCallManager.setSpeakerphoneOn(true);
+        console.log('🔊 [AudioSession] Speakerphone enabled for video call');
       } else {
-        // On Android, configure for voice calls
-        InCallManager.setForceSpeakerphoneOn(false);
+        if (Platform.OS === 'ios') {
+          // On iOS, use earpiece by default for audio calls
+          InCallManager.setForceSpeakerphoneOn(false);
+          InCallManager.setSpeakerphoneOn(false);
+          console.log('👂 [AudioSession] Earpiece enabled for audio call (iOS)');
+        } else {
+          // On Android, configure for voice calls
+          InCallManager.setForceSpeakerphoneOn(false);
+          console.log('👂 [AudioSession] Earpiece configured for audio call (Android)');
+        }
       }
 
       this.isSessionActive = true;

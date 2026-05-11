@@ -309,12 +309,12 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           // Ensure audio session is active for playback when remote stream arrives
           if (InCallManager) {
             try {
-              InCallManager.start({ media: 'audio', auto: true });
-              InCallManager.setForceSpeakerphoneOn(false);
+              InCallManager.start({ media: 'video', auto: true });
+              InCallManager.setForceSpeakerphoneOn(true);
               InCallManager.setMicrophoneMute(isMutedRef.current);
-              InCallManager.setSpeakerphoneOn(false);
+              InCallManager.setSpeakerphoneOn(true);
               if (Platform.OS === 'ios') {
-                InCallManager.setSpeakerphoneOn(false); // Use earpiece
+                InCallManager.setSpeakerphoneOn(true); // Use speaker for video calls
               }
               if (__DEV__) {
                 console.log('✅ [Receiver] Audio session activated for remote stream playback');
@@ -323,9 +323,10 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
               setTimeout(() => {
                 if (InCallManager) {
                   try {
-                    InCallManager.start({ media: 'audio', auto: true });
+                    InCallManager.start({ media: 'video', auto: true });
+                    InCallManager.setSpeakerphoneOn(true);
                     if (__DEV__) {
-                      console.log('✅ [Receiver] Audio session reactivated for playback');
+                      console.log('✅ [Receiver] Audio session reactivated for playback (speaker mode)');
                     }
                   } catch {
                     // Ignore errors
@@ -1394,11 +1395,14 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                     });
                     if (InCallManager && audioTracks.length > 0) {
                       try {
-                        InCallManager.start({ media: 'audio', auto: true });
+                        InCallManager.start({ media: 'video', auto: true });
+                        InCallManager.setForceSpeakerphoneOn(true);
+                        InCallManager.setSpeakerphoneOn(true);
                         setTimeout(() => {
                           if (InCallManager) {
                             try {
-                              InCallManager.start({ media: 'audio', auto: true });
+                              InCallManager.start({ media: 'video', auto: true });
+                              InCallManager.setSpeakerphoneOn(true);
                             } catch {
                               // Ignore errors
                             }
