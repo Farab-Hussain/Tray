@@ -597,15 +597,19 @@ export const uploadResumeFile = async (req: Request, res: Response) => {
 export const getUploadSignature = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.uid;
-    const { folder = 'tray/profile-images' } = req.body;
-
-    // Generate upload signature for Cloudinary
+    const { folder = 'tray/profile-images', resourceType = 'image' } = req.body;
     const timestamp = Math.round(new Date().getTime() / 1000);
     const publicId = `${userId}/${randomUUID()}`;
+    
+    // For videos, we use a different folder if not specified
+    const targetFolder = folder === 'tray/profile-images' && resourceType === 'video' 
+      ? 'tray/service-videos' 
+      : folder;
+
     const signature = cloudinary.utils.api_sign_request(
       {
         timestamp,
-        folder,
+        folder: targetFolder,
         public_id: publicId,
       },
       process.env.CLOUDINARY_API_SECRET!
@@ -616,7 +620,7 @@ export const getUploadSignature = async (req: Request, res: Response) => {
       timestamp,
       cloudName: process.env.CLOUDINARY_CLOUD_NAME,
       apiKey: process.env.CLOUDINARY_API_KEY,
-      folder,
+      folder: targetFolder,
       publicId,
     });
 

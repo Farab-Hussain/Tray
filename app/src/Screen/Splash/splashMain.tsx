@@ -47,10 +47,10 @@ const SplashMain = ({navigation}:any) => {
           textStyle={globalStyles.buttonTextBlack}
         />
         <AppButton
-          title="REGISTER AS RECRUITER"
+          title="REGISTER AS HIRING MANAGER"
           onPress={() => {
                         if (__DEV__) {
-              console.log('Splash Screen - REGISTER AS RECRUITER clicked, role: recruiter')
+              console.log('Splash Screen - REGISTER AS HIRING MANAGER clicked, role: recruiter')
             };
             setIntendedRole('recruiter');
             navigation.navigate('Auth', { 

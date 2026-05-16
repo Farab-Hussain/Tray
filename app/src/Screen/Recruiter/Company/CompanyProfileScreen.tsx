@@ -17,7 +17,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import { COLORS } from '../../../constants/core/colors';
 import { screenStyles } from '../../../constants/styles/screenStyles';
-import { Building2, Globe, Users, MapPin, Shield, Check, X, Upload, ChevronsDownUp } from 'lucide-react-native';
+import { Shield, Upload, ChevronsDownUp } from 'lucide-react-native';
 import companyService from '../../../services/company.service';
 
 interface CompanyProfile {
@@ -90,7 +90,6 @@ interface FairChanceHiringSettings {
 }
 
 const CompanyProfileScreen = ({ navigation, route }: any) => {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [company, setCompany] = useState<CompanyProfile>({
@@ -358,6 +357,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 value={company.name}
                 onChangeText={(text) => setCompany({ ...company, name: text })}
                 placeholder="Enter company name"
+                placeholderTextColor={COLORS.lightGray}
               />
             </View>
 
@@ -376,10 +376,12 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 }}
                 value={company.description}
                 onChangeText={(text) => setCompany({ ...company, description: text })}
-                placeholder="Describe your company"
+                placeholder="Describe your company in detail..."
+                placeholderTextColor={COLORS.lightGray}
                 multiline
               />
             </View>
+      
 
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 14, color: COLORS.gray, marginBottom: 8 }}>Industry *</Text>
@@ -388,6 +390,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                   borderWidth: 1,
                   borderColor: COLORS.border,
                   borderRadius: 8,
+                  color: COLORS.black,
                   padding: 12,
                   flexDirection: 'row',
                   justifyContent: 'space-between',
@@ -417,7 +420,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 })}
               >
                 <Text style={{ color: company.industry ? COLORS.black : COLORS.gray }}>
-                  {company.industry || 'Select industry'}
+                  {company.industry || 'Select Industry'}
                 </Text>
                 <ChevronsDownUp size={16} color={COLORS.gray} />
               </TouchableOpacity>
@@ -459,7 +462,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 })}
               >
                 <Text style={{ color: company.size ? COLORS.black : COLORS.gray }}>
-                  {company.size || 'Select company size'}
+                  {company.size || 'Select Company Size'}
                 </Text>
                 <ChevronsDownUp size={16} color={COLORS.gray} />
               </TouchableOpacity>
@@ -479,6 +482,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 value={company.website}
                 onChangeText={(text) => setCompany({ ...company, website: text })}
                 placeholder="https://www.company.com"
+                placeholderTextColor={COLORS.lightGray}
                 keyboardType="url"
               />
             </View>
@@ -506,7 +510,8 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                   ...company,
                   contactInfo: { ...company.contactInfo, email: text }
                 })}
-                placeholder="contact@company.com"
+                placeholder="Enter your email"
+                placeholderTextColor={COLORS.lightGray}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -530,6 +535,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                   contactInfo: { ...company.contactInfo, phone: text.replace(/[^0-9+()\-\s]/g, '') }
                 })}
                 placeholder="+1 (555) 123-4567"
+                placeholderTextColor={COLORS.lightGray}
                 keyboardType="phone-pad"
               />
             </View>
@@ -622,6 +628,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                         fairChanceHiring: { ...company.fairChanceHiring, secondChancePolicy: text }
                       })}
                       placeholder="Describe your second chance policy..."
+                      placeholderTextColor={COLORS.lightGray}
                       multiline
                     />
                   </View>
@@ -643,6 +650,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 value={company.hiringVolumeMonthly}
                 onChangeText={(text) => setCompany({ ...company, hiringVolumeMonthly: text })}
                 placeholder="e.g., 15 roles per month"
+                placeholderTextColor={COLORS.lightGray}
                 keyboardType="default"
               />
             </View>
@@ -654,6 +662,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 value={company.hiringRequirements}
                 onChangeText={(text) => setCompany({ ...company, hiringRequirements: text })}
                 placeholder="Background checks, assessments, experience requirements, etc."
+                placeholderTextColor={COLORS.lightGray}
                 multiline
               />
             </View>
@@ -672,6 +681,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 value={company.backgroundPolicyType}
                 onChangeText={(text) => setCompany({ ...company, backgroundPolicyType: text })}
                 placeholder="e.g., Level 1 check, case-by-case"
+                placeholderTextColor={COLORS.lightGray}
               />
             </View>
 
@@ -682,6 +692,7 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 value={company.drugTestingPolicy}
                 onChangeText={(text) => setCompany({ ...company, drugTestingPolicy: text })}
                 placeholder="Pre-employment, random, none"
+                placeholderTextColor={COLORS.lightGray}
               />
             </View>
 
@@ -746,7 +757,8 @@ const CompanyProfileScreen = ({ navigation, route }: any) => {
                 value={company.benefitsOffered}
                 onChangeText={(text) => setCompany({ ...company, benefitsOffered: text })}
                 placeholder="Health, PTO, 401k, bonuses, etc."
-                multiline
+                multiline 
+                placeholderTextColor={COLORS.lightGray}
               />
             </View>
           </View>

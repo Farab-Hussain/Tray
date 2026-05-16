@@ -360,7 +360,7 @@ export default function CourseCreationScreen() {
 
       if (response?.didCancel) return;
       if (response?.errorMessage) {
-        Alert.alert('Upload Issue', response.issueMessage);
+        Alert.alert('Upload Issue', response.errorMessage);
         return;
       }
 
@@ -383,7 +383,7 @@ export default function CourseCreationScreen() {
       const fileSizeMB = Math.round((asset.fileSize || 0) / (1024 * 1024));
       logger.debug(`📤 [CourseCreation] Uploading video: ${fileSizeMB}MB`);
 
-      const result = await UploadService.uploadServiceVideo(file);
+      const result = await UploadService.uploadVideoDirect(file);
       const videoUrl = result.videoUrl || '';
       if (!videoUrl) {
         throw new Error('Video uploaded but no URL returned.');
@@ -401,7 +401,7 @@ export default function CourseCreationScreen() {
       );
     } catch (error: any) {
       logger.error('❌ [CourseCreation] Video upload error:', error);
-      Alert.alert('Upload Issue', issue?.message || 'Failed to upload video.');
+      Alert.alert('Upload Issue', error?.message || 'Failed to upload video.');
     } finally {
       updateVideoItem(videoId, 'isUploadingVideo', false);
     }
@@ -452,7 +452,7 @@ export default function CourseCreationScreen() {
 
       if (response?.didCancel) return;
       if (response?.errorMessage) {
-        Alert.alert('Upload Issue', response.issueMessage);
+        Alert.alert('Upload Issue', response.errorMessage);
         return;
       }
 
@@ -471,7 +471,7 @@ export default function CourseCreationScreen() {
         size: asset.fileSize,
       };
 
-      const result = await UploadService.uploadServiceVideo(file);
+      const result = await UploadService.uploadVideoDirect(file);
       const videoUrl = result.videoUrl || '';
       if (!videoUrl) {
         throw new Error('Video uploaded but no URL returned.');
@@ -482,7 +482,7 @@ export default function CourseCreationScreen() {
       Alert.alert('Upload Complete', 'Intro video uploaded successfully.');
     } catch (error: any) {
       logger.error('❌ [CourseCreation] Intro video upload error:', error);
-      Alert.alert('Upload Issue', issue?.message || 'Failed to upload intro video.');
+      Alert.alert('Upload Issue', error?.message || 'Failed to upload intro video.');
     } finally {
       setIsUploadingIntroVideo(false);
     }
@@ -789,6 +789,7 @@ export default function CourseCreationScreen() {
           placeholder="Describe what students will learn"
           value={formData.description}
           onChangeText={(text) => updateFormData('description', text)}
+          placeholderTextColor={COLORS.lightGray}
           multiline
         />
         {errors.description && (

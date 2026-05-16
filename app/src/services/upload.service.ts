@@ -447,14 +447,89 @@ const UploadService = {
   },
 
   /**
+   * Upload video directly to Cloudinary (bypasses Vercel limits)
+   * @param videoFile - File object with uri, type, and name
+   * @param folder - Cloudinary folder (default: 'tray/service-videos')
+   * @returns UploadResponse with videoUrl and publicId
+   */
+  async uploadVideoDirect(videoFile: any, folder: string = 'tray/service-videos'): Promise<UploadResponse> {
+    try {
+      // 1. Validate video file
+      const validation = this.validateVideoFile(videoFile);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+
+      // 2. Get signed upload signature from backend
+      if (__DEV__) {
+        logger.debug('📤 [UploadService] Getting upload signature for direct upload');
+      }
+      const signatureData = await this.getUploadSignature(folder, 'video');
+      
+      // 3. Prepare file for upload
+      const fileToUpload = await prepareFileForUpload(videoFile, 'video/mp4', 'video.mp4');
+
+      // 4. Prepare FormData for Cloudinary
+      const formData = new FormData();
+      formData.append('file', fileToUpload as any);
+      formData.append('api_key', signatureData.apiKey);
+      formData.append('timestamp', signatureData.timestamp.toString());
+      formData.append('signature', signatureData.signature);
+      formData.append('folder', signatureData.folder);
+      formData.append('public_id', signatureData.publicId);
+
+      if (__DEV__) {
+        logger.debug('📤 [UploadService] Uploading directly to Cloudinary:', {
+          cloudName: signatureData.cloudName,
+          folder: signatureData.folder,
+          publicId: signatureData.publicId,
+        });
+      }
+
+      // 5. Upload directly to Cloudinary
+      const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${signatureData.cloudName}/video/upload`;
+      
+      const startTime = Date.now();
+      const response = await fetch(cloudinaryUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Cloudinary upload failed' }));
+        throw new Error(errorData.error?.message || 'Direct Cloudinary upload failed');
+      }
+
+      const result = await response.json();
+      const duration = Date.now() - startTime;
+
+      if (__DEV__) {
+        logger.debug(`⏱️ [UploadService] Direct upload completed in ${duration}ms`);
+        logger.debug('✅ [UploadService] Video uploaded successfully to Cloudinary');
+      }
+
+      return {
+        message: 'Video uploaded successfully',
+        videoUrl: result.secure_url,
+        publicId: result.public_id,
+        mediaType: 'video',
+      };
+    } catch (error: any) {
+      logger.error('❌ [UploadService] Error in direct video upload:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get upload signature for direct Cloudinary upload (optional - for advanced use cases)
    * @param folder - Cloudinary folder path (default: 'tray/profile-images')
    * @returns UploadSignatureResponse with signature and upload parameters
    */
-  async getUploadSignature(folder: string = 'tray/profile-images'): Promise<UploadSignatureResponse> {
+  async getUploadSignature(folder: string = 'tray/profile-images', resourceType: 'image' | 'video' = 'image'): Promise<UploadSignatureResponse> {
     try {
       const response = await api.post<UploadSignatureResponse>('/upload/upload-signature', {
         folder,
+        resourceType,
       });
 
       return response.data;
@@ -484,13 +559,14 @@ const UploadService = {
       return { isValid: false, error: 'Only video files are allowed' };
     }
 
-    // Check Cloudinary free tier limit (100MB)
-    const maxSize = 100 * 1024 * 1024; // 100MB in bytes
+    // Check Cloudinary limit (1GB for paid, though frontend checks 100MB by default)
+    // We increase this to 1GB to support larger videos
+    const maxSize = 1024 * 1024 * 1024; // 1GB in bytes
     if (file.size && file.size > maxSize) {
       const fileSizeMB = Math.round(file.size / (1024 * 1024));
       return { 
         isValid: false, 
-        error: `Video file is too large for current plan. Maximum allowed size is 100MB. Current size: ${fileSizeMB}MB. Please compress your video or upgrade your Cloudinary account for larger file support.` 
+        error: `Video file is too large. Maximum allowed size is 1GB. Current size: ${fileSizeMB}MB.` 
       };
     }
 

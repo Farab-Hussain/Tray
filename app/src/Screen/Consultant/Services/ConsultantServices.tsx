@@ -601,6 +601,7 @@ const ConsultantServices = ({ navigation }: any) => {
                 value={formData.description}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
                 placeholder="Describe your service"
+                placeholderTextColor={COLORS.lightGray}
                 multiline
               />
 
