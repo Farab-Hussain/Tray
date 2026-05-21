@@ -70,6 +70,12 @@ router.post("/verify-otp", validateVerifyOTP, authController.verifyOTP);
 router.post("/reset-password", validateResetPassword, authController.resetPassword);
 
 /**
+ * GET /auth/verification-status
+ * Check if email is verified (does not send email)
+ */
+router.get("/verification-status", authenticateUser(), authController.getVerificationStatus);
+
+/**
  * POST /auth/resend-verification-email
  * Resend email verification using Firebase Admin SDK (fallback method)
  */

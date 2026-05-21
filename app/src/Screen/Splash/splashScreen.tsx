@@ -53,26 +53,11 @@ const SplashScreen = ({ navigation }: any) => {
               console.log('SplashScreen - Firebase shows unverified, checking backend...')
             };
             try {
-              const token = await reloadedUser.getIdToken();
-              
-              // Use a timeout for the backend check
-              const backendCheckPromise = api.post('/auth/resend-verification-email', {
-                email: reloadedUser.email,
-                uid: reloadedUser.uid
-              }, {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              });
-              
-              const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Backend check timeout')), 5000)
+              const { fetchEmailVerificationStatus } = await import(
+                '../../services/auth-verification.service'
               );
-              
-              const backendCheck = await Promise.race([backendCheckPromise, timeoutPromise]) as any;
-              
-              // Check what backend says about verification status
-              const backendSaysVerified = backendCheck?.data?.emailVerified === true;
+              const backendCheck = await fetchEmailVerificationStatus();
+              const backendSaysVerified = backendCheck?.emailVerified === true;
                             if (__DEV__) {
                 console.log('SplashScreen - Backend says emailVerified:', backendSaysVerified)
               };
@@ -83,17 +68,19 @@ const SplashScreen = ({ navigation }: any) => {
                   console.log('SplashScreen - Backend says verified but Firebase doesn\'t, syncing...')
                 };
                 try {
-                  // Try to sync via verify-email endpoint
-                  const syncPromise = api.post('/auth/verify-email', {
-                    email: reloadedUser.email,
-                    uid: reloadedUser.uid
-                  }, {
-                    headers: {
-                      'Authorization': `Bearer ${token}`
-                    }
-                  });
-                  
-                  await Promise.race([syncPromise, timeoutPromise]);
+                  const token = await reloadedUser.getIdToken();
+                  await api.post(
+                    '/auth/verify-email',
+                    {
+                      email: reloadedUser.email,
+                      uid: reloadedUser.uid,
+                    },
+                    {
+                      headers: { Authorization: `Bearer ${token}` },
+                      timeout: 15000,
+                      __suppressErrorToast: true,
+                    } as Parameters<typeof api.post>[2],
+                  );
                   
                   // Reload user after sync attempt
                   await reloadedUser.reload();
@@ -260,18 +247,11 @@ const SplashScreen = ({ navigation }: any) => {
             // If still not verified, check with backend
             if (!isVerified) {
               try {
-                const token = await user.getIdToken();
-                const backendCheck = await api.post('/auth/resend-verification-email', {
-                  email: user.email,
-                  uid: user.uid
-                }, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`
-                  },
-                  timeout: 3000
-                });
-                
-                if (backendCheck.data?.emailVerified === true) {
+                const { fetchEmailVerificationStatus } = await import(
+                  '../../services/auth-verification.service'
+                );
+                const backendCheck = await fetchEmailVerificationStatus();
+                if (backendCheck?.emailVerified === true) {
                                     if (__DEV__) {
                     console.log('SplashScreen - Safety timeout: Backend confirms email is verified')
                   };

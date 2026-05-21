@@ -330,6 +330,40 @@ export const getFCMToken = async (): Promise<string | null> => {
 };
 
 /**
+ * Ensure the device FCM token is registered with the backend (idempotent).
+ * Call on login, app foreground, and after permission grants.
+ */
+export const ensurePushNotificationsRegistered = async (
+  options?: { forceRefresh?: boolean }
+): Promise<boolean> => {
+  try {
+    let token: string | null = null;
+
+    if (options?.forceRefresh) {
+      token = await getFCMToken();
+    } else {
+      token = await AsyncStorage.getItem(FCM_TOKEN_KEY);
+      if (!token) {
+        token = await getFCMToken();
+      }
+    }
+
+    if (!token) {
+      if (__DEV__) {
+        logger.warn('⚠️ [FCM] No token available — push notifications will not work until permission is granted');
+      }
+      return false;
+    }
+
+    await registerFCMToken(token);
+    return true;
+  } catch (error: any) {
+    logger.error('❌ [FCM] ensurePushNotificationsRegistered failed:', error?.message || error);
+    return false;
+  }
+};
+
+/**
  * Register FCM token with backend
  */
 export const registerFCMToken = async (fcmToken: string): Promise<void> => {

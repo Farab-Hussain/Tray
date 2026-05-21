@@ -1,12 +1,10 @@
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-const canLog = (level: LogLevel) => {
-  if (level === 'error' || level === 'warn') return true;
-  return __DEV__;
-};
+/** Logs are stripped in production builds (__DEV__ === false), like Next.js. */
+const canLog = () => __DEV__;
 
-const write = (level: LogLevel, ...args: any[]) => {
-  if (!canLog(level)) return;
+const write = (level: LogLevel, ...args: unknown[]) => {
+  if (!canLog()) return;
   if (level === 'debug' || level === 'info') {
     console.log(...args);
     return;
@@ -19,9 +17,8 @@ const write = (level: LogLevel, ...args: any[]) => {
 };
 
 export const logger = {
-  debug: (...args: any[]) => write('debug', ...args),
-  info: (...args: any[]) => write('info', ...args),
-  warn: (...args: any[]) => write('warn', ...args),
-  error: (...args: any[]) => write('error', ...args),
+  debug: (...args: unknown[]) => write('debug', ...args),
+  info: (...args: unknown[]) => write('info', ...args),
+  warn: (...args: unknown[]) => write('warn', ...args),
+  error: (...args: unknown[]) => write('error', ...args),
 };
-

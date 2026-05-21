@@ -79,9 +79,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       logger.debug('📱 [NotificationContext] App state changed:', appState, '->', nextAppState);
       
-      if (appState === 'background' && nextAppState === 'active') {
-        logger.debug('📱 [NotificationContext] App came to foreground - checking for missed calls');
-        // Check for any calls that might have been missed while app was backgrounded
+      if (appState.match(/inactive|background/) && nextAppState === 'active') {
+        logger.debug('📱 [NotificationContext] App came to foreground — re-registering FCM token');
+        void NotificationService.ensurePushNotificationsRegistered({ forceRefresh: true });
         checkForMissedCalls();
       }
       
@@ -158,15 +158,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const initializeNotifications = async () => {
       try {
-        // Request permission and get FCM token
-        logger.debug('📱 [NotificationContext] Requesting FCM token...');
-        const fcmToken = await NotificationService.getFCMToken();
+        logger.debug('📱 [NotificationContext] Ensuring FCM token is registered with backend...');
+        const registered = await NotificationService.ensurePushNotificationsRegistered();
 
-        if (fcmToken) {
-          logger.debug('✅ [NotificationContext] FCM token obtained:', fcmToken.substring(0, 20) + '...');
-          logger.debug('📤 [NotificationContext] Registering token with backend...');
-          // Register token with backend
-          await NotificationService.registerFCMToken(fcmToken);
+        if (registered) {
           logger.debug('✅ [NotificationContext] FCM token registration completed');
 
           // Setup token refresh listener

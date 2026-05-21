@@ -228,6 +228,15 @@ const EnhancedCourseLibraryScreen: React.FC<Props> = ({ navigation, route }) => 
   const handlePurchase = async () => {
     if (!selectedCourse) return;
 
+    const { ensurePlatformAccessPaid } = await import('../../../utils/platformAccessFee');
+    const paid = await ensurePlatformAccessPaid(navigation, {
+      returnTo: { screen: 'EnhancedCourseLibrary' },
+    });
+    if (!paid) {
+      setShowPurchaseModal(false);
+      return;
+    }
+
     try {
       // Calculate price based on selected option
       let price = 0;

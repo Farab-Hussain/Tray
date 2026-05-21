@@ -7,15 +7,17 @@ import {
   ActivityIndicator,
   ScrollView,
   TextInput,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
-import ScreenHeader from '../../../components/shared/ScreenHeader';
 import PaymentService from '../../../services/payment.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
 import { Lock } from 'lucide-react-native';
+import type { PlatformAccessReturnTo } from '../../../utils/platformAccessFee';
 
 interface PlatformAccessPaymentScreenProps {
   navigation: any;
@@ -24,7 +26,15 @@ interface PlatformAccessPaymentScreenProps {
 const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = ({
   navigation,
 }) => {
-  const { user, refreshUser } = useAuth();
+  const route = useRoute();
+  const routeParams = (route.params || {}) as {
+    required?: boolean;
+    returnTo?: PlatformAccessReturnTo;
+  };
+  const isRequired = routeParams.required !== false;
+  const returnTo = routeParams.returnTo;
+
+  const { user, refreshUser, refreshPlatformAccessStatus } = useAuth();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [loading, setLoading] = useState(true);
@@ -32,6 +42,15 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [accessFee, setAccessFee] = useState(25);
   const [promotionCode, setPromotionCode] = useState('');
+  const [completed, setCompleted] = useState(false);
+
+  const finishAndNavigate = useCallback(() => {
+    if (returnTo?.screen) {
+      navigation.replace(returnTo.screen, returnTo.params);
+      return;
+    }
+    navigation.replace('MainTabs');
+  }, [navigation, returnTo]);
 
   const initializePaymentSheet = useCallback(async () => {
     try {
@@ -39,7 +58,13 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
 
       const status = await PaymentService.getAccessFeeStatus();
       if (status.paid) {
-        navigation.goBack();
+        setCompleted(true);
+        await refreshPlatformAccessStatus();
+        if (!isRequired) {
+          navigation.goBack();
+        } else {
+          finishAndNavigate();
+        }
         return;
       }
       setAccessFee(status.fee ?? 25);
@@ -75,11 +100,50 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     } finally {
       setLoading(false);
     }
-  }, [user, initPaymentSheet, navigation, promotionCode]);
+  }, [
+    user,
+    initPaymentSheet,
+    navigation,
+    promotionCode,
+    isRequired,
+    refreshPlatformAccessStatus,
+    finishAndNavigate,
+  ]);
 
   useEffect(() => {
     initializePaymentSheet();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isRequired || completed) {
+        return undefined;
+      }
+
+      const onBackPress = () => true;
+
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress,
+      );
+
+      const unsubscribe = navigation.addListener('beforeRemove', (e: { preventDefault: () => void }) => {
+        if (completed) {
+          return;
+        }
+        e.preventDefault();
+        Alert.alert(
+          'Payment Required',
+          'Please complete the one-time platform access fee ($25) to use Tray. You cannot book sessions or purchase courses until this is paid.',
+        );
+      });
+
+      return () => {
+        subscription.remove();
+        unsubscribe();
+      };
+    }, [navigation, isRequired, completed]),
+  );
 
   const handleApplyPromo = () => {
     initializePaymentSheet();
@@ -91,16 +155,13 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     );
 
     if (response.success) {
+      setCompleted(true);
       await refreshUser?.();
+      await refreshPlatformAccessStatus();
       Alert.alert(
         'Payment Successful',
-        'You now have full platform access.',
-        [
-          {
-            text: 'Continue',
-            onPress: () => navigation.goBack(),
-          },
-        ],
+        'You now have full platform access. You can book sessions and purchase courses.',
+        [{ text: 'Continue', onPress: finishAndNavigate }],
       );
     } else {
       Alert.alert('Issue', response.error || 'Failed to confirm payment');
@@ -132,9 +193,9 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   if (loading) {
     return (
       <SafeAreaView style={paymentScreenStyles.container}>
-        <ScreenHeader title="Platform Access" onBackPress={() => navigation.goBack()} />
         <View style={paymentScreenStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.blue} />
+          <Text style={paymentScreenStyles.pricingTitle}>Platform Access</Text>
+          <ActivityIndicator size="large" color={COLORS.blue} style={{ marginTop: 16 }} />
           <Text style={paymentScreenStyles.loadingText}>Initializing payment...</Text>
         </View>
       </SafeAreaView>
@@ -143,10 +204,15 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
 
   return (
     <SafeAreaView style={paymentScreenStyles.container}>
-      <ScreenHeader title="Platform Access" onBackPress={() => navigation.goBack()} />
-
       <ScrollView style={paymentScreenStyles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={paymentScreenStyles.content}>
+          <Text style={[paymentScreenStyles.pricingTitle, { marginBottom: 8, textAlign: 'center' }]}>
+            Platform Access Required
+          </Text>
+          <Text style={[paymentScreenStyles.pricingSubtitle, { textAlign: 'center', marginBottom: 16 }]}>
+            One-time fee to book consultants and purchase courses. Required before any session payment.
+          </Text>
+
           <View style={paymentScreenStyles.pricingCard}>
             <View style={paymentScreenStyles.pricingHeader}>
               <Text style={paymentScreenStyles.pricingTitle}>One-Time Access Fee</Text>
@@ -154,9 +220,6 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
                 <Text style={paymentScreenStyles.currencySymbol}>$</Text>
                 <Text style={paymentScreenStyles.priceAmount}>{accessFee.toFixed(2)}</Text>
               </View>
-              <Text style={paymentScreenStyles.pricingSubtitle}>
-                Flat rate for students and consultants — full platform access
-              </Text>
             </View>
           </View>
 
@@ -195,7 +258,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
               <>
                 <Lock size={20} color={COLORS.white} />
                 <Text style={paymentScreenStyles.payButtonText}>
-                  Pay ${accessFee.toFixed(2)}
+                  Pay ${accessFee.toFixed(2)} to Continue
                 </Text>
               </>
             )}

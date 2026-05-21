@@ -231,7 +231,14 @@ const Cart = ({ navigation, route }: any) => {
       return;
     }
 
-    // Navigate to payment screen with cart items
+    const { ensurePlatformAccessPaid } = await import('../../../utils/platformAccessFee');
+    const paid = await ensurePlatformAccessPaid(navigation, {
+      returnTo: { screen: 'Payment', params: { cartItems: cartItemsState } },
+    });
+    if (!paid) {
+      return;
+    }
+
     navigation.navigate('Payment', { cartItems: cartItemsState });
   };
 

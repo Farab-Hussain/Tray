@@ -30,14 +30,19 @@ try {
 // In production, React Native automatically disables error overlays,
 // but we can configure it explicitly for development
 if (__DEV__) {
-  // Only show errors in development, not warnings
   LogBox.ignoreLogs([
-    // Ignore specific warnings that are not critical
     'InteractionManager has been deprecated',
     'This method is deprecated',
     'react-native-firebase',
     'migrating-to-v22',
     'Please use `getApp()` instead',
+    'API Error Details',
+    'ECONNABORTED',
+    'timeout of',
+    'listenIncomingCalls',
+    'AxiosError',
+    'Error posting job',
+    'Request failed with status code',
   ]);
 } else {
   // In production, completely ignore all logs and errors

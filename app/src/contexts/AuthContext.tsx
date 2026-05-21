@@ -26,7 +26,9 @@ interface AuthContextType {
     | 'rejected'
     | null;
   needsProfileCreation: boolean;
+  hasPaidPlatformAccess: boolean;
   refreshUser: () => Promise<void>;
+  refreshPlatformAccessStatus: () => Promise<boolean>;
   refreshConsultantStatus: () => Promise<void>;
   setIntendedRole: (role: string) => void;
   requestConsultantRole: () => Promise<void>;
@@ -43,7 +45,9 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   consultantVerificationStatus: null,
   needsProfileCreation: false,
+  hasPaidPlatformAccess: false,
   refreshUser: async () => {},
+  refreshPlatformAccessStatus: async () => false,
   refreshConsultantStatus: async () => {},
   setIntendedRole: () => {},
   requestConsultantRole: async () => {},
@@ -71,6 +75,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [consultantVerificationStatus, setConsultantVerificationStatus] =
     useState<'incomplete' | 'pending' | 'approved' | 'rejected' | null>(null);
   const [needsProfileCreation, setNeedsProfileCreation] =
+    useState<boolean>(false);
+  const [hasPaidPlatformAccess, setHasPaidPlatformAccess] =
     useState<boolean>(false);
 
   // Use ref to track if we're currently fetching to prevent duplicate calls
@@ -230,6 +236,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setRoles(userRoles);
         setActiveRole(userActiveRole);
         setRole(userActiveRole); // Keep for backward compatibility
+        setHasPaidPlatformAccess(
+          res.data?.hasPaidAccessFee === true ||
+            res.data?.accessFeeWaived === true,
+        );
 
         await AsyncStorage.setItem('roles', JSON.stringify(userRoles));
         await AsyncStorage.setItem('activeRole', userActiveRole);
@@ -346,6 +356,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     [logout, refreshConsultantStatus],
   );
 
+  const refreshPlatformAccessStatus = useCallback(async (): Promise<boolean> => {
+    try {
+      const { checkPlatformAccessPaid } = await import(
+        '../utils/platformAccessFee'
+      );
+      const paid = await checkPlatformAccessPaid();
+      setHasPaidPlatformAccess(paid);
+      return paid;
+    } catch {
+      setHasPaidPlatformAccess(false);
+      return false;
+    }
+  }, []);
+
   const refreshUser = useCallback(async () => {
     if (auth.currentUser) {
       try {
@@ -413,6 +437,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           };
 
           setUser(updatedUser as User);
+          setHasPaidPlatformAccess(
+            backendProfile.data?.hasPaidAccessFee === true ||
+              backendProfile.data?.accessFeeWaived === true,
+          );
           if (__DEV__) {
             console.log(
               '✅ [refreshUser] User refreshed with profileImage:',
@@ -649,42 +677,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               );
             }
 
-            // Check backend to see if email is verified (web verification might have happened)
-            // Use Promise.race to ensure this doesn't block forever
+            // Read-only status check (does not resend verification email)
             try {
-              const backendCheckPromise = (async () => {
-                const token = await reloadedUser.getIdToken();
-                return api.post(
-                  '/auth/resend-verification-email',
-                  {
-                    email: reloadedUser.email,
-                    uid: reloadedUser.uid,
-                  },
-                  {
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
-                    timeout: 5000, // 5 second timeout for backend check
-                  },
-                );
-              })();
-
-              // Race the backend check with a timeout
-              const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(
-                  () => reject(new Error('Backend check timeout')),
-                  5000,
-                ),
+              const { fetchEmailVerificationStatus } = await import(
+                '../services/auth-verification.service'
               );
-
-              const backendCheck = (await Promise.race([
-                backendCheckPromise,
-                timeoutPromise,
-              ])) as any;
+              const backendCheck = await fetchEmailVerificationStatus();
 
               // If backend says verified but Firebase doesn't, reload again
               if (
-                backendCheck?.data?.emailVerified &&
+                backendCheck?.emailVerified &&
                 !reloadedUser.emailVerified
               ) {
                 if (__DEV__) {
@@ -705,7 +707,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                     );
                   }
                   try {
-                    const syncPromise = api.post(
+                    await api.post(
                       '/auth/verify-email',
                       {
                         email: reloadedUser.email,
@@ -715,10 +717,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                         headers: {
                           Authorization: `Bearer ${await reloadedUser.getIdToken()}`,
                         },
-                        timeout: 5000,
-                      },
+                        timeout: 15000,
+                        __suppressErrorToast: true,
+                      } as Parameters<typeof api.post>[2],
                     );
-                    await Promise.race([syncPromise, timeoutPromise]);
                     // Reload one more time after sync attempt
                     await reloadedUser.reload();
                     reloadedUser = auth.currentUser;
@@ -793,7 +795,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loading,
     consultantVerificationStatus,
     needsProfileCreation,
+    hasPaidPlatformAccess,
     refreshUser,
+    refreshPlatformAccessStatus,
     refreshConsultantStatus,
     setIntendedRole,
     requestConsultantRole,

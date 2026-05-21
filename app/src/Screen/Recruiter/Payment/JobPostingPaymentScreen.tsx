@@ -14,6 +14,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { COLORS } from '../../../constants/core/colors';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
 import PaymentService from '../../../services/payment.service';
+import { logApiError, getUserFriendlyErrorMessage } from '../../../utils/apiError';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
 import { Lock, AlertCircle } from 'lucide-react-native';
 
@@ -81,7 +82,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
 
         if (error) {
           Alert.alert('Issue', 'Failed to initialize payment sheet');
-          console.error('Payment sheet initialization error:', error);
+          logApiError('JobPostingPaymentSheet', error);
         } else {
           setPaymentIntent(response);
           if (response.bundleFee) {
@@ -98,7 +99,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
         Alert.alert('Issue', response.error || 'Failed to create payment intent');
       }
     } catch (error) {
-      console.error('Payment initialization error:', error);
+      logApiError('JobPostingPaymentInit', error);
       Alert.alert('Issue', 'Failed to initialize payment');
     } finally {
       setLoading(false);
@@ -126,13 +127,13 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
 
       if (error) {
         Alert.alert('Payment Failed', error.message);
-        console.error('Payment error:', error);
+        logApiError('JobPostingStripe', error);
       } else {
         // Payment successful - confirm and record
         await confirmPayment();
       }
     } catch (error) {
-      console.error('Payment processing error:', error);
+      logApiError('JobPostingPaymentProcess', error);
       Alert.alert('Issue', 'Failed to process payment');
     } finally {
       setProcessing(false);
@@ -173,11 +174,11 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
                     // Fallback: go back if no job data
                     navigation.goBack();
                   }
-                } catch (error: any) {
-                  console.error('Error posting job after payment:', error);
+                } catch (error: unknown) {
+                  logApiError('PostJobAfterPayment', error);
                   Alert.alert(
-                    'Error',
-                    'Payment was successful but there was an error posting your job. Please try again.',
+                    'Couldn\'t post job',
+                    `Payment went through, but we couldn't publish the job. ${getUserFriendlyErrorMessage(error, 'Please try posting again from My Jobs.')}`,
                     [
                       {
                         text: 'OK',
@@ -194,7 +195,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
         Alert.alert('Issue', response.error || 'Failed to confirm payment');
       }
     } catch (error) {
-      console.error('Payment confirmation error:', error);
+      logApiError('JobPostingPaymentConfirm', error);
       Alert.alert('Issue', 'Failed to confirm payment');
     }
   };

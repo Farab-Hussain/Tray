@@ -66,10 +66,21 @@ const LoginPageContent = () => {
       // The login function updates the user state, but we can also check it here
       // The useEffect will handle redirect if user is set, but we can also do it here for immediate redirect
       const response = await authAPI.getMe();
-      const userData = response.data as { uid: string; email: string; name?: string; role?: string };
+      const userData = response.data as {
+        uid: string;
+        email: string;
+        name?: string;
+        role?: string;
+        activeRole?: string;
+        roles?: string[];
+      };
 
-      // Redirect based on role
-      if (userData.role === "admin") {
+      const isAdmin =
+        userData.role === "admin" ||
+        userData.activeRole === "admin" ||
+        userData.roles?.includes("admin");
+
+      if (isAdmin) {
         router.push("/admin");
       } else {
         // Non-admin users should use the mobile app
@@ -80,10 +91,15 @@ const LoginPageContent = () => {
       }
     } catch (err: unknown) {
       console.error("Login error:", err);
+      const axiosErr = err as {
+        response?: { data?: { error?: string; message?: string } };
+        message?: string;
+      };
       const errorMessage =
-        err && typeof err === "object" && "message" in err
-          ? String(err.message)
-          : "Failed to login";
+        axiosErr?.response?.data?.message ||
+        axiosErr?.response?.data?.error ||
+        axiosErr?.message ||
+        "Failed to login. Check your email, password, and that your account has admin role.";
       setError(errorMessage);
     } finally {
       setIsLoading(false);

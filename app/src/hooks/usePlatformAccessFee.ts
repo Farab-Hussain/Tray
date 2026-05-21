@@ -1,40 +1,35 @@
 import { useCallback, useEffect, useRef } from 'react';
-import PaymentService from '../services/payment.service';
 import { useAuth } from '../contexts/AuthContext';
-
-const ACCESS_FEE_ROLES = ['student', 'consultant'];
+import {
+  checkPlatformAccessPaid,
+  needsPlatformAccessFee,
+} from '../utils/platformAccessFee';
 
 /**
- * Redirects student/consultant users to the platform access payment screen when unpaid.
+ * On home load: redirect unpaid students/consultants to mandatory paywall (no back).
  */
 export function usePlatformAccessFee(navigation: any, enabled = true) {
-  const { activeRole, roles, user } = useAuth();
+  const { activeRole, roles, user, hasPaidPlatformAccess } = useAuth();
   const checkedRef = useRef(false);
 
-  const currentRole = activeRole || (roles.length > 0 ? roles[0] : 'student');
   const needsCheck =
-    enabled &&
-    !!user &&
-    ACCESS_FEE_ROLES.includes(currentRole);
+    enabled && !!user && needsPlatformAccessFee(activeRole, roles);
 
-  const checkAccessFee = useCallback(async () => {
-    if (!needsCheck) return;
-
-    try {
-      const status = await PaymentService.getAccessFeeStatus();
-      if (!status.paid) {
-        navigation.navigate('PlatformAccessPayment');
-      }
-    } catch {
-      // Don't block app if status check fails
+  const redirectToPaywall = useCallback(async () => {
+    const paid =
+      hasPaidPlatformAccess || (await checkPlatformAccessPaid());
+    if (paid) {
+      return;
     }
-  }, [needsCheck, navigation]);
+
+    navigation.replace('PlatformAccessPayment', { required: true });
+  }, [navigation, hasPaidPlatformAccess]);
 
   useEffect(() => {
     if (!needsCheck || checkedRef.current) return;
     checkedRef.current = true;
-    checkAccessFee();
-  }, [needsCheck, checkAccessFee]);
+    redirectToPaywall();
+  }, [needsCheck, redirectToPaywall]);
 
-  return { checkAccessFee, currentRole };
+  return { redirectToPaywall };
 }

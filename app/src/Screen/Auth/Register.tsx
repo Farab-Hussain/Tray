@@ -149,14 +149,20 @@ const Register = ({ navigation, route }: any) => {
       // Use backend SMTP as primary method
       try {
         const token = await userCredential.user.getIdToken();
-        const backendResponse = await api.post('/auth/resend-verification-email', {
-          email: userCredential.user.email,
-          uid: userCredential.user.uid
-        }, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const backendResponse = await api.post(
+          '/auth/resend-verification-email',
+          {
+            email: userCredential.user.email,
+            uid: userCredential.user.uid,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            timeout: 45000,
+            __suppressErrorToast: true,
+          } as Parameters<typeof api.post>[2],
+        );
         
         if (backendResponse.data?.success && backendResponse.data?.emailSent) {
           emailSent = true;

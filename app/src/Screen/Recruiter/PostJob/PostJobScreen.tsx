@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import {
   View,
   Text,
@@ -19,6 +20,12 @@ import AppButton from '../../../components/ui/AppButton';
 import { COLORS } from '../../../constants/core/colors';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import { JobService, JobType } from '../../../services/job.service';
+import {
+  isPaymentRequiredError,
+  getPaymentRequiredMessage,
+  getUserFriendlyErrorMessage,
+  logApiError,
+} from '../../../utils/apiError';
 import {
   Briefcase,
   DollarSign,
@@ -532,40 +539,29 @@ const PostJobScreen = ({ navigation }: any) => {
 
       Alert.alert('Success', 'Job posted successfully');
       navigation.goBack();
-    } catch (error: any) {
-      console.error('Error posting job:', error);
-      console.log('Error response:', error.response);
-      console.log('Error status:', error.response?.status);
-      console.log('Error data:', error.response?.data);
+    } catch (error: unknown) {
+      logApiError('RecruiterPostJob', error);
 
-      if (error.response?.status === 402) {
-        // Payment required
+      if (isPaymentRequiredError(error) && axios.isAxiosError(error)) {
         setPaymentRequired(true);
-        setPaymentAmount(error.response.data.paymentAmount);
-        setPaymentUrl(error.response.data.paymentUrl);
+        setPaymentAmount(error.response?.data?.paymentAmount);
+        setPaymentUrl(error.response?.data?.paymentUrl);
 
-        Alert.alert(
-          'Payment Required',
-          error.response?.data?.message || 'Payment is required to post this job.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Pay Now',
-              onPress: () => {
-                navigation.navigate('JobPostingPayment', {
-                  paymentUrl: error.response.data.paymentUrl,
-                  jobData: jobDataForAPI,
-                  companyId: selectedCompany?.id,
-                });
-              },
+        Alert.alert('Payment Required', getPaymentRequiredMessage(error), [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Pay Now',
+            onPress: () => {
+              navigation.navigate('JobPostingPayment', {
+                paymentUrl: error.response?.data?.paymentUrl,
+                jobData: jobDataForAPI,
+                companyId: selectedCompany?.id,
+              });
             },
-          ],
-        );
+          },
+        ]);
       } else {
-        Alert.alert(
-          'Error',
-          error.response?.data?.error || 'Failed to post job',
-        );
+        Alert.alert('Couldn\'t post job', getUserFriendlyErrorMessage(error, 'Please try again.'));
       }
     } finally {
       setSaving(false);

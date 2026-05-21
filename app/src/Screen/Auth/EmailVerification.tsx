@@ -326,17 +326,11 @@ const EmailVerification = ({ route }: any) => {
             } else {
               // Still not verified, check with backend
               try {
-                const token = await currentUser.getIdToken();
-                const backendCheck = await api.post('/auth/resend-verification-email', {
-                  email: currentUser.email,
-                  uid: currentUser.uid
-                }, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`
-                  }
-                });
-                
-                if (backendCheck.data?.emailVerified) {
+                const { fetchEmailVerificationStatus } = await import(
+                  '../../services/auth-verification.service'
+                );
+                const backendCheck = await fetchEmailVerificationStatus();
+                if (backendCheck?.emailVerified) {
                   // Backend says verified - reload and check again
                   await currentUser.reload();
                   if (currentUser.emailVerified && completeRegistration) {
@@ -683,18 +677,13 @@ const EmailVerification = ({ route }: any) => {
             console.log('EmailVerification - Firebase shows unverified, checking backend...')
           };
           try {
-            const token = await user.getIdToken();
-            const backendCheck = await api.post('/auth/resend-verification-email', {
-              email: user.email,
-              uid: user.uid
-            }, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
+            const { fetchEmailVerificationStatus } = await import(
+              '../../services/auth-verification.service'
+            );
+            const backendCheck = await fetchEmailVerificationStatus();
             
             // If backend says email is verified, reload Firebase user and check again
-            if (backendCheck.data?.emailVerified) {
+            if (backendCheck?.emailVerified) {
                             if (__DEV__) {
                 console.log('EmailVerification - Backend says email is verified, reloading Firebase user...')
               };

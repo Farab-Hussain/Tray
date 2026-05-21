@@ -724,7 +724,14 @@ const BookingSlots = ({ navigation, route }: any) => {
       });
     }
 
-    // Navigate to cart with the new item
+    const { ensurePlatformAccessPaid } = await import('../../../utils/platformAccessFee');
+    const paid = await ensurePlatformAccessPaid(navigation, {
+      returnTo: { screen: 'Cart', params: cartItem },
+    });
+    if (!paid) {
+      return;
+    }
+
     navigation.navigate('Cart', cartItem);
   };
 

@@ -75,10 +75,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      if (typeof window !== 'undefined') {
+      localStorage.removeItem('backendJwt');
+      // Avoid reload loop on the login page itself
+      if (
+        typeof window !== 'undefined' &&
+        !window.location.pathname.startsWith('/login')
+      ) {
         window.location.href = '/login';
       }
     }
@@ -274,7 +278,11 @@ export interface PricingSettings {
 
 export const pricingAPI = {
   getPricingSettings: () => api.get<PricingSettings>('/settings/pricing'),
-  updatePricingSettings: (data: PricingSettings) => api.put('/settings/pricing', data),
+  updatePricingSettings: (data: PricingSettings) =>
+    api.put<{ success: boolean; message: string; settings: PricingSettings }>(
+      '/settings/pricing',
+      data
+    ),
 };
 
 export default api;

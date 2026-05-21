@@ -219,11 +219,18 @@ const AdminDashboardPage = () => {
                 onClick={() => router.push('/admin/users')}
               />
               <AdminActionCard
-                title="System Settings"
-                description="Configure platform settings and preferences"
+                title="Pricing & Fees"
+                description="Set $25 access fee, recruiter job bundle pricing, and per-booking fees"
                 icon={Settings}
                 color="indigo"
-                onClick={() => router.push('/admin/settings')}
+                onClick={() => router.push('/admin/settings?tab=pricing')}
+              />
+              <AdminActionCard
+                title="Account Settings"
+                description="Password, admin users, and platform configuration"
+                icon={Settings}
+                color="purple"
+                onClick={() => router.push('/admin/settings?tab=account')}
               />
            
             </div>

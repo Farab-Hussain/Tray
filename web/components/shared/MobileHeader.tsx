@@ -85,7 +85,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ title, onSearch }) => {
       current: pathname.startsWith('/admin/activity')
     },
     {
-      name: 'Settings',
+      name: 'Pricing & Settings',
       href: '/admin/settings',
       icon: SettingsIcon,
       current: pathname.startsWith('/admin/settings')

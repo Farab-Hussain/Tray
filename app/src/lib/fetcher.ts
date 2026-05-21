@@ -2,6 +2,7 @@ import { API_URL } from '@env';
 import axios, { InternalAxiosRequestConfig } from 'axios';
 import { auth } from './firebase';
 import { handleApiError } from '../utils/toast';
+import { logger } from '../utils/logger';
 
 // Module-level variable to track backend unavailable logging
 let backendUnavailableLogged = false;
@@ -285,19 +286,11 @@ api.interceptors.response.use(
     // Mark successful response to indicate retry was successful (if it was a retry)
     const config = response.config as ExtendedAxiosRequestConfig;
     if (config.__isRetry) {
-      if (__DEV__) {
-        console.log(
-          '✅ API Response (retry succeeded):',
-          response.config.url,
-          response.status,
-        );
-      }
+      logger.debug('✅ API Response (retry succeeded):', response.config.url, response.status);
       // Clear retry flag to prevent infinite loops
       delete config.__isRetry;
     } else {
-      if (__DEV__) {
-        console.log('✅ API Response:', response.config.url, response.status);
-      }
+      logger.debug('✅ API Response:', response.config.url, response.status);
     }
     return response;
   },
@@ -566,74 +559,55 @@ api.interceptors.response.use(
         isNgrokConnError ||
         error.code === 'ECONNABORTED');
 
+    const isSilentAuthRequest =
+      url.includes('/auth/verification-status') ||
+      config.__suppressErrorToast === true ||
+      (error as any).__suppressErrorToast === true;
+
+    const isBackgroundTimeout =
+      isTimeoutError && !status && (isSilentAuthRequest || isLoginBackendError);
+
+    const isJobPostingPaymentRequired =
+      status === 402 &&
+      (url === '/jobs' || url.endsWith('/jobs')) &&
+      method === 'post';
+
     const shouldSuppressToast =
       config.__suppressOriginalError ||
       config.__suppressErrorToast ||
       (error as any).__suppressErrorToast ||
       (error as any).__handled ||
       isLoginBackendError ||
+      isBackgroundTimeout ||
+      isJobPostingPaymentRequired ||
       isResumeNotFound ||
       isAlreadyApplied;
 
     if (status && status >= 400 && !shouldSuppressToast) {
       handleApiError(error);
+    } else if (!status && isTimeoutError && !shouldSuppressToast) {
+      handleApiError(error);
     }
 
-    // Only log detailed error info in development (skip for ngrok errors, backend unavailable, expected switch-role 403, and resume not found)
-    if (
+    const shouldLogError =
       __DEV__ &&
       !isNgrokConnError &&
       !isBackendUnavailable &&
       !isSwitchRole403 &&
       !isCourseList404 &&
       !isResumeNotFound &&
-      !config.__suppressErrorToast &&
-      !(error as any).__suppressErrorToast &&
-      !(error as any).__handled
-    ) {
-      if (config.__suppressOriginalError) {
-        // Original error was suppressed because retry succeeded
-        if (__DEV__) {
-          console.log('ℹ️ Original error suppressed (retry succeeded):', url);
-        }
-      } else {
-        if (__DEV__) {
-          console.error('❌ API Error Details:');
-        }
-        if (__DEV__) {
-          console.error('  - URL:', url);
-        }
-        if (__DEV__) {
-          console.error('  - Method:', config?.method);
-        }
-        if (__DEV__) {
-          console.error('  - Status:', status);
-        }
-        if (__DEV__) {
-          console.error('  - Status Text:', error.response?.statusText);
-        }
-        if (__DEV__) {
-          console.error('  - Response Data:', JSON.stringify(error.response?.data, null, 2));
-        }
-        if (__DEV__) {
-          console.error('  - Error Message:', error.message);
-        }
-        if (__DEV__) {
-          console.error('  - Error Code:', error.code);
-        }
-      }
-    } else if (
-      !isNgrokConnError &&
-      !isBackendUnavailable &&
-      !isSwitchRole403 &&
-      !isCourseList404 &&
-      !isResumeNotFound &&
-      !config.__suppressOriginalError
-    ) {
-      // In production, only log minimal error info
-      if (__DEV__) {
-        console.error('❌ API Error:', url, status, error.message);
-      }
+      !isSilentAuthRequest &&
+      !isLoginBackendError &&
+      !isBackgroundTimeout &&
+      !(error as any).__handled &&
+      !config.__suppressOriginalError;
+
+    if (shouldLogError) {
+      logger.debug(
+        `[API] ${(config.method || 'get').toUpperCase()} ${url} failed`,
+        status ?? 'no-response',
+        error.code || error.message,
+      );
     }
 
     // Clear retry flags before rejecting

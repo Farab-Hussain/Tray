@@ -20,6 +20,8 @@ import { UserService } from '../../../services/user.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
 import { logger } from '../../../utils/logger';
 import { normalizeAvatarUrl } from '../../../utils/normalize';
+import { ensurePlatformAccessPaid } from '../../../utils/platformAccessFee';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface BookedSlot {
   date: string;
@@ -71,6 +73,32 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const [platformFeeAmount, setPlatformFeeAmount] = useState<number>(5.00);
   const [platformFeeLoading, setPlatformFeeLoading] = useState<boolean>(true);
   const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
+  const [accessFeeVerified, setAccessFeeVerified] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
+
+      const verifyAccess = async () => {
+        const paid = await ensurePlatformAccessPaid(navigation, {
+          returnTo: {
+            screen: 'Payment',
+            params: { cartItems: route.params?.cartItems || cartItems },
+          },
+          useReplace: true,
+        });
+        if (active) {
+          setAccessFeeVerified(paid);
+        }
+      };
+
+      verifyAccess();
+
+      return () => {
+        active = false;
+      };
+    }, [navigation, route.params?.cartItems, cartItems]),
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -414,21 +442,18 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           }
           
           if (error.response?.status === 402 && error.response?.data?.code === 'ACCESS_FEE_REQUIRED') {
-            Alert.alert(
-              'Platform Access Required',
-              error.response?.data?.message || 'Please pay the platform access fee to book sessions.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Pay Now',
-                  onPress: () => navigation.navigate('PlatformAccessPayment'),
-                },
-              ],
-            );
+            await ensurePlatformAccessPaid(navigation, {
+              returnTo: {
+                screen: 'Payment',
+                params: { cartItems: route.params?.cartItems || cartItems },
+              },
+              useReplace: true,
+            });
             failures.push({
               bookingIndex: i,
               message: 'Platform access fee required',
             });
+            break;
           } else if (error.response?.status === 409) {
             // Conflict error - slot already booked
             conflicts.push({
@@ -532,6 +557,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       );
     }
   };
+
+  if (!accessFeeVerified) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.blue} />
+          <Text style={{ marginTop: 12, color: COLORS.gray }}>
+            Checking platform access...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

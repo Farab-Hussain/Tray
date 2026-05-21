@@ -74,8 +74,16 @@ export default function ServiceBookingScreen() {
     }
 
     try {
+      const { ensurePlatformAccessPaid } = await import('../../../utils/platformAccessFee');
+      const accessPaid = await ensurePlatformAccessPaid(navigation, {
+        returnTo: { screen: 'ServiceBooking', params: route?.params },
+      });
+      if (!accessPaid) {
+        return;
+      }
+
       setBooking(true);
-      
+
       // Create booking
       const bookingData = await BookingService.createBooking({
         consultantId: service.consultantId,

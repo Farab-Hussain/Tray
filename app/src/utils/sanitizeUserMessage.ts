@@ -1,6 +1,22 @@
+const TECHNICAL_PATTERNS = [
+  /ECONNABORTED/gi,
+  /ETIMEDOUT/gi,
+  /ERR_NETWORK/gi,
+  /timeout of \d+ms exceeded/gi,
+  /AxiosError/gi,
+  /Network Error/gi,
+];
+
 export const sanitizeUserMessage = (value: any): any => {
   if (typeof value === 'string') {
-    return value.replace(/error/gi, 'issue');
+    let message = value.replace(/error/gi, 'issue');
+    for (const pattern of TECHNICAL_PATTERNS) {
+      message = message.replace(pattern, '').trim();
+    }
+    if (!message) {
+      return 'Something went wrong. Please try again.';
+    }
+    return message;
   }
   return value;
 };

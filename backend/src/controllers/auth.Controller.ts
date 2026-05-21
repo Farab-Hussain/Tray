@@ -316,15 +316,21 @@ export const login = async (req: Request, res: Response) => {
     const profile = userDoc.exists ? userDoc.data() : null;
 
     console.log(`✅ [POST /auth/login] - User logged in successfully: ${decodedToken.uid}`);
-    
-    // Generate JWT token for authenticated user
-    const userProfile = profile as any;
+
+    const userProfile = profile as Record<string, unknown> | null;
+    const roles = (userProfile?.roles as string[] | undefined) || [];
+    const resolvedRole =
+      (userProfile?.activeRole as string) ||
+      (userProfile?.role as string) ||
+      (roles.includes('admin') ? 'admin' : roles[0]) ||
+      'student';
+
     const jwtToken = JWTUtils.generateToken({
       userId: decodedToken.uid,
-      email: decodedToken.email || "",
-      role: userProfile?.role || 'user',
-      firstName: userProfile?.firstName || '',
-      lastName: userProfile?.lastName || ''
+      email: decodedToken.email || '',
+      role: resolvedRole,
+      firstName: (userProfile?.firstName as string) || (userProfile?.name as string) || '',
+      lastName: (userProfile?.lastName as string) || '',
     });
 
     const tokenExpiration = JWTUtils.getTokenExpiration(jwtToken);
@@ -569,6 +575,31 @@ export const resetPassword = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ Reset password error:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * GET /auth/verification-status
+ * Read-only check — does NOT send verification email (use POST resend for that).
+ */
+export const getVerificationStatus = async (req: Request, res: Response) => {
+  const route = 'GET /auth/verification-status';
+
+  try {
+    const user = (req as any).user;
+    if (!user?.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userRecord = await auth.getUser(user.uid);
+    return res.json({
+      success: true,
+      emailVerified: userRecord.emailVerified,
+      email: userRecord.email,
+    });
+  } catch (error: any) {
+    Logger.error(route, '', 'Error checking verification status', error);
+    return res.status(500).json({ error: 'Failed to check verification status' });
   }
 };
 

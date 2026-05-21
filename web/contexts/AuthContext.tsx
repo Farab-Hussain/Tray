@@ -62,17 +62,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshUser]);
 
   const login = async (idToken: string) => {
-    try {
-      const response = await authAPI.login(idToken);
-      const data = response.data as { user: User };
-      const userData = data.user;
-      
-      setUser(userData);
-      localStorage.setItem('authToken', idToken);
-      localStorage.setItem('user', JSON.stringify(userData));
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+    const response = await authAPI.login(idToken);
+    const data = response.data as {
+      user?: User;
+      token?: string;
+      valid?: boolean;
+      error?: string;
+    };
+
+    if (!data?.user) {
+      throw new Error(data?.error || 'Login failed — no user returned from server');
+    }
+
+    const userData = data.user;
+    setUser(userData);
+    // API middleware expects Firebase ID token (refreshed on each session)
+    localStorage.setItem('authToken', idToken);
+    localStorage.setItem('user', JSON.stringify(userData));
+    if (data.token) {
+      localStorage.setItem('backendJwt', data.token);
     }
   };
 

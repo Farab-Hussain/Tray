@@ -1,4 +1,5 @@
 import Toast from 'react-native-toast-message';
+import { isPaymentRequiredError } from './apiError';
 import { sanitizeUserMessage } from './sanitizeUserMessage';
 
 export interface ToastConfig {
@@ -120,15 +121,26 @@ export const showError = (message: string, title?: string) => {
 
 // Function to handle API errors with proper toast messages
 export const handleApiError = (error: any) => {
-    if (__DEV__) {
-    console.error('API Error:', error)
-  };
-  
+  if (
+    error?.__suppressErrorToast ||
+    error?.config?.__suppressErrorToast ||
+    error?.isBackendUnavailable ||
+    error?.isNgrokError
+  ) {
+    return;
+  }
+
+  if (isPaymentRequiredError(error)) {
+    return;
+  }
+
   if (error.response) {
     const status = error.response.status;
     const message = error.response.data?.error || error.response.data?.message;
     
     switch (status) {
+      case 402:
+        return;
       case 400:
         showToast.warning({
           title: 'Let\'s fix that',

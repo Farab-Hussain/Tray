@@ -32,6 +32,7 @@ import {
   verifyCertificate,
 } from '../controllers/course.controller';
 import { authenticateUser, authenticateUserOptional, authorizeRole } from '../middleware/authMiddleware';
+import { requirePlatformAccessFee } from '../middleware/requirePlatformAccessFee';
 
 const router = Router();
 const optionalAuthMiddleware =
@@ -56,7 +57,7 @@ router.post('/:id/reviews', authenticateUser(), addCourseReview);
 router.put('/progress/:enrollmentId/:lessonId', authenticateUser(), updateLessonProgress);
 
 // NEW: Enhanced student routes
-router.post('/purchase', authenticateUser(), authorizeRole(['student']), purchaseCourse);
+router.post('/purchase', authenticateUser(), authorizeRole(['student']), requirePlatformAccessFee, purchaseCourse);
 router.get('/purchases/my', authenticateUser(), authorizeRole(['student']), getStudentPurchases);
 router.get('/:id/access', authenticateUser(), authorizeRole(['student']), checkCourseAccess);
 router.post('/issue-certificate', authenticateUser(), authorizeRole(['student']), issueCertificate);

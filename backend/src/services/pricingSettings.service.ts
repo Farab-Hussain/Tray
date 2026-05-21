@@ -32,10 +32,44 @@ export const getPricingSettings = async (): Promise<PricingSettings> => {
   }
 };
 
+const toFiniteNumber = (value: unknown, fallback: number): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 export const normalizePricingSettings = (data?: Record<string, unknown>): PricingSettings => ({
-  studentConsultantFee: Number(data?.studentConsultantFee ?? DEFAULT_PRICING.studentConsultantFee),
-  recruiterPostingFee: Number(data?.recruiterPostingFee ?? DEFAULT_PRICING.recruiterPostingFee),
-  recruiterPostingsPerBundle: Number(
-    data?.recruiterPostingsPerBundle ?? DEFAULT_PRICING.recruiterPostingsPerBundle
+  studentConsultantFee: toFiniteNumber(
+    data?.studentConsultantFee,
+    DEFAULT_PRICING.studentConsultantFee
+  ),
+  recruiterPostingFee: toFiniteNumber(
+    data?.recruiterPostingFee,
+    DEFAULT_PRICING.recruiterPostingFee
+  ),
+  recruiterPostingsPerBundle: toFiniteNumber(
+    data?.recruiterPostingsPerBundle,
+    DEFAULT_PRICING.recruiterPostingsPerBundle
   ),
 });
+
+export const updatePricingSettings = async (
+  settings: Partial<PricingSettings>
+): Promise<PricingSettings> => {
+  const normalized = normalizePricingSettings({
+    studentConsultantFee: settings.studentConsultantFee,
+    recruiterPostingFee: settings.recruiterPostingFee,
+    recruiterPostingsPerBundle: settings.recruiterPostingsPerBundle,
+  });
+
+  const docRef = db.collection(SETTINGS_COLLECTION).doc(SETTINGS_DOC_ID);
+  await docRef.set(
+    {
+      ...normalized,
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true }
+  );
+
+  const saved = await docRef.get();
+  return normalizePricingSettings(saved.data());
+};

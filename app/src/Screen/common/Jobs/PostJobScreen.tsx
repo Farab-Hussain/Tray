@@ -16,6 +16,12 @@ import AppButton from '../../../components/ui/AppButton';
 import { JobService } from '../../../services/job.service';
 import { COLORS } from '../../../constants/core/colors';
 import { showError, showSuccess } from '../../../utils/toast';
+import {
+  isPaymentRequiredError,
+  getPaymentRequiredMessage,
+  getUserFriendlyErrorMessage,
+  logApiError,
+} from '../../../utils/apiError';
 import { Plus, X, ChevronDown } from 'lucide-react-native';
 import { postJobScreenStyles } from '../../../constants/styles/postJobScreenStyles';
 import { getCurrencyByCode, getCurrenciesArray } from '../../../constants/data/currencies';
@@ -421,35 +427,24 @@ ${JSON.stringify({
       await JobService.createJob(jobData);
       showSuccess('Job posted successfully');
       navigation.goBack();
-    } catch (error: any) {
-      if (__DEV__) {
-        console.error('Error posting job:', error)
-      };
-      
-      // Handle payment required error
-      if (error.response?.status === 402) {
-        const paymentData = error.response.data;
-        Alert.alert(
-          'Payment Required',
-          paymentData.message || 'Payment is required to post this job',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
+    } catch (error: unknown) {
+      logApiError('PostJob', error);
+
+      if (isPaymentRequiredError(error)) {
+        Alert.alert('Payment Required', getPaymentRequiredMessage(error), [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Pay Now',
+            onPress: () => {
+              navigation.navigate('JobPostingPayment', {
+                jobData,
+                returnScreen: 'RecruiterPostJob',
+              });
             },
-            {
-              text: 'Pay Now',
-              onPress: () => {
-                navigation.navigate('JobPostingPayment', {
-                  jobData,
-                  returnScreen: 'RecruiterPostJob'
-                });
-              },
-            },
-          ]
-        );
+          },
+        ]);
       } else {
-        showError(error.message || 'Failed to post job');
+        showError(getUserFriendlyErrorMessage(error, 'Failed to post job. Please try again.'));
       }
     } finally {
       setPosting(false);

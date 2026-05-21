@@ -105,7 +105,7 @@ const LeftSide = () => {
     },
     {
       href: "/admin/settings",
-      label: "Settings",
+      label: "Pricing & Settings",
       icon: Settings,
       isActive: pathname.includes("/admin/settings"),
       showWhenCollapsed: false

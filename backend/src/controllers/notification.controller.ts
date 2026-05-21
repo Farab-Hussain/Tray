@@ -316,13 +316,13 @@ export const sendCallNotification = async (req: Request, res: Response) => {
         },
         data: {
           type: 'call',
-          callId,
-          callerId,
-          receiverId,
-          callType,
+          callId: String(callId),
+          callerId: String(callerId),
+          receiverId: String(receiverId),
+          callType: String(callType),
           category: 'call',
           link: `tray://call/${callId}`,
-          callerName,
+          callerName: String(callerName),
         },
         android: {
           priority: 'high' as const,
@@ -336,7 +336,6 @@ export const sendCallNotification = async (req: Request, res: Response) => {
             visibility: 'public' as const,
             defaultSound: true,
             defaultVibrateTimings: true,
-            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
           },
         },
         apns: {

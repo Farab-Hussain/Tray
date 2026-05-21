@@ -45,19 +45,13 @@ export class JWTUtils {
   static generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
     this.validateSecret();
 
-    const now = Math.floor(Date.now() / 1000);
-    const tokenPayload: JWTPayload = {
-      ...payload,
-      iat: now,
-      exp: now + this.parseExpirationTime(this.JWT_EXPIRES_IN),
-    };
-
     const options: jwt.SignOptions = {
       algorithm: this.ALGORITHM as jwt.Algorithm,
-      expiresIn: this.JWT_EXPIRES_IN as any,
+      expiresIn: this.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
     };
 
-    return jwt.sign(tokenPayload, this.JWT_SECRET as string, options);
+    // Use expiresIn only — do not set exp/iat manually (jsonwebtoken rejects both)
+    return jwt.sign(payload, this.JWT_SECRET as string, options);
   }
 
   /**

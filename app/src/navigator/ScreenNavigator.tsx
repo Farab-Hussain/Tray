@@ -1028,6 +1028,7 @@ const ScreenNavigator = () => {
         component={PlatformAccessPaymentScreen}
         options={{
           headerShown: false,
+          gestureEnabled: false,
           cardStyleInterpolator: slideFromRight,
         }}
       />
