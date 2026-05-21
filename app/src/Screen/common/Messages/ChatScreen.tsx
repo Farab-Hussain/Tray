@@ -23,6 +23,7 @@ import * as OfflineQueue from '../../../services/offline-message-queue.service';
 import type { Message } from '../../../types/chatTypes';
 import { Modal, Alert } from 'react-native';
 import ProfileAvatar from '../../../components/ui/ProfileAvatar';
+import { setActiveChatId } from '../../../services/active-chat.service';
 
 const ChatScreen = ({ navigation, route }: any) => {
   const [message, setMessage] = useState('');
@@ -92,6 +93,11 @@ const ChatScreen = ({ navigation, route }: any) => {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
+  useEffect(() => {
+    if (chatId) setActiveChatId(chatId);
+    return () => setActiveChatId(null);
+  }, [chatId]);
+
   // Typing indicator listener
   useEffect(() => {
     if (!chatId || !userId) return;

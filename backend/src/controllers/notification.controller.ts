@@ -2,6 +2,10 @@
 import { Request, Response } from "express";
 import { db, admin, firebaseApp } from "../config/firebase";
 import { Logger } from "../utils/logger";
+import { sendVoipCallPush } from "../services/voipPush.service";
+
+const callPushLastSent = new Map<string, number>();
+const CALL_PUSH_COOLDOWN_MS = 8000;
 
 /**
  * Send push notification when a message is sent
@@ -14,15 +18,30 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
   const route = "POST /notifications/send-message";
   
   try {
-    const { chatId, senderId, recipientId, messageText } = req.body;
-
-    if (!chatId || !senderId || !recipientId || !messageText) {
-      Logger.error(route, "", "Missing required fields");
-      return res.status(400).json({ error: 'Missing required fields' });
+    const user = (req as any).user;
+    if (!user?.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    const { chatId, senderId, recipientId, messageText } = req.body;
+
+    if (!chatId || !senderId || !recipientId) {
+      Logger.error(route, "", "Missing required fields");
+      return res.status(400).json({ error: 'Missing required fields: chatId, senderId, recipientId' });
+    }
+
+    if (senderId !== user.uid) {
+      Logger.error(route, user.uid, `Sender mismatch: ${senderId} !== ${user.uid}`);
+      return res.status(403).json({ error: 'senderId must match authenticated user' });
+    }
+
+    const bodyText =
+      typeof messageText === 'string' && messageText.trim().length > 0
+        ? messageText.trim()
+        : 'New message';
+
     console.log('📨 Sending notification for message');
-    console.log('💬 Message text:', messageText);
+    console.log('💬 Message text:', bodyText);
     console.log('👤 Sender ID:', senderId);
     console.log('📤 Recipient ID:', recipientId);
 
@@ -53,15 +72,16 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
     // Prepare notification payload
     const notification = {
       title: senderName,
-      body: messageText || 'New message',
+      body: bodyText,
     };
 
     const data = {
-      chatId: chatId,
-      senderId: senderId,
+      chatId: String(chatId),
+      senderId: String(senderId),
       type: 'chat_message',
-      category: 'message', // Notification category
-      link: `tray://chat/${chatId}`, // Deep link for navigation
+      category: 'message',
+      link: `tray://chat/${chatId}`,
+      messageText: bodyText,
     };
 
     // Prepare rich notification actions for iOS
@@ -146,7 +166,6 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
           defaultSound: true,
           defaultVibrateTimings: true,
           defaultLightSettings: true,
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
           // Note: Android notification actions are handled via data payload
           // The app should read action data from the notification data
         },
@@ -209,12 +228,28 @@ export const sendCallNotification = async (req: Request, res: Response) => {
   const route = "POST /notifications/send-call";
   
   try {
+    const user = (req as any).user;
+    if (!user?.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const { callId, callerId, receiverId, callType } = req.body;
 
     if (!callId || !callerId || !receiverId || !callType) {
       Logger.error(route, "", "Missing required fields");
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    if (callerId !== user.uid) {
+      Logger.error(route, user.uid, `Caller mismatch: ${callerId}`);
+      return res.status(403).json({ error: 'callerId must match authenticated user' });
+    }
+
+    const lastSent = callPushLastSent.get(callerId) ?? 0;
+    if (Date.now() - lastSent < CALL_PUSH_COOLDOWN_MS) {
+      return res.status(429).json({ error: 'Please wait before placing another call' });
+    }
+    callPushLastSent.set(callerId, Date.now());
 
     console.log('📞 Sending call notification');
     console.log('📞 Call ID:', callId);
@@ -229,12 +264,6 @@ export const sendCallNotification = async (req: Request, res: Response) => {
       .collection('fcmTokens');
     const tokensSnapshot = await fcmTokensRef.get();
 
-    if (tokensSnapshot.empty) {
-      console.log('⚠️ No FCM tokens found for receiver:', receiverId);
-      return res.json({ success: true, message: 'No FCM tokens found' });
-    }
-
-    // Get caller's name
     let callerName = 'Someone';
     try {
       const callerDoc = await db.collection('users').doc(callerId).get();
@@ -242,8 +271,25 @@ export const sendCallNotification = async (req: Request, res: Response) => {
         const callerData = callerDoc.data();
         callerName = callerData?.name || callerData?.displayName || 'Someone';
       }
-    } catch (error) {
-      console.log('⚠️ Could not fetch caller name:', error);
+    } catch {
+      // non-critical
+    }
+
+    const voipSent = await sendVoipCallPush(receiverId, {
+      callId,
+      callerId,
+      receiverId,
+      callType,
+      callerName,
+    });
+
+    if (tokensSnapshot.empty) {
+      console.log('⚠️ No FCM tokens found for receiver:', receiverId);
+      return res.json({
+        success: true,
+        message: voipSent > 0 ? 'VoIP push sent' : 'No FCM tokens found',
+        voipSent,
+      });
     }
 
     // Prepare notification payload
@@ -398,12 +444,13 @@ export const sendCallNotification = async (req: Request, res: Response) => {
 
     Logger.success(route, callerId, `Call notification sent to ${receiverId}`);
     const sentToAny = successCount > 0;
-    res.json({ 
-      success: true, 
-      sent: successCount, 
+    res.json({
+      success: true,
+      sent: successCount,
       failed: failureCount,
-      offline: tokens.length === 0,
-      delivered: sentToAny
+      voipSent,
+      offline: tokens.length === 0 && voipSent === 0,
+      delivered: sentToAny || voipSent > 0,
     });
   } catch (error) {
     Logger.error(route, "", "Error sending call notification", error);

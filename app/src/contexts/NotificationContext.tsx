@@ -174,19 +174,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
             NotificationService.setupForegroundMessageHandler();
           cleanupRef.current.push(unsubscribeForeground);
 
-          // Setup notification opened handler
           const unsubscribeNotificationOpened =
-            NotificationService.setupNotificationOpenedHandler(data => {
-              logger.debug('📨 [NotificationContext] Notification opened with data:', data);
-              // Navigate to chat screen or refresh chat list
-              if (data?.chatId) {
-                // You can navigate to the chat here
-                logger.debug('📨 [NotificationContext] Should navigate to chat:', data.chatId);
-              }
-              // Refresh chats
+            NotificationService.setupNotificationOpenedHandler(() => {
               refreshChats();
             });
           cleanupRef.current.push(unsubscribeNotificationOpened);
+
+          await NotificationService.processPendingNotificationLaunch();
 
           logger.debug('✅ [NotificationContext] Notification handlers set up successfully');
         } else {

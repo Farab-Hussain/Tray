@@ -6,6 +6,14 @@ import {
   markCallTerminal,
   navigateToIncomingCallIfNeeded,
 } from './call-navigation.service';
+import { handleNotificationOpen } from './notification-navigation.service';
+import {
+  consumePendingCall,
+  consumePendingChat,
+  storePendingCall,
+  storePendingChat,
+} from './pending-notification.service';
+import { consumeNativePendingCallIntent, getNativeVoipToken } from './native-intent.service';
 
 const FCM_TOKEN_KEY = 'fcm_token';
 
@@ -333,6 +341,17 @@ export const getFCMToken = async (): Promise<string | null> => {
  * Ensure the device FCM token is registered with the backend (idempotent).
  * Call on login, app foreground, and after permission grants.
  */
+export const registerVoIPTokenWithBackend = async (): Promise<void> => {
+  if (Platform.OS !== 'ios') return;
+  try {
+    const voipToken = await getNativeVoipToken();
+    if (!voipToken) return;
+    await api.post('/fcm/voip-token', { voipToken }, { __suppressErrorToast: true } as Parameters<typeof api.post>[2]);
+  } catch {
+    // non-critical until APNS env configured
+  }
+};
+
 export const ensurePushNotificationsRegistered = async (
   options?: { forceRefresh?: boolean }
 ): Promise<boolean> => {
@@ -356,6 +375,7 @@ export const ensurePushNotificationsRegistered = async (
     }
 
     await registerFCMToken(token);
+    await registerVoIPTokenWithBackend();
     return true;
   } catch (error: any) {
     logger.error('❌ [FCM] ensurePushNotificationsRegistered failed:', error?.message || error);
@@ -555,52 +575,19 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
 
   const originalWarn = suppressDeprecationWarnings();
 
-  // Check if app was opened from a notification
   messaging()
     .getInitialNotification()
-    .then((remoteMessage: any) => {
+    .then(async (remoteMessage: any) => {
       if (remoteMessage) {
-        if (__DEV__) {
-        logger.debug('📨 App opened from notification:', remoteMessage);
-        }
-        
-        const messageData = remoteMessage.data || {};
-        
-        // Handle incoming call notifications
-        if (messageData.type === 'call' || messageData.callId) {
-          handleIncomingCallNotification(messageData);
-          return;
-        }
-        
+        logger.debug('📨 App opened from notification (cold start):', remoteMessage?.data);
+        await handleNotificationOpen(remoteMessage);
         callback(remoteMessage.data);
       }
     });
 
-  // Listen for when a notification causes the app to open from background state
-  const unsubscribe = messaging().onNotificationOpenedApp((remoteMessage: any) => {
-    if (__DEV__) {
-      logger.debug('📨 [Notification Opened] Notification caused app to open:', remoteMessage);
-    }
-    
-    const messageData = remoteMessage.data || {};
-    const notification = remoteMessage.notification || {};
-    
-        if (__DEV__) {
-      logger.debug('📨 [Notification Opened] Message data:', messageData)
-    };
-        if (__DEV__) {
-      logger.debug('📨 [Notification Opened] Notification:', notification)
-    };
-    
-    // Handle incoming call notifications
-    if (messageData.type === 'call' || messageData.callId) {
-            if (__DEV__) {
-        logger.debug('📞 [Notification Opened] Handling incoming call notification...')
-      };
-      handleIncomingCallNotification(messageData);
-      return;
-    }
-    
+  const unsubscribe = messaging().onNotificationOpenedApp(async (remoteMessage: any) => {
+    logger.debug('📨 [Notification Opened] App opened from background notification');
+    await handleNotificationOpen(remoteMessage);
     callback(remoteMessage.data);
   });
 
@@ -613,6 +600,54 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
  * Handles both initial notification and notification opened from background
  * This version accepts navigation object for action handling
  */
+/**
+ * Cold start: native Android accept/decline, AsyncStorage pending payloads, then FCM initial notification.
+ */
+export const processPendingNotificationLaunch = async (): Promise<void> => {
+  const nativeCall = await consumeNativePendingCallIntent();
+  if (nativeCall?.callId) {
+    await navigateToIncomingCallIfNeeded(
+      {
+        callId: nativeCall.callId,
+        callType: nativeCall.callType || 'audio',
+        callerId: nativeCall.callerId,
+        receiverId: nativeCall.receiverId,
+        autoAccept: nativeCall.action === 'accept',
+      },
+      'android-native-intent',
+    );
+    return;
+  }
+
+  const pendingCall = await consumePendingCall();
+  if (pendingCall?.callId) {
+    await navigateToIncomingCallIfNeeded(
+      {
+        callId: pendingCall.callId,
+        callType: pendingCall.callType || 'audio',
+        callerId: pendingCall.callerId,
+        receiverId: pendingCall.receiverId,
+        autoAccept: pendingCall.autoAccept,
+      },
+      'pending-call-storage',
+    );
+    return;
+  }
+
+  const pendingChat = await consumePendingChat();
+  if (pendingChat?.chatId) {
+    await handleNotificationOpen({
+      data: {
+        type: 'chat_message',
+        chatId: pendingChat.chatId,
+        senderId: pendingChat.senderId,
+      },
+    });
+  }
+};
+
+export { storePendingCall, storePendingChat };
+
 export const setupNotificationOpenedHandlerWithNavigation = (navigation: any) => {
   if (!isMessagingAvailable()) {
         if (__DEV__) {

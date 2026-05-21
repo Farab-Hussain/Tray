@@ -124,3 +124,47 @@ export const deleteFCMToken = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * POST /fcm/voip-token
+ * Register iOS VoIP (PushKit) token for incoming calls when app is killed
+ */
+export const registerVoIPToken = async (req: Request, res: Response) => {
+  const route = 'POST /fcm/voip-token';
+
+  try {
+    const { voipToken } = req.body;
+    const user = (req as any).user;
+
+    if (!user?.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!voipToken || typeof voipToken !== 'string') {
+      return res.status(400).json({ error: 'voipToken is required' });
+    }
+
+    const voipTokensRef = db.collection('users').doc(user.uid).collection('voipTokens');
+
+    const existing = await voipTokensRef.where('voipToken', '==', voipToken).get();
+
+    if (!existing.empty) {
+      await existing.docs[0].ref.update({ updatedAt: new Date() });
+      Logger.success(route, user.uid, 'VoIP token updated');
+      return res.json({ success: true, message: 'VoIP token updated' });
+    }
+
+    await voipTokensRef.add({
+      voipToken,
+      deviceType: 'ios',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    Logger.success(route, user.uid, 'VoIP token registered');
+    return res.json({ success: true, message: 'VoIP token registered' });
+  } catch (error) {
+    Logger.error(route, '', 'Error registering VoIP token', error);
+    return res.status(500).json({ error: 'Failed to register VoIP token' });
+  }
+};
+

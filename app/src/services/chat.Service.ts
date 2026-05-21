@@ -110,6 +110,72 @@ export const createChatIfNotExists = async (uidA: string, uidB: string) => {
 };
 
 
+/** Push + in-app notification after a message is written to RTDB */
+export const notifyChatMessageRecipient = async (
+    chatId: string,
+    message: Omit<Message, 'createdAt' | 'id'>,
+): Promise<void> => {
+    try {
+        const chatSnapshot = await get(ref(db, `chats/${chatId}`));
+        if (!chatSnapshot.exists()) {
+            return;
+        }
+
+        const chatData = chatSnapshot.val();
+        const participants = chatData?.participants || [];
+        const recipientId = participants.find((p: string) => p !== message.senderId);
+
+        if (!recipientId) {
+            return;
+        }
+
+        const { isChatActive } = await import('./active-chat.service');
+        if (isChatActive(chatId)) {
+            return;
+        }
+
+        let senderName = 'Someone';
+        let senderAvatar = '';
+        try {
+            const senderData = await UserService.getUserById(message.senderId);
+            if (senderData) {
+                senderName = senderData.name || senderData.displayName || 'Someone';
+                senderAvatar = normalizeAvatarUrl(senderData);
+            }
+        } catch {
+            // non-critical
+        }
+
+        const displayText =
+            message.type === 'text' ? (message.text || 'New message') : `[${message.type}]`;
+
+        NotificationStorage.createNotification({
+            userId: recipientId,
+            type: 'chat_message',
+            category: 'message',
+            title: senderName,
+            message: displayText,
+            data: { chatId, senderId: message.senderId },
+            senderId: message.senderId,
+            senderName,
+            senderAvatar,
+        }).catch(() => {});
+
+        api.post(
+            '/notifications/send-message',
+            {
+                chatId,
+                senderId: message.senderId,
+                recipientId,
+                messageText: displayText,
+            },
+            { __suppressErrorToast: true } as Parameters<typeof api.post>[2],
+        ).catch(() => {});
+    } catch {
+        // non-critical
+    }
+};
+
 export const sendMessage = async (
     chatId: string,
     message: Omit<Message, 'createdAt' | 'id'>
@@ -135,89 +201,7 @@ export const sendMessage = async (
 
         await update(ref(db), updates);
 
-        // Send push notification via backend API (no Cloud Functions needed)
-        // Get recipient ID from chat participants
-        try {
-            const chatSnapshot = await get(ref(db, `chats/${chatId}`));
-            if (chatSnapshot.exists()) {
-                const chatData = chatSnapshot.val();
-                const participants = chatData?.participants || [];
-                const recipientId = participants.find((p: string) => p !== message.senderId);
-
-                if (recipientId) {
-                    if (__DEV__) {
-                        logger.debug('📤 Preparing to send notification...', {
-                            chatId,
-                            senderId: message.senderId,
-                            recipientId,
-                            messageText: message.text?.substring(0, 50)
-                        })
-                    };
-
-                    // Get sender info for notification
-                    let senderName = 'Someone';
-                    let senderAvatar = '';
-                    try {
-                        const senderData = await UserService.getUserById(message.senderId);
-                        if (senderData) {
-                            senderName = senderData.name || senderData.displayName || 'Someone';
-                            senderAvatar = normalizeAvatarUrl(senderData);
-                        }
-                    } catch (error) {
-                        if (__DEV__) {
-                            logger.warn('⚠️ Could not fetch sender info:', error)
-                        };
-                    }
-
-                    // Create app notification in Firestore (stored notification)
-                    NotificationStorage.createNotification({
-                        userId: recipientId,
-                        type: 'chat_message',
-                        category: 'message',
-                        title: senderName,
-                        message: message.text || 'New message',
-                        data: { chatId, senderId: message.senderId },
-                        senderId: message.senderId,
-                        senderName,
-                        senderAvatar,
-                    }).catch((err) => {
-                        if (__DEV__) {
-                            logger.warn('⚠️ Failed to create app notification:', err)
-                        };
-                    });
-
-                    // Call notification API for push notification (don't wait for response)
-                    api.post('/notifications/send-message', {
-                        chatId,
-                        senderId: message.senderId,
-                        recipientId,
-                        messageText: message.text || ''
-                    })
-                        .then((response) => {
-                            if (__DEV__) {
-                                logger.debug('✅ Push notification sent successfully:', response.data)
-                            };
-                        })
-                        .catch((err) => {
-                            if (__DEV__) {
-                                logger.warn('⚠️ Failed to send push notification (non-critical):', err.response?.data || err.message)
-                            };
-                        });
-                } else {
-                    if (__DEV__) {
-                        logger.warn('⚠️ No recipient found for notification')
-                    };
-                }
-            } else {
-                if (__DEV__) {
-                    logger.warn('⚠️ Chat not found, skipping notification')
-                };
-            }
-        } catch (notifError) {
-            if (__DEV__) {
-                logger.warn('⚠️ Error sending notification (non-critical):', notifError)
-            };
-        }
+        await notifyChatMessageRecipient(chatId, message);
 
         return messageId;
     } catch (error: any) {

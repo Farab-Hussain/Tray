@@ -20,8 +20,7 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          add(com.tray.modules.TrayIntentPackage())
         },
     )
   }
@@ -66,6 +65,17 @@ class MainApplication : Application(), ReactApplication {
       }
       
       notificationManager.createNotificationChannel(incomingCallChannel)
+
+      val chatChannel = NotificationChannel(
+        "chat_messages",
+        "Chat Messages",
+        NotificationManager.IMPORTANCE_HIGH
+      ).apply {
+        description = "New chat message notifications"
+        enableVibration(true)
+        setShowBadge(true)
+      }
+      notificationManager.createNotificationChannel(chatChannel)
     }
   }
 }

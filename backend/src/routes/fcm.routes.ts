@@ -17,5 +17,11 @@ router.post("/token", authenticateUser(), fcmController.registerFCMToken);
  */
 router.delete("/token", authenticateUser(), fcmController.deleteFCMToken);
 
+/**
+ * POST /fcm/voip-token
+ * Register iOS PushKit VoIP token (CallKit / killed-app calls)
+ */
+router.post("/voip-token", authenticateUser(), fcmController.registerVoIPToken);
+
 export default router;
 

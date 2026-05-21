@@ -3,8 +3,12 @@
  */
 
 import { AppRegistry } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import App from './src/App';
 import { name as appName } from './app.json';
+
+const PENDING_CALL_KEY = '@tray_pending_call_notification';
+const PENDING_CHAT_KEY = '@tray_pending_chat_notification';
 
 // Register background message handler for Firebase Cloud Messaging
 // This must be registered before the app component
@@ -45,37 +49,26 @@ try {
 
           // Handle different types of background messages
           if (messageData.type === 'call' || messageData.callId) {
-            // This is an incoming call notification
-            console.log(
-              '📞 [Background] Processing incoming call notification',
+            await AsyncStorage.setItem(
+              PENDING_CALL_KEY,
+              JSON.stringify({
+                callId: messageData.callId,
+                callType: messageData.callType || 'audio',
+                callerId: messageData.callerId,
+                receiverId: messageData.receiverId || messageData.userId,
+              }),
             );
-            console.log('📞 [Background] Call details:', {
-              callId: messageData.callId,
-              callType: messageData.callType || 'audio',
-              callerId: messageData.callerId,
-              receiverId: messageData.receiverId || messageData.userId,
-            });
-
-            // The notification will be automatically displayed by the system
-            // When the user taps the notification, it will open the app
-            // and the onNotificationOpenedApp handler will navigate to the calling screen
-            console.log('✅ [Background] Call notification processed');
           } else if (
             messageData.type === 'chat_message' ||
             messageData.chatId
           ) {
-            // This is a chat message notification
-            console.log('💬 [Background] Processing chat message notification');
-
-            // The notification will be automatically displayed by the system
-            // The notification data contains:
-            // - chatId: The chat ID
-            // - senderId: The sender's user ID
-            // - messageText: The message text
-
-            // We can also create a Firestore notification entry here if needed
-            // But typically the backend already creates it when sending the message
-            console.log('✅ [Background] Chat message notification processed');
+            await AsyncStorage.setItem(
+              PENDING_CHAT_KEY,
+              JSON.stringify({
+                chatId: messageData.chatId,
+                senderId: messageData.senderId,
+              }),
+            );
           } else if (messageData.type === 'booking' || messageData.bookingId) {
             // This is a booking notification
             console.log('📅 [Background] Processing booking notification');

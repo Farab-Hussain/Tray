@@ -123,6 +123,13 @@ export const processQueuedMessages = async (): Promise<void> => {
 
         await update(ref(db), updates);
 
+        try {
+          const { notifyChatMessageRecipient } = await import('./chat.Service');
+          await notifyChatMessageRecipient(queuedMsg.chatId, queuedMsg.message);
+        } catch {
+          // push is best-effort
+        }
+
         successfulIds.push(queuedMsg.id);
         
         if (__DEV__) {

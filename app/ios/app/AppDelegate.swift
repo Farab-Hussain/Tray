@@ -10,164 +10,138 @@ import PushKit
 import CallKit
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate, CXProviderDelegate {
   var window: UIWindow?
-
   var reactNativeDelegate: ReactNativeDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
-  
-  // CallKit and PushKit
   var callKitProvider: CXProvider?
   var pushRegistry: PKPushRegistry?
+  private var activeCallUUID: UUID?
+  private var activeCallPayload: [String: String] = [:]
 
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    // Configure Firebase - must be called before React Native initializes
     FirebaseApp.configure()
-    
-    // Initialize Facebook SDK
-    // Set App ID programmatically as fallback (also configured in Info.plist)
     Settings.shared.appID = "1062926749049"
     Settings.shared.clientToken = "b9857fc3912f5f51556932745d508d08"
     Settings.shared.displayName = "Tray"
-    
-    ApplicationDelegate.shared.application(
-      application,
-      didFinishLaunchingWithOptions: launchOptions
-    )
-    
-    // Set up push notification delegate
+    ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
     UNUserNotificationCenter.current().delegate = self
-    
-    // Register for remote notifications
     application.registerForRemoteNotifications()
-    
-    // Initialize PushKit for VoIP calls
     setupPushKit()
-    
-    // Initialize CallKit
     setupCallKit()
-    
+
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
-
     reactNativeDelegate = delegate
     reactNativeFactory = factory
-
     window = UIWindow(frame: UIScreen.main.bounds)
-
-    factory.startReactNative(
-      withModuleName: "app",
-      in: window,
-      launchOptions: launchOptions
-    )
-
+    factory.startReactNative(withModuleName: "app", in: window, launchOptions: launchOptions)
     return true
   }
-  
-  // Handle registration for remote notifications
+
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     Messaging.messaging().apnsToken = deviceToken
-    print("✅ [AppDelegate] Registered for remote notifications")
   }
-  
-  func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-    print("❌ [AppDelegate] Failed to register for remote notifications: \(error.localizedDescription)")
-  }
-  
-  // Handle notifications when app is in foreground
+
   func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-    // Show notification even when app is in foreground
     completionHandler([.banner, .sound, .badge])
   }
-  
-  // Handle notification tap
+
   func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-    // React Native Firebase handles this automatically
     completionHandler()
   }
-  
-  // Handle Facebook SDK URL opening
-  func application(
-    _ app: UIApplication,
-    open url: URL,
-    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
-  ) -> Bool {
+
+  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
     return ApplicationDelegate.shared.application(app, open: url, options: options)
   }
-  
-  // MARK: - PushKit and CallKit Setup
-  
+
   func setupPushKit() {
     pushRegistry = PKPushRegistry(queue: DispatchQueue.main)
     pushRegistry?.delegate = self
     pushRegistry?.desiredPushTypes = [.voIP]
-    print("✅ [AppDelegate] PushKit configured for VoIP calls")
   }
-  
+
   func setupCallKit() {
     let configuration = CXProviderConfiguration(localizedName: "Tray")
     configuration.maximumCallGroups = 1
     configuration.maximumCallsPerCallGroup = 1
     configuration.supportsVideo = true
     configuration.supportedHandleTypes = [.generic]
-    
     callKitProvider = CXProvider(configuration: configuration)
-    print("✅ [AppDelegate] CallKit configured")
+    callKitProvider?.setDelegate(self, queue: nil)
   }
-  
-  // MARK: - PKPushRegistryDelegate
-  
+
   func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
     let token = credentials.token.map { String(format: "%02x", $0) }.joined()
-    let tokenPreview = token.count > 12 ? "\(token.prefix(6))...\(token.suffix(6))" : token
-    print("📱 [AppDelegate] PushKit credentials updated: \(tokenPreview)")
+    TrayVoipStorage.saveVoipToken(token)
   }
-  
+
   func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
-    print("⚠️ [AppDelegate] PushKit token invalidated")
+    TrayVoipStorage.prefs.removeObject(forKey: TrayVoipStorage.voipTokenKey)
   }
-  
+
   func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
-    if type == .voIP {
-      print("📞 [AppDelegate] ⚡ VoIP push received!")
-      
-      let dictionary = payload.dictionaryPayload
-      guard let callId = dictionary["callId"] as? String,
-            let callType = dictionary["callType"] as? String else {
-        print("❌ [AppDelegate] Invalid VoIP push payload")
-        return
-      }
-      
-      // Report incoming call to CallKit
-      let update = CXCallUpdate()
-      update.remoteHandle = CXHandle(type: .generic, value: callId)
-      update.hasVideo = (callType == "video")
-      update.localizedCallerName = "Incoming Call"
-      update.supportsHolding = false
-      update.supportsGrouping = false
-      update.supportsUngrouping = false
-      update.supportsDTMF = false
-      
-      callKitProvider?.reportNewIncomingCall(with: UUID(), update: update) { error in
-        if let error = error {
-          print("❌ [AppDelegate] Error reporting incoming call: \(error.localizedDescription)")
-        } else {
-          print("✅ [AppDelegate] Incoming call reported to CallKit")
-        }
-      }
+    guard type == .voIP else { return }
+    let dict = payload.dictionaryPayload
+    guard let callId = dict["callId"] as? String else { return }
+    let callType = (dict["callType"] as? String) ?? "audio"
+    let callerId = dict["callerId"] as? String
+    let receiverId = dict["receiverId"] as? String
+    let callerName = (dict["callerName"] as? String) ?? "Incoming Call"
+
+    activeCallUUID = UUID()
+    activeCallPayload = [
+      "callId": callId,
+      "callType": callType,
+      "callerId": callerId ?? "",
+      "receiverId": receiverId ?? "",
+    ]
+
+    let update = CXCallUpdate()
+    update.remoteHandle = CXHandle(type: .generic, value: callerId ?? callId)
+    update.hasVideo = (callType == "video")
+    update.localizedCallerName = callerName
+    update.supportsHolding = false
+    update.supportsGrouping = false
+    update.supportsUngrouping = false
+    update.supportsDTMF = false
+
+    if let uuid = activeCallUUID {
+      callKitProvider?.reportNewIncomingCall(with: uuid, update: update) { _ in }
     }
   }
+
+  func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+    TrayVoipStorage.savePendingCall(
+      callId: activeCallPayload["callId"] ?? "",
+      callType: activeCallPayload["callType"] ?? "audio",
+      callerId: activeCallPayload["callerId"],
+      receiverId: activeCallPayload["receiverId"],
+      action: "accept"
+    )
+    action.fulfill()
+  }
+
+  func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+    TrayVoipStorage.savePendingCall(
+      callId: activeCallPayload["callId"] ?? "",
+      callType: activeCallPayload["callType"] ?? "audio",
+      callerId: activeCallPayload["callerId"],
+      receiverId: activeCallPayload["receiverId"],
+      action: "decline"
+    )
+    action.fulfill()
+  }
+
+  func providerDidReset(_ provider: CXProvider) {}
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
-  override func sourceURL(for bridge: RCTBridge) -> URL? {
-    self.bundleURL()
-  }
-
+  override func sourceURL(for bridge: RCTBridge) -> URL? { bundleURL() }
   override func bundleURL() -> URL? {
 #if DEBUG
     RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")

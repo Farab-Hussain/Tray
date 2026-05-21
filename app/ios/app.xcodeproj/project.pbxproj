@@ -13,6 +13,9 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		193BA4A941795441D78A6E6D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		A1B2C3D42CA45674006654F4 /* TrayVoipStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D12CA45674006654F1 /* TrayVoipStorage.swift */; };
+		A1B2C3D52CA45674006654F5 /* TrayVoipModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D22CA45674006654F2 /* TrayVoipModule.swift */; };
+		A1B2C3D62CA45674006654F6 /* TrayVoipModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D32CA45674006654F3 /* TrayVoipModule.m */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 /* End PBXBuildFile section */
 
@@ -48,6 +51,9 @@
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = app/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		5658A9BC10F50C3EAA36869F /* Pods_app.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_app.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = app/AppDelegate.swift; sourceTree = "<group>"; };
+		A1B2C3D12CA45674006654F1 /* TrayVoipStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrayVoipStorage.swift; path = app/TrayVoipStorage.swift; sourceTree = "<group>"; };
+		A1B2C3D22CA45674006654F2 /* TrayVoipModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrayVoipModule.swift; path = app/TrayVoipModule.swift; sourceTree = "<group>"; };
+		A1B2C3D32CA45674006654F3 /* TrayVoipModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = TrayVoipModule.m; path = app/TrayVoipModule.m; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = app/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		AB342697E0396152F4F504D4 /* Pods-app.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.debug.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.debug.xcconfig"; sourceTree = "<group>"; };
 		E3658916B5EF34F6F0A52B04 /* Pods-app.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.release.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.release.xcconfig"; sourceTree = "<group>"; };
@@ -73,6 +79,9 @@
 				04F694742EB94E9A00447BA8 /* GoogleService-Info.plist */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				A1B2C3D12CA45674006654F1 /* TrayVoipStorage.swift */,
+				A1B2C3D22CA45674006654F2 /* TrayVoipModule.swift */,
+				A1B2C3D32CA45674006654F3 /* TrayVoipModule.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -303,6 +312,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				A1B2C3D42CA45674006654F4 /* TrayVoipStorage.swift in Sources */,
+				A1B2C3D52CA45674006654F5 /* TrayVoipModule.swift in Sources */,
+				A1B2C3D62CA45674006654F6 /* TrayVoipModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
