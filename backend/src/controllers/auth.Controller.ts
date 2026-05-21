@@ -627,11 +627,9 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
 
     // Generate verification links (no Firebase API calls - bypasses rate limits)
     // Support both web and mobile verification links
-    // FRONTEND_URL can be set to:
-    // - localhost:3000 (for local development)
-    // - https://tray-dashboard-eight.vercel.app (for production web)
-    // - Leave empty to use mobile deep link only
-    const webUrl = (process.env.FRONTEND_URL || process.env.APP_URL || '').replace(/\/+$/, ''); // Remove trailing slashes
+    // WEB_APP_URL / FRONTEND_URL must be the Next.js web app (not the API host).
+    const { getWebAppUrl } = await import('../utils/webAppUrl');
+    const webUrl = getWebAppUrl();
     const mobileLink = `tray://email-verification?token=${verificationToken}&uid=${userRecord.uid}`;
     const webLink = webUrl ? `${webUrl}/verify-email?token=${verificationToken}&uid=${userRecord.uid}` : null;
 

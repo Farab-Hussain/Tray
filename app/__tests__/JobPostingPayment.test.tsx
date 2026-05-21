@@ -7,7 +7,14 @@ import JobPostingPaymentScreen from '../src/Screen/Recruiter/Payment/JobPostingP
 import PaymentService from '../src/services/payment.service';
 
 // Mock dependencies
-jest.mock('../src/services/payment.service');
+jest.mock('../src/services/payment.service', () => ({
+  __esModule: true,
+  default: {
+    getJobPostingPaymentStatus: jest.fn(),
+    createJobPostingPaymentIntent: jest.fn(),
+    confirmJobPostingPayment: jest.fn(),
+  },
+}));
 jest.mock('@stripe/stripe-react-native', () => ({
   useStripe: () => ({
     initPaymentSheet: jest.fn(),
@@ -52,10 +59,20 @@ const mockRoute = {
   },
 };
 
+const defaultStatus = {
+  required: true,
+  paid: false,
+  creditsRemaining: 0,
+  bundleFee: 5,
+  postingsPerBundle: 3,
+  amount: 500,
+};
+
 describe('JobPostingPaymentScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    (PaymentService.getJobPostingPaymentStatus as jest.Mock).mockResolvedValue(defaultStatus);
   });
 
   afterEach(() => {
@@ -80,9 +97,11 @@ describe('JobPostingPaymentScreen', () => {
         success: true,
         clientSecret: 'test-client-secret',
         paymentIntentId: 'test-payment-intent-id',
-        amount: 100,
+        amount: 500,
         currency: 'usd',
-        description: 'Job posting fee - $1.00',
+        bundleFee: 5,
+        postingsPerBundle: 3,
+        description: 'Job posting bundle - $5.00 for 3 postings',
       });
 
       // Mock successful payment sheet initialization
@@ -93,9 +112,9 @@ describe('JobPostingPaymentScreen', () => {
 
       await waitFor(() => {
         expect(getByText('Job Posting Payment')).toBeTruthy();
-        expect(getByText('Job Posting Fee')).toBeTruthy();
-        expect(getByText('$1.00')).toBeTruthy();
-        expect(getByText('Pay $1.00')).toBeTruthy();
+        expect(getByText('Job Posting Bundle')).toBeTruthy();
+        expect(getByText('$5.00')).toBeTruthy();
+        expect(getByText('Pay $5.00')).toBeTruthy();
         expect(getByText('Cancel')).toBeTruthy();
       });
     });

@@ -7,6 +7,7 @@ import AllConsultants from '../Screen/Student/Consultants/AllConsultants';
 import BookingSlots from '../Screen/Student/Booking/BookingSlots';
 import Cart from '../Screen/Student/Cart/Cart';
 import { useAuth } from '../contexts/AuthContext';
+import { usePlatformAccessFee } from '../hooks/usePlatformAccessFee';
 
 const Stack = createStackNavigator();
 
@@ -67,6 +68,7 @@ const scaleAndSlide = ({ current, layouts }: any) => {
 const HomeScreenWrapper = () => {
   const { activeRole, roles } = useAuth();
   const navigation = useNavigation();
+  usePlatformAccessFee(navigation);
   
   // Determine which home screen to show based on role
   // Use activeRole if available, fallback to roles array

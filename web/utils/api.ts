@@ -265,4 +265,16 @@ export const adminAIAPI = {
   },
 };
 
+// ========== Pricing Settings API ==========
+export interface PricingSettings {
+  studentConsultantFee: number;
+  recruiterPostingFee: number;
+  recruiterPostingsPerBundle?: number;
+}
+
+export const pricingAPI = {
+  getPricingSettings: () => api.get<PricingSettings>('/settings/pricing'),
+  updatePricingSettings: (data: PricingSettings) => api.put('/settings/pricing', data),
+};
+
 export default api;

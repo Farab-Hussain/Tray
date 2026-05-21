@@ -470,82 +470,128 @@ export const jobServices = {
 
   // ==================== PAYMENT ENFORCEMENT METHODS ====================
 
+  async getJobPostingCredits(userId: string): Promise<number> {
+    const userDoc = await db.collection("users").doc(userId).get();
+    const credits = userDoc.data()?.jobPostingCredits;
+    return typeof credits === "number" && credits > 0 ? credits : 0;
+  },
+
   /**
    * Check if job posting payment is required for user
    */
   async checkJobPostingPayment(userId: string): Promise<{
     required: boolean;
     paid: boolean;
+    creditsRemaining?: number;
     amount?: number;
+    bundleFee?: number;
+    postingsPerBundle?: number;
     paymentUrl?: string;
     subscriptionActive?: boolean;
   }> {
     try {
-      console.log(`🔍 [Payment Check] Checking payment for user: ${userId}`);
-      
-      // Check if user has active subscription (Phase 2 feature - placeholder)
-      const subscriptionActive = false; // TODO: Implement subscription check
+      const { getPricingSettings } = await import("./pricingSettings.service");
+      const pricing = await getPricingSettings();
 
-      // Check if user already paid for this job posting
-      // Note: Each job posting requires separate payment - no bulk payments
-      const paymentSnapshot = await db
-        .collection("jobPostingPayments")
-        .where("userId", "==", userId)
-        .where("status", "==", "paid")
-        .where("expiresAt", ">", Timestamp.now())
-        .limit(1)
-        .get();
-
-      // For now, always require payment for each job posting
-      // TODO: Implement subscription-based or bulk payment options
-      const hasValidPayment = false; // Force payment requirement for testing
-
-      // Job posting fee: $1.00 per post
-      const JOB_POSTING_FEE = 100; // $1.00 in cents
+      const subscriptionActive = false; // Deferred: subscription bypass
+      const creditsRemaining = await this.getJobPostingCredits(userId);
+      const hasCredits = creditsRemaining > 0;
+      const bundleFeeCents = Math.round(pricing.recruiterPostingFee * 100);
 
       const result = {
-        required: !subscriptionActive, // Free for subscribers
-        paid: hasValidPayment,
-        amount: subscriptionActive ? 0 : JOB_POSTING_FEE,
-        paymentUrl: hasValidPayment ? undefined : "/payment/job-posting",
+        required: !subscriptionActive && !hasCredits,
+        paid: hasCredits || subscriptionActive,
+        creditsRemaining,
+        amount: bundleFeeCents,
+        bundleFee: pricing.recruiterPostingFee,
+        postingsPerBundle: pricing.recruiterPostingsPerBundle,
+        paymentUrl: hasCredits || subscriptionActive ? undefined : "/payment/job-posting",
         subscriptionActive,
       };
 
-      console.log(`🔍 [Payment Check] Result:`, result);
       return result;
     } catch (error) {
       console.error("Error checking job posting payment:", error);
-      // Default to requiring payment if check fails
-      const fallbackResult = {
+      return {
         required: true,
         paid: false,
-        amount: 100,
+        creditsRemaining: 0,
+        amount: 500,
         paymentUrl: "/payment/job-posting",
         subscriptionActive: false,
       };
-      console.log(`🔍 [Payment Check] Fallback result:`, fallbackResult);
-      return fallbackResult;
     }
   },
 
   /**
-   * Record job posting payment
+   * Add posting credits after bundle payment ($5 for 3 postings by default)
    */
-  async recordJobPostingPayment(userId: string, paymentId: string, amount: number): Promise<void> {
+  async recordJobPostingPayment(
+    userId: string,
+    paymentId: string,
+    amount: number,
+    creditsToAdd?: number
+  ): Promise<{ creditsAdded: number; creditsRemaining: number }> {
+    const { getPricingSettings } = await import("./pricingSettings.service");
+    const pricing = await getPricingSettings();
+    const credits = creditsToAdd ?? pricing.recruiterPostingsPerBundle;
+
     const paymentRef = db.collection("jobPostingPayments").doc();
     const now = Timestamp.now();
 
-    // Payment valid for 30 days
-    const expiresAt = new Timestamp(now.seconds + (30 * 24 * 60 * 60), now.nanoseconds);
+    const userRef = db.collection("users").doc(userId);
 
-    await paymentRef.set({
-      id: paymentRef.id,
-      userId,
-      paymentId,
-      amount,
-      status: "paid",
-      createdAt: now,
-      expiresAt,
+    await db.runTransaction(async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      const currentCredits = userDoc.data()?.jobPostingCredits ?? 0;
+      const newCredits = currentCredits + credits;
+
+      transaction.set(paymentRef, {
+        id: paymentRef.id,
+        userId,
+        paymentId,
+        amount,
+        creditsAdded: credits,
+        status: "paid",
+        createdAt: now,
+      });
+
+      transaction.set(
+        userRef,
+        {
+          jobPostingCredits: newCredits,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    });
+
+    const creditsRemaining = await this.getJobPostingCredits(userId);
+    return { creditsAdded: credits, creditsRemaining };
+  },
+
+  /**
+   * Consume one posting credit when a job is published
+   */
+  async consumeJobPostingCredit(userId: string): Promise<void> {
+    const userRef = db.collection("users").doc(userId);
+
+    await db.runTransaction(async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      const credits = userDoc.data()?.jobPostingCredits ?? 0;
+
+      if (credits < 1) {
+        throw new Error("No job posting credits remaining");
+      }
+
+      transaction.set(
+        userRef,
+        {
+          jobPostingCredits: credits - 1,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
     });
   },
 

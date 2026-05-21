@@ -6,6 +6,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -37,15 +38,35 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
   const [processing, setProcessing] = useState(false);
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [jobData] = useState(route.params?.jobData || null);
-
-  const JOB_POSTING_FEE = 1.00; // $1.00
+  const [bundleFee, setBundleFee] = useState(5);
+  const [displayAmount, setDisplayAmount] = useState(5);
+  const [postingsPerBundle, setPostingsPerBundle] = useState(3);
+  const [creditsRemaining, setCreditsRemaining] = useState(0);
+  const [promotionCode, setPromotionCode] = useState('');
 
   const initializePaymentSheet = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Create payment intent for job posting
-      const response = await PaymentService.createJobPostingPaymentIntent();
+      const status = await PaymentService.getJobPostingPaymentStatus();
+      const fee = status.bundleFee ?? 5;
+      setBundleFee(fee);
+      setDisplayAmount(fee);
+      setPostingsPerBundle(status.postingsPerBundle ?? 3);
+      setCreditsRemaining(status.creditsRemaining ?? 0);
+
+      if (status.paid && (status.creditsRemaining ?? 0) > 0) {
+        Alert.alert(
+          'Credits Available',
+          `You have ${status.creditsRemaining} job posting(s) remaining.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        );
+        return;
+      }
+
+      const response = await PaymentService.createJobPostingPaymentIntent(
+        promotionCode || undefined,
+      );
       
       if (response.success && response.clientSecret) {
         const { error } = await initPaymentSheet({
@@ -63,9 +84,18 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
           console.error('Payment sheet initialization error:', error);
         } else {
           setPaymentIntent(response);
+          if (response.bundleFee) {
+            setBundleFee(response.bundleFee);
+          }
+          if (response.postingsPerBundle) {
+            setPostingsPerBundle(response.postingsPerBundle);
+          }
+          if (typeof response.amount === 'number') {
+            setDisplayAmount(response.amount / 100);
+          }
         }
       } else {
-        Alert.alert('Issue', response.issue || 'Failed to create payment intent');
+        Alert.alert('Issue', response.error || 'Failed to create payment intent');
       }
     } catch (error) {
       console.error('Payment initialization error:', error);
@@ -73,11 +103,15 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [user, initPaymentSheet]);
+  }, [user, initPaymentSheet, navigation, promotionCode]);
 
   useEffect(() => {
     initializePaymentSheet();
-  }, [initializePaymentSheet]);
+  }, []);
+
+  const handleApplyPromo = () => {
+    initializePaymentSheet();
+  };
 
   const handlePayment = async () => {
     if (!paymentIntent) {
@@ -110,9 +144,13 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
       const response = await PaymentService.confirmJobPostingPayment(paymentIntent.paymentIntentId);
       
       if (response.success) {
+        const creditsMsg = response.creditsRemaining != null
+          ? ` You now have ${response.creditsRemaining} posting(s) remaining.`
+          : '';
+
         Alert.alert(
           'Payment Successful',
-          'Your job posting payment has been processed successfully. Posting your job now...',
+          `Your posting bundle was purchased.${creditsMsg} Posting your job now...`,
           [
             {
               text: 'OK',
@@ -153,7 +191,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
           ]
         );
       } else {
-        Alert.alert('Issue', response.issue || 'Failed to confirm payment');
+        Alert.alert('Issue', response.error || 'Failed to confirm payment');
       }
     } catch (error) {
       console.error('Payment confirmation error:', error);
@@ -208,12 +246,15 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
           {/* Hero Pricing Card */}
           <View style={paymentScreenStyles.pricingCard}>
             <View style={paymentScreenStyles.pricingHeader}>
-              <Text style={paymentScreenStyles.pricingTitle}>Job Posting Fee</Text>
+              <Text style={paymentScreenStyles.pricingTitle}>Job Posting Bundle</Text>
               <View style={paymentScreenStyles.priceContainer}>
                 <Text style={paymentScreenStyles.currencySymbol}>$</Text>
-                <Text style={paymentScreenStyles.priceAmount}>{JOB_POSTING_FEE.toFixed(2)}</Text>
+                <Text style={paymentScreenStyles.priceAmount}>{displayAmount.toFixed(2)}</Text>
               </View>
-              <Text style={paymentScreenStyles.pricingSubtitle}>Fee to post the job</Text>
+              <Text style={paymentScreenStyles.pricingSubtitle}>
+                {postingsPerBundle} job postings per bundle
+                {creditsRemaining > 0 ? ` · ${creditsRemaining} credit(s) left` : ''}
+              </Text>
             </View>
             
             <View style={paymentScreenStyles.pricingDivider} />
@@ -223,9 +264,31 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
               <Text style={paymentScreenStyles.policyTitle}>Refund Policy</Text>
             </View>
             <Text style={paymentScreenStyles.policyDescription}>
-              Job posting fees are non-refundable once the job is posted. However, you can edit or remove your job posting at any time at no additional cost.
+              Bundle credits are used when you publish a job. Unused credits do not expire. Fees are non-refundable once a job is posted.
             </Text>
           </View>
+
+          <TextInput
+            style={{
+              borderWidth: 1,
+              borderColor: COLORS.lightGray || '#ddd',
+              borderRadius: 8,
+              padding: 12,
+              marginTop: 16,
+              fontSize: 16,
+            }}
+            placeholder="Promotion code (optional)"
+            value={promotionCode}
+            onChangeText={setPromotionCode}
+            autoCapitalize="characters"
+          />
+          <TouchableOpacity
+            style={[paymentScreenStyles.cancelButton, { marginTop: 8 }]}
+            onPress={handleApplyPromo}
+            disabled={processing}
+          >
+            <Text style={paymentScreenStyles.cancelButtonText}>Apply Code</Text>
+          </TouchableOpacity>
         </View>
             {/* <View style={paymentScreenStyles.pricingFeatures}>
               <View style={paymentScreenStyles.featureItem}>
@@ -273,7 +336,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
             ) : (
               <>
                 <Lock size={20} color={COLORS.white} />
-                <Text style={paymentScreenStyles.payButtonText}>Pay ${JOB_POSTING_FEE.toFixed(2)}</Text>
+                <Text style={paymentScreenStyles.payButtonText}>Pay ${displayAmount.toFixed(2)}</Text>
               </>
             )}
           </TouchableOpacity>

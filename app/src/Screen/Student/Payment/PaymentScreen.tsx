@@ -413,7 +413,23 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             }
           }
           
-          if (error.response?.status === 409) {
+          if (error.response?.status === 402 && error.response?.data?.code === 'ACCESS_FEE_REQUIRED') {
+            Alert.alert(
+              'Platform Access Required',
+              error.response?.data?.message || 'Please pay the platform access fee to book sessions.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Pay Now',
+                  onPress: () => navigation.navigate('PlatformAccessPayment'),
+                },
+              ],
+            );
+            failures.push({
+              bookingIndex: i,
+              message: 'Platform access fee required',
+            });
+          } else if (error.response?.status === 409) {
             // Conflict error - slot already booked
             conflicts.push({
               bookingIndex: i,

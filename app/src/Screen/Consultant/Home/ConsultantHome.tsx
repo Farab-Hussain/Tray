@@ -17,6 +17,7 @@ import { useChatContext } from '../../../contexts/ChatContext';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { AIService } from '../../../services/ai.service';
 import { logger } from '../../../utils/logger';
+import { usePlatformAccessFee } from '../../../hooks/usePlatformAccessFee';
 import {
   normalizeAvatarUrl,
   normalizeBookingStatus,
@@ -51,6 +52,7 @@ const normalizeRequestStatus = (
 };
 
 const ConsultantHome = ({ navigation }: any) => {
+  usePlatformAccessFee(navigation);
   const { user } = useAuth();
   const { openChatWith } = useChatContext();
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);

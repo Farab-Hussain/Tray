@@ -51,8 +51,8 @@ if (__DEV__) {
 try {
   // Suppress warnings during Firebase initialization
   const originalWarn = console.warn;
-  console.warn = () => {}; // Temporarily suppress warnings
-  
+  console.warn = () => { }; // Temporarily suppress warnings
+
   const firebaseApp = require('@react-native-firebase/app');
   if (firebaseApp && firebaseApp.default) {
     // Firebase App auto-initializes from GoogleService-Info.plist
@@ -61,7 +61,7 @@ try {
       console.log('✅ [Firebase] React Native Firebase App initialized');
     }
   }
-  
+
   // Restore warnings
   console.warn = originalWarn;
 } catch (error: any) {
@@ -91,10 +91,10 @@ if (typeof console.warn === 'function') {
     // Suppress InteractionManager deprecation warnings
     // Suppress Firebase deprecation warnings (they work fine, just deprecated API)
     if (!message.includes('InteractionManager has been deprecated') &&
-        !message.includes('This method is deprecated') &&
-        !message.includes('react-native-firebase') &&
-        !message.includes('migrating-to-v22') &&
-        !message.includes('Please use `getApp()` instead')) {
+      !message.includes('This method is deprecated') &&
+      !message.includes('react-native-firebase') &&
+      !message.includes('migrating-to-v22') &&
+      !message.includes('Please use `getApp()` instead')) {
       originalWarn.apply(console, args);
     }
   };

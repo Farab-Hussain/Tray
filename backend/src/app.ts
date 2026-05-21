@@ -27,6 +27,8 @@ import courseRoutes from "./routes/course.routes";
 import newsletterRoutes from "./routes/newsletter.routes";
 import broadcastRoutes from "./routes/broadcast.routes";
 import webrtcRoutes from "./routes/webrtc.routes";
+import settingsRoutes from "./routes/settings.routes";
+import { getWebAppUrl } from "./utils/webAppUrl";
 
 dotenv.config();
 
@@ -241,7 +243,20 @@ app.use("/courses", courseRoutes);
 app.use("/admin/newsletter", newsletterRoutes);
 app.use("/admin/broadcast", broadcastRoutes);
 app.use("/webrtc", webrtcRoutes);
+app.use("/settings", settingsRoutes);
 registerSupportRoutes(app);
+
+/**
+ * Email verification links sometimes point at the API host by mistake.
+ * Redirect GET /verify-email to the Next.js web app (same query string).
+ */
+app.get("/verify-email", (req, res) => {
+  const webBase = getWebAppUrl();
+  const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+  const target = `${webBase}/verify-email${query}`;
+  console.log(`↪️ [verify-email] Redirecting to web app: ${target}`);
+  return res.redirect(302, target);
+});
 
 // 404 handler for unmatched routes
 app.use((req: express.Request, res: express.Response) => {

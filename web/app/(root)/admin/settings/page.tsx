@@ -13,6 +13,14 @@ const SettingsPage = () => {
   const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
   const [platformFeeSuccess, setPlatformFeeSuccess] = useState<string | null>(null);
   
+  // Pricing Settings state
+  const [studentConsultantFee, setStudentConsultantFee] = useState<number>(25);
+  const [recruiterPostingFee, setRecruiterPostingFee] = useState<number>(5);
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [pricingSaving, setPricingSaving] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [pricingSuccess, setPricingSuccess] = useState<string | null>(null);
+  
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -64,8 +72,25 @@ const SettingsPage = () => {
       }
     };
 
+    const fetchPricingSettings = async () => {
+      try {
+        setPricingLoading(true);
+        const { pricingAPI } = await import('@/utils/api');
+        const response = await pricingAPI.getPricingSettings();
+        if (response.data) {
+          setStudentConsultantFee(response.data.studentConsultantFee ?? 25);
+          setRecruiterPostingFee(response.data.recruiterPostingFee ?? 5);
+        }
+      } catch (error) {
+        console.error('Error fetching pricing settings:', error);
+      } finally {
+        setPricingLoading(false);
+      }
+    };
+
     fetchSettings();
     fetchPlatformFee();
+    fetchPricingSettings();
   }, []);
 
   const handleSavePlatformFee = async () => {
@@ -88,6 +113,32 @@ const SettingsPage = () => {
       setPlatformFeeError(errorMessage);
     } finally {
       setPlatformFeeSaving(false);
+    }
+  };
+
+  const handleSavePricing = async () => {
+    if (studentConsultantFee < 0 || recruiterPostingFee < 0) {
+      setPricingError('Fees must be non-negative numbers');
+      return;
+    }
+
+    setPricingSaving(true);
+    setPricingError(null);
+    setPricingSuccess(null);
+
+    try {
+      const { pricingAPI } = await import('@/utils/api');
+      await pricingAPI.updatePricingSettings({ studentConsultantFee, recruiterPostingFee });
+      setPricingSuccess('Pricing settings updated successfully!');
+      setTimeout(() => setPricingSuccess(null), 3000);
+    } catch (error: unknown) {
+      console.error('Error updating pricing:', error);
+      const errorMessage =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to update pricing';
+      setPricingError(errorMessage);
+    } finally {
+      setPricingSaving(false);
     }
   };
 
@@ -281,6 +332,83 @@ const SettingsPage = () => {
                 <p className="text-sm text-green-700">{platformFeeSuccess}</p>
               </div>
             )}
+          </div>
+        </div>
+      </AdminSection>
+
+      {/* Pricing Configuration */}
+      <AdminSection title="Pricing Configuration" subtitle="Manage dynamic pricing for users and jobs">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Student/Consultant Access Fee (USD)
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={studentConsultantFee}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value) && value >= 0) setStudentConsultantFee(value);
+                    }}
+                    disabled={pricingLoading}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm sm:text-base disabled:bg-gray-100"
+                    placeholder="25"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">One-time fee for full platform access.</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Recruiter Job Posting Fee (USD)
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={recruiterPostingFee}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value) && value >= 0) setRecruiterPostingFee(value);
+                    }}
+                    disabled={pricingLoading}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm sm:text-base disabled:bg-gray-100"
+                    placeholder="5"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Fee charged per job posting pack (3 postings).</p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+              <div className="flex-1">
+                {pricingLoading && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Loading pricing...</span>
+                  </div>
+                )}
+                {pricingError && <p className="text-sm text-red-700">{pricingError}</p>}
+                {pricingSuccess && <p className="text-sm text-green-700">{pricingSuccess}</p>}
+              </div>
+              
+              <button
+                onClick={handleSavePricing}
+                disabled={pricingSaving || pricingLoading}
+                className="flex items-center justify-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
+              >
+                {pricingSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {pricingSaving ? 'Saving...' : 'Save Pricing'}
+              </button>
+            </div>
           </div>
         </div>
       </AdminSection>

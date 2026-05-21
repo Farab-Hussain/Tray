@@ -50,6 +50,7 @@ import ConsultantVerificationFlow from '../Screen/Consultant/Verification/Consul
 import CreateProfile from '../Screen/common/Profile/CreateProfile';
 import StripePaymentSetup from '../Screen/Consultant/Payment/StripePaymentSetup';
 import JobPostingPaymentScreen from '../Screen/Recruiter/Payment/JobPostingPaymentScreen';
+import PlatformAccessPaymentScreen from '../Screen/common/Payment/PlatformAccessPaymentScreen';
 // Consultant Content screens
 import ConsultantContentPostingScreen from '../Screen/Consultant/Content/ConsultantContentPostingScreen';
 // Job screens
@@ -1016,6 +1017,15 @@ const ScreenNavigator = () => {
       <Stack.Screen 
         name="JobPostingPayment" 
         component={JobPostingPaymentScreen}
+        options={{
+          headerShown: false,
+          cardStyleInterpolator: slideFromRight,
+        }}
+      />
+
+      <Stack.Screen
+        name="PlatformAccessPayment"
+        component={PlatformAccessPaymentScreen}
         options={{
           headerShown: false,
           cardStyleInterpolator: slideFromRight,

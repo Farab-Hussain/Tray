@@ -11,11 +11,12 @@ import {
   cancelBooking,
 } from "../controllers/booking.controller";
 import { authenticateUser } from "../middleware/authMiddleware";
+import { requirePlatformAccessFee } from "../middleware/requirePlatformAccessFee";
 import { validateCreateBooking, validateUpdateBookingStatus, validateConsultantIdParam } from "../middleware/validation";
 
 const router = express.Router();
 
-router.post("/", authenticateUser(), validateCreateBooking, createBooking);
+router.post("/", authenticateUser(), requirePlatformAccessFee, validateCreateBooking, createBooking);
 router.get("/student", authenticateUser(), getStudentBookings);
 router.get("/consultant", authenticateUser(), getConsultantBookings);
 router.get("/consultant/:consultantId/booked-slots", validateConsultantIdParam, getConsultantBookedSlots); // Public endpoint for students to check availability

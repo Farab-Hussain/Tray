@@ -8,6 +8,7 @@ import {
   updatePlatformFeeAmount,
 } from "../services/platformSettings.service";
 import { transferPaymentToConsultant } from "../services/payment.service";
+import { getWebAppUrl } from "../utils/webAppUrl";
 
 dotenv.config();
 
@@ -320,13 +321,14 @@ export const createConnectAccount = async (req: Request, res: Response) => {
     // Use mobile deep link URL format for React Native apps
     const mobileReturnUrl = process.env.MOBILE_RETURN_URL || 'tray://stripe/return';
     const mobileRefreshUrl = process.env.MOBILE_REFRESH_URL || 'tray://stripe/refresh';
-    const webReturnUrl = `${process.env.FRONTEND_URL }/consultant/account/stripe/return`;
-    const webRefreshUrl = `${process.env.FRONTEND_URL }/consultant/account/stripe/refresh`;
-    
+    const webBase = getWebAppUrl();
+    const webReturnUrl = `${webBase}/consultant/account/stripe/return`;
+    const webRefreshUrl = `${webBase}/consultant/account/stripe/refresh`;
+
     // Use mobile URLs if MOBILE_RETURN_URL is set, otherwise use web URLs
     const returnUrl = process.env.MOBILE_RETURN_URL ? mobileReturnUrl : webReturnUrl;
     const refreshUrl = process.env.MOBILE_REFRESH_URL ? mobileRefreshUrl : webRefreshUrl;
-    
+
     const accountLink = await getStripeClient().accountLinks.create({
       account: account.id,
       refresh_url: refreshUrl,
@@ -472,13 +474,14 @@ export const getConnectAccountStatus = async (req: Request, res: Response) => {
       // Use mobile deep link URL format for React Native apps
       const mobileReturnUrl = process.env.MOBILE_RETURN_URL || 'tray://stripe/return';
       const mobileRefreshUrl = process.env.MOBILE_REFRESH_URL || 'tray://stripe/refresh';
-      const webReturnUrl = `${process.env.FRONTEND_URL }/consultant/account/stripe/return`;
-      const webRefreshUrl = `${process.env.FRONTEND_URL }/consultant/account/stripe/refresh`;
-      
+      const webBase = getWebAppUrl();
+      const webReturnUrl = `${webBase}/consultant/account/stripe/return`;
+      const webRefreshUrl = `${webBase}/consultant/account/stripe/refresh`;
+
       // Use mobile URLs if MOBILE_RETURN_URL is set, otherwise use web URLs
       const returnUrl = process.env.MOBILE_RETURN_URL ? mobileReturnUrl : webReturnUrl;
       const refreshUrl = process.env.MOBILE_REFRESH_URL ? mobileRefreshUrl : webRefreshUrl;
-      
+
       const accountLink = await getStripeClient().accountLinks.create({
         account: stripeAccountId,
         refresh_url: refreshUrl,
@@ -555,7 +558,27 @@ export const transferToConsultant = async (req: Request, res: Response) => {
 };
 
 /**
- * Create payment intent for job posting
+ * Get job posting credits and bundle pricing for current user
+ */
+export const getJobPostingPaymentStatus = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { jobServices } = await import("../services/job.service");
+    const status = await jobServices.checkJobPostingPayment(user.uid);
+
+    return res.status(200).json(status);
+  } catch (error: any) {
+    console.error("Error fetching job posting payment status:", error);
+    return res.status(500).json({ error: "Failed to fetch job posting status" });
+  }
+};
+
+/**
+ * Create payment intent for job posting bundle ($5 for 3 postings by default)
  */
 export const createJobPostingPaymentIntent = async (req: Request, res: Response) => {
   try {
@@ -564,26 +587,49 @@ export const createJobPostingPaymentIntent = async (req: Request, res: Response)
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    // Job posting fee: $1.00
-    const JOB_POSTING_FEE = 100; // $1.00 in cents
+    const { promotionCode } = req.body || {};
 
-    // Create payment intent
+    const { getPricingSettings } = await import("../services/pricingSettings.service");
+    const { applyPromotionCodeToAmount } = await import("../services/promotionCode.service");
+    const pricingSettings = await getPricingSettings();
+    const baseAmountCents = Math.round(pricingSettings.recruiterPostingFee * 100);
+
+    let amountCents = baseAmountCents;
+    let promoApplied = false;
+
+    if (promotionCode) {
+      const promoResult = await applyPromotionCodeToAmount(baseAmountCents, promotionCode);
+      if (!promoResult.valid) {
+        return res.status(400).json({ error: promoResult.error || "Invalid promotion code" });
+      }
+      amountCents = promoResult.amountCents;
+      promoApplied = true;
+    }
+
     const paymentIntent = await getStripeClient().paymentIntents.create({
-      amount: JOB_POSTING_FEE,
+      amount: amountCents,
       currency: "usd",
-      metadata: { 
+      metadata: {
         type: "job-posting",
         userId: user.uid,
-        description: "Job posting fee"
+        description: "Job posting bundle",
+        postingsPerBundle: String(pricingSettings.recruiterPostingsPerBundle),
+        promotionCode: promotionCode || "",
+        promoApplied: String(promoApplied),
       },
     });
+
+    const bundleLabel = `$${pricingSettings.recruiterPostingFee.toFixed(2)} for ${pricingSettings.recruiterPostingsPerBundle} postings`;
 
     res.status(200).json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
-      amount: JOB_POSTING_FEE,
+      amount: amountCents,
       currency: "usd",
-      description: "Job posting fee - $1.00"
+      bundleFee: pricingSettings.recruiterPostingFee,
+      postingsPerBundle: pricingSettings.recruiterPostingsPerBundle,
+      description: `Job posting bundle - ${bundleLabel}`,
+      promoApplied,
     });
   } catch (error: any) {
     console.error('Error creating job posting payment intent:', error);
@@ -625,18 +671,162 @@ export const confirmJobPostingPayment = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid payment intent" });
     }
 
-    // Record the payment in Firestore
     const { jobServices } = await import("../services/job.service");
-    await jobServices.recordJobPostingPayment(user.uid, paymentIntentId, paymentIntent.amount);
+    const { creditsAdded, creditsRemaining } = await jobServices.recordJobPostingPayment(
+      user.uid,
+      paymentIntentId,
+      paymentIntent.amount
+    );
 
     res.status(200).json({
-      message: "Job posting payment confirmed and recorded",
+      message: "Job posting bundle purchased",
       paymentIntentId,
       amount: paymentIntent.amount,
-      status: "paid"
+      status: "paid",
+      creditsAdded,
+      creditsRemaining,
     });
   } catch (error: any) {
     console.error('Error confirming job posting payment:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to confirm payment',
+      code: error.code || 'PAYMENT_CONFIRMATION_ERROR'
+    });
+  }
+};
+
+/**
+ * Get platform access fee status for student/consultant
+ */
+export const getAccessFeePaymentStatus = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const userData = userDoc.data() || {};
+    const { getPricingSettings } = await import("../services/pricingSettings.service");
+    const pricing = await getPricingSettings();
+
+    return res.status(200).json({
+      paid: userData.hasPaidAccessFee === true || userData.accessFeeWaived === true,
+      waived: userData.accessFeeWaived === true,
+      fee: pricing.studentConsultantFee,
+      amountCents: Math.round(pricing.studentConsultantFee * 100),
+    });
+  } catch (error: any) {
+    console.error("Error fetching access fee status:", error);
+    return res.status(500).json({ error: "Failed to fetch access fee status" });
+  }
+};
+
+/**
+ * Create payment intent for student/consultant access fee ($25 flat rate by default)
+ */
+export const createAccessFeePaymentIntent = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { promotionCode } = req.body || {};
+
+    const { getPricingSettings } = await import("../services/pricingSettings.service");
+    const { applyPromotionCodeToAmount } = await import("../services/promotionCode.service");
+    const pricingSettings = await getPricingSettings();
+    const baseAmountCents = Math.round(pricingSettings.studentConsultantFee * 100);
+
+    let amountCents = baseAmountCents;
+    let promoApplied = false;
+
+    if (promotionCode) {
+      const promoResult = await applyPromotionCodeToAmount(baseAmountCents, promotionCode);
+      if (!promoResult.valid) {
+        return res.status(400).json({ error: promoResult.error || "Invalid promotion code" });
+      }
+      amountCents = promoResult.amountCents;
+      promoApplied = true;
+    }
+
+    const paymentIntent = await getStripeClient().paymentIntents.create({
+      amount: amountCents,
+      currency: "usd",
+      metadata: {
+        type: "platform-access",
+        userId: user.uid,
+        description: "Platform access fee",
+        promotionCode: promotionCode || "",
+        promoApplied: String(promoApplied),
+      },
+    });
+
+    res.status(200).json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount: amountCents,
+      currency: "usd",
+      fee: pricingSettings.studentConsultantFee,
+      description: `Platform access fee - $${pricingSettings.studentConsultantFee.toFixed(2)}`,
+      promoApplied,
+    });
+  } catch (error: any) {
+    console.error('Error creating access fee payment intent:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to create payment intent',
+      code: error.code || 'PAYMENT_INTENT_ERROR'
+    });
+  }
+};
+
+/**
+ * Confirm access fee payment
+ */
+export const confirmAccessFeePayment = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const { paymentIntentId } = req.body;
+
+    if (!paymentIntentId) {
+      return res.status(400).json({ error: "Payment intent ID is required" });
+    }
+
+    const paymentIntent = await getStripeClient().paymentIntents.retrieve(paymentIntentId);
+
+    if (paymentIntent.status !== 'succeeded') {
+      return res.status(400).json({ 
+        error: "Payment not successful",
+        status: paymentIntent.status 
+      });
+    }
+
+    if (paymentIntent.metadata.type !== 'platform-access' || paymentIntent.metadata.userId !== user.uid) {
+      return res.status(400).json({ error: "Invalid payment intent" });
+    }
+
+    await db.collection("users").doc(user.uid).update({
+      hasPaidAccessFee: true,
+      accessFeePaymentIntentId: paymentIntentId,
+      accessFeePaidAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const { cache } = await import("../utils/cache");
+    cache.delete(`user:${user.uid}`);
+
+    res.status(200).json({
+      message: "Access fee payment confirmed",
+      status: "paid",
+      hasPaidAccessFee: true,
+    });
+  } catch (error: any) {
+    console.error('Error confirming access fee payment:', error);
     res.status(500).json({ 
       error: error.message || 'Failed to confirm payment',
       code: error.code || 'PAYMENT_CONFIRMATION_ERROR'

@@ -1,5 +1,6 @@
 // src/controllers/job.controller.ts
 import { Request, Response } from "express";
+import { db } from "../config/firebase";
 import { jobServices } from "../services/job.service";
 import { resumeServices } from "../services/resume.service";
 import { calculateMatchScore } from "../utils/skillMatching";
@@ -21,34 +22,61 @@ export const createJob = async (req: Request, res: Response) => {
     const jobData = req.body;
     console.log(`🔍 [Job Creation] Job data:`, jobData);
 
-    // Check if payment is already confirmed (bypass payment check)
-    const paymentConfirmed = req.body.paymentConfirmed || req.headers['x-payment-confirmed'] === 'true';
-    
-    if (!paymentConfirmed) {
-      // ENFORCEMENT: Check if job posting payment is required
-      console.log(`🔍 [Job Creation] Checking payment requirement...`);
-      const paymentRequired = await jobServices.checkJobPostingPayment(user.uid);
-      console.log(`🔍 [Job Creation] Payment check result:`, paymentRequired);
-      
-      if (paymentRequired.required && !paymentRequired.paid) {
-        console.log(`🔍 [Job Creation] Payment required - returning 402`);
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const userData = userDoc.data() || {};
+    const userRoles: string[] = userData.roles || (userData.role ? [userData.role] : []);
+    const isRecruiter =
+      userRoles.includes("recruiter") ||
+      userData.activeRole === "recruiter" ||
+      userData.role === "recruiter";
+    const isAdmin = userRoles.includes("admin") || userData.role === "admin";
+
+    const paymentConfirmed =
+      req.body.paymentConfirmed || req.headers["x-payment-confirmed"] === "true";
+
+    if (isRecruiter && !isAdmin) {
+      if (!paymentConfirmed) {
+        console.log(`🔍 [Job Creation] Checking payment requirement...`);
+        const paymentRequired = await jobServices.checkJobPostingPayment(user.uid);
+        console.log(`🔍 [Job Creation] Payment check result:`, paymentRequired);
+
+        if (paymentRequired.required && !paymentRequired.paid) {
+          console.log(`🔍 [Job Creation] Payment required - returning 402`);
+          return res.status(402).json({
+            error: "Payment required for job posting",
+            paymentAmount: paymentRequired.amount,
+            paymentUrl: paymentRequired.paymentUrl,
+            bundleFee: paymentRequired.bundleFee,
+            postingsPerBundle: paymentRequired.postingsPerBundle,
+            creditsRemaining: paymentRequired.creditsRemaining ?? 0,
+            message: `Purchase a bundle ($${paymentRequired.bundleFee} for ${paymentRequired.postingsPerBundle} postings) to continue`,
+          });
+        }
+      }
+
+      const creditsBefore = await jobServices.getJobPostingCredits(user.uid);
+      if (creditsBefore < 1) {
         return res.status(402).json({
-          error: "Payment required for job posting",
-          paymentAmount: paymentRequired.amount,
-          paymentUrl: paymentRequired.paymentUrl,
-          message: "Please pay the job posting fee to continue"
+          error: "No job posting credits remaining",
+          paymentUrl: "/payment/job-posting",
+          message: "Purchase a posting bundle to continue",
         });
       }
-    } else {
-      console.log(`🔍 [Job Creation] Payment already confirmed - bypassing payment check`);
     }
 
     console.log(`🔍 [Job Creation] Creating job...`);
     const job = await jobServices.create(jobData, user.uid);
 
+    let creditsRemaining: number | undefined;
+    if (isRecruiter && !isAdmin) {
+      await jobServices.consumeJobPostingCredit(user.uid);
+      creditsRemaining = await jobServices.getJobPostingCredits(user.uid);
+    }
+
     res.status(201).json({
       message: "Job posted successfully",
       job,
+      creditsRemaining,
     });
   } catch (error: any) {
     console.error("Error creating job:", error);

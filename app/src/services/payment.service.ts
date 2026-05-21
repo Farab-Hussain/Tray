@@ -15,6 +15,12 @@ export interface PaymentIntentResponse {
   amount?: number;
   currency?: string;
   description?: string;
+  bundleFee?: number;
+  postingsPerBundle?: number;
+  creditsAdded?: number;
+  creditsRemaining?: number;
+  fee?: number;
+  promoApplied?: boolean;
   success?: boolean;
   error?: string;
 }
@@ -178,16 +184,40 @@ class PaymentService {
     }
   }
 
+  async getJobPostingPaymentStatus(): Promise<{
+    required: boolean;
+    paid: boolean;
+    creditsRemaining?: number;
+    bundleFee?: number;
+    postingsPerBundle?: number;
+    amount?: number;
+  }> {
+    const response = await api.get('/payment/job-posting/status');
+    return response.data;
+  }
+
+  async getAccessFeeStatus(): Promise<{
+    paid: boolean;
+    waived?: boolean;
+    fee: number;
+    amountCents: number;
+  }> {
+    const response = await api.get('/payment/access-fee/status');
+    return response.data;
+  }
+
   /**
-   * Create payment intent for job posting
+   * Create payment intent for job posting bundle
    */
-  async createJobPostingPaymentIntent(): Promise<PaymentIntentResponse> {
+  async createJobPostingPaymentIntent(promotionCode?: string): Promise<PaymentIntentResponse> {
     try {
       if (__DEV__) {
         logger.debug('Creating job posting payment intent...')
       };
 
-      const response = await api.post<PaymentIntentResponse>('/payment/job-posting/create-intent');
+      const response = await api.post<PaymentIntentResponse>('/payment/job-posting/create-intent', {
+        promotionCode: promotionCode?.trim() || undefined,
+      });
 
       if (__DEV__) {
         logger.debug('Job posting payment intent created:', response.data)
@@ -242,6 +272,38 @@ class PaymentService {
         paymentIntentId: '',
         success: false,
         error: error.response?.data?.error || 'Failed to confirm job posting payment'
+      };
+    }
+  }
+
+  async createAccessFeePaymentIntent(promotionCode?: string): Promise<PaymentIntentResponse> {
+    try {
+      const response = await api.post<PaymentIntentResponse>('/payment/access-fee/create-intent', {
+        promotionCode: promotionCode?.trim() || undefined,
+      });
+      return { ...response.data, success: true };
+    } catch (error: any) {
+      return {
+        clientSecret: '',
+        paymentIntentId: '',
+        success: false,
+        error: error.response?.data?.error || 'Failed to create access fee payment intent',
+      };
+    }
+  }
+
+  async confirmAccessFeePayment(paymentIntentId: string): Promise<PaymentIntentResponse> {
+    try {
+      const response = await api.post<PaymentIntentResponse>('/payment/access-fee/confirm', {
+        paymentIntentId,
+      });
+      return { ...response.data, success: true };
+    } catch (error: any) {
+      return {
+        clientSecret: '',
+        paymentIntentId: '',
+        success: false,
+        error: error.response?.data?.error || 'Failed to confirm access fee payment',
       };
     }
   }
