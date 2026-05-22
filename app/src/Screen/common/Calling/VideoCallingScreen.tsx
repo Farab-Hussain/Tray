@@ -19,6 +19,8 @@ import { addIceCandidate, answerCall, createCall, endCall, listenCall, listenCan
 import { UserService } from '../../../services/user.service';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { markCallTerminal } from '../../../services/call-navigation.service';
+import { ensureCallMediaPermissions } from '../../../utils/mediaPermissions';
+import { getMediaStreamRenderURL } from '../../../utils/webrtcStream';
 // Avoid static RTCView import; require dynamically to prevent crashes if pod not installed
 
 const VideoCallingScreen = ({ navigation, route }: any) => {
@@ -174,6 +176,11 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             if (__DEV__) {
         console.log('📞 Accepting video call...')
       };
+
+      const permitted = await ensureCallMediaPermissions(true);
+      if (!permitted) {
+        return;
+      }
       
       // Get the call document to retrieve the offer
       const callDoc = await getCallOnce(callId);
@@ -636,9 +643,19 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       // Get the old video track before replacing
       const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
       
+      const camPermitted = await ensureCallMediaPermissions(true);
+      if (!camPermitted) {
+        return;
+      }
+
+      const videoConstraints =
+        Platform.OS === 'android'
+          ? { facingMode: newFacingMode, width: 640, height: 480 }
+          : { facingMode: newFacingMode };
+
       // Get new video stream with the new camera
       const videoStream = await mediaDevices.getUserMedia({
-        video: { facingMode: newFacingMode },
+        video: videoConstraints,
         audio: false,
       });
       const newVideoTrack = videoStream.getVideoTracks()[0];
@@ -855,6 +872,16 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
 
     (async () => {
       if (!callId || !callerId || !receiverId) return;
+
+      const permitted = await ensureCallMediaPermissions(true);
+      if (!permitted) {
+        Alert.alert(
+          'Permissions required',
+          'Camera and microphone access are needed for video calls.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        );
+        return;
+      }
 
       // Prevent re-creating peer connection if it already exists
       if (pcRef.current) {
@@ -1571,8 +1598,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         insetHasVideo,
         shouldShowMainVideo,
         shouldShowInsetVideo,
-        mainStreamURL: mainVideoStream?.toURL(),
-        insetStreamURL: insetVideoStream?.toURL(),
+        mainStreamURL: getMediaStreamRenderURL(mainVideoStream),
+        insetStreamURL: getMediaStreamRenderURL(insetVideoStream),
       })
       };
       
@@ -1633,7 +1660,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             audioTracks: audioTracks.length,
             totalTracks: currentTrackCount,
             videoTrackIds: currentVideoTrackIds,
-            streamURL: remote.id,
+            streamURL: getMediaStreamRenderURL(remote),
           });
         }
       }
@@ -1653,8 +1680,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       {/* Main video feed (full screen) - shows remote by default, local when swapped */}
       {shouldShowMainVideo && mainVideoStream ? (
         <RTCViewRef.current 
-          key={`main-${mainVideoStream.id || 'main'}-${isSwapped ? 'local' : 'remote'}-${mainVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
-          streamURL={mainVideoStream.id} 
+          key={`main-${getMediaStreamRenderURL(mainVideoStream) || 'main'}-${isSwapped ? 'local' : 'remote'}-${mainVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
+          streamURL={getMediaStreamRenderURL(mainVideoStream)} 
           style={callingStyles.mainVideoFeed} 
           objectFit="cover" 
           mirror={mainVideoStream === local && facingMode === 'user'}
@@ -1720,8 +1747,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           activeOpacity={0.8}
         >
           <RTCViewRef.current 
-            key={`inset-${insetVideoStream.id || 'inset'}-${isSwapped ? 'remote' : 'local'}-${insetVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
-            streamURL={insetVideoStream.id} 
+            key={`inset-${getMediaStreamRenderURL(insetVideoStream) || 'inset'}-${isSwapped ? 'remote' : 'local'}-${insetVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
+            streamURL={getMediaStreamRenderURL(insetVideoStream)} 
             style={callingStyles.insetVideo} 
             objectFit="cover" 
             mirror={insetVideoStream === local && facingMode === 'user'}

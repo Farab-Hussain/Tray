@@ -216,6 +216,54 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
   const timeOptions = generateTimeOptions();
 
+  const renderTimePickerModal = (
+    visible: boolean,
+    title: string,
+    onSelect: (time: string) => void,
+    onClose: () => void,
+  ) => (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={cleanStyles.timePickerModal}>
+        <TouchableOpacity
+          style={cleanStyles.timePickerBackdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View style={cleanStyles.timePickerContainer}>
+          <Text style={cleanStyles.timePickerTitle}>{title}</Text>
+          <ScrollView
+            style={cleanStyles.timePickerScroll}
+            contentContainerStyle={cleanStyles.timePickerScrollContent}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator
+            keyboardShouldPersistTaps="handled"
+          >
+            {timeOptions.map((time, index) => (
+              <TouchableOpacity
+                key={`${time}-${index}`}
+                style={cleanStyles.timePickerOption}
+                onPress={() => {
+                  onSelect(time);
+                  onClose();
+                }}
+              >
+                <Text style={cleanStyles.timePickerOptionText}>{time}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={cleanStyles.timePickerCancel} onPress={onClose}>
+            <Text style={cleanStyles.timePickerCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // Parse time string to minutes
   function parseTime(timeStr: string): number {
     if (!timeStr || typeof timeStr !== 'string') return 0;
@@ -1110,7 +1158,10 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                   <Text style={cleanStyles.timeInputLabel}>Start Time:</Text>
                   <TouchableOpacity
                     style={cleanStyles.timeInputButton}
-                    onPress={() => setShowStartTimePicker(!showStartTimePicker)}
+                    onPress={() => {
+                      setShowEndTimePicker(false);
+                      setShowStartTimePicker(prev => !prev);
+                    }}
                   >
                     <Text style={cleanStyles.timeInputButtonText}>
                       {startTime || 'Select Start Time'}
@@ -1122,7 +1173,10 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                   <Text style={cleanStyles.timeInputLabel}>End Time:</Text>
                   <TouchableOpacity
                     style={cleanStyles.timeInputButton}
-                    onPress={() => setShowEndTimePicker(!showEndTimePicker)}
+                    onPress={() => {
+                      setShowStartTimePicker(false);
+                      setShowEndTimePicker(prev => !prev);
+                    }}
                   >
                     <Text style={cleanStyles.timeInputButtonText}>
                       {endTime || 'Select End Time'}
@@ -1138,70 +1192,6 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
                     Add Time Slots
                   </Text>
                 </TouchableOpacity>
-              </View>
-            )}
-
-            {showStartTimePicker && (
-              <View style={cleanStyles.timePickerModal}>
-                <View style={cleanStyles.timePickerContainer}>
-                  <Text style={cleanStyles.timePickerTitle}>
-                    Select Start Time
-                  </Text>
-                  <ScrollView style={cleanStyles.timePickerScroll}>
-                    {timeOptions.map((time, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={cleanStyles.timePickerOption}
-                        onPress={() => {
-                          setStartTime(time);
-                          setShowStartTimePicker(false);
-                        }}
-                      >
-                        <Text style={cleanStyles.timePickerOptionText}>
-                          {time}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                  <TouchableOpacity
-                    style={cleanStyles.timePickerCancel}
-                    onPress={() => setShowStartTimePicker(false)}
-                  >
-                    <Text style={cleanStyles.timePickerCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {showEndTimePicker && (
-              <View style={cleanStyles.timePickerModal}>
-                <View style={cleanStyles.timePickerContainer}>
-                  <Text style={cleanStyles.timePickerTitle}>
-                    Select End Time
-                  </Text>
-                  <ScrollView style={cleanStyles.timePickerScroll}>
-                    {timeOptions.map((time, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={cleanStyles.timePickerOption}
-                        onPress={() => {
-                          setEndTime(time);
-                          setShowEndTimePicker(false);
-                        }}
-                      >
-                        <Text style={cleanStyles.timePickerOptionText}>
-                          {time}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                  <TouchableOpacity
-                    style={cleanStyles.timePickerCancel}
-                    onPress={() => setShowEndTimePicker(false)}
-                  >
-                    <Text style={cleanStyles.timePickerCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             )}
 
@@ -1277,6 +1267,19 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {renderTimePickerModal(
+        showStartTimePicker,
+        'Select Start Time',
+        setStartTime,
+        () => setShowStartTimePicker(false),
+      )}
+      {renderTimePickerModal(
+        showEndTimePicker,
+        'Select End Time',
+        setEndTime,
+        () => setShowEndTimePicker(false),
+      )}
     </SafeAreaView>
   );
 };

@@ -28,6 +28,7 @@ import newsletterRoutes from "./routes/newsletter.routes";
 import broadcastRoutes from "./routes/broadcast.routes";
 import webrtcRoutes from "./routes/webrtc.routes";
 import settingsRoutes from "./routes/settings.routes";
+import publicProfileRoutes from "./routes/publicProfile.routes";
 import { getWebAppUrl } from "./utils/webAppUrl";
 
 dotenv.config();
@@ -244,6 +245,7 @@ app.use("/admin/newsletter", newsletterRoutes);
 app.use("/admin/broadcast", broadcastRoutes);
 app.use("/webrtc", webrtcRoutes);
 app.use("/settings", settingsRoutes);
+app.use("/public", publicProfileRoutes);
 registerSupportRoutes(app);
 
 /**

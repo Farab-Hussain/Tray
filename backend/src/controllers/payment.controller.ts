@@ -751,6 +751,30 @@ export const createAccessFeePaymentIntent = async (req: Request, res: Response) 
       promoApplied = true;
     }
 
+    // 100% promo — grant access without charging a card
+    if (amountCents === 0 && promoApplied) {
+      await db.collection("users").doc(user.uid).update({
+        hasPaidAccessFee: true,
+        accessFeePaidAt: new Date().toISOString(),
+        accessFeePromoCode: promotionCode || "",
+        updatedAt: new Date().toISOString(),
+      });
+
+      const { cache } = await import("../utils/cache");
+      cache.delete(`user:${user.uid}`);
+
+      return res.status(200).json({
+        clientSecret: null,
+        paymentIntentId: null,
+        amount: 0,
+        currency: "usd",
+        fee: pricingSettings.studentConsultantFee,
+        description: "Platform access fee — fully discounted",
+        promoApplied: true,
+        freeAccess: true,
+      });
+    }
+
     const paymentIntent = await getStripeClient().paymentIntents.create({
       amount: amountCents,
       currency: "usd",
@@ -769,7 +793,8 @@ export const createAccessFeePaymentIntent = async (req: Request, res: Response) 
       amount: amountCents,
       currency: "usd",
       fee: pricingSettings.studentConsultantFee,
-      description: `Platform access fee - $${pricingSettings.studentConsultantFee.toFixed(2)}`,
+      baseAmount: baseAmountCents,
+      description: `Platform access fee - $${(amountCents / 100).toFixed(2)}`,
       promoApplied,
     });
   } catch (error: any) {

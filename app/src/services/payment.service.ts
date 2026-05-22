@@ -21,6 +21,7 @@ export interface PaymentIntentResponse {
   creditsRemaining?: number;
   fee?: number;
   promoApplied?: boolean;
+  freeAccess?: boolean;
   success?: boolean;
   error?: string;
 }

@@ -276,22 +276,23 @@ export const consultantAvailabilityStyles = StyleSheet.create({
     color: '#FFFFFF',
   },
   timePickerModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    padding: 24,
+  },
+  timePickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   timePickerContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
-    width: '80%',
-    maxHeight: '60%',
+    width: '100%',
+    maxWidth: 340,
+    maxHeight: '70%',
+    zIndex: 1,
   },
   timePickerTitle: {
     fontSize: 18,
@@ -301,7 +302,10 @@ export const consultantAvailabilityStyles = StyleSheet.create({
     marginBottom: 15,
   },
   timePickerScroll: {
-    maxHeight: 200,
+    maxHeight: 280,
+  },
+  timePickerScrollContent: {
+    paddingBottom: 8,
   },
   timePickerOption: {
     paddingVertical: 12,

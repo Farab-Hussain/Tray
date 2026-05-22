@@ -1,6 +1,7 @@
 // Avoid static import from 'react-native-webrtc' because it throws if pods aren't installed
 import { Alert, Platform } from 'react-native';
 import { WebRTCService } from '../services/webrtc.service';
+import { ensureCallMediaPermissions } from '../utils/mediaPermissions';
 
 export interface CreatePeerParams {
   isCaller: boolean;
@@ -206,31 +207,68 @@ export async function createPeer({
     }
   });
 
-  // Get user media with better constraints
-  const constraints: any = audioOnly
-    ? {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-      video: false
-    }
-    : {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        facingMode: 'user',
-        frameRate: { ideal: 30 },
-      }
-    };
+  const hasPermission = await ensureCallMediaPermissions(!audioOnly);
+  if (!hasPermission) {
+    throw new Error(
+      audioOnly
+        ? 'Microphone permission is required for calls'
+        : 'Camera and microphone permissions are required for video calls',
+    );
+  }
 
-  const stream = await mediaDevices.getUserMedia(constraints);
+  const audioConstraints = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+  };
+
+  let stream: any;
+  if (audioOnly) {
+    stream = await mediaDevices.getUserMedia({
+      audio: audioConstraints,
+      video: false,
+    });
+  } else {
+    const videoConstraintAttempts: Array<boolean | Record<string, unknown>> =
+      Platform.OS === 'android'
+        ? [
+            { facingMode: 'user', width: 640, height: 480, frameRate: 24 },
+            { facingMode: 'user' },
+            true,
+          ]
+        : [
+            {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: 'user',
+              frameRate: { ideal: 30 },
+            },
+            { facingMode: 'user' },
+            true,
+          ];
+
+    let lastError: unknown;
+    stream = null;
+    for (const video of videoConstraintAttempts) {
+      try {
+        stream = await mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video,
+        });
+        if (stream.getVideoTracks().length > 0) {
+          break;
+        }
+        stream.getTracks().forEach((t: any) => t.stop());
+        stream = null;
+        lastError = new Error('No video track in media stream');
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (!stream) {
+      throw lastError ?? new Error('Failed to access camera');
+    }
+  }
 
   // Ensure all video tracks are enabled
   stream.getVideoTracks().forEach((t: any) => {

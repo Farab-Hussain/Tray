@@ -18,6 +18,10 @@ import PaymentService from '../../../services/payment.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
 import { Lock } from 'lucide-react-native';
 import type { PlatformAccessReturnTo } from '../../../utils/platformAccessFee';
+import {
+  formatStripePaymentError,
+  getStripePaymentSheetOptions,
+} from '../../../utils/stripePaymentSheet';
 
 interface PlatformAccessPaymentScreenProps {
   navigation: any;
@@ -42,7 +46,10 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [accessFee, setAccessFee] = useState(25);
   const [promotionCode, setPromotionCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [baseFee, setBaseFee] = useState(25);
   const [completed, setCompleted] = useState(false);
+  const [sheetReady, setSheetReady] = useState(false);
 
   const finishAndNavigate = useCallback(() => {
     if (returnTo?.screen) {
@@ -52,7 +59,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     navigation.replace('MainTabs');
   }, [navigation, returnTo]);
 
-  const initializePaymentSheet = useCallback(async () => {
+  const initializePaymentSheet = useCallback(async (promoCodeInput?: string) => {
     try {
       setLoading(true);
 
@@ -67,33 +74,58 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
         }
         return;
       }
-      setAccessFee(status.fee ?? 25);
+      const fee = status.fee ?? 25;
+      setBaseFee(fee);
+      setAccessFee(fee);
 
+      const trimmedPromo = (promoCodeInput ?? promotionCode).trim();
       const response = await PaymentService.createAccessFeePaymentIntent(
-        promotionCode || undefined,
+        trimmedPromo || undefined,
       );
 
-      if (response.success && response.clientSecret) {
-        const { error } = await initPaymentSheet({
-          paymentIntentClientSecret: response.clientSecret,
-          merchantDisplayName: 'Tray Platform',
-          allowsDelayedPaymentMethods: true,
-          defaultBillingDetails: {
+      if (!response.success) {
+        Alert.alert(
+          'Promotion code',
+          response.error || 'Could not apply this code. Check the code and try again.',
+        );
+        setPromoApplied(false);
+        return;
+      }
+
+      setPromoApplied(!!response.promoApplied && !!trimmedPromo);
+
+      if (response.freeAccess) {
+        setPaymentIntent(response);
+        setAccessFee(0);
+        setSheetReady(true);
+        return;
+      }
+
+      if (response.clientSecret && response.paymentIntentId) {
+        const { error } = await initPaymentSheet(
+          getStripePaymentSheetOptions(response.clientSecret, {
             name: user?.displayName || user?.email || '',
             email: user?.email || '',
-          },
-        });
+          }),
+        );
 
         if (error) {
-          Alert.alert('Issue', 'Failed to initialize payment sheet');
+          setSheetReady(false);
+          Alert.alert('Issue', formatStripePaymentError(error.message));
         } else {
-          setPaymentIntent(response);
+          setPaymentIntent({
+            ...response,
+            paymentIntentId: response.paymentIntentId,
+            clientSecret: response.clientSecret,
+          });
+          setSheetReady(true);
           if (typeof response.amount === 'number') {
             setAccessFee(response.amount / 100);
           }
         }
       } else {
-        Alert.alert('Issue', response.error || 'Failed to create payment intent');
+        setSheetReady(false);
+        Alert.alert('Issue', 'Failed to create payment intent');
       }
     } catch {
       Alert.alert('Issue', 'Failed to initialize payment');
@@ -146,13 +178,16 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   );
 
   const handleApplyPromo = () => {
-    initializePaymentSheet();
+    const trimmed = promotionCode.trim();
+    if (!trimmed) {
+      Alert.alert('Promotion code', 'Enter a promotion code first.');
+      return;
+    }
+    initializePaymentSheet(trimmed);
   };
 
-  const confirmPayment = async () => {
-    const response = await PaymentService.confirmAccessFeePayment(
-      paymentIntent.paymentIntentId,
-    );
+  const confirmPayment = async (paymentIntentId: string) => {
+    const response = await PaymentService.confirmAccessFeePayment(paymentIntentId);
 
     if (response.success) {
       setCompleted(true);
@@ -174,14 +209,47 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       return;
     }
 
+    if (!paymentIntent.freeAccess && !sheetReady) {
+      Alert.alert(
+        'Payment not ready',
+        'Please wait for payment to finish loading, or tap Apply Code again.',
+      );
+      return;
+    }
+
+    if (paymentIntent.freeAccess) {
+      try {
+        setProcessing(true);
+        setCompleted(true);
+        await refreshUser?.();
+        await refreshPlatformAccessStatus();
+        Alert.alert(
+          'Access granted',
+          'Your promotion code was applied. You now have full platform access.',
+          [{ text: 'Continue', onPress: finishAndNavigate }],
+        );
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
+
     try {
       setProcessing(true);
+      const intentId = paymentIntent.paymentIntentId;
+      if (!intentId) {
+        Alert.alert('Issue', 'Payment session expired. Tap Apply Code again, then pay.');
+        return;
+      }
+
       const { error } = await presentPaymentSheet();
 
       if (error) {
-        Alert.alert('Payment Failed', error.message);
+        if (error.code !== 'Canceled') {
+          Alert.alert('Payment Failed', formatStripePaymentError(error.message));
+        }
       } else {
-        await confirmPayment();
+        await confirmPayment(intentId);
       }
     } catch {
       Alert.alert('Issue', 'Failed to process payment');
@@ -220,6 +288,11 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
                 <Text style={paymentScreenStyles.currencySymbol}>$</Text>
                 <Text style={paymentScreenStyles.priceAmount}>{accessFee.toFixed(2)}</Text>
               </View>
+              {promoApplied && accessFee < baseFee && (
+                <Text style={[paymentScreenStyles.pricingSubtitle, { marginTop: 8 }]}>
+                  Was ${baseFee.toFixed(2)} — promotion applied
+                </Text>
+              )}
             </View>
           </View>
 
@@ -232,10 +305,14 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
               marginBottom: 12,
               fontSize: 16,
             }}
-            placeholder="Promotion code (optional)"
+            placeholder="e.g. STUDENT20"
             value={promotionCode}
-            onChangeText={setPromotionCode}
+            onChangeText={(text) => {
+              setPromotionCode(text);
+              setPromoApplied(false);
+            }}
             autoCapitalize="characters"
+            autoCorrect={false}
           />
           <TouchableOpacity
             style={[paymentScreenStyles.cancelButton, { marginBottom: 16 }]}
@@ -250,7 +327,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
           <TouchableOpacity
             style={paymentScreenStyles.payButton}
             onPress={handlePayment}
-            disabled={processing}
+            disabled={processing || (!paymentIntent?.freeAccess && !sheetReady)}
           >
             {processing ? (
               <ActivityIndicator size="small" color={COLORS.white} />
@@ -258,7 +335,9 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
               <>
                 <Lock size={20} color={COLORS.white} />
                 <Text style={paymentScreenStyles.payButtonText}>
-                  Pay ${accessFee.toFixed(2)} to Continue
+                  {paymentIntent?.freeAccess
+                    ? 'Continue with free access'
+                    : `Pay $${accessFee.toFixed(2)} to Continue`}
                 </Text>
               </>
             )}
