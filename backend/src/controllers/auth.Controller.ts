@@ -356,7 +356,7 @@ export const login = async (req: Request, res: Response) => {
       err?.message || error,
     );
 
-    let message = "Invalid token";
+    let message = err?.message || "Invalid token";
     if (err?.code === "auth/id-token-expired") {
       message = "Session expired. Please sign in again.";
     } else if (err?.code === "auth/argument-error") {
@@ -372,6 +372,12 @@ export const login = async (req: Request, res: Response) => {
       err?.code === "app/invalid-credential"
     ) {
       message = "Server authentication configuration error. Contact support.";
+    } else if (
+      err?.message?.includes("API key not valid") ||
+      err?.message?.includes("FIREBASE_API_KEY")
+    ) {
+      message =
+        "Server FIREBASE_API_KEY is invalid on production. Set it to the tray-ed2f7 Web API key in Vercel.";
     }
 
     res.status(401).json({
