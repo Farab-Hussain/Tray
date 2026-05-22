@@ -25,22 +25,40 @@ async function verifyViaIdentityToolkit(idToken: string): Promise<DecodedIdToken
     throw new Error("FIREBASE_API_KEY is not configured");
   }
 
-  const { data } = await axios.post<{
+  let data: {
     users?: Array<{
       localId: string;
       email?: string;
       emailVerified?: boolean | string;
       providerUserInfo?: Array<{ providerId?: string }>;
     }>;
-  }>(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
-    { idToken },
-    { timeout: 15000 },
-  );
+  };
+
+  try {
+    const response = await axios.post(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+      { idToken },
+      { timeout: 15000 },
+    );
+    data = response.data;
+  } catch (axiosError: unknown) {
+    const ax = axiosError as {
+      response?: { data?: { error?: { message?: string; code?: number } } };
+      message?: string;
+    };
+    const apiMessage =
+      ax.response?.data?.error?.message || ax.message || "Token lookup failed";
+    console.error("[verifyViaIdentityToolkit] lookup error:", apiMessage);
+    const err = new Error(apiMessage) as Error & { code?: string };
+    err.code = "auth/invalid-id-token";
+    throw err;
+  }
 
   const user = data?.users?.[0];
   if (!user?.localId) {
-    const err = new Error("Invalid token") as Error & { code?: string };
+    const err = new Error("Invalid token — no user in lookup response") as Error & {
+      code?: string;
+    };
     err.code = "auth/invalid-id-token";
     throw err;
   }
@@ -67,13 +85,36 @@ async function verifyViaIdentityToolkit(idToken: string): Promise<DecodedIdToken
   } as DecodedIdToken;
 }
 
+function useRestFirst(): boolean {
+  if (!getFirebaseWebApiKey()) return false;
+  return (
+    process.env.VERCEL === "1" ||
+    process.env.NODE_ENV === "production"
+  );
+}
+
 /**
- * Verify Firebase ID token — Admin SDK first, REST fallback for production edge cases.
+ * Verify Firebase ID token.
+ * On Vercel/production: REST first (Admin verifyIdToken is unreliable there).
+ * Locally: Admin SDK first, REST fallback.
  */
 export async function verifyFirebaseIdToken(
   idToken: string,
   checkRevoked = false,
 ): Promise<DecodedIdToken> {
+  if (useRestFirst()) {
+    try {
+      return await verifyViaIdentityToolkit(idToken);
+    } catch (restError) {
+      const err = restError as { code?: string; message?: string };
+      console.warn(
+        "[verifyFirebaseIdToken] REST failed on production, trying Admin SDK:",
+        err?.code || "unknown",
+        err?.message?.slice(0, 120),
+      );
+    }
+  }
+
   try {
     return await auth.verifyIdToken(idToken, checkRevoked);
   } catch (adminError) {
