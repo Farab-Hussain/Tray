@@ -326,27 +326,47 @@ export const login = async (req: Request, res: Response) => {
       (roles.includes('admin') ? 'admin' : roles[0]) ||
       'student';
 
-    const jwtToken = JWTUtils.generateToken({
-      userId: decodedToken.uid,
-      email: decodedToken.email || '',
-      role: resolvedRole,
-      firstName: (userProfile?.firstName as string) || (userProfile?.name as string) || '',
-      lastName: (userProfile?.lastName as string) || '',
-    });
-
-    const tokenExpiration = JWTUtils.getTokenExpiration(jwtToken);
+    let jwtToken: string | undefined;
+    let tokenExpiration: string | null = null;
+    if (process.env.JWT_SECRET?.trim()) {
+      try {
+        jwtToken = JWTUtils.generateToken({
+          userId: decodedToken.uid,
+          email: decodedToken.email || "",
+          role: resolvedRole,
+          firstName:
+            (userProfile?.firstName as string) ||
+            (userProfile?.name as string) ||
+            "",
+          lastName: (userProfile?.lastName as string) || "",
+        });
+        tokenExpiration =
+          JWTUtils.getTokenExpiration(jwtToken)?.toISOString() ?? null;
+      } catch (jwtError) {
+        console.warn(
+          "⚠️ [POST /auth/login] - Backend JWT not issued:",
+          jwtError instanceof Error ? jwtError.message : jwtError,
+        );
+      }
+    } else {
+      console.warn(
+        "⚠️ [POST /auth/login] - JWT_SECRET not set; returning Firebase session only",
+      );
+    }
 
     res.json({
       valid: true,
-      token: jwtToken,
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-      expiresAt: tokenExpiration,
+      ...(jwtToken && {
+        token: jwtToken,
+        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+        expiresAt: tokenExpiration,
+      }),
       user: {
         uid: decodedToken.uid,
         email: decodedToken.email,
         emailVerified: decodedToken.email_verified,
-        ...profile
-      }
+        ...profile,
+      },
     });
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };

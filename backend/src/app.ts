@@ -147,6 +147,7 @@ app.get("/health", async (req, res) => {
         projectId?: string;
         credentialOk?: boolean;
         hasWebApiKey?: boolean;
+        hasJwtSecret?: boolean;
         responseTime?: number;
         error?: string;
       };
@@ -220,6 +221,7 @@ app.get("/health", async (req, res) => {
       projectId: firebaseApp.options.projectId || firebaseConfig.project_id,
       credentialOk,
       hasWebApiKey: Boolean(process.env.FIREBASE_API_KEY?.trim()),
+      hasJwtSecret: Boolean(process.env.JWT_SECRET?.trim()),
       responseTime: firebaseResponseTime,
     };
   } catch (error) {
