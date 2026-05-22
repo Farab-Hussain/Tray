@@ -1,4 +1,5 @@
 import express from "express";
+import { firebaseConfig } from "./config/config";
 import cors from "cors";
 import dotenv from "dotenv";
 import { db, auth } from "./config/firebase";
@@ -141,7 +142,12 @@ app.get("/health", async (req, res) => {
     uptime: number;
     environment: string;
     services: {
-      firebase: { status: string; responseTime?: number; error?: string };
+      firebase: {
+        status: string;
+        projectId?: string;
+        responseTime?: number;
+        error?: string;
+      };
       email: { status: string; configured?: boolean; error?: string };
     };
     memory: {
@@ -201,6 +207,7 @@ app.get("/health", async (req, res) => {
     const firebaseResponseTime = Date.now() - firebaseStart;
     healthCheck.services.firebase = {
       status: "connected",
+      projectId: firebaseConfig.project_id || undefined,
       responseTime: firebaseResponseTime,
     };
   } catch (error) {

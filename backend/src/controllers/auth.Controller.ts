@@ -347,11 +347,39 @@ export const login = async (req: Request, res: Response) => {
         ...profile
       }
     });
-  } catch (error) {
-    console.error("❌ [POST /auth/login] - Token verification error:", error);
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    console.error(
+      "❌ [POST /auth/login] - Token verification error:",
+      err?.code || "unknown",
+      err?.message || error,
+    );
+
+    let message = "Invalid token";
+    if (err?.code === "auth/id-token-expired") {
+      message = "Session expired. Please sign in again.";
+    } else if (err?.code === "auth/argument-error") {
+      message = "Invalid authentication token format.";
+    } else if (
+      err?.message?.includes("aud") ||
+      err?.message?.includes("audience")
+    ) {
+      message =
+        "Firebase project mismatch: the web app and API must use the same Firebase project (tray-ed2f7).";
+    } else if (
+      err?.message?.includes("Firebase Admin") ||
+      err?.code === "app/invalid-credential"
+    ) {
+      message = "Server authentication configuration error. Contact support.";
+    }
+
     res.status(401).json({
       valid: false,
-      error: "Invalid token"
+      error: message,
+      ...(process.env.NODE_ENV !== "production" && {
+        detail: err?.message,
+        code: err?.code,
+      }),
     });
   }
 };

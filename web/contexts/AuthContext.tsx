@@ -62,7 +62,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshUser]);
 
   const login = async (idToken: string) => {
-    const response = await authAPI.login(idToken);
+    let response;
+    try {
+      response = await authAPI.login(idToken);
+    } catch (error: unknown) {
+      const axiosErr = error as {
+        response?: { data?: { error?: string; message?: string } };
+      };
+      const msg =
+        axiosErr?.response?.data?.error ||
+        axiosErr?.response?.data?.message ||
+        'Login failed';
+      throw new Error(msg);
+    }
+
     const data = response.data as {
       user?: User;
       token?: string;
@@ -70,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       error?: string;
     };
 
-    if (!data?.user) {
+    if (data?.valid === false || !data?.user) {
       throw new Error(data?.error || 'Login failed — no user returned from server');
     }
 

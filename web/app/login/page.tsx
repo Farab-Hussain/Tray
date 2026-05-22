@@ -43,9 +43,21 @@ const LoginPageContent = () => {
     setIsLoading(true);
 
     try {
+      // Clear stale session so login request is not affected by old tokens
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("backendJwt");
+
       if (!app) {
         throw new Error(
           "Firebase not initialized. Please check your configuration."
+        );
+      }
+
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      if (!projectId) {
+        throw new Error(
+          "Firebase project ID is not configured (NEXT_PUBLIC_FIREBASE_PROJECT_ID)."
         );
       }
 
@@ -95,12 +107,21 @@ const LoginPageContent = () => {
         response?: { data?: { error?: string; message?: string } };
         message?: string;
       };
+      const data = axiosErr?.response?.data as {
+        error?: string;
+        message?: string;
+        detail?: string;
+      };
       const errorMessage =
-        axiosErr?.response?.data?.message ||
-        axiosErr?.response?.data?.error ||
+        data?.message ||
+        data?.error ||
         axiosErr?.message ||
         "Failed to login. Check your email, password, and that your account has admin role.";
-      setError(errorMessage);
+      const detail =
+        data?.detail && process.env.NODE_ENV === "development"
+          ? ` (${data.detail})`
+          : "";
+      setError(errorMessage + detail);
     } finally {
       setIsLoading(false);
     }
