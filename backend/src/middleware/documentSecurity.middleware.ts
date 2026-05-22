@@ -21,7 +21,8 @@ export const enforceDocumentSecurity = async (req: Request, res: Response, next:
     }
     
     const token = authHeader.split(' ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
+    const { verifyFirebaseIdToken } = await import("../utils/firebaseTokenVerification");
+    const decodedToken = await verifyFirebaseIdToken(token);
     const userDoc = await db.collection("users").doc(decodedToken.uid).get();
     const userData = userDoc.data();
     const userRole = userData?.role || userData?.activeRole || 'student';

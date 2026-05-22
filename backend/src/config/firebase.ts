@@ -25,11 +25,26 @@ const serviceAccount = {
   universe_domain: firebaseConfig.universe_domain,
 } as admin.ServiceAccount;
 
+const FIREBASE_APP_NAME = "tray-main";
+
 let firebaseApp: admin.app.App;
 
-// Initialize Firebase Admin SDK with credentials from .env
-if (!admin.apps.length) {
+function initTrayFirebaseApp(): admin.app.App {
   try {
+    return admin.app(FIREBASE_APP_NAME);
+  } catch {
+    return admin.initializeApp(
+      {
+        credential: admin.credential.cert(serviceAccount),
+        projectId: firebaseConfig.project_id,
+      },
+      FIREBASE_APP_NAME,
+    );
+  }
+}
+
+// Initialize Firebase Admin SDK with credentials from .env (named app avoids Vercel default-app conflicts)
+try {
     // Validate credentials are loaded from .env
     if (!firebaseConfig.project_id || !firebaseConfig.private_key || !firebaseConfig.client_email) {
       throw new Error('Firebase credentials from .env are missing or incomplete. Please check your .env file has FIREBASE_MAIN_* variables set.');
@@ -40,12 +55,9 @@ if (!admin.apps.length) {
       console.error("❌ [Firebase] Private key format appears invalid (missing BEGIN PRIVATE KEY header)");
     }
     
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      projectId: firebaseConfig.project_id,
-    });
+    firebaseApp = initTrayFirebaseApp();
     console.log("✅ Firebase Admin SDK initialized successfully");
-    console.log(`✅ Project ID: ${firebaseConfig.project_id}`);
+    console.log(`✅ Project ID: ${firebaseApp.options.projectId || firebaseConfig.project_id}`);
     
     // Test Messaging (dry run) - this validates credentials
     firebaseApp.messaging().send({
@@ -71,12 +83,9 @@ if (!admin.apps.length) {
           console.error("❌ [Auth Test] Error Code:", error.code);
         }
       });
-  } catch (error: any) {
-    console.error("❌ Failed to initialize Firebase Admin SDK:", error?.message || error);
-    throw error;
-  }
-} else {
-  firebaseApp = admin.app();
+} catch (error: any) {
+  console.error("❌ Failed to initialize Firebase Admin SDK:", error?.message || error);
+  throw error;
 }
 
 // Initialize sub-services using the explicit app instance

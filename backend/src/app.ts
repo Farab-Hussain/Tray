@@ -2,7 +2,7 @@ import express from "express";
 import { firebaseConfig } from "./config/config";
 import cors from "cors";
 import dotenv from "dotenv";
-import { db, auth } from "./config/firebase";
+import { db, auth, firebaseApp } from "./config/firebase";
 import authRouter from "./routes/auth.routes";
 import { requestLogger } from "./utils/logger";
 import consultantRoutes from "./routes/consultant.routes";
@@ -145,6 +145,8 @@ app.get("/health", async (req, res) => {
       firebase: {
         status: string;
         projectId?: string;
+        credentialOk?: boolean;
+        hasWebApiKey?: boolean;
         responseTime?: number;
         error?: string;
       };
@@ -205,9 +207,19 @@ app.get("/health", async (req, res) => {
     const firebaseStart = Date.now();
     await db.collection('_test').doc('health').get();
     const firebaseResponseTime = Date.now() - firebaseStart;
+    let credentialOk = false;
+    try {
+      await auth.createCustomToken("health-probe");
+      credentialOk = true;
+    } catch {
+      credentialOk = false;
+    }
+
     healthCheck.services.firebase = {
       status: "connected",
-      projectId: firebaseConfig.project_id || undefined,
+      projectId: firebaseApp.options.projectId || firebaseConfig.project_id,
+      credentialOk,
+      hasWebApiKey: Boolean(process.env.FIREBASE_API_KEY?.trim()),
       responseTime: firebaseResponseTime,
     };
   } catch (error) {

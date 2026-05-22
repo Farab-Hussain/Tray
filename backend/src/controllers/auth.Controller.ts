@@ -8,6 +8,7 @@ import axios from "axios";
 import { cache } from "../utils/cache";
 import { consultantFlowService } from "../services/consultantFlow.service";
 import { JWTUtils } from "../utils/jwtUtils";
+import { verifyFirebaseIdToken } from "../utils/firebaseTokenVerification";
 
 // Validate JWT secret on startup
 JWTUtils.validateSecret();
@@ -309,7 +310,7 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "ID token is required" });
     }
 
-    const decodedToken = await auth.verifyIdToken(idToken);
+    const decodedToken = await verifyFirebaseIdToken(idToken);
 
     // Get user profile from Firestore
     const userDoc = await db.collection("users").doc(decodedToken.uid).get();
@@ -376,9 +377,9 @@ export const login = async (req: Request, res: Response) => {
     res.status(401).json({
       valid: false,
       error: message,
+      code: err?.code,
       ...(process.env.NODE_ENV !== "production" && {
         detail: err?.message,
-        code: err?.code,
       }),
     });
   }

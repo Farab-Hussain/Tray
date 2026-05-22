@@ -1,7 +1,8 @@
 // src/middleware/authMiddleware.ts
 import { Request, Response, NextFunction } from "express";
-import { auth, db } from "../config/firebase";
+import { db } from "../config/firebase";
 import { Logger } from "../utils/logger";
+import { verifyFirebaseIdToken } from "../utils/firebaseTokenVerification";
 
 /**
  * Wrapper to ensure async middleware errors are properly caught
@@ -103,7 +104,7 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       
       // Use false to skip revocation check - much faster, only checks token signature and expiration
       // This avoids an extra network call to check token revocation status
-      const verifyPromise = auth.verifyIdToken(idToken, false);
+      const verifyPromise = verifyFirebaseIdToken(idToken, false);
       
       let timeoutId: NodeJS.Timeout | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -256,7 +257,7 @@ export const authenticateUserOptional = () => {
     }
 
     try {
-      const decodedToken = await auth.verifyIdToken(idToken, false);
+      const decodedToken = await verifyFirebaseIdToken(idToken, false);
       (req as any).user = decodedToken;
     } catch (error) {
       // Optional auth should never block a public route.
