@@ -436,9 +436,10 @@ ${JSON.stringify({
           {
             text: 'Pay Now',
             onPress: () => {
-              navigation.navigate('JobPostingPayment', {
-                jobData,
-                returnScreen: 'RecruiterPostJob',
+              navigation.navigate('PlatformAccessPayment', {
+                required: true,
+                role: 'recruiter',
+                returnTo: { screen: 'RecruiterPostJob' },
               });
             },
           },

@@ -2,7 +2,7 @@
 import { db } from "../config/firebase";
 import { getStripeClient } from "../utils/stripeClient";
 import { Logger } from "../utils/logger";
-import { getPlatformFeeAmount } from "./platformSettings.service";
+import { getConsultantSalesFeePercent } from "./pricingSettings.service";
 
 export interface TransferResult {
   success: boolean;
@@ -46,15 +46,18 @@ export interface PayoutSummary {
 }
 
 /**
- * Calculate payout breakdown (90% consultant, 10% platform)
+ * Calculate payout breakdown (platform % from admin pricing settings)
  */
-export const calculatePayoutBreakdown = (totalAmount: number): PayoutSummary => {
-  const platformFeePercentage = 0.10; // 10% platform fee
-  const consultantPayoutPercentage = 0.90; // 90% consultant payout
-  
-  const platformFee = Math.round(totalAmount * platformFeePercentage * 100) / 100; // Round to 2 decimal places
+export const calculatePayoutBreakdown = (
+  totalAmount: number,
+  salesFeePercent?: number
+): PayoutSummary => {
+  const platformFeePercentage = (salesFeePercent ?? 10) / 100;
+  const consultantPayoutPercentage = 1 - platformFeePercentage;
+
+  const platformFee = Math.round(totalAmount * platformFeePercentage * 100) / 100;
   const consultantAmount = Math.round(totalAmount * consultantPayoutPercentage * 100) / 100;
-  
+
   return {
     totalAmount,
     platformFee,
@@ -62,6 +65,13 @@ export const calculatePayoutBreakdown = (totalAmount: number): PayoutSummary => 
     platformFeePercentage: platformFeePercentage * 100,
     consultantPayoutPercentage: consultantPayoutPercentage * 100,
   };
+};
+
+export const calculatePayoutBreakdownFromSettings = async (
+  totalAmount: number
+): Promise<PayoutSummary> => {
+  const percent = await getConsultantSalesFeePercent();
+  return calculatePayoutBreakdown(totalAmount, percent);
 };
 
 /**
@@ -80,8 +90,7 @@ export const storePaymentTransaction = async (
   try {
     const transactionRef = db.collection("paymentTransactions").doc();
     
-    // Calculate automatic payout breakdown
-    const payoutBreakdown = calculatePayoutBreakdown(metadata.amount);
+    const payoutBreakdown = await calculatePayoutBreakdownFromSettings(metadata.amount);
     
     const transactionData: PaymentTransaction = {
       id: transactionRef.id,
@@ -210,7 +219,7 @@ export const transferPaymentToConsultant = async (
     const bookingAmount = typeof bookingData.amount === 'number' 
       ? bookingData.amount 
       : parseFloat(bookingData.amount);
-    const payoutBreakdown = calculatePayoutBreakdown(bookingAmount);
+    const payoutBreakdown = await calculatePayoutBreakdownFromSettings(bookingAmount);
     const platformFeeAmount = Math.round(payoutBreakdown.platformFee * 100); // Convert to cents
     const transferAmount = Math.round(payoutBreakdown.consultantAmount * 100); // Convert to cents
 

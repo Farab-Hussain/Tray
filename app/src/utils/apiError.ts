@@ -2,16 +2,16 @@ import axios from 'axios';
 import { sanitizeUserMessage } from './sanitizeUserMessage';
 import { logger } from './logger';
 
-/** Expected 402 when recruiter must buy posting credits — handled in UI with Pay Now. */
+/** Expected 402 when a role entry fee is required — handled in UI with Pay Now. */
 export const isPaymentRequiredError = (error: unknown): boolean =>
   axios.isAxiosError(error) && error.response?.status === 402;
 
 export const getPaymentRequiredMessage = (error: unknown): string => {
   if (!axios.isAxiosError(error)) {
-    return 'Purchase a posting bundle to continue.';
+    return 'Pay the entry fee to continue.';
   }
   const data = error.response?.data as { message?: string; error?: string } | undefined;
-  return sanitizeUserMessage(data?.message || data?.error || 'Purchase a posting bundle to continue.');
+  return sanitizeUserMessage(data?.message || data?.error || 'Pay the entry fee to continue.');
 };
 
 /**

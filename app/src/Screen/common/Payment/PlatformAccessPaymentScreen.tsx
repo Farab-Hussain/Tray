@@ -18,6 +18,7 @@ import PaymentService from '../../../services/payment.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
 import { Lock } from 'lucide-react-native';
 import type { PlatformAccessReturnTo } from '../../../utils/platformAccessFee';
+import { ACCESS_FEE_ROLE_LABELS } from '../../../utils/platformAccessFee';
 import {
   formatStripePaymentError,
   getStripePaymentSheetOptions,
@@ -34,11 +35,15 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   const routeParams = (route.params || {}) as {
     required?: boolean;
     returnTo?: PlatformAccessReturnTo;
+    role?: string;
   };
   const isRequired = routeParams.required !== false;
   const returnTo = routeParams.returnTo;
 
-  const { user, refreshUser, refreshPlatformAccessStatus } = useAuth();
+  const { user, activeRole, refreshUser, refreshPlatformAccessStatus } = useAuth();
+  const feeRole = routeParams.role || activeRole || 'student';
+  const defaultRoleLabel =
+    ACCESS_FEE_ROLE_LABELS[feeRole as keyof typeof ACCESS_FEE_ROLE_LABELS] || 'Client';
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [loading, setLoading] = useState(true);
@@ -50,6 +55,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   const [baseFee, setBaseFee] = useState(25);
   const [completed, setCompleted] = useState(false);
   const [sheetReady, setSheetReady] = useState(false);
+  const [roleLabel, setRoleLabel] = useState(defaultRoleLabel);
 
   const finishAndNavigate = useCallback(() => {
     if (returnTo?.screen) {
@@ -63,7 +69,10 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     try {
       setLoading(true);
 
-      const status = await PaymentService.getAccessFeeStatus();
+      const status = await PaymentService.getAccessFeeStatus(feeRole);
+      if (status.roleLabel) {
+        setRoleLabel(status.roleLabel);
+      }
       if (status.paid) {
         setCompleted(true);
         await refreshPlatformAccessStatus();
@@ -81,7 +90,11 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       const trimmedPromo = (promoCodeInput ?? promotionCode).trim();
       const response = await PaymentService.createAccessFeePaymentIntent(
         trimmedPromo || undefined,
+        feeRole,
       );
+      if (response.roleLabel) {
+        setRoleLabel(response.roleLabel);
+      }
 
       if (!response.success) {
         Alert.alert(
@@ -140,6 +153,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     isRequired,
     refreshPlatformAccessStatus,
     finishAndNavigate,
+    feeRole,
   ]);
 
   useEffect(() => {
@@ -275,15 +289,19 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       <ScrollView style={paymentScreenStyles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={paymentScreenStyles.content}>
           <Text style={[paymentScreenStyles.pricingTitle, { marginBottom: 8, textAlign: 'center' }]}>
-            Platform Access Required
+            {roleLabel} Entry Fee Required
           </Text>
           <Text style={[paymentScreenStyles.pricingSubtitle, { textAlign: 'center', marginBottom: 16 }]}>
-            One-time fee to book consultants and purchase courses. Required before any session payment.
+            {feeRole === 'recruiter'
+              ? 'One-time fee to post jobs on the platform. Nonprofits can use a partner promotion code below.'
+              : feeRole === 'consultant'
+                ? 'Complete payment if an entry fee applies to your consultant account.'
+                : 'One-time fee to book consultants and purchase courses. Nonprofits can use a partner promotion code below.'}
           </Text>
 
           <View style={paymentScreenStyles.pricingCard}>
             <View style={paymentScreenStyles.pricingHeader}>
-              <Text style={paymentScreenStyles.pricingTitle}>One-Time Access Fee</Text>
+              <Text style={paymentScreenStyles.pricingTitle}>{roleLabel} Entry Fee</Text>
               <View style={paymentScreenStyles.priceContainer}>
                 <Text style={paymentScreenStyles.currencySymbol}>$</Text>
                 <Text style={paymentScreenStyles.priceAmount}>{accessFee.toFixed(2)}</Text>
@@ -305,7 +323,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
               marginBottom: 12,
               fontSize: 16,
             }}
-            placeholder="e.g. STUDENT20"
+            placeholder="Nonprofit / partner code"
             value={promotionCode}
             onChangeText={(text) => {
               setPromotionCode(text);

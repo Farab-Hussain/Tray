@@ -374,12 +374,12 @@ export const createConnectAccount = async (req: Request, res: Response) => {
 
 export const getPlatformFeeConfig = async (_req: Request, res: Response) => {
   try {
-    const settings = await getPlatformSettings();
+    const { getPricingSettings } = await import("../services/pricingSettings.service");
+    const pricing = await getPricingSettings();
     res.status(200).json({
-      platformFeeAmount: settings.platformFeeAmount,
-      updatedAt: settings.updatedAt,
-      updatedBy: settings.updatedBy,
-      source: settings.updatedAt ? "admin" : "default",
+      consultantSalesFeePercent: pricing.consultantSalesFeePercent,
+      platformFeeAmount: 0,
+      source: "pricing_settings",
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to load platform fee configuration" });
@@ -388,28 +388,28 @@ export const getPlatformFeeConfig = async (_req: Request, res: Response) => {
 
 export const updatePlatformFeeConfig = async (req: Request, res: Response) => {
   try {
-    const { platformFeeAmount } = req.body;
+    const { consultantSalesFeePercent, platformFeeAmount } = req.body;
     const user = (req as any).user;
 
-    if (platformFeeAmount === undefined || platformFeeAmount === null) {
-      return res.status(400).json({ error: "platformFeeAmount is required" });
+    const percent =
+      consultantSalesFeePercent !== undefined
+        ? Number(consultantSalesFeePercent)
+        : platformFeeAmount !== undefined
+          ? Number(platformFeeAmount)
+          : NaN;
+
+    if (Number.isNaN(percent) || percent < 0 || percent > 100) {
+      return res.status(400).json({
+        error: "consultantSalesFeePercent must be between 0 and 100",
+      });
     }
 
-    const parsed =
-      typeof platformFeeAmount === "number"
-        ? platformFeeAmount
-        : parseFloat(platformFeeAmount);
-
-    if (Number.isNaN(parsed) || parsed < 0) {
-      return res.status(400).json({ error: "platformFeeAmount must be a non-negative number" });
-    }
-
-    const updatedBy = user?.uid || "admin";
-    await updatePlatformFeeAmount(parsed, updatedBy);
+    const { updatePricingSettings } = await import("../services/pricingSettings.service");
+    const saved = await updatePricingSettings({ consultantSalesFeePercent: percent });
 
     res.status(200).json({
-      message: "Platform fee updated successfully",
-      platformFeeAmount: parsed,
+      message: "Consultant sales fee percent updated successfully",
+      consultantSalesFeePercent: saved.consultantSalesFeePercent,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to update platform fee configuration" });
@@ -578,125 +578,7 @@ export const getJobPostingPaymentStatus = async (req: Request, res: Response) =>
 };
 
 /**
- * Create payment intent for job posting bundle ($5 for 3 postings by default)
- */
-export const createJobPostingPaymentIntent = async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    if (!user || !user.uid) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    const { promotionCode } = req.body || {};
-
-    const { getPricingSettings } = await import("../services/pricingSettings.service");
-    const { applyPromotionCodeToAmount } = await import("../services/promotionCode.service");
-    const pricingSettings = await getPricingSettings();
-    const baseAmountCents = Math.round(pricingSettings.recruiterPostingFee * 100);
-
-    let amountCents = baseAmountCents;
-    let promoApplied = false;
-
-    if (promotionCode) {
-      const promoResult = await applyPromotionCodeToAmount(baseAmountCents, promotionCode);
-      if (!promoResult.valid) {
-        return res.status(400).json({ error: promoResult.error || "Invalid promotion code" });
-      }
-      amountCents = promoResult.amountCents;
-      promoApplied = true;
-    }
-
-    const paymentIntent = await getStripeClient().paymentIntents.create({
-      amount: amountCents,
-      currency: "usd",
-      metadata: {
-        type: "job-posting",
-        userId: user.uid,
-        description: "Job posting bundle",
-        postingsPerBundle: String(pricingSettings.recruiterPostingsPerBundle),
-        promotionCode: promotionCode || "",
-        promoApplied: String(promoApplied),
-      },
-    });
-
-    const bundleLabel = `$${pricingSettings.recruiterPostingFee.toFixed(2)} for ${pricingSettings.recruiterPostingsPerBundle} postings`;
-
-    res.status(200).json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
-      amount: amountCents,
-      currency: "usd",
-      bundleFee: pricingSettings.recruiterPostingFee,
-      postingsPerBundle: pricingSettings.recruiterPostingsPerBundle,
-      description: `Job posting bundle - ${bundleLabel}`,
-      promoApplied,
-    });
-  } catch (error: any) {
-    console.error('Error creating job posting payment intent:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to create payment intent',
-      code: error.code || 'PAYMENT_INTENT_ERROR'
-    });
-  }
-};
-
-/**
- * Confirm job posting payment and record it
- */
-export const confirmJobPostingPayment = async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    if (!user || !user.uid) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    const { paymentIntentId } = req.body;
-
-    if (!paymentIntentId) {
-      return res.status(400).json({ error: "Payment intent ID is required" });
-    }
-
-    // Retrieve the payment intent to confirm it's paid
-    const paymentIntent = await getStripeClient().paymentIntents.retrieve(paymentIntentId);
-
-    if (paymentIntent.status !== 'succeeded') {
-      return res.status(400).json({ 
-        error: "Payment not successful",
-        status: paymentIntent.status 
-      });
-    }
-
-    // Verify the payment intent is for job posting and belongs to this user
-    if (paymentIntent.metadata.type !== 'job-posting' || paymentIntent.metadata.userId !== user.uid) {
-      return res.status(400).json({ error: "Invalid payment intent" });
-    }
-
-    const { jobServices } = await import("../services/job.service");
-    const { creditsAdded, creditsRemaining } = await jobServices.recordJobPostingPayment(
-      user.uid,
-      paymentIntentId,
-      paymentIntent.amount
-    );
-
-    res.status(200).json({
-      message: "Job posting bundle purchased",
-      paymentIntentId,
-      amount: paymentIntent.amount,
-      status: "paid",
-      creditsAdded,
-      creditsRemaining,
-    });
-  } catch (error: any) {
-    console.error('Error confirming job posting payment:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to confirm payment',
-      code: error.code || 'PAYMENT_CONFIRMATION_ERROR'
-    });
-  }
-};
-
-/**
- * Get platform access fee status for student/consultant
+ * Get platform access fee status for the user's active role (Client / Consultant / Hiring Manager)
  */
 export const getAccessFeePaymentStatus = async (req: Request, res: Response) => {
   try {
@@ -707,15 +589,21 @@ export const getAccessFeePaymentStatus = async (req: Request, res: Response) => 
 
     const userDoc = await db.collection("users").doc(user.uid).get();
     const userData = userDoc.data() || {};
-    const { getPricingSettings } = await import("../services/pricingSettings.service");
-    const pricing = await getPricingSettings();
+    const roles: string[] = userData.roles || (userData.role ? [userData.role] : []);
+    const activeRole = (req.query.role as string) || userData.activeRole || userData.role || roles[0];
 
-    return res.status(200).json({
-      paid: userData.hasPaidAccessFee === true || userData.accessFeeWaived === true,
-      waived: userData.accessFeeWaived === true,
-      fee: pricing.studentConsultantFee,
-      amountCents: Math.round(pricing.studentConsultantFee * 100),
-    });
+    const {
+      resolveAccessFeeRole,
+      getAccessFeeStatusForUser,
+    } = await import("../services/accessFee.service");
+
+    const feeRole = resolveAccessFeeRole(activeRole, roles);
+    if (!feeRole) {
+      return res.status(200).json({ paid: true, fee: 0, amountCents: 0, role: null });
+    }
+
+    const status = await getAccessFeeStatusForUser(userData, feeRole);
+    return res.status(200).json(status);
   } catch (error: any) {
     console.error("Error fetching access fee status:", error);
     return res.status(500).json({ error: "Failed to fetch access fee status" });
@@ -723,7 +611,7 @@ export const getAccessFeePaymentStatus = async (req: Request, res: Response) => 
 };
 
 /**
- * Create payment intent for student/consultant access fee ($25 flat rate by default)
+ * Create payment intent for role-specific one-time entry fee
  */
 export const createAccessFeePaymentIntent = async (req: Request, res: Response) => {
   try {
@@ -732,13 +620,47 @@ export const createAccessFeePaymentIntent = async (req: Request, res: Response) 
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const { promotionCode } = req.body || {};
+    const { promotionCode, role: roleBody } = req.body || {};
 
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const userData = userDoc.data() || {};
+    const roles: string[] = userData.roles || (userData.role ? [userData.role] : []);
+    const activeRole = userData.activeRole || userData.role || roles[0];
+
+    const {
+      resolveAccessFeeRole,
+      getAccessFeeAmountForRole,
+      ACCESS_FEE_ROLE_LABELS,
+      buildAccessFeePaidUpdate,
+      hasPaidAccessFeeForRole,
+    } = await import("../services/accessFee.service");
     const { getPricingSettings } = await import("../services/pricingSettings.service");
     const { applyPromotionCodeToAmount } = await import("../services/promotionCode.service");
-    const pricingSettings = await getPricingSettings();
-    const baseAmountCents = Math.round(pricingSettings.studentConsultantFee * 100);
 
+    const feeRole = resolveAccessFeeRole(roleBody || activeRole, roles);
+    if (!feeRole) {
+      return res.status(400).json({ error: "No entry fee applies to your current role" });
+    }
+
+    const pricingSettings = await getPricingSettings();
+    const feeDollars = getAccessFeeAmountForRole(pricingSettings, feeRole);
+    const roleLabel = ACCESS_FEE_ROLE_LABELS[feeRole];
+
+    if (feeDollars <= 0 || hasPaidAccessFeeForRole(userData, feeRole)) {
+      return res.status(200).json({
+        clientSecret: null,
+        paymentIntentId: null,
+        amount: 0,
+        currency: "usd",
+        fee: 0,
+        role: feeRole,
+        roleLabel,
+        freeAccess: true,
+        description: `${roleLabel} entry fee not required`,
+      });
+    }
+
+    const baseAmountCents = Math.round(feeDollars * 100);
     let amountCents = baseAmountCents;
     let promoApplied = false;
 
@@ -751,14 +673,10 @@ export const createAccessFeePaymentIntent = async (req: Request, res: Response) 
       promoApplied = true;
     }
 
-    // 100% promo — grant access without charging a card
     if (amountCents === 0 && promoApplied) {
-      await db.collection("users").doc(user.uid).update({
-        hasPaidAccessFee: true,
-        accessFeePaidAt: new Date().toISOString(),
-        accessFeePromoCode: promotionCode || "",
-        updatedAt: new Date().toISOString(),
-      });
+      await db.collection("users").doc(user.uid).update(
+        buildAccessFeePaidUpdate(feeRole, { accessFeePromoCode: promotionCode || "" })
+      );
 
       const { cache } = await import("../utils/cache");
       cache.delete(`user:${user.uid}`);
@@ -768,8 +686,10 @@ export const createAccessFeePaymentIntent = async (req: Request, res: Response) 
         paymentIntentId: null,
         amount: 0,
         currency: "usd",
-        fee: pricingSettings.studentConsultantFee,
-        description: "Platform access fee — fully discounted",
+        fee: feeDollars,
+        role: feeRole,
+        roleLabel,
+        description: `${roleLabel} entry fee — fully discounted`,
         promoApplied: true,
         freeAccess: true,
       });
@@ -781,7 +701,8 @@ export const createAccessFeePaymentIntent = async (req: Request, res: Response) 
       metadata: {
         type: "platform-access",
         userId: user.uid,
-        description: "Platform access fee",
+        accessFeeRole: feeRole,
+        description: `${roleLabel} entry fee`,
         promotionCode: promotionCode || "",
         promoApplied: String(promoApplied),
       },
@@ -792,9 +713,11 @@ export const createAccessFeePaymentIntent = async (req: Request, res: Response) 
       paymentIntentId: paymentIntent.id,
       amount: amountCents,
       currency: "usd",
-      fee: pricingSettings.studentConsultantFee,
+      fee: feeDollars,
+      role: feeRole,
+      roleLabel,
       baseAmount: baseAmountCents,
-      description: `Platform access fee - $${(amountCents / 100).toFixed(2)}`,
+      description: `${roleLabel} entry fee - $${(amountCents / 100).toFixed(2)}`,
       promoApplied,
     });
   } catch (error: any) {
@@ -835,12 +758,23 @@ export const confirmAccessFeePayment = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid payment intent" });
     }
 
-    await db.collection("users").doc(user.uid).update({
-      hasPaidAccessFee: true,
-      accessFeePaymentIntentId: paymentIntentId,
-      accessFeePaidAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
+    const { buildAccessFeePaidUpdate, resolveAccessFeeRole } = await import("../services/accessFee.service");
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const userData = userDoc.data() || {};
+    const roles: string[] = userData.roles || (userData.role ? [userData.role] : []);
+    const feeRole =
+      (paymentIntent.metadata.accessFeeRole as 'student' | 'consultant' | 'recruiter') ||
+      resolveAccessFeeRole(userData.activeRole || userData.role, roles);
+
+    if (!feeRole) {
+      return res.status(400).json({ error: "Could not determine entry fee role" });
+    }
+
+    await db.collection("users").doc(user.uid).update(
+      buildAccessFeePaidUpdate(feeRole, {
+        accessFeePaymentIntentId: paymentIntentId,
+      })
+    );
 
     const { cache } = await import("../utils/cache");
     cache.delete(`user:${user.uid}`);
@@ -857,4 +791,19 @@ export const confirmAccessFeePayment = async (req: Request, res: Response) => {
       code: error.code || 'PAYMENT_CONFIRMATION_ERROR'
     });
   }
+};
+
+/**
+ * @deprecated Use /payment/access-fee — kept for older app builds; pays Hiring Manager entry fee.
+ */
+export const createJobPostingPaymentIntent = async (req: Request, res: Response) => {
+  (req as any).body = { ...(req.body || {}), role: 'recruiter' };
+  return createAccessFeePaymentIntent(req, res);
+};
+
+/**
+ * @deprecated Use /payment/access-fee/confirm — kept for older app builds.
+ */
+export const confirmJobPostingPayment = async (req: Request, res: Response) => {
+  return confirmAccessFeePayment(req, res);
 };

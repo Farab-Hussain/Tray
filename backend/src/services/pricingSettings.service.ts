@@ -4,28 +4,37 @@ const SETTINGS_COLLECTION = 'platformSettings';
 const SETTINGS_DOC_ID = 'pricing';
 
 export interface PricingSettings {
-  studentConsultantFee: number;
-  recruiterPostingFee: number;
-  recruiterPostingsPerBundle: number;
+  /** Client role (student) — one-time entry fee */
+  clientAccessFee: number;
+  /** Consultant — one-time entry fee (default $0) */
+  consultantAccessFee: number;
+  /** Hiring Manager role (recruiter) — one-time entry fee */
+  hiringManagerAccessFee: number;
+  /** Platform share of consultant in-app sales (bookings, etc.) */
+  consultantSalesFeePercent: number;
+  /** @deprecated Legacy fields — migrated on read */
+  studentConsultantFee?: number;
+  recruiterPostingFee?: number;
+  recruiterPostingsPerBundle?: number;
 }
 
 export const DEFAULT_PRICING: PricingSettings = {
-  studentConsultantFee: 25,
-  recruiterPostingFee: 5,
-  recruiterPostingsPerBundle: 3,
+  clientAccessFee: 25,
+  consultantAccessFee: 0,
+  hiringManagerAccessFee: 25,
+  consultantSalesFeePercent: 10,
 };
 
 export const getPricingSettings = async (): Promise<PricingSettings> => {
   try {
     const docRef = db.collection(SETTINGS_COLLECTION).doc(SETTINGS_DOC_ID);
     const doc = await docRef.get();
-    
+
     if (!doc.exists) {
       return { ...DEFAULT_PRICING };
     }
 
-    const data = doc.data();
-    return normalizePricingSettings(data);
+    return normalizePricingSettings(doc.data());
   } catch (error) {
     console.error('Error fetching pricing settings:', error);
     return { ...DEFAULT_PRICING };
@@ -37,28 +46,33 @@ const toFiniteNumber = (value: unknown, fallback: number): number => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-export const normalizePricingSettings = (data?: Record<string, unknown>): PricingSettings => ({
-  studentConsultantFee: toFiniteNumber(
-    data?.studentConsultantFee,
-    DEFAULT_PRICING.studentConsultantFee
-  ),
-  recruiterPostingFee: toFiniteNumber(
-    data?.recruiterPostingFee,
-    DEFAULT_PRICING.recruiterPostingFee
-  ),
-  recruiterPostingsPerBundle: toFiniteNumber(
-    data?.recruiterPostingsPerBundle,
-    DEFAULT_PRICING.recruiterPostingsPerBundle
-  ),
-});
+export const normalizePricingSettings = (data?: Record<string, unknown>): PricingSettings => {
+  const legacyStudentFee = toFiniteNumber(data?.studentConsultantFee, DEFAULT_PRICING.clientAccessFee);
+
+  return {
+    clientAccessFee: toFiniteNumber(data?.clientAccessFee, legacyStudentFee),
+    consultantAccessFee: toFiniteNumber(
+      data?.consultantAccessFee,
+      DEFAULT_PRICING.consultantAccessFee
+    ),
+    hiringManagerAccessFee: toFiniteNumber(
+      data?.hiringManagerAccessFee,
+      DEFAULT_PRICING.hiringManagerAccessFee
+    ),
+    consultantSalesFeePercent: toFiniteNumber(
+      data?.consultantSalesFeePercent,
+      DEFAULT_PRICING.consultantSalesFeePercent
+    ),
+  };
+};
 
 export const updatePricingSettings = async (
   settings: Partial<PricingSettings>
 ): Promise<PricingSettings> => {
+  const current = await getPricingSettings();
   const normalized = normalizePricingSettings({
-    studentConsultantFee: settings.studentConsultantFee,
-    recruiterPostingFee: settings.recruiterPostingFee,
-    recruiterPostingsPerBundle: settings.recruiterPostingsPerBundle,
+    ...current,
+    ...settings,
   });
 
   const docRef = db.collection(SETTINGS_COLLECTION).doc(SETTINGS_DOC_ID);
@@ -72,4 +86,9 @@ export const updatePricingSettings = async (
 
   const saved = await docRef.get();
   return normalizePricingSettings(saved.data());
+};
+
+export const getConsultantSalesFeePercent = async (): Promise<number> => {
+  const pricing = await getPricingSettings();
+  return pricing.consultantSalesFeePercent;
 };

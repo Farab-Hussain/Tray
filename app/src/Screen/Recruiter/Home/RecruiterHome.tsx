@@ -20,8 +20,10 @@ import { getStatusColor } from '../../../utils/statusUtils';
 import EmptyState from '../../../components/ui/EmptyState';
 import { useRefresh } from '../../../hooks/useRefresh';
 import StatCard from '../../../components/ui/StatCard';
+import { usePlatformAccessFee } from '../../../hooks/usePlatformAccessFee';
 
 const RecruiterHome = ({ navigation }: any) => {
+  usePlatformAccessFee(navigation);
   const [stats, setStats] = useState({
     totalJobs: 0,
     activeJobs: 0,

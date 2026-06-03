@@ -236,10 +236,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setRoles(userRoles);
         setActiveRole(userActiveRole);
         setRole(userActiveRole); // Keep for backward compatibility
-        setHasPaidPlatformAccess(
-          res.data?.hasPaidAccessFee === true ||
-            res.data?.accessFeeWaived === true,
-        );
+        const paidRoles = res.data?.accessFeePaidRoles || {};
+        const rolePaid =
+          userActiveRole === 'recruiter'
+            ? paidRoles.recruiter === true || res.data?.hasPaidHiringManagerAccessFee === true
+            : userActiveRole === 'consultant'
+              ? paidRoles.consultant === true
+              : paidRoles.student === true || res.data?.hasPaidAccessFee === true;
+        setHasPaidPlatformAccess(res.data?.accessFeeWaived === true || rolePaid);
 
         await AsyncStorage.setItem('roles', JSON.stringify(userRoles));
         await AsyncStorage.setItem('activeRole', userActiveRole);
@@ -361,14 +365,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const { checkPlatformAccessPaid } = await import(
         '../utils/platformAccessFee'
       );
-      const paid = await checkPlatformAccessPaid();
+      const paid = await checkPlatformAccessPaid(activeRole);
       setHasPaidPlatformAccess(paid);
       return paid;
     } catch {
       setHasPaidPlatformAccess(false);
       return false;
     }
-  }, []);
+  }, [activeRole]);
 
   const refreshUser = useCallback(async () => {
     if (auth.currentUser) {
@@ -437,9 +441,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           };
 
           setUser(updatedUser as User);
+          const profileRoles =
+            backendProfile.data?.roles ||
+            (backendProfile.data?.role ? [backendProfile.data.role] : ['student']);
+          const profileActiveRole =
+            backendProfile.data?.activeRole || backendProfile.data?.role || 'student';
+          const profilePaidRoles = backendProfile.data?.accessFeePaidRoles || {};
+          const profileRolePaid =
+            profileActiveRole === 'recruiter'
+              ? profilePaidRoles.recruiter === true ||
+                backendProfile.data?.hasPaidHiringManagerAccessFee === true
+              : profileActiveRole === 'consultant'
+                ? profilePaidRoles.consultant === true
+                : profilePaidRoles.student === true ||
+                  backendProfile.data?.hasPaidAccessFee === true;
           setHasPaidPlatformAccess(
-            backendProfile.data?.hasPaidAccessFee === true ||
-              backendProfile.data?.accessFeeWaived === true,
+            backendProfile.data?.accessFeeWaived === true || profileRolePaid,
           );
           if (__DEV__) {
             console.log(

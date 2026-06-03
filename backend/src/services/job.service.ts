@@ -477,47 +477,54 @@ export const jobServices = {
   },
 
   /**
-   * Check if job posting payment is required for user
+   * Check if Hiring Manager (recruiter) one-time entry fee is paid before posting jobs
    */
   async checkJobPostingPayment(userId: string): Promise<{
     required: boolean;
     paid: boolean;
-    creditsRemaining?: number;
     amount?: number;
-    bundleFee?: number;
-    postingsPerBundle?: number;
+    fee?: number;
+    role?: string;
+    roleLabel?: string;
     paymentUrl?: string;
     subscriptionActive?: boolean;
   }> {
     try {
       const { getPricingSettings } = await import("./pricingSettings.service");
+      const {
+        getAccessFeeStatusForUser,
+        hasPaidAccessFeeForRole,
+      } = await import("./accessFee.service");
       const pricing = await getPricingSettings();
 
-      const subscriptionActive = false; // Deferred: subscription bypass
-      const creditsRemaining = await this.getJobPostingCredits(userId);
-      const hasCredits = creditsRemaining > 0;
-      const bundleFeeCents = Math.round(pricing.recruiterPostingFee * 100);
+      const userDoc = await db.collection("users").doc(userId).get();
+      const userData = userDoc.data() || {};
+      const status = await getAccessFeeStatusForUser(userData, "recruiter");
 
-      const result = {
-        required: !subscriptionActive && !hasCredits,
-        paid: hasCredits || subscriptionActive,
-        creditsRemaining,
-        amount: bundleFeeCents,
-        bundleFee: pricing.recruiterPostingFee,
-        postingsPerBundle: pricing.recruiterPostingsPerBundle,
-        paymentUrl: hasCredits || subscriptionActive ? undefined : "/payment/job-posting",
-        subscriptionActive,
+      return {
+        required: status.required,
+        paid: status.paid,
+        amount: status.amountCents,
+        fee: status.fee,
+        role: "recruiter",
+        roleLabel: status.roleLabel,
+        paymentUrl: status.paid ? undefined : "/payment/access-fee",
+        subscriptionActive: false,
       };
-
-      return result;
     } catch (error) {
       console.error("Error checking job posting payment:", error);
+      const userDoc = await db.collection("users").doc(userId).get();
+      const userData = userDoc.data() || {};
+      const { hasPaidAccessFeeForRole } = await import("./accessFee.service");
+      const paid = hasPaidAccessFeeForRole(userData, "recruiter");
       return {
-        required: true,
-        paid: false,
-        creditsRemaining: 0,
-        amount: 500,
-        paymentUrl: "/payment/job-posting",
+        required: !paid,
+        paid,
+        amount: 2500,
+        fee: 25,
+        role: "recruiter",
+        roleLabel: "Hiring Manager",
+        paymentUrl: paid ? undefined : "/payment/access-fee",
         subscriptionActive: false,
       };
     }
@@ -532,9 +539,7 @@ export const jobServices = {
     amount: number,
     creditsToAdd?: number
   ): Promise<{ creditsAdded: number; creditsRemaining: number }> {
-    const { getPricingSettings } = await import("./pricingSettings.service");
-    const pricing = await getPricingSettings();
-    const credits = creditsToAdd ?? pricing.recruiterPostingsPerBundle;
+    const credits = creditsToAdd ?? 3;
 
     const paymentRef = db.collection("jobPostingPayments").doc();
     const now = Timestamp.now();

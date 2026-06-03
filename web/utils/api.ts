@@ -271,9 +271,19 @@ export const adminAIAPI = {
 
 // ========== Pricing Settings API ==========
 export interface PricingSettings {
-  studentConsultantFee: number;
-  recruiterPostingFee: number;
-  recruiterPostingsPerBundle?: number;
+  clientAccessFee: number;
+  consultantAccessFee: number;
+  hiringManagerAccessFee: number;
+  consultantSalesFeePercent: number;
+}
+
+export interface PromotionCodeSummary {
+  id: string;
+  code: string;
+  active: boolean;
+  timesRedeemed: number;
+  maxRedemptions: number | null;
+  expiresAt: string | null;
 }
 
 export const pricingAPI = {
@@ -281,6 +291,19 @@ export const pricingAPI = {
   updatePricingSettings: (data: PricingSettings) =>
     api.put<{ success: boolean; message: string; settings: PricingSettings }>(
       '/settings/pricing',
+      data
+    ),
+  listPromotionCodes: () =>
+    api.get<{ codes: PromotionCodeSummary[] }>('/settings/promotion-codes'),
+  createPromotionCode: (data: {
+    code: string;
+    percentOff?: number;
+    amountOff?: number;
+    maxRedemptions?: number;
+    expiresAt?: string;
+  }) =>
+    api.post<{ success: boolean; message: string; promotionCode: PromotionCodeSummary }>(
+      '/settings/promotion-codes',
       data
     ),
 };

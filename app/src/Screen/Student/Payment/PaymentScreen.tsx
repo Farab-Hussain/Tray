@@ -70,7 +70,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       setCartItems(route.params.cartItems);
     }
   }, [route.params?.cartItems]);
-  const [platformFeeAmount, setPlatformFeeAmount] = useState<number>(5.00);
+  const [consultantSalesFeePercent, setConsultantSalesFeePercent] = useState<number>(10);
   const [platformFeeLoading, setPlatformFeeLoading] = useState<boolean>(true);
   const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
   const [accessFeeVerified, setAccessFeeVerified] = useState(false);
@@ -81,6 +81,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
       const verifyAccess = async () => {
         const paid = await ensurePlatformAccessPaid(navigation, {
+          activeRole: 'student',
           returnTo: {
             screen: 'Payment',
             params: { cartItems: route.params?.cartItems || cartItems },
@@ -106,8 +107,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
     const fetchPlatformFee = async () => {
       try {
         const config = await PaymentService.getPlatformFeeConfig();
-        if (isMounted && typeof config.platformFeeAmount === 'number') {
-          setPlatformFeeAmount(config.platformFeeAmount);
+        if (isMounted && typeof config.consultantSalesFeePercent === 'number') {
+          setConsultantSalesFeePercent(config.consultantSalesFeePercent);
         }
       } catch (error: any) {
                 if (__DEV__) {
@@ -138,7 +139,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
     }, 0);
   }, [currentCartItems]);
 
-  const total = useMemo(() => Number((subtotal + platformFeeAmount).toFixed(2)), [subtotal, platformFeeAmount]);
+  const total = useMemo(() => Number(subtotal.toFixed(2)), [subtotal]);
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -612,12 +613,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             <Text style={styles.summaryLabel}>Subtotal:</Text>
             <Text style={styles.summaryValue}>{formatAmount(subtotal)}</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Platform Fee:</Text>
-            <Text style={styles.summaryValue}>{formatAmount(platformFeeAmount)}</Text>
-          </View>
           {platformFeeLoading && (
-            <Text style={styles.platformFeeInfo}>Retrieving latest platform fee...</Text>
+            <Text style={styles.platformFeeInfo}>Loading fee details...</Text>
+          )}
+          {!platformFeeLoading && (
+            <Text style={styles.platformFeeInfo}>
+              {consultantSalesFeePercent}% platform fee is deducted from the consultant payout (not added to your total).
+            </Text>
           )}
           {!platformFeeLoading && platformFeeError && (
             <Text style={styles.platformFeeWarning}>{platformFeeError}</Text>

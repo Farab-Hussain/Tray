@@ -2,7 +2,7 @@
 import { db } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import { getStripeClient } from "../utils/stripeClient";
-import { getPlatformFeeAmount } from "./platformSettings.service";
+import { calculatePayoutBreakdownFromSettings } from "./payment.service";
 
 const MINIMUM_PAYOUT_AMOUNT = parseFloat(process.env.MINIMUM_PAYOUT_AMOUNT || '10'); // Minimum $10 to payout
 
@@ -13,8 +13,6 @@ const MINIMUM_PAYOUT_AMOUNT = parseFloat(process.env.MINIMUM_PAYOUT_AMOUNT || '1
 export const processAutomatedPayouts = async () => {
   try {
     Logger.info("Payout", "", "Starting automated payout processing...");
-    const platformFeeAmountDollars = await getPlatformFeeAmount();
-    const platformFeeAmountCents = Math.round(platformFeeAmountDollars * 100); // Convert to cents
 
     // Get all bookings that are:
     // 1. Status: completed or approved
@@ -31,7 +29,7 @@ export const processAutomatedPayouts = async () => {
     // Group bookings by consultant
     const consultantEarnings: Record<string, {
       consultantId: string;
-      bookings: any[];
+      bookings: Array<{ id: string; amount: number; platformFee: number; consultantAmount: number }>;
       totalAmount: number;
       totalPlatformFee: number;
     }> = {};
@@ -55,12 +53,19 @@ export const processAutomatedPayouts = async () => {
         };
       }
 
+      const bookingAmount =
+        typeof booking.amount === "number"
+          ? booking.amount
+          : parseFloat(booking.amount) || 0;
+      const breakdown = await calculatePayoutBreakdownFromSettings(bookingAmount);
       consultantEarnings[consultantId].bookings.push({
         id: doc.id,
-        ...booking,
+        amount: bookingAmount,
+        platformFee: breakdown.platformFee,
+        consultantAmount: breakdown.consultantAmount,
       });
-      consultantEarnings[consultantId].totalAmount += booking.amount || 0;
-      consultantEarnings[consultantId].totalPlatformFee += platformFeeAmountDollars; // Fixed fee per booking
+      consultantEarnings[consultantId].totalAmount += bookingAmount;
+      consultantEarnings[consultantId].totalPlatformFee += breakdown.platformFee;
     }
 
     let payoutsProcessed = 0;
@@ -139,13 +144,13 @@ export const processAutomatedPayouts = async () => {
         await payoutRef.set(payoutData);
 
         // Update all bookings to mark as transferred
-        const updatePromises = earnings.bookings.map(booking =>
+        const updatePromises = earnings.bookings.map((booking) =>
           db.collection("bookings").doc(booking.id).update({
             paymentTransferred: true,
             transferId: transfer.id,
             payoutId: payoutRef.id,
-            transferAmount: transferAmount / 100,
-            platformFee: platformFeeAmountDollars,
+            transferAmount: booking.consultantAmount,
+            platformFee: booking.platformFee,
             transferredAt: new Date().toISOString(),
           })
         );

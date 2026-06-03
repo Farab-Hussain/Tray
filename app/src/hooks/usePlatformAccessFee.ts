@@ -17,13 +17,13 @@ export function usePlatformAccessFee(navigation: any, enabled = true) {
 
   const redirectToPaywall = useCallback(async () => {
     const paid =
-      hasPaidPlatformAccess || (await checkPlatformAccessPaid());
+      hasPaidPlatformAccess || (await checkPlatformAccessPaid(activeRole));
     if (paid) {
       return;
     }
 
-    navigation.replace('PlatformAccessPayment', { required: true });
-  }, [navigation, hasPaidPlatformAccess]);
+    navigation.replace('PlatformAccessPayment', { required: true, role: activeRole });
+  }, [navigation, hasPaidPlatformAccess, activeRole]);
 
   useEffect(() => {
     if (!needsCheck || checkedRef.current) return;

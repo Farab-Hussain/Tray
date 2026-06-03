@@ -26,19 +26,26 @@ function SettingsPageContent() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [platformFeeAmount, setPlatformFeeAmount] = useState<number>(5.0);
-  const [platformFeeLoading, setPlatformFeeLoading] = useState(true);
-  const [platformFeeSaving, setPlatformFeeSaving] = useState(false);
-  const [platformFeeError, setPlatformFeeError] = useState<string | null>(null);
-  const [platformFeeSuccess, setPlatformFeeSuccess] = useState<string | null>(null);
 
-  const [studentConsultantFeeInput, setStudentConsultantFeeInput] = useState('25');
-  const [recruiterPostingFeeInput, setRecruiterPostingFeeInput] = useState('5');
-  const [recruiterPostingsPerBundleInput, setRecruiterPostingsPerBundleInput] = useState('3');
+  const [clientAccessFeeInput, setClientAccessFeeInput] = useState('25');
+  const [consultantAccessFeeInput, setConsultantAccessFeeInput] = useState('0');
+  const [hiringManagerAccessFeeInput, setHiringManagerAccessFeeInput] = useState('25');
+  const [consultantSalesFeePercentInput, setConsultantSalesFeePercentInput] = useState('10');
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingSaving, setPricingSaving] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [pricingSuccess, setPricingSuccess] = useState<string | null>(null);
+
+  const [promoCodes, setPromoCodes] = useState<
+    Array<{ id: string; code: string; timesRedeemed: number; maxRedemptions: number | null }>
+  >([]);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [promoPercentInput, setPromoPercentInput] = useState('100');
+  const [promoMaxRedemptionsInput, setPromoMaxRedemptionsInput] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoSaving, setPromoSaving] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -68,73 +75,52 @@ function SettingsPageContent() {
     const load = async () => {
       try {
         setIsLoading(true);
-        const [feeRes, pricingRes] = await Promise.all([
-          api.get<{ platformFeeAmount: number }>('/payment/platform-fee'),
+        const [pricingRes, promoRes] = await Promise.all([
           pricingAPI.getPricingSettings(),
+          pricingAPI.listPromotionCodes().catch(() => ({ data: { codes: [] } })),
         ]);
 
-        if (feeRes.data?.platformFeeAmount !== undefined) {
-          setPlatformFeeAmount(feeRes.data.platformFeeAmount);
-        }
-
         if (pricingRes.data) {
-          setStudentConsultantFeeInput(String(pricingRes.data.studentConsultantFee ?? 25));
-          setRecruiterPostingFeeInput(String(pricingRes.data.recruiterPostingFee ?? 5));
-          setRecruiterPostingsPerBundleInput(
-            String(pricingRes.data.recruiterPostingsPerBundle ?? 3)
+          setClientAccessFeeInput(String(pricingRes.data.clientAccessFee ?? 25));
+          setConsultantAccessFeeInput(String(pricingRes.data.consultantAccessFee ?? 0));
+          setHiringManagerAccessFeeInput(String(pricingRes.data.hiringManagerAccessFee ?? 25));
+          setConsultantSalesFeePercentInput(
+            String(pricingRes.data.consultantSalesFeePercent ?? 10)
           );
+        }
+        if (promoRes.data?.codes) {
+          setPromoCodes(promoRes.data.codes);
         }
       } catch (error) {
         console.error('Error loading settings:', error);
-        setPlatformFeeError('Some settings could not be loaded. Defaults are shown.');
+        setPricingError('Some settings could not be loaded. Defaults are shown.');
       } finally {
         setIsLoading(false);
-        setPlatformFeeLoading(false);
         setPricingLoading(false);
+        setPromoLoading(false);
       }
     };
 
     load();
   }, []);
 
-  const handleSavePlatformFee = async () => {
-    if (platformFeeAmount < 0) {
-      setPlatformFeeError('Platform fee must be a non-negative number');
-      return;
-    }
-
-    setPlatformFeeSaving(true);
-    setPlatformFeeError(null);
-    setPlatformFeeSuccess(null);
-
-    try {
-      await api.put('/payment/platform-fee', { platformFeeAmount });
-      setPlatformFeeSuccess('Per-booking platform fee updated.');
-      setTimeout(() => setPlatformFeeSuccess(null), 3000);
-    } catch (error: unknown) {
-      const errorMessage =
-        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Failed to update platform fee';
-      setPlatformFeeError(errorMessage);
-    } finally {
-      setPlatformFeeSaving(false);
-    }
-  };
-
   const handleSavePricing = async () => {
-    const studentConsultantFee = parseFloat(studentConsultantFeeInput);
-    const recruiterPostingFee = parseFloat(recruiterPostingFeeInput);
-    const recruiterPostingsPerBundle = parseInt(recruiterPostingsPerBundleInput, 10);
+    const clientAccessFee = parseFloat(clientAccessFeeInput);
+    const consultantAccessFee = parseFloat(consultantAccessFeeInput);
+    const hiringManagerAccessFee = parseFloat(hiringManagerAccessFeeInput);
+    const consultantSalesFeePercent = parseFloat(consultantSalesFeePercentInput);
 
     if (
-      Number.isNaN(studentConsultantFee) ||
-      Number.isNaN(recruiterPostingFee) ||
-      Number.isNaN(recruiterPostingsPerBundle) ||
-      studentConsultantFee < 0 ||
-      recruiterPostingFee < 0 ||
-      recruiterPostingsPerBundle < 1
+      [clientAccessFee, consultantAccessFee, hiringManagerAccessFee, consultantSalesFeePercent].some(
+        (n) => Number.isNaN(n)
+      ) ||
+      clientAccessFee < 0 ||
+      consultantAccessFee < 0 ||
+      hiringManagerAccessFee < 0 ||
+      consultantSalesFeePercent < 0 ||
+      consultantSalesFeePercent > 100
     ) {
-      setPricingError('Fees must be non-negative and bundle must include at least 1 posting');
+      setPricingError('Fees must be non-negative and sales percent must be 0–100');
       return;
     }
 
@@ -143,20 +129,20 @@ function SettingsPageContent() {
     setPricingSuccess(null);
 
     const payload: PricingSettings = {
-      studentConsultantFee,
-      recruiterPostingFee,
-      recruiterPostingsPerBundle,
+      clientAccessFee,
+      consultantAccessFee,
+      hiringManagerAccessFee,
+      consultantSalesFeePercent,
     };
 
     try {
       const res = await pricingAPI.updatePricingSettings(payload);
       const saved = res.data?.settings ?? payload;
-      setStudentConsultantFeeInput(String(saved.studentConsultantFee));
-      setRecruiterPostingFeeInput(String(saved.recruiterPostingFee));
-      setRecruiterPostingsPerBundleInput(String(saved.recruiterPostingsPerBundle));
-      setPricingSuccess(
-        `Role pricing saved (access fee $${saved.studentConsultantFee}, recruiter bundle $${saved.recruiterPostingFee} / ${saved.recruiterPostingsPerBundle} posts).`
-      );
+      setClientAccessFeeInput(String(saved.clientAccessFee));
+      setConsultantAccessFeeInput(String(saved.consultantAccessFee));
+      setHiringManagerAccessFeeInput(String(saved.hiringManagerAccessFee));
+      setConsultantSalesFeePercentInput(String(saved.consultantSalesFeePercent));
+      setPricingSuccess('Role pricing saved successfully.');
       setTimeout(() => setPricingSuccess(null), 4000);
     } catch (error: unknown) {
       const errorMessage =
@@ -165,6 +151,47 @@ function SettingsPageContent() {
       setPricingError(errorMessage);
     } finally {
       setPricingSaving(false);
+    }
+  };
+
+  const handleCreatePromoCode = async () => {
+    const code = promoCodeInput.trim();
+    const percentOff = parseFloat(promoPercentInput);
+    const maxRedemptions = promoMaxRedemptionsInput
+      ? parseInt(promoMaxRedemptionsInput, 10)
+      : undefined;
+
+    if (!code) {
+      setPromoError('Code is required');
+      return;
+    }
+    if (Number.isNaN(percentOff) || percentOff <= 0 || percentOff > 100) {
+      setPromoError('Percent off must be between 1 and 100');
+      return;
+    }
+
+    setPromoSaving(true);
+    setPromoError(null);
+    setPromoSuccess(null);
+
+    try {
+      await pricingAPI.createPromotionCode({
+        code: code.toUpperCase(),
+        percentOff,
+        maxRedemptions,
+      });
+      const listRes = await pricingAPI.listPromotionCodes();
+      setPromoCodes(listRes.data?.codes ?? []);
+      setPromoCodeInput('');
+      setPromoSuccess(`Promotion code ${code.toUpperCase()} created.`);
+      setTimeout(() => setPromoSuccess(null), 4000);
+    } catch (error: unknown) {
+      const errorMessage =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to create promotion code';
+      setPromoError(errorMessage);
+    } finally {
+      setPromoSaving(false);
     }
   };
 
@@ -263,7 +290,7 @@ function SettingsPageContent() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Pricing & Settings</h1>
         <p className="mt-1 text-sm sm:text-base text-gray-600">
-          Manage one-time access fees by role, recruiter job bundles, and per-session booking fees.
+          Manage one-time entry fees by role (Client, Consultant, Hiring Manager) and consultant sales commission.
         </p>
       </div>
 
@@ -279,148 +306,168 @@ function SettingsPageContent() {
       {activeTab === 'pricing' && (
         <>
           <AdminSection
-            title="Student & Consultant — Platform Access"
-            subtitle="One-time fee required before booking sessions or purchasing courses (mobile app)"
+            title="Client — Entry Fee"
+            subtitle="Student role in the app. One-time fee before booking or purchasing courses."
           >
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-              <div className="flex items-start gap-4 mb-6">
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 max-w-sm">
+              <div className="flex items-start gap-4 mb-4">
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <GraduationCap className="w-6 h-6 text-blue-600" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600">
-                    Applies to both <strong>Student</strong> and <strong>Consultant</strong> roles.
-                    Users must pay this once to unlock bookings and course purchases.
-                  </p>
-                </div>
               </div>
-              <div className="max-w-sm">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  One-time access fee (USD)
-                </label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={studentConsultantFeeInput}
-                    onChange={(e) => setStudentConsultantFeeInput(e.target.value)}
-                    disabled={pricingLoading}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                  />
-                </div>
-                <p className="mt-2 text-xs text-gray-500">Default: $25. Shown on the mandatory paywall after signup.</p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Entry fee (USD)</label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={clientAccessFeeInput}
+                  onChange={(e) => setClientAccessFeeInput(e.target.value)}
+                  disabled={pricingLoading}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                />
               </div>
+              <p className="mt-2 text-xs text-gray-500">Default: $25. Set to $0 to waive.</p>
             </div>
           </AdminSection>
 
           <AdminSection
-            title="Recruiter / Hiring Manager — Job Postings"
-            subtitle="Bundle price for posting jobs on the platform"
+            title="Consultant — Entry Fee"
+            subtitle="One-time consultant entry fee. Default $0 per pricing model."
           >
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="p-3 bg-purple-50 rounded-lg">
-                  <Briefcase className="w-6 h-6 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600">
-                    Recruiters buy a bundle of job posting credits. Each published job uses one credit.
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bundle price (USD)
-                  </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={recruiterPostingFeeInput}
-                      onChange={(e) => setRecruiterPostingFeeInput(e.target.value)}
-                      disabled={pricingLoading}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Postings per bundle
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={recruiterPostingsPerBundleInput}
-                    onChange={(e) => setRecruiterPostingsPerBundleInput(e.target.value)}
-                    disabled={pricingLoading}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                  />
-                </div>
-              </div>
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                <p className="text-sm text-gray-700">
-                  <strong>Preview:</strong> $
-                  {parseFloat(recruiterPostingFeeInput || '0').toFixed(2)} for{' '}
-                  {recruiterPostingsPerBundleInput || '0'} job posting
-                  {recruiterPostingsPerBundleInput !== '1' ? 's' : ''}
-                </p>
-              </div>
-            </div>
-          </AdminSection>
-
-          <AdminSection
-            title="Per-session booking fee"
-            subtitle="Fixed fee deducted from each consultant booking payment (separate from the $25 access fee)"
-          >
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6">
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 max-w-sm">
               <div className="flex items-start gap-4 mb-4">
                 <div className="p-3 bg-green-50 rounded-lg">
                   <Users className="w-6 h-6 text-green-600" />
                 </div>
-                <p className="text-sm text-gray-600 flex-1">
-                  Charged on top of the consultant&apos;s session price when a student pays for a booking.
-                </p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 max-w-xs">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Entry fee (USD)</label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={consultantAccessFeeInput}
+                  onChange={(e) => setConsultantAccessFeeInput(e.target.value)}
+                  disabled={pricingLoading}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                />
+              </div>
+            </div>
+          </AdminSection>
+
+          <AdminSection
+            title="Hiring Manager — Entry Fee"
+            subtitle="Recruiter role in the app. One-time fee before posting jobs."
+          >
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 max-w-sm">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="p-3 bg-purple-50 rounded-lg">
+                  <Briefcase className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Entry fee (USD)</label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={hiringManagerAccessFeeInput}
+                  onChange={(e) => setHiringManagerAccessFeeInput(e.target.value)}
+                  disabled={pricingLoading}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                />
+              </div>
+              <p className="mt-2 text-xs text-gray-500">Default: $25. Unlimited job posts after payment.</p>
+            </div>
+          </AdminSection>
+
+          <AdminSection
+            title="Consultant — Sales Commission"
+            subtitle="Percent retained from consultant in-app sales (bookings). Not charged to the client at checkout."
+          >
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 max-w-sm">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Platform fee (% of sale)
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={consultantSalesFeePercentInput}
+                onChange={(e) => setConsultantSalesFeePercentInput(e.target.value)}
+                disabled={pricingLoading}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+              />
+              <p className="mt-2 text-xs text-gray-500">Default: 10%. Consultant receives the remainder.</p>
+            </div>
+          </AdminSection>
+
+          <AdminSection
+            title="Nonprofit / Partner Promotion Codes"
+            subtitle="Create Stripe codes so nonprofits can cover Client or Hiring Manager entry fees."
+          >
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Code</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={platformFeeAmount}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (!isNaN(value) && value >= 0) {
-                        setPlatformFeeAmount(value);
-                        setPlatformFeeError(null);
-                      }
-                    }}
-                    disabled={platformFeeLoading}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                    type="text"
+                    value={promoCodeInput}
+                    onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                    placeholder="NONPROFIT100"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
-                <button
-                  onClick={handleSavePlatformFee}
-                  disabled={platformFeeSaving || platformFeeLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                >
-                  {platformFeeSaving ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  Save booking fee
-                </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Percent off</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={promoPercentInput}
+                    onChange={(e) => setPromoPercentInput(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Max redemptions (optional)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={promoMaxRedemptionsInput}
+                    onChange={(e) => setPromoMaxRedemptionsInput(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
               </div>
-              {platformFeeError && (
-                <p className="mt-3 text-sm text-red-700">{platformFeeError}</p>
-              )}
-              {platformFeeSuccess && (
-                <p className="mt-3 text-sm text-green-700">{platformFeeSuccess}</p>
+              <button
+                type="button"
+                onClick={handleCreatePromoCode}
+                disabled={promoSaving}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {promoSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Create code
+              </button>
+              {promoError && <p className="text-sm text-red-700">{promoError}</p>}
+              {promoSuccess && <p className="text-sm text-green-700">{promoSuccess}</p>}
+              {promoLoading ? (
+                <p className="text-sm text-gray-500">Loading codes...</p>
+              ) : promoCodes.length > 0 ? (
+                <ul className="text-sm text-gray-700 divide-y border border-gray-100 rounded-lg">
+                  {promoCodes.map((p) => (
+                    <li key={p.id} className="px-4 py-2 flex justify-between">
+                      <span className="font-mono font-medium">{p.code}</span>
+                      <span className="text-gray-500">
+                        {p.timesRedeemed}
+                        {p.maxRedemptions != null ? ` / ${p.maxRedemptions}` : ''} used
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500">No active promotion codes yet.</p>
               )}
             </div>
           </AdminSection>
@@ -437,7 +484,7 @@ function SettingsPageContent() {
               {pricingSuccess && <p className="text-sm text-green-700">{pricingSuccess}</p>}
               {!pricingLoading && !pricingError && !pricingSuccess && (
                 <p className="text-sm text-gray-500">
-                  Saves student/consultant access fee and recruiter bundle settings together.
+                  Saves all role entry fees and consultant sales commission together.
                 </p>
               )}
             </div>

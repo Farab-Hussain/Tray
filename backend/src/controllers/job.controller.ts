@@ -43,40 +43,25 @@ export const createJob = async (req: Request, res: Response) => {
         if (paymentRequired.required && !paymentRequired.paid) {
           console.log(`🔍 [Job Creation] Payment required - returning 402`);
           return res.status(402).json({
-            error: "Payment required for job posting",
+            error: "Hiring Manager entry fee required",
+            code: "ACCESS_FEE_REQUIRED",
+            role: paymentRequired.role,
+            roleLabel: paymentRequired.roleLabel,
             paymentAmount: paymentRequired.amount,
             paymentUrl: paymentRequired.paymentUrl,
-            bundleFee: paymentRequired.bundleFee,
-            postingsPerBundle: paymentRequired.postingsPerBundle,
-            creditsRemaining: paymentRequired.creditsRemaining ?? 0,
-            message: `Purchase a bundle ($${paymentRequired.bundleFee} for ${paymentRequired.postingsPerBundle} postings) to continue`,
+            fee: paymentRequired.fee,
+            message: `Pay the $${paymentRequired.fee} ${paymentRequired.roleLabel} entry fee to post jobs`,
           });
         }
-      }
-
-      const creditsBefore = await jobServices.getJobPostingCredits(user.uid);
-      if (creditsBefore < 1) {
-        return res.status(402).json({
-          error: "No job posting credits remaining",
-          paymentUrl: "/payment/job-posting",
-          message: "Purchase a posting bundle to continue",
-        });
       }
     }
 
     console.log(`🔍 [Job Creation] Creating job...`);
     const job = await jobServices.create(jobData, user.uid);
 
-    let creditsRemaining: number | undefined;
-    if (isRecruiter && !isAdmin) {
-      await jobServices.consumeJobPostingCredit(user.uid);
-      creditsRemaining = await jobServices.getJobPostingCredits(user.uid);
-    }
-
     res.status(201).json({
       message: "Job posted successfully",
       job,
-      creditsRemaining,
     });
   } catch (error: any) {
     console.error("Error creating job:", error);

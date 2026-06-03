@@ -57,7 +57,7 @@ router.post('/:id/reviews', authenticateUser(), addCourseReview);
 router.put('/progress/:enrollmentId/:lessonId', authenticateUser(), updateLessonProgress);
 
 // NEW: Enhanced student routes
-router.post('/purchase', authenticateUser(), authorizeRole(['student']), requirePlatformAccessFee, purchaseCourse);
+router.post('/purchase', authenticateUser(), authorizeRole(['student']), requirePlatformAccessFee('student'), purchaseCourse);
 router.get('/purchases/my', authenticateUser(), authorizeRole(['student']), getStudentPurchases);
 router.get('/:id/access', authenticateUser(), authorizeRole(['student']), checkCourseAccess);
 router.post('/issue-certificate', authenticateUser(), authorizeRole(['student']), issueCertificate);

@@ -552,10 +552,13 @@ const PostJobScreen = ({ navigation }: any) => {
           {
             text: 'Pay Now',
             onPress: () => {
-              navigation.navigate('JobPostingPayment', {
-                paymentUrl: error.response?.data?.paymentUrl,
-                jobData: jobDataForAPI,
-                companyId: selectedCompany?.id,
+              navigation.navigate('PlatformAccessPayment', {
+                required: true,
+                role: 'recruiter',
+                returnTo: {
+                  screen: 'PostJob',
+                  params: { companyId: selectedCompany?.id },
+                },
               });
             },
           },

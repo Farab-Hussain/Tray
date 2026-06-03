@@ -157,7 +157,8 @@ class PaymentService {
   }
 
   async getPlatformFeeConfig(): Promise<{
-    platformFeeAmount: number;
+    consultantSalesFeePercent?: number;
+    platformFeeAmount?: number;
     updatedAt?: string;
     updatedBy?: string;
     source?: string;
@@ -197,13 +198,17 @@ class PaymentService {
     return response.data;
   }
 
-  async getAccessFeeStatus(): Promise<{
+  async getAccessFeeStatus(role?: string): Promise<{
     paid: boolean;
     waived?: boolean;
     fee: number;
     amountCents: number;
+    role?: string;
+    roleLabel?: string;
+    required?: boolean;
   }> {
-    const response = await api.get('/payment/access-fee/status');
+    const params = role ? { role } : undefined;
+    const response = await api.get('/payment/access-fee/status', { params });
     return response.data;
   }
 
@@ -277,10 +282,14 @@ class PaymentService {
     }
   }
 
-  async createAccessFeePaymentIntent(promotionCode?: string): Promise<PaymentIntentResponse> {
+  async createAccessFeePaymentIntent(
+    promotionCode?: string,
+    role?: string,
+  ): Promise<PaymentIntentResponse> {
     try {
       const response = await api.post<PaymentIntentResponse>('/payment/access-fee/create-intent', {
         promotionCode: promotionCode?.trim() || undefined,
+        role: role || undefined,
       });
       return { ...response.data, success: true };
     } catch (error: any) {
