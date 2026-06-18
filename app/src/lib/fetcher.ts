@@ -3,6 +3,8 @@ import axios, { InternalAxiosRequestConfig } from 'axios';
 import { auth } from './firebase';
 import { handleApiError } from '../utils/toast';
 import { logger } from '../utils/logger';
+import { createSslPinningAdapter } from './sslPinningAdapter';
+import { isSslPinningEnabled } from '../constants/sslPinning';
 
 // Module-level variable to track backend unavailable logging
 let backendUnavailableLogged = false;
@@ -99,6 +101,7 @@ if (__DEV__) {
 export const api = axios.create({
   baseURL: baseURL,
   timeout: 25000, // 25 second timeout for regular requests (upload requests override this)
+  ...(isSslPinningEnabled() ? { adapter: createSslPinningAdapter() } : {}),
   headers: {
     'ngrok-skip-browser-warning': 'true', // Skip ngrok browser warning on free tier
     'Cache-Control': 'no-cache, no-store, must-revalidate', // Prevent caching

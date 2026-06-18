@@ -47,6 +47,11 @@ import * as NotificationStorage from '../../../services/notification-storage.ser
 import { useAuth } from '../../../contexts/AuthContext';
 import { AudioSessionManager } from '../../../utils/audioSessionManager';
 import { markCallTerminal } from '../../../services/call-navigation.service';
+import { usesNativeCallUi } from '../../../utils/callUi';
+import {
+  presentOutgoingCallKit,
+  reportCallKitConnected,
+} from '../../../services/native-intent.service';
 
 const CallingScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
@@ -82,19 +87,24 @@ const CallingScreen = ({ navigation, route }: any) => {
   const handlingRemoteOfferSdpRef = useRef<string | null>(null);
   const isMutedRef = useRef<boolean>(false);
   const didResetAfterCallEndRef = useRef(false);
-  const { callId, isCaller, callerId, receiverId } = route?.params || {};
+  const { callId, isCaller, callerId, receiverId, autoAccept } = route?.params || {};
   const type: 'audio' = 'audio';
+  const nativeCallUi = usesNativeCallUi();
   const resetToHome = React.useCallback(() => {
     if (didResetAfterCallEndRef.current) {
       return;
     }
     didResetAfterCallEndRef.current = true;
     markCallTerminal(callId);
+    if (nativeCallUi && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
     navigation.reset({
       index: 0,
       routes: [{ name: 'MainTabs' as never }],
     });
-  }, [callId, navigation]);
+  }, [callId, navigation, nativeCallUi]);
   const callerNameDefault = useMemo(() => {
     if (user?.displayName && user.displayName.trim()) {
       return user.displayName;
@@ -1111,6 +1121,10 @@ const CallingScreen = ({ navigation, route }: any) => {
   // Prevent back navigation while call is active
   useFocusEffect(
     React.useCallback(() => {
+      if (nativeCallUi) {
+        return undefined;
+      }
+
       const onBackPress = () => {
         // Prevent back navigation - user must use hangup button
         return true;
@@ -1122,8 +1136,28 @@ const CallingScreen = ({ navigation, route }: any) => {
       );
 
       return () => subscription.remove();
-    }, []),
+    }, [nativeCallUi]),
   );
+
+  useEffect(() => {
+    if (!nativeCallUi || !isCaller || !callId || !callerId || !receiverId) {
+      return;
+    }
+    void presentOutgoingCallKit({
+      callId,
+      callType: type,
+      callerId,
+      receiverId,
+      calleeName: otherUser?.name,
+    });
+  }, [nativeCallUi, isCaller, callId, callerId, receiverId, otherUser?.name, type]);
+
+  useEffect(() => {
+    if (!nativeCallUi || !callId || status !== 'active') {
+      return;
+    }
+    void reportCallKitConnected(callId);
+  }, [nativeCallUi, callId, status]);
 
   const handleHangup = async () => {
     if (!callId) {
@@ -1933,6 +1967,18 @@ const CallingScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const autoAcceptTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!autoAccept || isCaller || autoAcceptTriggeredRef.current || !callId) {
+      return;
+    }
+    autoAcceptTriggeredRef.current = true;
+    const timer = setTimeout(() => {
+      handleAccept();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [autoAccept, isCaller, callId]);
+
   const handleMute = async () => {
     if (!localStreamRef.current) return;
 
@@ -2425,6 +2471,10 @@ const CallingScreen = ({ navigation, route }: any) => {
     }
     return () => {};
   }, [status]);
+
+  if (nativeCallUi) {
+    return null;
+  }
 
   return (
     <View style={callingStyles.videoCallContainer}>

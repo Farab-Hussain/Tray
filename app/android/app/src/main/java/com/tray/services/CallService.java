@@ -10,6 +10,8 @@ import android.os.Build;
 import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
 
+import com.tray.security.IntentSecurity;
+
 public class CallService extends Service {
     private static final String CHANNEL_ID = "incoming_calls";
     private static final int NOTIFICATION_ID = 1;
@@ -22,12 +24,20 @@ public class CallService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent == null) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         String callId = intent.getStringExtra("callId");
         String callType = intent.getStringExtra("callType");
-        
-        // Create foreground notification for incoming call
+        String callerName = intent.getStringExtra("callerName");
+        String title = callerName != null && !callerName.isEmpty()
+            ? callerName
+            : ("Incoming " + callType + " Call");
+
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Incoming " + callType + " Call")
+                .setContentTitle(title)
                 .setContentText("Tap to answer")
                 .setSmallIcon(com.tray.R.mipmap.ic_launcher)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -65,8 +75,10 @@ public class CallService extends Service {
     private PendingIntent createFullScreenIntent(String callId, String callType) {
         Intent intent = new Intent(this, com.tray.IncomingCallActivity.class);
         intent.putExtra("callId", callId);
-        intent.putExtra("callType", callType);
+        intent.putExtra("callType", callType != null ? callType : "audio");
+        intent.putExtra("action", "open");
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        IntentSecurity.markInternal(this, intent);
         return PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 }

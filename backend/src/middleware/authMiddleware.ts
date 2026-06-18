@@ -3,6 +3,8 @@ import { Request, Response, NextFunction } from "express";
 import { db } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import { verifyFirebaseIdToken } from "../utils/firebaseTokenVerification";
+import { devLog, devWarn, devError } from "../utils/sanitizeLog";
+import { getClientIp, recordSecurityEvent } from "../services/securityEvent.service";
 
 /**
  * Wrapper to ensure async middleware errors are properly caught
@@ -31,12 +33,12 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
     const startTime = Date.now();
     
     // CRITICAL: Log immediately to confirm middleware is called
-    console.log(`\n🔐 [Auth Middleware] ${route} - Authentication middleware called at ${new Date().toISOString()}`);
+    devLog(`\n🔐 [Auth Middleware] ${route} - Authentication middleware called at ${new Date().toISOString()}`);
     
     // Set request timeout to prevent hanging (Express-level timeout)
     req.setTimeout(12000, () => {
       if (!res.headersSent) {
-        console.error(`⏱️ [Auth Middleware] ${route} - Request timeout (12s)`);
+        devError(`⏱️ [Auth Middleware] ${route} - Request timeout (12s)`);
         res.status(408).json({ error: "Request timeout" });
       }
     });
@@ -45,11 +47,17 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       // Step 1: Check Authorization header exists
       const authHeader = req.headers.authorization;
       
-      console.log(`🔐 [Auth Middleware] ${route} - Authorization header present: ${!!authHeader}`);
+      devLog(`🔐 [Auth Middleware] ${route} - Authorization header present: ${!!authHeader}`);
       
       if (!authHeader) {
         const elapsed = Date.now() - startTime;
-        console.log(`❌ [Auth Middleware] ${route} - No Authorization header provided (${elapsed}ms)`);
+        devWarn(`❌ [Auth Middleware] ${route} - No Authorization header (${elapsed}ms)`);
+        await recordSecurityEvent({
+          type: 'auth_failure',
+          route,
+          ip: getClientIp(req),
+          message: 'No authorization header',
+        });
         Logger.error(route, "", "No authorization header provided");
         return res.status(401).json({ 
           error: "No token provided",
@@ -60,7 +68,13 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       // Step 2: Validate Bearer format
       if (!authHeader.startsWith("Bearer ")) {
         const elapsed = Date.now() - startTime;
-        console.log(`❌ [Auth Middleware] ${route} - Invalid token format (${elapsed}ms)`);
+        devWarn(`❌ [Auth Middleware] ${route} - Invalid token format (${elapsed}ms)`);
+        await recordSecurityEvent({
+          type: 'auth_failure',
+          route,
+          ip: getClientIp(req),
+          message: 'Invalid token format',
+        });
         Logger.error(route, "", "Invalid token format - must be 'Bearer <token>'");
         return res.status(401).json({ 
           error: "Invalid token format",
@@ -71,22 +85,15 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       // Step 3: Extract and validate token
       const idToken = authHeader.substring(7).trim(); // More efficient than split
       
-      // TEMPORARY TEST BYPASS - REMOVE IN PRODUCTION
-      if (idToken === "test-token-consultant-459") {
-        console.log(`🧪 [Auth Middleware] ${route} - Using test token bypass`);
-        (req as any).user = {
-          uid: "consultant-459",
-          email: "ravatoj564@amiralty.com",
-          email_verified: true,
-          role: "consultant",
-          activeRole: "consultant"
-        };
-        return next();
-      }
-      
       if (!idToken || idToken.length === 0) {
         const elapsed = Date.now() - startTime;
-        console.log(`❌ [Auth Middleware] ${route} - Token is empty (${elapsed}ms)`);
+        devWarn(`❌ [Auth Middleware] ${route} - Token is empty (${elapsed}ms)`);
+        await recordSecurityEvent({
+          type: 'auth_failure',
+          route,
+          ip: getClientIp(req),
+          message: 'Empty token',
+        });
         Logger.error(route, "", "Token is empty");
         return res.status(401).json({ 
           error: "No token provided",
@@ -94,8 +101,8 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
         });
       }
 
-      console.log(`🔐 [Auth Middleware] ${route} - Token extracted, length: ${idToken.length} chars`);
-      console.log(`🔐 [Auth Middleware] ${route} - Starting Firebase verification...`);
+      devLog(`🔐 [Auth Middleware] ${route} - Token extracted`);
+      devLog(`🔐 [Auth Middleware] ${route} - Starting Firebase verification...`);
 
       // Step 4: Verify token with timeout protection
       // OPTIMIZATION: Don't check revoked tokens (false) - faster, reduces network calls
@@ -120,13 +127,13 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
         if (timeoutId) clearTimeout(timeoutId);
         
         const verifyTime = Date.now() - startTime;
-        console.log(`✅ [Auth Middleware] ${route} - Token verified in ${verifyTime}ms for user: ${decodedToken.uid}`);
+        devLog(`✅ [Auth Middleware] ${route} - Token verified in ${verifyTime}ms`);
       } catch (verifyError: any) {
         const elapsed = Date.now() - startTime;
         const errorMessage = verifyError?.message || 'Unknown verification error';
         
         if (errorMessage.includes('timeout')) {
-          console.error(`⏱️ [Auth Middleware] ${route} - Verification timeout after ${elapsed}ms`);
+          devError(`⏱️ [Auth Middleware] ${route} - Verification timeout after ${elapsed}ms`);
           Logger.error(route, "", "Token verification timeout", verifyError);
           return res.status(408).json({ 
             error: "Authentication timeout",
@@ -134,9 +141,17 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
           });
         }
         
+        await recordSecurityEvent({
+          type: 'auth_failure',
+          route,
+          ip: getClientIp(req),
+          message: errorMessage,
+          metadata: { code: verifyError?.code },
+        });
+
         // Handle specific Firebase errors
         if (errorMessage.includes('expired')) {
-          console.error(`❌ [Auth Middleware] ${route} - Token expired (${elapsed}ms)`);
+          devWarn(`❌ [Auth Middleware] ${route} - Token expired (${elapsed}ms)`);
           return res.status(401).json({ 
             error: "Token expired",
             message: "Your session has expired. Please sign in again."
@@ -144,14 +159,14 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
         }
         
         if (errorMessage.includes('revoked')) {
-          console.error(`❌ [Auth Middleware] ${route} - Token revoked (${elapsed}ms)`);
+          devWarn(`❌ [Auth Middleware] ${route} - Token revoked (${elapsed}ms)`);
           return res.status(401).json({ 
             error: "Token revoked",
             message: "Your session has been revoked. Please sign in again."
           });
         }
         
-        console.error(`❌ [Auth Middleware] ${route} - Verification failed (${elapsed}ms):`, errorMessage);
+        devError(`❌ [Auth Middleware] ${route} - Verification failed (${elapsed}ms):`, errorMessage);
         Logger.error(route, "", "Token verification failed", verifyError);
         return res.status(401).json({ 
           error: "Invalid token",
@@ -162,7 +177,14 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       // Step 5: Check email verification (only if explicitly required)
       if (!allowUnverified && !decodedToken.email_verified) {
         const elapsed = Date.now() - startTime;
-        console.log(`⚠️ [Auth Middleware] ${route} - Email not verified for user: ${decodedToken.uid} (${elapsed}ms)`);
+        devWarn(`⚠️ [Auth Middleware] ${route} - Email not verified (${elapsed}ms)`);
+        await recordSecurityEvent({
+          type: 'access_denied',
+          route,
+          ip: getClientIp(req),
+          userId: decodedToken.uid,
+          message: 'Email not verified',
+        });
         Logger.warn(route, decodedToken.uid, "Access denied - Email not verified");
         return res.status(403).json({ 
           error: "Email verification required",
@@ -177,16 +199,14 @@ const createAuthenticateMiddleware = (allowUnverified: boolean = true) => {
       const totalTime = Date.now() - startTime;
       
       Logger.info(route, decodedToken.uid, `User authenticated${!decodedToken.email_verified ? ' (unverified)' : ''} in ${totalTime}ms`);
-      console.log(`✅ [Auth Middleware] ${route} - Authentication successful, calling next() (total: ${totalTime}ms)`);
+      devLog(`✅ [Auth Middleware] ${route} - Authentication successful (total: ${totalTime}ms)`);
       
       next();
     } catch (error: any) {
-      // Catch-all for any unexpected errors
       const elapsed = Date.now() - startTime;
       const errorMessage = error?.message || 'Unknown error';
       
-      console.error(`💥 [Auth Middleware] ${route} - Unexpected error after ${elapsed}ms:`, errorMessage);
-      console.error(`💥 [Auth Middleware] ${route} - Error stack:`, error?.stack);
+      devError(`💥 [Auth Middleware] ${route} - Unexpected error after ${elapsed}ms:`, errorMessage);
       Logger.error(route, "", "Unexpected authentication error", error);
       
       // Ensure we haven't already sent a response
@@ -241,18 +261,6 @@ export const authenticateUserOptional = () => {
 
     const idToken = authHeader.substring(7).trim();
     if (!idToken) {
-      return next();
-    }
-
-    // Keep parity with required auth middleware's test bypass.
-    if (idToken === "test-token-consultant-459") {
-      (req as any).user = {
-        uid: "consultant-459",
-        email: "ravatoj564@amiralty.com",
-        email_verified: true,
-        role: "consultant",
-        activeRole: "consultant"
-      };
       return next();
     }
 
@@ -317,6 +325,14 @@ export const authorizeRole = (roles: string[]) => {
 
       if (!roles.includes(userRole)) {
         Logger.warn(route, user.uid, `Access denied - Required roles: ${roles.join(", ")}, User role: ${userRole}`);
+        await recordSecurityEvent({
+          type: 'access_denied',
+          route,
+          ip: getClientIp(req),
+          userId: user.uid,
+          message: `Required roles: ${roles.join(', ')}`,
+          metadata: { currentRole: userRole },
+        });
         return res.status(403).json({ 
           error: "Access denied - Insufficient permissions",
           required: roles,

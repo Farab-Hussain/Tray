@@ -1,5 +1,11 @@
 import { body, param, query, validationResult } from 'express-validator';
 import { Request, Response, NextFunction } from 'express';
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  OTP_LENGTH,
+} from '../constants/authSecurity';
+import { sanitizeForLog } from '../utils/sanitizeLog';
 
 /**
  * Middleware to handle validation errors
@@ -10,7 +16,7 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
     console.error('❌ [Validation] Validation failed:', {
       path: req.path,
       method: req.method,
-      body: req.body,
+      body: sanitizeForLog(req.body),
       params: req.params,
       errors: errors.array(),
     });
@@ -20,7 +26,6 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
       details: errors.array().map(err => ({
         field: err.type === 'field' ? err.path : 'unknown',
         message: err.msg,
-        value: err.type === 'field' ? (req.body as any)[err.path] : undefined,
       })),
     });
   }
@@ -29,15 +34,8 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
 
 /**
  * Validation rules for authentication endpoints
+ * Registration uses Zod strict schema — see schemas/register.schema.ts
  */
-export const validateRegister = [
-  body('uid').notEmpty().withMessage('UID is required'),
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('role').isIn(['student', 'consultant', 'admin', 'recruiter']).withMessage('Role must be student, consultant, admin, or recruiter'),
-  body('name').optional({ nullable: true, checkFalsy: true }).if(body('name').exists()).isString().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be between 1 and 100 characters'),
-  handleValidationErrors,
-];
-
 export const validateLogin = [
   body('idToken').notEmpty().withMessage('ID token is required'),
   handleValidationErrors,
@@ -60,13 +58,30 @@ export const validateForgotPassword = [
 
 export const validateVerifyOTP = [
   body('resetSessionId').notEmpty().withMessage('Reset session ID is required'),
-  body('otp').isLength({ min: 4, max: 6 }).isNumeric().withMessage('OTP must be 4-6 digits'),
+  body('otp')
+    .isLength({ min: OTP_LENGTH, max: OTP_LENGTH })
+    .isNumeric()
+    .withMessage(`OTP must be ${OTP_LENGTH} digits`),
   handleValidationErrors,
 ];
 
 export const validateResetPassword = [
   body('resetSessionId').notEmpty().withMessage('Reset session ID is required'),
-  body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('newPassword')
+    .isLength({ min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH })
+    .withMessage(`Password must be between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`),
+  handleValidationErrors,
+];
+
+export const validateChangePassword = [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Current password is required')
+    .isLength({ max: PASSWORD_MAX_LENGTH })
+    .withMessage(`Current password must be at most ${PASSWORD_MAX_LENGTH} characters`),
+  body('newPassword')
+    .isLength({ min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH })
+    .withMessage(`Password must be between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`),
   handleValidationErrors,
 ];
 

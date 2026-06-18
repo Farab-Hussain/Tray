@@ -7,6 +7,8 @@ import { authStyles } from '../../constants/styles/authStyles';
 import { ChevronLeft } from 'lucide-react-native';
 import { api } from '../../lib/fetcher';
 
+const OTP_LENGTH = 6;
+
 const Verify = ({ navigation, route }: any) => {
   const { resetSessionId, email } = route.params;
   const [otp, setOtp] = useState('');
@@ -23,7 +25,9 @@ const Verify = ({ navigation, route }: any) => {
   }, [countdown]);
   
   const handleVerify = async () => {
-    if (!otp) return Alert.alert('Issue', 'Please enter the 4 digit code');
+    if (otp.length !== OTP_LENGTH) {
+      return Alert.alert('Issue', `Please enter the ${OTP_LENGTH}-digit code`);
+    }
     setLoading(true);
 
     try {
@@ -34,7 +38,7 @@ const Verify = ({ navigation, route }: any) => {
             if (__DEV__) {
         console.error('Verify OTP error:', err.response?.data || err.message)
       };
-      Alert.alert("Issue", err.response?.data?.issue || "Invalid or expired code");
+      Alert.alert("Issue", err.response?.data?.error || err.response?.data?.issue || "Invalid or expired code");
     } finally {
       setLoading(false);
     }
@@ -82,7 +86,7 @@ const Verify = ({ navigation, route }: any) => {
           We've sent a code to {email || 'your email'}
         </Text>
         <View style={authStyles.inputRow}>
-          {[0, 1, 2, 3].map(i => (
+          {[0, 1, 2, 3, 4, 5].map(i => (
             <TextInput
               key={i}
               ref={ref => { inputRefs.current[i] = ref; }}
@@ -95,7 +99,7 @@ const Verify = ({ navigation, route }: any) => {
                 setOtp(newOtp);
                 
                 // Auto-focus to next input if text is entered
-                if (text && i < 3) {
+                if (text && i < OTP_LENGTH - 1) {
                   inputRefs.current[i + 1]?.focus();
                 }
               }}

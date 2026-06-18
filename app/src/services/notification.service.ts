@@ -1,11 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform, NativeModules } from 'react-native';
 import { api } from '../lib/fetcher';
 import { logger } from '../utils/logger';
+import { secureTokenStorage } from '../utils/secureStorage';
 import {
   markCallTerminal,
   navigateToIncomingCallIfNeeded,
 } from './call-navigation.service';
+import { endCall } from './call.service';
 import { handleNotificationOpen } from './notification-navigation.service';
 import {
   consumePendingCall,
@@ -115,6 +116,18 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
   }
 
   try {
+    if (Platform.OS === 'android' && Platform.Version >= 33) {
+      const androidPermission = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+      );
+      if (androidPermission !== PermissionsAndroid.RESULTS.GRANTED) {
+        if (__DEV__) {
+          logger.warn('⚠️ [FCM] Android POST_NOTIFICATIONS denied — push will not show when app is closed');
+        }
+        return false;
+      }
+    }
+
     const originalWarn = suppressDeprecationWarnings();
     let messagingInstance;
     try {
@@ -309,8 +322,8 @@ export const getFCMToken = async (): Promise<string | null> => {
       if (__DEV__) {
         logger.debug('✅ [FCM] Token obtained successfully');
       }
-      // Save token to AsyncStorage for quick access
-      await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
+      // Save token to secure storage for quick access
+      await secureTokenStorage.setItem(FCM_TOKEN_KEY, token);
       if (__DEV__) {
         logger.debug('✅ [FCM] Token saved successfully');
       }
@@ -345,10 +358,18 @@ export const registerVoIPTokenWithBackend = async (): Promise<void> => {
   if (Platform.OS !== 'ios') return;
   try {
     const voipToken = await getNativeVoipToken();
-    if (!voipToken) return;
+    if (!voipToken) {
+      if (__DEV__) {
+        logger.warn('⚠️ [VoIP] No PushKit token yet — open app on a real iPhone and log in');
+      }
+      return;
+    }
     await api.post('/fcm/voip-token', { voipToken }, { __suppressErrorToast: true } as Parameters<typeof api.post>[2]);
-  } catch {
-    // non-critical until APNS env configured
+    if (__DEV__) {
+      logger.debug('✅ [VoIP] Token registered with backend');
+    }
+  } catch (error: any) {
+    logger.warn('⚠️ [VoIP] Failed to register token:', error?.message || error);
   }
 };
 
@@ -361,7 +382,7 @@ export const ensurePushNotificationsRegistered = async (
     if (options?.forceRefresh) {
       token = await getFCMToken();
     } else {
-      token = await AsyncStorage.getItem(FCM_TOKEN_KEY);
+      token = await secureTokenStorage.getItem(FCM_TOKEN_KEY);
       if (!token) {
         token = await getFCMToken();
       }
@@ -414,7 +435,7 @@ export const deleteFCMToken = async (fcmToken?: string): Promise<void> => {
       logger.debug('✅ FCM token deleted from backend');
     }
     // Also remove from local storage
-    await AsyncStorage.removeItem(FCM_TOKEN_KEY);
+    await secureTokenStorage.removeItem(FCM_TOKEN_KEY);
   } catch (error: any) {
     logger.error('❌ Error deleting FCM token:', error.response?.data || error.message);
     // Don't throw - allow app to continue if token deletion fails
@@ -459,7 +480,7 @@ export const setupTokenRefreshListener = () => {
     if (__DEV__) {
       logger.debug('🔄 FCM token refreshed');
     }
-    await AsyncStorage.setItem(FCM_TOKEN_KEY, token);
+    await secureTokenStorage.setItem(FCM_TOKEN_KEY, token);
     await registerFCMToken(token);
   });
   restoreConsoleWarn(originalWarn);
@@ -606,6 +627,18 @@ export const setupNotificationOpenedHandler = (callback: (data: any) => void) =>
 export const processPendingNotificationLaunch = async (): Promise<void> => {
   const nativeCall = await consumeNativePendingCallIntent();
   if (nativeCall?.callId) {
+    if (nativeCall.action === 'decline') {
+      markCallTerminal(nativeCall.callId);
+      endCall(nativeCall.callId, 'missed').catch(() => {});
+      return;
+    }
+
+    if (nativeCall.action === 'end') {
+      markCallTerminal(nativeCall.callId);
+      endCall(nativeCall.callId, 'ended').catch(() => {});
+      return;
+    }
+
     await navigateToIncomingCallIfNeeded(
       {
         callId: nativeCall.callId,
@@ -617,6 +650,24 @@ export const processPendingNotificationLaunch = async (): Promise<void> => {
       'android-native-intent',
     );
     return;
+  }
+
+  if (Platform.OS === 'android') {
+    try {
+      const chatIntent = await NativeModules.TrayIntentModule?.getPendingChatIntent?.();
+      if (chatIntent?.chatId) {
+        await handleNotificationOpen({
+          data: {
+            type: 'chat_message',
+            chatId: chatIntent.chatId,
+            senderId: chatIntent.senderId,
+          },
+        });
+        return;
+      }
+    } catch {
+      // non-critical
+    }
   }
 
   const pendingCall = await consumePendingCall();

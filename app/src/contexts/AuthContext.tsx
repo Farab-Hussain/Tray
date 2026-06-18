@@ -716,36 +716,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 reloadedUser = auth.currentUser;
                 setUser(reloadedUser);
 
-                // If still not verified, try to sync via verify-email endpoint
+                // If still not verified after reload, try one more Firebase reload (client token cache)
                 if (reloadedUser && !reloadedUser.emailVerified) {
                   if (__DEV__) {
                     console.log(
-                      'AuthContext - Still not verified, attempting sync...',
+                      'AuthContext - Still not verified after reload, retrying Firebase reload...',
                     );
                   }
                   try {
-                    await api.post(
-                      '/auth/verify-email',
-                      {
-                        email: reloadedUser.email,
-                        uid: reloadedUser.uid,
-                      },
-                      {
-                        headers: {
-                          Authorization: `Bearer ${await reloadedUser.getIdToken()}`,
-                        },
-                        timeout: 15000,
-                        __suppressErrorToast: true,
-                      } as Parameters<typeof api.post>[2],
-                    );
-                    // Reload one more time after sync attempt
                     await reloadedUser.reload();
                     reloadedUser = auth.currentUser;
                     setUser(reloadedUser);
                   } catch (syncError) {
                     if (__DEV__) {
                       console.warn(
-                        'AuthContext - Sync attempt failed:',
+                        'AuthContext - Firebase reload retry failed:',
                         syncError,
                       );
                     }

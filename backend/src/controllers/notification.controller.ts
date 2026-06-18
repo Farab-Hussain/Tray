@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { db, admin, firebaseApp } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import { sendVoipCallPush } from "../services/voipPush.service";
+import { devLog, devWarn, devError, maskToken } from "../utils/sanitizeLog";
 
 const callPushLastSent = new Map<string, number>();
 const CALL_PUSH_COOLDOWN_MS = 8000;
@@ -40,10 +41,9 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
         ? messageText.trim()
         : 'New message';
 
-    console.log('📨 Sending notification for message');
-    console.log('💬 Message text:', bodyText);
-    console.log('👤 Sender ID:', senderId);
-    console.log('📤 Recipient ID:', recipientId);
+    devLog('📨 Sending notification for message');
+    devLog('👤 Sender ID:', senderId);
+    devLog('📤 Recipient ID:', recipientId);
 
     // Get recipient's FCM tokens from Firestore
     const fcmTokensRef = db
@@ -53,7 +53,7 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
     const tokensSnapshot = await fcmTokensRef.get();
 
     if (tokensSnapshot.empty) {
-      console.log('⚠️ No FCM tokens found for recipient:', recipientId);
+      devLog('⚠️ No FCM tokens found for recipient:', recipientId);
       return res.json({ success: true, message: 'No FCM tokens found' });
     }
 
@@ -66,7 +66,7 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
         senderName = senderData?.name || senderData?.displayName || 'Someone';
       }
     } catch (error) {
-      console.log('⚠️ Could not fetch sender name:', error);
+      devLog('⚠️ Could not fetch sender name:', error);
     }
 
     // Prepare notification payload
@@ -124,11 +124,11 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
     });
 
     if (tokens.length === 0) {
-      console.log('⚠️ No valid FCM tokens found');
+      devLog('⚠️ No valid FCM tokens found');
       return res.json({ success: true, message: 'No valid tokens' });
     }
 
-    console.log('📱 Sending notification to tokens:', tokens.length);
+    devLog('📱 Sending notification to token count:', tokens.length);
 
     const message: admin.messaging.MulticastMessage = {
       tokens,
@@ -184,7 +184,7 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
 
     const responses = await admin.messaging().sendEachForMulticast(message);
 
-    console.log('✅ Notification sent successfully');
+    devLog('✅ Notification sent successfully');
 
     // Handle failed tokens (clean up invalid tokens)
     const failedTokenDocs: admin.firestore.QueryDocumentSnapshot[] = [];
@@ -192,7 +192,7 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
     if (responses.responses) {
       responses.responses.forEach((result, index) => {
         if (result.error) {
-          console.error('❌ Failed to send to token:', tokens[index], result.error);
+          devError('❌ Failed to send to token:', maskToken(tokens[index]), result.error?.code || result.error);
           if (
             result.error.code === 'messaging/invalid-registration-token' ||
             result.error.code === 'messaging/registration-token-not-registered'
@@ -205,7 +205,7 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
 
     // Clean up failed tokens
     if (failedTokenDocs.length > 0) {
-      console.log('🧹 Removing invalid tokens:', failedTokenDocs.length);
+      devLog('🧹 Removing invalid tokens:', failedTokenDocs.length);
       const deletePromises = failedTokenDocs.map((doc) => doc.ref.delete());
       await Promise.all(deletePromises);
     }
@@ -251,11 +251,11 @@ export const sendCallNotification = async (req: Request, res: Response) => {
     }
     callPushLastSent.set(callerId, Date.now());
 
-    console.log('📞 Sending call notification');
-    console.log('📞 Call ID:', callId);
-    console.log('👤 Caller ID:', callerId);
-    console.log('📤 Receiver ID:', receiverId);
-    console.log('📱 Call Type:', callType);
+    devLog('📞 Sending call notification');
+    devLog('📞 Call ID:', callId);
+    devLog('👤 Caller ID:', callerId);
+    devLog('📤 Receiver ID:', receiverId);
+    devLog('📱 Call Type:', callType);
 
     // Get receiver's FCM tokens from Firestore
     const fcmTokensRef = db
@@ -275,16 +275,21 @@ export const sendCallNotification = async (req: Request, res: Response) => {
       // non-critical
     }
 
-    const voipSent = await sendVoipCallPush(receiverId, {
-      callId,
-      callerId,
-      receiverId,
-      callType,
-      callerName,
-    });
+    let voipSent = 0;
+    try {
+      voipSent = await sendVoipCallPush(receiverId, {
+        callId,
+        callerId,
+        receiverId,
+        callType,
+        callerName,
+      });
+    } catch (voipError) {
+      devWarn('⚠️ [VoIP] sendVoipCallPush failed (FCM will still be attempted):', voipError);
+    }
 
     if (tokensSnapshot.empty) {
-      console.log('⚠️ No FCM tokens found for receiver:', receiverId);
+      devLog('⚠️ No FCM tokens found for receiver:', receiverId);
       return res.json({
         success: true,
         message: voipSent > 0 ? 'VoIP push sent' : 'No FCM tokens found',
@@ -348,42 +353,52 @@ export const sendCallNotification = async (req: Request, res: Response) => {
     });
 
     if (tokens.length === 0) {
-      console.log('⚠️ No valid FCM tokens found');
-      return res.json({ success: true, message: 'No valid tokens' });
+      devLog('⚠️ No valid FCM tokens found');
+      return res.json({
+        success: true,
+        message: voipSent > 0 ? 'VoIP push sent' : 'No valid tokens',
+        voipSent,
+        offline: voipSent === 0,
+        delivered: voipSent > 0,
+      });
     }
-    console.log('📱 Sending call notification to tokens:', tokens.length);
-    
-    const sendPromises = tokens.map(token => {
-      const singleMessage = {
-        token,
-        notification: {
-          title: notification.title,
-          body: notification.body,
-        },
-        data: {
-          type: 'call',
-          callId: String(callId),
-          callerId: String(callerId),
-          receiverId: String(receiverId),
-          callType: String(callType),
-          category: 'call',
-          link: `tray://call/${callId}`,
-          callerName: String(callerName),
-        },
-        android: {
-          priority: 'high' as const,
-          ttl: 30000,
-          notification: {
-            title: notification.title,
-            body: notification.body,
-            sound: 'default',
-            channelId: 'incoming_calls',
-            priority: 'max' as const,
-            visibility: 'public' as const,
-            defaultSound: true,
-            defaultVibrateTimings: true,
+    devLog('📱 Sending call notification to token count:', tokens.length);
+
+    const stringData = {
+      type: 'call',
+      callId: String(callId),
+      callerId: String(callerId),
+      receiverId: String(receiverId),
+      callType: String(callType),
+      category: 'call',
+      link: `tray://call/${callId}`,
+      callerName: String(callerName),
+    };
+
+    const sendPromises = tokenDocs.map((tokenDoc, index) => {
+      const token = tokens[index];
+      const deviceType = (tokenDoc.data()?.deviceType as string) || 'android';
+
+      // Android: data-only high-priority push so native TrayFirebaseMessagingService
+      // always receives the message and can show full-screen incoming call UI.
+      if (deviceType === 'android') {
+        const androidMessage = {
+          token,
+          data: stringData,
+          android: {
+            priority: 'high' as const,
+            ttl: 30000,
           },
-        },
+        };
+        return (firebaseApp || admin).messaging().send(androidMessage)
+          .then(response => ({ success: true, response }))
+          .catch(error => ({ success: false, error }));
+      }
+
+      // iOS: alert banner (fallback) + data for RN navigation when app opens
+      const iosMessage = {
+        token,
+        data: stringData,
         apns: {
           headers: {
             'apns-priority': '10',
@@ -398,16 +413,13 @@ export const sendCallNotification = async (req: Request, res: Response) => {
               sound: 'default',
               badge: 1,
               'content-available': 1,
-              'mutable-content': 1,
               category: 'CALL_CATEGORY',
               'thread-id': callId,
             },
           },
         },
       };
-      
-      // Use the specific firebaseApp.messaging() instance
-      return (firebaseApp || admin).messaging().send(singleMessage)
+      return (firebaseApp || admin).messaging().send(iosMessage)
         .then(response => ({ success: true, response }))
         .catch(error => ({ success: false, error }));
     });
@@ -416,15 +428,15 @@ export const sendCallNotification = async (req: Request, res: Response) => {
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.length - successCount;
 
-    console.log(`✅ Call notification attempt finished. Success: ${successCount}, Fail: ${failureCount}`);
+    devLog(`✅ Call notification attempt finished. Success: ${successCount}, Fail: ${failureCount}`);
 
     // Handle failed tokens (clean up invalid tokens)
     const failedTokenDocs: admin.firestore.QueryDocumentSnapshot[] = [];
     
     results.forEach((result: any, index) => {
       if (!result.success && result.error) {
-        console.error('❌ FCM Error Detail:', JSON.stringify(result.error, null, 2));
-        console.error('❌ Failed to send to token:', tokens[index], result.error.message);
+        devError('❌ FCM Error Detail:', result.error?.code || 'unknown');
+        devError('❌ Failed to send to token:', maskToken(tokens[index]), result.error?.message);
         if (
           result.error.code === 'messaging/invalid-registration-token' ||
           result.error.code === 'messaging/registration-token-not-registered' ||
@@ -437,7 +449,7 @@ export const sendCallNotification = async (req: Request, res: Response) => {
 
     // Clean up failed tokens
     if (failedTokenDocs.length > 0) {
-      console.log('🧹 Removing invalid tokens:', failedTokenDocs.length);
+      devLog('🧹 Removing invalid tokens:', failedTokenDocs.length);
       const deletePromises = failedTokenDocs.map((doc) => doc.ref.delete());
       await Promise.all(deletePromises);
     }
@@ -449,6 +461,7 @@ export const sendCallNotification = async (req: Request, res: Response) => {
       sent: successCount,
       failed: failureCount,
       voipSent,
+      voipConfigured: voipSent > 0 || process.env.APNS_KEY_ID != null,
       offline: tokens.length === 0 && voipSent === 0,
       delivered: sentToAny || voipSent > 0,
     });

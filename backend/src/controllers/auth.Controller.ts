@@ -3,12 +3,17 @@ import { Request, Response } from "express";
 import { db, auth } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import { sendEmail } from "../utils/email";
-import { randomUUID, randomBytes, createHash } from "crypto";
+import { randomUUID, randomBytes, createHash, randomInt } from "crypto";
 import axios from "axios";
 import { cache } from "../utils/cache";
 import { consultantFlowService } from "../services/consultantFlow.service";
 import { JWTUtils } from "../utils/jwtUtils";
 import { verifyFirebaseIdToken } from "../utils/firebaseTokenVerification";
+import { resolveRoleFromAccountType } from "../constants/userRoles";
+import { OTP_MAX_ATTEMPTS } from "../constants/authSecurity";
+import { validatePasswordLength } from "../utils/passwordValidation";
+import { devLog, devWarn, devError } from "../utils/sanitizeLog";
+import { getClientIp, recordSecurityEvent } from "../services/securityEvent.service";
 
 // Validate JWT secret on startup
 JWTUtils.validateSecret();
@@ -21,21 +26,41 @@ export const register = async (req: Request, res: Response) => {
   const route = "POST /auth/register";
 
   try {
-    const { uid, name, role, email } = req.body;
-
-    // Validate required fields
-    if (!uid || !role || !email) {
-      Logger.error(route, "", "Missing required fields");
-      return res.status(400).json({
-        error: "Missing required fields: uid, role, email"
+    const authenticatedUser = (req as any).user;
+    if (!authenticatedUser?.uid) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required",
+        message: "Authentication required",
       });
     }
 
-    // Validate role
-    if (!['student', 'consultant', 'admin', 'recruiter'].includes(role)) {
-      Logger.error(route, "", `Invalid role: ${role}`);
+    const uid = authenticatedUser.uid;
+    const { name, accountType, email } = req.body as {
+      name?: string;
+      accountType: string;
+      email: string;
+    };
+
+    if (
+      authenticatedUser.email &&
+      email.toLowerCase() !== String(authenticatedUser.email).toLowerCase()
+    ) {
+      Logger.error(route, uid, "Registration email does not match authenticated user");
+      return res.status(403).json({
+        success: false,
+        error: "Email does not match authenticated user",
+        message: "Email does not match authenticated user",
+      });
+    }
+
+    const role = resolveRoleFromAccountType(accountType);
+    if (!role) {
+      Logger.error(route, uid, `Invalid account type: ${accountType}`);
       return res.status(400).json({
-        error: "Invalid role. Must be 'student', 'consultant', 'admin', or 'recruiter'"
+        success: false,
+        error: "Invalid account type",
+        message: "Invalid account type",
       });
     }
 
@@ -300,13 +325,14 @@ export const updateProfile = async (req: Request, res: Response) => {
  * Login with Firebase ID token and return user info
  */
 export const login = async (req: Request, res: Response) => {
-  console.log("🎯 [POST /auth/login] - Route hit");
+  const route = "POST /auth/login";
+  devLog(`🎯 [${route}] - Route hit`);
 
   try {
     const { idToken } = req.body;
 
     if (!idToken) {
-      console.log("❌ [POST /auth/login] - ID token is missing");
+      devLog(`❌ [${route}] - ID token is missing`);
       return res.status(400).json({ error: "ID token is required" });
     }
 
@@ -316,7 +342,15 @@ export const login = async (req: Request, res: Response) => {
     const userDoc = await db.collection("users").doc(decodedToken.uid).get();
     const profile = userDoc.exists ? userDoc.data() : null;
 
-    console.log(`✅ [POST /auth/login] - User logged in successfully: ${decodedToken.uid}`);
+    devLog(`✅ [${route}] - User logged in successfully`);
+
+    await recordSecurityEvent({
+      type: 'login_success',
+      route,
+      ip: getClientIp(req),
+      userId: decodedToken.uid,
+      email: decodedToken.email,
+    });
 
     const userProfile = profile as Record<string, unknown> | null;
     const roles = (userProfile?.roles as string[] | undefined) || [];
@@ -370,11 +404,15 @@ export const login = async (req: Request, res: Response) => {
     });
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };
-    console.error(
-      "❌ [POST /auth/login] - Token verification error:",
-      err?.code || "unknown",
-      err?.message || error,
-    );
+    devError(`❌ [${route}] - Token verification error:`, err?.code || "unknown");
+
+    await recordSecurityEvent({
+      type: 'login_failure',
+      route,
+      ip: getClientIp(req),
+      message: err?.message || 'Invalid token',
+      metadata: { code: err?.code },
+    });
 
     let message = err?.message || "Invalid token";
     if (err?.code === "auth/id-token-expired") {
@@ -449,13 +487,15 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
   try {
     const userRecord = await auth.getUserByEmail(email);
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const otp = randomInt(100_000, 1_000_000).toString();
     const resetSessionId = randomUUID();
 
     await db.collection("password_resets").doc(resetSessionId).set({
       uid: userRecord.uid,
       email,
       otp,
+      attemptCount: 0,
+      locked: false,
       createdAt: new Date(),
       expiresAt: Date.now() + 30 * 60 * 1000,
       verified: false,
@@ -482,16 +522,15 @@ export const forgotPassword = async (req: Request, res: Response) => {
     });
 
     if (emailResult.sent) {
-      console.log('✅ Password reset email sent successfully!');
+      devLog('✅ Password reset email sent successfully!');
       return res.json({
         message: "OTP sent to your email.",
         resetSessionId,
       });
     } else {
       // Email sending failed (not configured or error)
-      console.warn('⚠️ Email transport not available - OTP sent to console instead');
-      console.log('📧 OTP for', email, ':', otp);
-      console.log('📧 Reset session ID:', resetSessionId);
+      console.warn('⚠️ Email transport not available');
+      devLog('📧 Password reset OTP email failed to send for', email);
       console.warn('⚠️ Configure SMTP_EMAIL and SMTP_PASSWORD in .env to enable email sending');
       return res.status(200).json({
         message: "OTP generated (email not configured - check console for OTP)",
@@ -521,16 +560,48 @@ export const verifyOTP = async (req: Request, res: Response) => {
   }
 
   try {
-    const doc = await db.collection('password_resets').doc(resetSessionId).get();
+    const docRef = db.collection('password_resets').doc(resetSessionId);
+    const doc = await docRef.get();
     if (!doc.exists) return res.status(400).json({ error: 'Reset session ID is invalid' });
 
     const data = doc.data();
     if (!data) return res.status(400).json({ error: 'Reset session ID is invalid' });
+
+    if (data.locked || (data.attemptCount ?? 0) >= OTP_MAX_ATTEMPTS) {
+      if (!data.locked) {
+        await docRef.update({ locked: true, lockedAt: new Date() });
+      }
+      return res.status(429).json({
+        error: 'Too many failed OTP attempts. Please request a new password reset.',
+        code: 'OTP_LOCKED',
+      });
+    }
+
     if (data.verified) return res.status(400).json({ error: 'OTP already verified' });
-    if (data.otp !== otp) return res.status(400).json({ error: 'Invalid OTP' });
     if (Date.now() > data.expiresAt) return res.status(400).json({ error: 'OTP expired' });
 
-    await db.collection("password_resets").doc(resetSessionId).update({
+    if (data.otp !== otp) {
+      const attemptCount = (data.attemptCount ?? 0) + 1;
+      const locked = attemptCount >= OTP_MAX_ATTEMPTS;
+      await docRef.update({
+        attemptCount,
+        ...(locked ? { locked: true, lockedAt: new Date() } : {}),
+      });
+
+      if (locked) {
+        return res.status(429).json({
+          error: 'Too many failed OTP attempts. Please request a new password reset.',
+          code: 'OTP_LOCKED',
+        });
+      }
+
+      return res.status(400).json({
+        error: 'Invalid OTP',
+        attemptsRemaining: OTP_MAX_ATTEMPTS - attemptCount,
+      });
+    }
+
+    await docRef.update({
       verified: true,
       verifiedAt: new Date(),
     });
@@ -544,40 +615,55 @@ export const verifyOTP = async (req: Request, res: Response) => {
 
 
 export const getUserById = async (req: Request, res: Response) => {
+  const route = "GET /auth/users/:uid";
+
   try {
+    const requester = (req as any).user;
     const { uid } = req.params;
 
-    if (!uid) {
-      return res.status(400).json({ error: "User ID is required" });
+    if (!requester?.uid) {
+      return res.status(401).json({ error: "Authentication required" });
     }
 
-    console.log(`🎯 [GET /auth/users/:uid] - Fetching user: ${uid}`);
+    devLog(`🎯 [${route}] - Fetching user profile`);
 
-    // Try to get user from users collection
     const userDoc = await db.collection("users").doc(uid).get();
 
     if (!userDoc.exists) {
-      console.log(`❌ [GET /auth/users/:uid] - User not found: ${uid}`);
       return res.status(404).json({ error: "User not found" });
     }
 
     const userData = userDoc.data();
+    const isSelf = requester.uid === uid;
+    const requesterDoc = isSelf
+      ? userDoc
+      : await db.collection("users").doc(requester.uid).get();
+    const requesterRole = requesterDoc.data()?.role;
+    const isAdmin = requesterRole === "admin";
 
-    console.log(`✅ [GET /auth/users/:uid] - User found: ${userData?.name || userData?.email}`);
-
-    res.status(200).json({
-      uid: userData?.uid,
+    const response: Record<string, unknown> = {
+      uid: userData?.uid || uid,
       name: userData?.name,
-      email: userData?.email,
       role: userData?.role,
-      profileImage: userData?.profileImage || userData?.avatarUrl || userData?.photoURL || userData?.avatar || null,
+      profileImage:
+        userData?.profileImage ||
+        userData?.avatarUrl ||
+        userData?.photoURL ||
+        userData?.avatar ||
+        null,
       avatarUrl: userData?.avatarUrl || null,
       photoURL: userData?.photoURL || null,
       avatar: userData?.avatar || null,
-      createdAt: userData?.createdAt
-    });
+      createdAt: userData?.createdAt,
+    };
+
+    if (isSelf || isAdmin) {
+      response.email = userData?.email;
+    }
+
+    res.status(200).json(response);
   } catch (error: any) {
-    console.error("❌ [GET /auth/users/:uid] - Error fetching user:", error);
+    devError(`❌ [${route}] - Error fetching user:`, error?.message || error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -592,6 +678,11 @@ export const resetPassword = async (req: Request, res: Response) => {
   if (!resetSessionId || !newPassword) {
     console.log('❌ Missing required fields');
     return res.status(400).json({ error: "Missing resetSessionId or password" });
+  }
+
+  const passwordCheck = validatePasswordLength(newPassword);
+  if (!passwordCheck.valid) {
+    return res.status(400).json({ error: passwordCheck.error });
   }
 
   try {
@@ -864,8 +955,7 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
 
 /**
  * POST /auth/verify-email
- * Verify email directly (fallback when client-side verification fails)
- * Note: This endpoint requires the user to be authenticated and provides the email
+ * Verify email using a one-time token and uid from the verification link.
  */
 
 /**
@@ -1202,9 +1292,14 @@ export const changePassword = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "New password is required" });
     }
 
-    if (newPassword.length < 8) {
-      Logger.error(route, user.uid, "Password too short");
-      return res.status(400).json({ error: "Password must be at least 8 characters long" });
+    const passwordCheck = validatePasswordLength(newPassword);
+    if (!passwordCheck.valid) {
+      Logger.error(route, user.uid, passwordCheck.error);
+      return res.status(400).json({ error: passwordCheck.error });
+    }
+
+    if (currentPassword.length > 128) {
+      return res.status(400).json({ error: "Current password is too long" });
     }
 
     // Get user email from Firebase Auth
@@ -1325,11 +1420,10 @@ export const createAdminUser = async (req: Request, res: Response) => {
       });
     }
 
-    if (password.length < 8) {
-      Logger.error(route, "", "Password too short");
-      return res.status(400).json({
-        error: "Password must be at least 8 characters long"
-      });
+    const passwordCheck = validatePasswordLength(password);
+    if (!passwordCheck.valid) {
+      Logger.error(route, "", passwordCheck.error);
+      return res.status(400).json({ error: passwordCheck.error });
     }
 
     // Check if user already exists
@@ -1401,145 +1495,118 @@ export const verifyEmail = async (req: Request, res: Response) => {
   const route = "POST /auth/verify-email";
 
   try {
-    const { token, uid, email } = req.body;
+    const { token, uid } = req.body;
     Logger.info(route, uid || "", `Starting email verification - token: ${token ? 'provided' : 'missing'}, uid: ${uid || 'missing'}`);
 
-    // Support both token-based (new) and uid/email-based (legacy) verification
-    let targetUid: string | null = null;
-
-    if (token && uid) {
-      // New token-based verification (bypasses Firebase rate limits)
-      targetUid = uid;
-      Logger.info(route, uid, "Using token-based verification");
-
-      // Get token from Firestore
-      Logger.info(route, uid, "Fetching token from Firestore...");
-      const tokenDoc = await db.collection('email_verification_tokens').doc(uid).get();
-      Logger.info(route, uid, `Token document exists: ${tokenDoc.exists}`);
-
-      if (!tokenDoc.exists) {
-        Logger.error(route, uid, "Verification token not found in Firestore - may have been used or expired");
-        // Fall back to legacy verification if token not found (user might have already verified)
-        Logger.info(route, uid, "Falling back to legacy verification...");
-        const user = (req as any).user;
-        targetUid = uid || user?.uid || null;
-
-        if (!email && !targetUid) {
-          return res.status(400).json({
-            error: "Invalid or expired verification token. Please request a new verification email.",
-            code: "INVALID_TOKEN"
-          });
-        }
-        // Continue with legacy verification below
-      } else {
-        const tokenData = tokenDoc.data();
-
-        // Check if token expired
-        if (tokenData && tokenData.expiresAt && tokenData.expiresAt.toDate() < new Date()) {
-          Logger.error(route, uid, "Verification token expired");
-          await db.collection('email_verification_tokens').doc(uid).delete();
-          return res.status(400).json({
-            error: "Verification token has expired. Please request a new verification email.",
-            code: "TOKEN_EXPIRED"
-          });
-        }
-
-        // Verify token hash
-        Logger.info(route, uid, "Verifying token hash...");
-        const tokenHash = createHash('sha256').update(token).digest('hex');
-        if (tokenData?.tokenHash !== tokenHash) {
-          Logger.error(route, uid, `Invalid verification token - hash mismatch. Expected: ${tokenData?.tokenHash?.substring(0, 10)}..., Got: ${tokenHash.substring(0, 10)}...`);
-          // Don't return error immediately - fall back to legacy verification
-          Logger.info(route, uid, "Token hash mismatch, falling back to legacy verification...");
-          const user = (req as any).user;
-          targetUid = uid || user?.uid || null;
-
-          if (!email && !targetUid) {
-            return res.status(400).json({
-              error: "Invalid verification token. Please request a new verification email.",
-              code: "INVALID_TOKEN"
-            });
-          }
-          // Continue with legacy verification below
-        } else {
-          // Token is valid
-          Logger.info(route, uid, "Token verified successfully, deleting from Firestore...");
-          await db.collection('email_verification_tokens').doc(uid).delete();
-          Logger.info(route, uid, "Token deleted from Firestore");
-        }
-      }
+    if (!token || !uid) {
+      Logger.error(route, uid || "", "Missing token or uid");
+      return res.status(400).json({
+        success: false,
+        error: "Invalid verification token",
+        message: "Invalid token",
+        code: "INVALID_TOKEN",
+      });
     }
 
-    // Legacy verification (for backward compatibility or when token verification fails)
-    if (!targetUid) {
-      // Legacy verification (for backward compatibility)
-      Logger.info(route, uid || "", "Using legacy verification");
-      const user = (req as any).user;
-      targetUid = uid || user?.uid || null;
+    const authenticatedUser = (req as any).user;
+    if (authenticatedUser?.uid && authenticatedUser.uid !== uid) {
+      Logger.error(route, uid, "Verification uid does not match authenticated user");
+      return res.status(403).json({
+        success: false,
+        error: "Verification uid does not match authenticated user",
+        code: "UID_MISMATCH",
+      });
+    }
 
-      if (!email && !targetUid) {
-        Logger.error(route, "", "Missing token+uid, email, or authenticated uid");
-        return res.status(400).json({
-          error: "Invalid verification token. If you're logged in, you can verify your email from the app settings.",
-          code: "INVALID_TOKEN"
+    Logger.info(route, uid, "Fetching token from Firestore...");
+    const tokenDoc = await db.collection('email_verification_tokens').doc(uid).get();
+    Logger.info(route, uid, `Token document exists: ${tokenDoc.exists}`);
+
+    if (!tokenDoc.exists) {
+      Logger.error(route, uid, "Verification token not found in Firestore");
+      const existingUser = await auth.getUser(uid);
+      if (existingUser.emailVerified) {
+        Logger.info(route, uid, "Email already verified (token previously consumed)");
+        return res.json({
+          success: true,
+          message: "Email is already verified",
+          email: existingUser.email,
+          uid: existingUser.uid,
+          emailVerified: true,
         });
       }
+      return res.status(400).json({
+        success: false,
+        error: "Invalid or expired verification token. Please request a new verification email.",
+        message: "Invalid token",
+        code: "INVALID_TOKEN",
+      });
     }
 
-    // Get user by uid
-    Logger.info(route, targetUid || "", "Fetching user from Firebase Auth...");
-    let userRecord;
-    if (targetUid) {
-      userRecord = await auth.getUser(targetUid);
-    } else if (email) {
-      userRecord = await auth.getUserByEmail(email);
-    } else {
-      return res.status(400).json({ error: "token+uid, email, or uid is required" });
+    const tokenData = tokenDoc.data();
+
+    if (tokenData?.expiresAt && tokenData.expiresAt.toDate() < new Date()) {
+      Logger.error(route, uid, "Verification token expired");
+      await db.collection('email_verification_tokens').doc(uid).delete();
+      return res.status(400).json({
+        success: false,
+        error: "Verification token has expired. Please request a new verification email.",
+        message: "Invalid token",
+        code: "TOKEN_EXPIRED",
+      });
     }
+
+    Logger.info(route, uid, "Verifying token hash...");
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    if (tokenData?.tokenHash !== tokenHash) {
+      Logger.error(route, uid, "Invalid verification token - hash mismatch");
+      return res.status(400).json({
+        success: false,
+        error: "Invalid verification token",
+        message: "Invalid token",
+        code: "INVALID_TOKEN",
+      });
+    }
+
+    Logger.info(route, uid, "Token verified successfully, deleting from Firestore...");
+    await db.collection('email_verification_tokens').doc(uid).delete();
+
+    const userRecord = await auth.getUser(uid);
     Logger.info(route, userRecord.uid, `User found: ${userRecord.email}`);
 
-    // Check if email is already verified
     if (userRecord.emailVerified) {
       Logger.info(route, userRecord.uid, `Email already verified for ${userRecord.email}`);
-      const response = {
+      return res.json({
         success: true,
         message: "Email is already verified",
         email: userRecord.email,
         uid: userRecord.uid,
-        emailVerified: true
-      };
-      Logger.info(route, userRecord.uid, "Sending response: email already verified");
-      return res.json(response);
+        emailVerified: true,
+      });
     }
 
-    // Verify email directly using Firebase Admin SDK (no rate limits)
     Logger.info(route, userRecord.uid, "Updating user email verification status...");
     await auth.updateUser(userRecord.uid, {
-      emailVerified: true
+      emailVerified: true,
     });
     Logger.info(route, userRecord.uid, "User email verification updated successfully");
 
     Logger.success(route, userRecord.uid, `Email verified successfully for ${userRecord.email}`);
 
-    const response = {
+    return res.json({
       success: true,
       message: "Email verified successfully",
       email: userRecord.email,
       uid: userRecord.uid,
-      emailVerified: true
-    };
-    Logger.info(route, userRecord.uid, "Sending success response");
-    res.json(response);
-    Logger.info(route, userRecord.uid, "Response sent successfully");
+      emailVerified: true,
+    });
   } catch (error: any) {
     Logger.error(route, "", `Error in verifyEmail: ${error.message}`, error);
 
-    const errorResponse = {
+    return res.status(500).json({
+      success: false,
       error: error.message,
-      code: error.code
-    };
-    Logger.info(route, "", "Sending error response");
-    res.status(500).json(errorResponse);
-    Logger.info(route, "", "Error response sent");
+      code: error.code,
+    });
   }
 };

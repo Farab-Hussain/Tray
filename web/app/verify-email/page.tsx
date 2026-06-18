@@ -27,7 +27,9 @@ function VerifyEmailContent() {
         try {
           // Verify email using custom token system (bypasses Firebase rate limits)
           // No authentication required - the token itself is the authentication
-          console.log('Sending verification request...', { token: token?.substring(0, 10) + '...', uid });
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Sending verification request...', { uid });
+          }
           
           const response = await Promise.race([
             api.post<{ success?: boolean; message?: string; error?: string; code?: string }>('/auth/verify-email', {

@@ -70,6 +70,13 @@ export const getChatIdFor = (uidA: string, uidB: string) => {
     return [uidA, uidB].sort().join('_');
 };
 
+const syncUserChatIndex = async (userId: string, chatId: string) => {
+    await set(ref(db, `userChats/${userId}/${chatId}`), {
+        chatId,
+        updatedAt: serverTimestamp(),
+    });
+};
+
 export const createChatIfNotExists = async (uidA: string, uidB: string) => {
     const chatId = getChatIdFor(uidA, uidB);
     const chatRef = ref(db, `chats/${chatId}`);
@@ -99,6 +106,11 @@ export const createChatIfNotExists = async (uidA: string, uidB: string) => {
                 logger.debug('✅ [ChatService] Chat already exists:', chatId)
             };
         }
+
+        await Promise.all([
+            syncUserChatIndex(uidA, chatId),
+            syncUserChatIndex(uidB, chatId),
+        ]);
     } catch (error) {
         if (__DEV__) {
             logger.error('❌ [ChatService] Error creating chat:', error)
@@ -328,35 +340,31 @@ export const fetchUserChats = async (uid: string) => {
             logger.debug('🔍 [ChatService] Fetching chats for user:', uid);
         }
 
-        const chatsRef = ref(db, 'chats');
-        const snapshot = await get(chatsRef);
+        const userChatsIndexRef = ref(db, `userChats/${uid}`);
+        const indexSnapshot = await get(userChatsIndexRef);
+        const chatIds: string[] = [];
 
-        if (!snapshot.exists()) {
+        if (indexSnapshot.exists()) {
+            const indexData = indexSnapshot.val() as Record<string, { chatId?: string }>;
+            chatIds.push(...Object.keys(indexData));
+        }
+
+        if (chatIds.length === 0) {
             if (__DEV__) {
-                logger.debug('ℹ️ [ChatService] No chats found in database');
-            }
-            // Try to check if database connection is working by checking root
-            try {
-                const rootRef = ref(db, '/');
-                const rootSnapshot = await get(rootRef);
-                if (__DEV__) {
-                    logger.debug('🔍 [ChatService] Root snapshot exists:', rootSnapshot.exists());
-                }
-            } catch (rootError) {
-                if (__DEV__) {
-                    logger.error('❌ [ChatService] Error accessing root:', rootError)
-                };
+                logger.debug('ℹ️ [ChatService] No indexed chats found for user');
             }
             return [];
         }
 
-        const allChats = snapshot.val();
         const userChats: (Chat & { unreadCount?: number })[] = [];
 
-        // Filter chats where user is a participant
-        for (const chatId in allChats) {
-            const chat = allChats[chatId];
-            // Check if user is in participants (case-sensitive and exact match)
+        for (const chatId of chatIds) {
+            const chatSnapshot = await get(ref(db, `chats/${chatId}`));
+            if (!chatSnapshot.exists()) {
+                continue;
+            }
+
+            const chat = chatSnapshot.val();
             const isUserParticipant = chat.participants && chat.participants.includes(uid);
 
             if (isUserParticipant) {

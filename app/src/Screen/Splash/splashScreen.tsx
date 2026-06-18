@@ -62,49 +62,33 @@ const SplashScreen = ({ navigation }: any) => {
                 console.log('SplashScreen - Backend says emailVerified:', backendSaysVerified)
               };
               
-              // If backend says verified but Firebase doesn't, try to sync
+              // If backend says verified but Firebase doesn't, reload client auth state
               if (backendSaysVerified && !isVerified) {
-                                if (__DEV__) {
-                  console.log('SplashScreen - Backend says verified but Firebase doesn\'t, syncing...')
+                if (__DEV__) {
+                  console.log('SplashScreen - Backend says verified but Firebase doesn\'t, reloading user...')
                 };
                 try {
-                  const token = await reloadedUser.getIdToken();
-                  await api.post(
-                    '/auth/verify-email',
-                    {
-                      email: reloadedUser.email,
-                      uid: reloadedUser.uid,
-                    },
-                    {
-                      headers: { Authorization: `Bearer ${token}` },
-                      timeout: 15000,
-                      __suppressErrorToast: true,
-                    } as Parameters<typeof api.post>[2],
-                  );
-                  
-                  // Reload user after sync attempt
                   await reloadedUser.reload();
                   reloadedUser = auth.currentUser || reloadedUser;
                   isVerified = reloadedUser?.emailVerified || false;
-                                    if (__DEV__) {
-                    console.log('SplashScreen - After sync, Firebase emailVerified status:', isVerified)
+                  if (__DEV__) {
+                    console.log('SplashScreen - After reload, Firebase emailVerified status:', isVerified)
                   };
-                  
+
                   // If still not verified, use backend's answer as truth
                   if (!isVerified && backendSaysVerified) {
-                                        if (__DEV__) {
+                    if (__DEV__) {
                       console.log('SplashScreen - Firebase still shows unverified, trusting backend (verified)')
                     };
-                    isVerified = true; // Trust backend if it says verified
+                    isVerified = true;
                   }
                 } catch (syncError) {
-                                    if (__DEV__) {
-                    console.warn('SplashScreen - Sync attempt failed:', syncError)
+                  if (__DEV__) {
+                    console.warn('SplashScreen - Firebase reload failed:', syncError)
                   };
-                  // If backend says verified, trust it even if sync fails
                   if (backendSaysVerified) {
-                                        if (__DEV__) {
-                      console.log('SplashScreen - Sync failed but backend says verified, trusting backend')
+                    if (__DEV__) {
+                      console.log('SplashScreen - Reload failed but backend says verified, trusting backend')
                     };
                     isVerified = true;
                   }

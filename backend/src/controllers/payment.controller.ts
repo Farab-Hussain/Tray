@@ -14,7 +14,37 @@ dotenv.config();
 
 export const createPaymentIntent = async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user?.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     const { amount, currency, bookingId, studentId, consultantId } = req.body;
+
+    if (!bookingId) {
+      return res.status(400).json({ error: "bookingId is required" });
+    }
+
+    if (studentId && studentId !== user.uid) {
+      return res.status(403).json({ error: "studentId must match authenticated user" });
+    }
+
+    const bookingDoc = await db.collection("bookings").doc(bookingId).get();
+    if (!bookingDoc.exists) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const bookingData = bookingDoc.data();
+    if (bookingData?.studentId !== user.uid) {
+      return res.status(403).json({ error: "You can only pay for your own bookings" });
+    }
+
+    if (consultantId && bookingData?.consultantId !== consultantId) {
+      return res.status(400).json({ error: "consultantId does not match booking" });
+    }
+
+    const resolvedConsultantId = bookingData?.consultantId;
+    const resolvedStudentId = bookingData?.studentId;
 
     // Validate amount
     if (!amount || typeof amount !== 'number' || isNaN(amount)) {
@@ -34,16 +64,34 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
       });
     }
 
-    // Stripe's maximum for a single payment intent varies by currency
-    // For USD: $999,999.99 (99,999,999 cents)
-    // We'll let Stripe handle the maximum limit validation
-    // and provide better error messages if it fails
+    const bookingAmount =
+      typeof bookingData?.amount === "number"
+        ? bookingData.amount
+        : typeof bookingData?.amount === "string"
+          ? parseFloat(bookingData.amount)
+          : NaN;
+
+    if (!Number.isNaN(bookingAmount) && Math.abs(amount - bookingAmount) > 0.01) {
+      return res.status(400).json({
+        error: "Payment amount does not match booking amount",
+        code: "AMOUNT_MISMATCH",
+      });
+    }
+
+    if (bookingData?.paymentStatus === "paid") {
+      return res.status(400).json({ error: "Booking is already paid" });
+    }
 
     // Create payment intent
     const paymentIntent = await getStripeClient().paymentIntents.create({
       amount: amountInCents,
       currency: currency || "usd",
-      metadata: { bookingId, studentId, consultantId },
+      metadata: {
+        bookingId,
+        studentId: resolvedStudentId,
+        consultantId: resolvedConsultantId,
+        userId: user.uid,
+      },
     });
 
     res.status(200).json({
@@ -523,10 +571,31 @@ export const getConnectAccountStatus = async (req: Request, res: Response) => {
 // Now uses the payment service with retry logic
 export const transferToConsultant = async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user?.uid) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
     const { bookingId } = req.body;
     
     if (!bookingId) {
       return res.status(400).json({ error: "Missing required field: bookingId" });
+    }
+
+    const bookingDoc = await db.collection("bookings").doc(bookingId).get();
+    if (!bookingDoc.exists) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const bookingData = bookingDoc.data();
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const userData = userDoc.data() || {};
+    const userRoles: string[] = userData.roles || (userData.role ? [userData.role] : []);
+    const isAdmin = userRoles.includes("admin") || userData.role === "admin";
+    const isBookingConsultant = bookingData?.consultantId === user.uid;
+
+    if (!isAdmin && !isBookingConsultant) {
+      return res.status(403).json({ error: "Only the booking consultant or an admin can trigger payout" });
     }
     
     const result = await transferPaymentToConsultant(bookingId);

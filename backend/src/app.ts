@@ -1,10 +1,13 @@
 import express from "express";
+import helmet from "helmet";
 import { firebaseConfig } from "./config/config";
 import cors from "cors";
+import { corsOptions } from "./config/cors";
 import dotenv from "dotenv";
 import { db, auth, firebaseApp } from "./config/firebase";
 import authRouter from "./routes/auth.routes";
 import { requestLogger } from "./utils/logger";
+import { globalApiLimiter } from "./middleware/rateLimit";
 import consultantRoutes from "./routes/consultant.routes";
 import bookingRoutes from "./routes/booking.routes";
 import reviewRoutes from "./routes/review.routes";
@@ -36,69 +39,22 @@ dotenv.config();
 
 const app = express();
 
-// CORS Configuration for different environments
-const getAllowedOrigins = () => {
-  const nodeEnv = process.env.NODE_ENV || 'development';
-  
-  if (nodeEnv === 'production') {
-    // Production: Allow specific domains
-    return [
-      'https://tray-ecru.vercel.app', // Your Vercel frontend
-      'https://www.tray-ecru.vercel.app',
-      'https://tray-ai-backend.vercel.app', // FastAPI AI backend
-      'https://tray-dashboard-eight.vercel.app', // Web Dashboard
-      'https://tray-app.com', // Custom domain
-      'https://www.tray-app.com',
-      'capacitor://localhost', // Mobile app
-      'ionic://localhost'
-    ];
-  } else if (nodeEnv === 'staging') {
-    // Staging: Allow staging domains
-    return [
-      'https://staging.tray-ecru.vercel.app',
-      'http://localhost:3000', // React Native development
-      'http://localhost:19006', // React Native Metro bundler
-      'exp://192.168.1.100:8081' // Expo development
-    ];
-  } else {
-    // Development: Allow all origins for local development
-    return [
-      'http://localhost:3000', // Web development
-      'http://localhost:19006', // React Native Metro bundler
-      'exp://192.168.1.100:8081', // Expo development
-      'http://127.0.0.1:19006', // Local React Native
-      'http://192.168.1.100:3000', // Local network development
-      'ionic://localhost', // Ionic/Capacitor
-      'capacitor://localhost' // Capacitor
-    ];
-  }
-};
-
 // Middleware
 app.use(
-  cors({
-    origin: true, // Allow all origins
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'ngrok-skip-browser-warning',
-      'Cache-Control',
-      'Pragma',
-      'X-Requested-With',
-      'Origin',
-      'Accept'
-    ],
-    exposedHeaders: [
-      'Content-Length',
-      'X-Total-Count',
-      'X-Page-Count'
-    ],
-    maxAge: 86400, // 24 hours
-    preflightContinue: false
-  })
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }),
 );
+
+app.use(cors(corsOptions));
+
+app.use((req, res, next) => {
+  if (req.path === '/health') {
+    return next();
+  }
+  return globalApiLimiter(req, res, next);
+});
 
 // Only parse JSON for non-multipart requests
 // Multer will handle multipart/form-data, so we need to skip JSON parsing for those

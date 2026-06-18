@@ -8,6 +8,6 @@ export const adminAuth = async () => {
 };
 
 export const consultantAuth = async () => {
-  // Matches middleware test bypass for consultant routes.
-  return 'test-token-consultant-459';
+  // Tests must mock authMiddleware; this token is not accepted by production auth.
+  return 'mock-consultant-token';
 };

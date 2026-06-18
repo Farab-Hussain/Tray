@@ -8,7 +8,7 @@ import {
   deleteReview,
   getAllReviews,
 } from "../controllers/review.controller";
-import { authenticateUser } from "../middleware/authMiddleware";
+import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ router.put("/:reviewId", authenticateUser(), updateReview);
 router.delete("/:reviewId", authenticateUser(), deleteReview);
 
 // Admin routes
-router.get("/admin/all", authenticateUser(), getAllReviews);
+router.get("/admin/all", authenticateUser(), authorizeRole(["admin"]), getAllReviews);
 
 export default router;
 

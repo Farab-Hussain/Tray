@@ -3,12 +3,12 @@
  */
 
 import { AppRegistry } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import App from './src/App';
 import { name as appName } from './app.json';
-
-const PENDING_CALL_KEY = '@tray_pending_call_notification';
-const PENDING_CHAT_KEY = '@tray_pending_chat_notification';
+import {
+  storePendingCall,
+  storePendingChat,
+} from './src/services/pending-notification.service';
 
 // Register background message handler for Firebase Cloud Messaging
 // This must be registered before the app component
@@ -36,53 +36,48 @@ try {
     ) {
       // Register background message handler
       messagingInstance.setBackgroundMessageHandler(async remoteMessage => {
-          console.log('📨 [Background] Message received at:', new Date().toISOString());
-          console.log('📨 [Background] Message received:', remoteMessage);
+          if (__DEV__) {
+            console.log('📨 [Background] Message received at:', new Date().toISOString());
+            console.log('📨 [Background] Message type:', remoteMessage?.data?.type || 'unknown');
+          }
 
           try {
-            // Extract message data
             const messageData = remoteMessage.data || {};
-            const notificationData = remoteMessage.notification || {};
 
-            console.log('📨 [Background] Processing message data:', JSON.stringify(messageData));
-            console.log('📨 [Background] Notification data:', JSON.stringify(notificationData));
+            if (__DEV__) {
+              console.log('📨 [Background] Processing background notification');
+            }
 
           // Handle different types of background messages
           if (messageData.type === 'call' || messageData.callId) {
-            await AsyncStorage.setItem(
-              PENDING_CALL_KEY,
-              JSON.stringify({
-                callId: messageData.callId,
-                callType: messageData.callType || 'audio',
-                callerId: messageData.callerId,
-                receiverId: messageData.receiverId || messageData.userId,
-              }),
-            );
+            await storePendingCall({
+              callId: messageData.callId,
+              callType: messageData.callType || 'audio',
+              callerId: messageData.callerId,
+              receiverId: messageData.receiverId || messageData.userId,
+            });
           } else if (
             messageData.type === 'chat_message' ||
             messageData.chatId
           ) {
-            await AsyncStorage.setItem(
-              PENDING_CHAT_KEY,
-              JSON.stringify({
-                chatId: messageData.chatId,
-                senderId: messageData.senderId,
-              }),
-            );
+            await storePendingChat({
+              chatId: messageData.chatId,
+              senderId: messageData.senderId,
+            });
           } else if (messageData.type === 'booking' || messageData.bookingId) {
-            // This is a booking notification
-            console.log('📅 [Background] Processing booking notification');
-            console.log('✅ [Background] Booking notification processed');
-          } else {
-            // Generic notification
+            if (__DEV__) {
+              console.log('📅 [Background] Processing booking notification');
+            }
+          } else if (__DEV__) {
             console.log('📢 [Background] Processing generic notification');
-            console.log('✅ [Background] Generic notification processed');
           }
         } catch (error) {
-          console.error(
-            '❌ [Background] Error processing background message:',
-            error,
-          );
+          if (__DEV__) {
+            console.error(
+              '❌ [Background] Error processing background message:',
+              error,
+            );
+          }
           // Don't throw - allow the notification to still be displayed
         }
       });

@@ -19,6 +19,11 @@ import { addIceCandidate, answerCall, createCall, endCall, listenCall, listenCan
 import { UserService } from '../../../services/user.service';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { markCallTerminal } from '../../../services/call-navigation.service';
+import { usesNativeCallUi } from '../../../utils/callUi';
+import {
+  presentOutgoingCallKit,
+  reportCallKitConnected,
+} from '../../../services/native-intent.service';
 import { ensureCallMediaPermissions } from '../../../utils/mediaPermissions';
 import { getMediaStreamRenderURL } from '../../../utils/webrtcStream';
 // Avoid static RTCView import; require dynamically to prevent crashes if pod not installed
@@ -44,18 +49,23 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const iceCandidateQueueRef = useRef<Array<{ senderId: string; candidate: any }>>([]);
   const isMutedRef = useRef<boolean>(false);
   const didResetAfterCallEndRef = useRef(false);
-  const { callId, isCaller, callerId, receiverId, switchingFromAudio } = route?.params || {};
+  const { callId, isCaller, callerId, receiverId, switchingFromAudio, autoAccept } = route?.params || {};
+  const nativeCallUi = usesNativeCallUi();
   const resetToHome = React.useCallback(() => {
     if (didResetAfterCallEndRef.current) {
       return;
     }
     didResetAfterCallEndRef.current = true;
     markCallTerminal(callId);
+    if (nativeCallUi && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
     navigation.reset({
       index: 0,
       routes: [{ name: 'MainTabs' as never }],
     });
-  }, [callId, navigation]);
+  }, [callId, navigation, nativeCallUi]);
 
   useEffect(() => {
     setAvatarLoadFailed(false);
@@ -64,6 +74,10 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   // Prevent back navigation while call is active
   useFocusEffect(
     React.useCallback(() => {
+      if (nativeCallUi) {
+        return undefined;
+      }
+
       const onBackPress = () => {
         // Prevent back navigation - user must use hangup button
         return true;
@@ -72,7 +86,7 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
 
       return () => subscription.remove();
-    }, [])
+    }, [nativeCallUi]),
   );
 
   const handleHangup = async () => {
@@ -521,6 +535,18 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       resetToHome();
     }
   };
+
+  const autoAcceptTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!autoAccept || isCaller || autoAcceptTriggeredRef.current || !callId) {
+      return;
+    }
+    autoAcceptTriggeredRef.current = true;
+    const timer = setTimeout(() => {
+      handleAccept();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [autoAccept, isCaller, callId]);
 
   // Fetch other user's profile data
   useEffect(() => {
@@ -1672,6 +1698,30 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       setStreamVersion(0);
     }
   }, [remote, status]); // Removed remoteTrackCount and remoteVideoTrackIds from dependencies
+
+  useEffect(() => {
+    if (!nativeCallUi || !isCaller || !callId || !callerId || !receiverId) {
+      return;
+    }
+    void presentOutgoingCallKit({
+      callId,
+      callType: 'video',
+      callerId,
+      receiverId,
+      calleeName: otherUser?.name,
+    });
+  }, [nativeCallUi, isCaller, callId, callerId, receiverId, otherUser?.name]);
+
+  useEffect(() => {
+    if (!nativeCallUi || !callId || status !== 'active') {
+      return;
+    }
+    void reportCallKitConnected(callId);
+  }, [nativeCallUi, callId, status]);
+
+  if (nativeCallUi) {
+    return null;
+  }
 
   return (
     <View style={callingStyles.videoCallContainer}>

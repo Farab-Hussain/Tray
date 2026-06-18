@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
+from cors_origins import get_allowed_origins
 from routers import admin_ai, ai, autocomplete, chatbot, jobpost, resume
 
 app = FastAPI(
@@ -14,12 +15,22 @@ app = FastAPI(
     version="1.0.0",
 )
 
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "*")
-origin_list = [origin.strip() for origin in allowed_origins.split(",") if origin.strip()]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origin_list if origin_list else ["*"],
+    allow_origins=get_allowed_origins(),
+    allow_origin_regex=(
+        r"^https?://("
+        r"localhost|127\.0\.0\.1|"
+        r"192\.168\.\d{1,3}\.\d{1,3}|"
+        r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+        r"172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
+        r")(:\d+)?$"
+        r"|^exp://.*"
+        r"|^https?://[a-z0-9-]+\.(ngrok-free\.dev|ngrok\.io|ngrok\.app)(:\d+)?$"
+    )
+    if os.getenv("NODE_ENV", "development") != "production"
+    or os.getenv("CORS_ALLOW_LOCALHOST") == "true"
+    else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

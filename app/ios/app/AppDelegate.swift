@@ -7,17 +7,13 @@ import FirebaseMessaging
 import UserNotifications
 import FBSDKCoreKit
 import PushKit
-import CallKit
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate, CXProviderDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate {
   var window: UIWindow?
   var reactNativeDelegate: ReactNativeDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
-  var callKitProvider: CXProvider?
   var pushRegistry: PKPushRegistry?
-  private var activeCallUUID: UUID?
-  private var activeCallPayload: [String: String] = [:]
 
   func application(
     _ application: UIApplication,
@@ -31,7 +27,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     UNUserNotificationCenter.current().delegate = self
     application.registerForRemoteNotifications()
     setupPushKit()
-    setupCallKit()
+    TrayCallKitManager.shared.configure()
 
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
@@ -47,11 +43,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     Messaging.messaging().apnsToken = deviceToken
   }
 
+  func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    NSLog("❌ [APNS] Failed to register: \(error.localizedDescription)")
+  }
+
   func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
     completionHandler([.banner, .sound, .badge])
   }
 
   func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+    let userInfo = response.notification.request.content.userInfo
+    storeNotificationPayload(userInfo)
     completionHandler()
   }
 
@@ -65,79 +67,89 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     pushRegistry?.desiredPushTypes = [.voIP]
   }
 
-  func setupCallKit() {
-    let configuration = CXProviderConfiguration(localizedName: "Tray")
-    configuration.maximumCallGroups = 1
-    configuration.maximumCallsPerCallGroup = 1
-    configuration.supportsVideo = true
-    configuration.supportedHandleTypes = [.generic]
-    callKitProvider = CXProvider(configuration: configuration)
-    callKitProvider?.setDelegate(self, queue: nil)
-  }
-
   func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
+    guard type == .voIP else { return }
     let token = credentials.token.map { String(format: "%02x", $0) }.joined()
     TrayVoipStorage.saveVoipToken(token)
+    NSLog("✅ [VoIP] PushKit token received")
   }
 
   func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
     TrayVoipStorage.prefs.removeObject(forKey: TrayVoipStorage.voipTokenKey)
   }
 
+  func pushRegistry(
+    _ registry: PKPushRegistry,
+    didReceiveIncomingPushWith payload: PKPushPayload,
+    for type: PKPushType,
+    completion: @escaping () -> Void
+  ) {
+    handleVoipPush(payload: payload, type: type, completion: completion)
+  }
+
   func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType) {
-    guard type == .voIP else { return }
+    handleVoipPush(payload: payload, type: type, completion: nil)
+  }
+
+  private func handleVoipPush(payload: PKPushPayload, type: PKPushType, completion: (() -> Void)?) {
+    guard type == .voIP else {
+      completion?()
+      return
+    }
+
     let dict = payload.dictionaryPayload
-    guard let callId = dict["callId"] as? String else { return }
-    let callType = (dict["callType"] as? String) ?? "audio"
-    let callerId = dict["callerId"] as? String
-    let receiverId = dict["receiverId"] as? String
-    let callerName = (dict["callerName"] as? String) ?? "Incoming Call"
+    guard let callId = stringValue(dict["callId"]) else {
+      completion?()
+      return
+    }
 
-    activeCallUUID = UUID()
-    activeCallPayload = [
-      "callId": callId,
-      "callType": callType,
-      "callerId": callerId ?? "",
-      "receiverId": receiverId ?? "",
-    ]
+    let callType = stringValue(dict["callType"]) ?? "audio"
+    let callerId = stringValue(dict["callerId"]) ?? ""
+    let receiverId = stringValue(dict["receiverId"]) ?? ""
+    let callerName = stringValue(dict["callerName"]) ?? "Incoming Call"
 
-    let update = CXCallUpdate()
-    update.remoteHandle = CXHandle(type: .generic, value: callerId ?? callId)
-    update.hasVideo = (callType == "video")
-    update.localizedCallerName = callerName
-    update.supportsHolding = false
-    update.supportsGrouping = false
-    update.supportsUngrouping = false
-    update.supportsDTMF = false
+    TrayCallKitManager.shared.reportIncomingCall(
+      callId: callId,
+      callType: callType,
+      callerId: callerId,
+      receiverId: receiverId,
+      callerName: callerName,
+      completion: completion
+    )
+  }
 
-    if let uuid = activeCallUUID {
-      callKitProvider?.reportNewIncomingCall(with: uuid, update: update) { _ in }
+  private func storeNotificationPayload(_ userInfo: [AnyHashable: Any]) {
+    var data: [String: String] = [:]
+    for (key, value) in userInfo {
+      if let stringKey = key as? String, let stringValue = value as? String {
+        data[stringKey] = stringValue
+      }
+    }
+
+    if let nested = userInfo["data"] as? [String: Any] {
+      for (key, value) in nested {
+        if let stringKey = key as? String, let stringValue = value as? String {
+          data[stringKey] = stringValue
+        }
+      }
+    }
+
+    if data["callId"] != nil {
+      TrayVoipStorage.savePendingCall(
+        callId: data["callId"] ?? "",
+        callType: data["callType"] ?? "audio",
+        callerId: data["callerId"],
+        receiverId: data["receiverId"],
+        action: "open"
+      )
     }
   }
 
-  func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
-    TrayVoipStorage.savePendingCall(
-      callId: activeCallPayload["callId"] ?? "",
-      callType: activeCallPayload["callType"] ?? "audio",
-      callerId: activeCallPayload["callerId"],
-      receiverId: activeCallPayload["receiverId"],
-      action: "accept"
-    )
-    action.fulfill()
+  private func stringValue(_ value: Any?) -> String? {
+    if let string = value as? String { return string }
+    if let number = value as? NSNumber { return number.stringValue }
+    return nil
   }
-
-  func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-    TrayVoipStorage.savePendingCall(
-      callId: activeCallPayload["callId"] ?? "",
-      callType: activeCallPayload["callType"] ?? "audio",
-      callerId: activeCallPayload["callerId"],
-      receiverId: activeCallPayload["receiverId"],
-      action: "decline"
-    )
-    action.fulfill()
-  }
-
-  func providerDidReset(_ provider: CXProvider) {}
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {

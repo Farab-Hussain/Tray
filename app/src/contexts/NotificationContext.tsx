@@ -12,7 +12,9 @@ import * as NotificationService from '../services/notification.service';
 import * as NotificationStorage from '../services/notification-storage.service';
 import { useChatContext } from './ChatContext';
 import { listenIncomingCalls, markCallDelivered } from '../services/call.service';
-import { navigateToIncomingCallIfNeeded } from '../services/call-navigation.service';
+import { navigateToIncomingCallIfNeeded, markCallTerminal } from '../services/call-navigation.service';
+import { subscribeToCallKitActions } from '../services/native-intent.service';
+import { endCall } from '../services/call.service';
 import type { AppNotification } from '../services/notification-storage.service';
 import { logger } from '../utils/logger';
 
@@ -72,6 +74,43 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       logger.error('❌ [NotificationContext] Error checking missed calls:', error);
     }
+  }, [user?.uid]);
+
+  // iOS CallKit accept / decline / end while app is open
+  useEffect(() => {
+    const unsubscribe = subscribeToCallKitActions(async payload => {
+      const { action, callId, callType, callerId, receiverId } = payload;
+      if (!callId) return;
+
+      logger.debug('📞 [NotificationContext] CallKit action:', payload);
+
+      if (action === 'accept') {
+        await navigateToIncomingCallIfNeeded(
+          {
+            callId,
+            callType: callType || 'audio',
+            callerId,
+            receiverId: receiverId || user?.uid,
+            autoAccept: true,
+          },
+          'callkit-action',
+        );
+        return;
+      }
+
+      if (action === 'decline') {
+        markCallTerminal(callId);
+        endCall(callId, 'missed').catch(() => {});
+        return;
+      }
+
+      if (action === 'end') {
+        markCallTerminal(callId);
+        endCall(callId, 'ended').catch(() => {});
+      }
+    });
+
+    return unsubscribe;
   }, [user?.uid]);
 
   // Handle app state changes (background/foreground)

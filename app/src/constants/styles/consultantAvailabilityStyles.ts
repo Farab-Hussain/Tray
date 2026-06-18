@@ -275,6 +275,14 @@ export const consultantAvailabilityStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
+  timePickerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    zIndex: 1000,
+    elevation: 1000,
+  },
   timePickerModal: {
     flex: 1,
     justifyContent: 'center',

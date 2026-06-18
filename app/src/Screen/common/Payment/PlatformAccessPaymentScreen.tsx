@@ -55,7 +55,31 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   const [baseFee, setBaseFee] = useState(25);
   const [completed, setCompleted] = useState(false);
   const [sheetReady, setSheetReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [roleLabel, setRoleLabel] = useState(defaultRoleLabel);
+
+  const preparePaymentSheet = useCallback(
+    async (clientSecret: string): Promise<boolean> => {
+      const { error } = await initPaymentSheet(
+        getStripePaymentSheetOptions(clientSecret, {
+          name: user?.displayName || user?.email || '',
+          email: user?.email || '',
+        }),
+      );
+
+      if (error) {
+        setSheetReady(false);
+        const message = formatStripePaymentError(error.message);
+        setInitError(message);
+        return false;
+      }
+
+      setSheetReady(true);
+      setInitError(null);
+      return true;
+    },
+    [initPaymentSheet, user?.displayName, user?.email],
+  );
 
   const finishAndNavigate = useCallback(() => {
     if (returnTo?.screen) {
@@ -68,6 +92,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   const initializePaymentSheet = useCallback(async (promoCodeInput?: string) => {
     try {
       setLoading(true);
+      setInitError(null);
 
       const status = await PaymentService.getAccessFeeStatus(feeRole);
       if (status.roleLabel) {
@@ -97,11 +122,12 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       }
 
       if (!response.success) {
-        Alert.alert(
-          'Promotion code',
-          response.error || 'Could not apply this code. Check the code and try again.',
-        );
+        const message =
+          response.error || 'Could not apply this code. Check the code and try again.';
+        setInitError(message);
+        Alert.alert('Promotion code', message);
         setPromoApplied(false);
+        setSheetReady(false);
         return;
       }
 
@@ -115,39 +141,40 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       }
 
       if (response.clientSecret && response.paymentIntentId) {
-        const { error } = await initPaymentSheet(
-          getStripePaymentSheetOptions(response.clientSecret, {
-            name: user?.displayName || user?.email || '',
-            email: user?.email || '',
-          }),
-        );
+        setPaymentIntent({
+          ...response,
+          paymentIntentId: response.paymentIntentId,
+          clientSecret: response.clientSecret,
+        });
+        if (typeof response.amount === 'number') {
+          setAccessFee(response.amount / 100);
+        }
 
-        if (error) {
-          setSheetReady(false);
-          Alert.alert('Issue', formatStripePaymentError(error.message));
-        } else {
-          setPaymentIntent({
-            ...response,
-            paymentIntentId: response.paymentIntentId,
-            clientSecret: response.clientSecret,
-          });
-          setSheetReady(true);
-          if (typeof response.amount === 'number') {
-            setAccessFee(response.amount / 100);
-          }
+        const ready = await preparePaymentSheet(response.clientSecret);
+        if (!ready) {
+          setInitError(prev => prev || 'Payment could not be prepared. Tap Pay again to retry.');
         }
       } else {
         setSheetReady(false);
-        Alert.alert('Issue', 'Failed to create payment intent');
+        setPaymentIntent(null);
+        const message = 'Failed to create payment session. Check your connection and try again.';
+        setInitError(message);
+        Alert.alert('Issue', message);
       }
-    } catch {
-      Alert.alert('Issue', 'Failed to initialize payment');
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.error ||
+        error?.message ||
+        'Failed to initialize payment';
+      setInitError(message);
+      setSheetReady(false);
+      Alert.alert('Issue', message);
     } finally {
       setLoading(false);
     }
   }, [
     user,
-    initPaymentSheet,
+    preparePaymentSheet,
     navigation,
     promotionCode,
     isRequired,
@@ -219,15 +246,8 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
 
   const handlePayment = async () => {
     if (!paymentIntent) {
-      Alert.alert('Issue', 'Payment not initialized');
-      return;
-    }
-
-    if (!paymentIntent.freeAccess && !sheetReady) {
-      Alert.alert(
-        'Payment not ready',
-        'Please wait for payment to finish loading, or tap Apply Code again.',
-      );
+      Alert.alert('Issue', 'Payment not initialized. Pull down to reload or tap Apply Code.');
+      await initializePaymentSheet();
       return;
     }
 
@@ -251,9 +271,18 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     try {
       setProcessing(true);
       const intentId = paymentIntent.paymentIntentId;
-      if (!intentId) {
-        Alert.alert('Issue', 'Payment session expired. Tap Apply Code again, then pay.');
+      const clientSecret = paymentIntent.clientSecret;
+      if (!intentId || !clientSecret) {
+        Alert.alert('Issue', 'Payment session expired. Tap Pay again to refresh.');
+        await initializePaymentSheet();
         return;
+      }
+
+      if (!sheetReady) {
+        const ready = await preparePaymentSheet(clientSecret);
+        if (!ready) {
+          return;
+        }
       }
 
       const { error } = await presentPaymentSheet();
@@ -335,17 +364,35 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
           <TouchableOpacity
             style={[paymentScreenStyles.cancelButton, { marginBottom: 16 }]}
             onPress={handleApplyPromo}
-            disabled={processing}
+            disabled={processing || loading}
           >
             <Text style={paymentScreenStyles.cancelButtonText}>Apply Code</Text>
           </TouchableOpacity>
+
+          {initError ? (
+            <View style={{ marginBottom: 12 }}>
+              <Text style={[paymentScreenStyles.pricingSubtitle, { color: COLORS.red || '#dc2626' }]}>
+                {initError}
+              </Text>
+              <TouchableOpacity
+                onPress={() => initializePaymentSheet()}
+                disabled={loading || processing}
+                style={{ marginTop: 8 }}
+              >
+                <Text style={{ color: COLORS.blue, fontWeight: '600' }}>Retry payment setup</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
         <View style={paymentScreenStyles.buttonContainer}>
           <TouchableOpacity
-            style={paymentScreenStyles.payButton}
+            style={[
+              paymentScreenStyles.payButton,
+              (processing || loading || !paymentIntent) && paymentScreenStyles.payButtonDisabled,
+            ]}
             onPress={handlePayment}
-            disabled={processing || (!paymentIntent?.freeAccess && !sheetReady)}
+            disabled={processing || loading || !paymentIntent}
           >
             {processing ? (
               <ActivityIndicator size="small" color={COLORS.white} />

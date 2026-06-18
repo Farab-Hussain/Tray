@@ -31,28 +31,20 @@ export const createJob = async (req: Request, res: Response) => {
       userData.role === "recruiter";
     const isAdmin = userRoles.includes("admin") || userData.role === "admin";
 
-    const paymentConfirmed =
-      req.body.paymentConfirmed || req.headers["x-payment-confirmed"] === "true";
-
     if (isRecruiter && !isAdmin) {
-      if (!paymentConfirmed) {
-        console.log(`🔍 [Job Creation] Checking payment requirement...`);
-        const paymentRequired = await jobServices.checkJobPostingPayment(user.uid);
-        console.log(`🔍 [Job Creation] Payment check result:`, paymentRequired);
+      const paymentRequired = await jobServices.checkJobPostingPayment(user.uid);
 
-        if (paymentRequired.required && !paymentRequired.paid) {
-          console.log(`🔍 [Job Creation] Payment required - returning 402`);
-          return res.status(402).json({
-            error: "Hiring Manager entry fee required",
-            code: "ACCESS_FEE_REQUIRED",
-            role: paymentRequired.role,
-            roleLabel: paymentRequired.roleLabel,
-            paymentAmount: paymentRequired.amount,
-            paymentUrl: paymentRequired.paymentUrl,
-            fee: paymentRequired.fee,
-            message: `Pay the $${paymentRequired.fee} ${paymentRequired.roleLabel} entry fee to post jobs`,
-          });
-        }
+      if (paymentRequired.required && !paymentRequired.paid) {
+        return res.status(402).json({
+          error: "Hiring Manager entry fee required",
+          code: "ACCESS_FEE_REQUIRED",
+          role: paymentRequired.role,
+          roleLabel: paymentRequired.roleLabel,
+          paymentAmount: paymentRequired.amount,
+          paymentUrl: paymentRequired.paymentUrl,
+          fee: paymentRequired.fee,
+          message: `Pay the $${paymentRequired.fee} ${paymentRequired.roleLabel} entry fee to post jobs`,
+        });
       }
     }
 

@@ -37,6 +37,7 @@
     
     <!-- Screen sharing support (optional) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     
     <!-- Background Call Permissions -->
@@ -103,6 +104,20 @@
           android:resource="@xml/file_provider_paths" />
       </provider>
       
+      <!-- FCM: native incoming call UI when app is killed/background -->
+      <service
+        android:name=".notifications.TrayFirebaseMessagingService"
+        android:exported="false">
+        <intent-filter>
+          <action android:name="com.google.firebase.MESSAGING_EVENT" />
+        </intent-filter>
+      </service>
+
+      <!-- Prevent duplicate handler from RN Firebase library -->
+      <service
+        android:name="io.invertase.firebase.messaging.ReactNativeFirebaseMessagingService"
+        tools:node="remove" />
+
       <!-- Call Service for background handling -->
       <service
         android:name=".services.CallService"
@@ -110,17 +125,11 @@
         android:exported="false"
         android:foregroundServiceType="phoneCall" />
       
-      <!-- Call Broadcast Receiver -->
+      <!-- Call Broadcast Receiver: internal only (FCM uses TrayFirebaseMessagingService) -->
       <receiver
         android:name=".receivers.CallBroadcastReceiver"
-        android:enabled="true"
-        android:exported="true">
-        <intent-filter>
-          <action android:name="android.intent.action.BOOT_COMPLETED" />
-          <action android:name="android.intent.action.PHONE_STATE" />
-          <action android:name="com.tray.INCOMING_CALL" />
-        </intent-filter>
-      </receiver>
+        android:enabled="false"
+        android:exported="false" />
       
       <!-- Full-screen intent for incoming calls -->
       <activity

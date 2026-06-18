@@ -1,6 +1,13 @@
+import { Platform } from 'react-native';
 import { getCurrentRoute, navigate } from '../navigator/navigationRef';
 import { logger } from '../utils/logger';
+import { usesNativeCallUi } from '../utils/callUi';
 import { getCallOnce, type CallDocument, type CallStatus } from './call.service';
+import {
+  dismissCallKitCall,
+  hasActiveCallKitCall,
+  presentIncomingCallKit,
+} from './native-intent.service';
 
 type IncomingCallNavigationParams = {
   callId?: string;
@@ -9,6 +16,7 @@ type IncomingCallNavigationParams = {
   receiverId?: string;
   userId?: string;
   autoAccept?: boolean;
+  callerName?: string;
 };
 
 const CALL_GUARD_TTL_MS = 2 * 60 * 1000;
@@ -38,6 +46,9 @@ export const markCallTerminal = (callId?: string) => {
   terminalCalls.add(callId);
   activeHandledCalls.delete(callId);
   scheduleCleanup(callId);
+  if (Platform.OS === 'ios') {
+    dismissCallKitCall(callId, 'ended').catch(() => {});
+  }
 };
 
 export const markCallHandled = (callId?: string) => {
@@ -68,6 +79,29 @@ const getFreshCallStatus = async (callId: string) => {
     logger.warn('⚠️ [CallNavigation] Unable to verify call status:', error);
     return undefined;
   }
+};
+
+const navigateHeadlessCallScreen = (
+  params: IncomingCallNavigationParams & {
+    callId: string;
+    callerId: string;
+    receiverId: string;
+  },
+) => {
+  const screenName =
+    params.callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';
+
+  navigate('Screen', {
+    screen: screenName,
+    params: {
+      callId: params.callId,
+      isCaller: false,
+      callerId: params.callerId,
+      receiverId: params.receiverId,
+      autoAccept: params.autoAccept,
+      callKitOnly: usesNativeCallUi(),
+    },
+  });
 };
 
 export const navigateToIncomingCallIfNeeded = async (
@@ -125,7 +159,7 @@ export const navigateToIncomingCallIfNeeded = async (
     return false;
   }
 
-  if (freshStatus === 'active') {
+  if (freshStatus === 'active' && !params.autoAccept) {
     markCallHandled(callId);
     logger.debug('📞 [CallNavigation] Firestore call is already active, skipping new incoming navigation:', {
       source,
@@ -135,6 +169,40 @@ export const navigateToIncomingCallIfNeeded = async (
   }
 
   markCallHandled(callId);
+
+  // iOS: native CallKit only — never show custom incoming ringing UI.
+  if (usesNativeCallUi()) {
+    if (params.autoAccept) {
+      navigateHeadlessCallScreen({
+        ...params,
+        callId,
+        callerId,
+        receiverId,
+        autoAccept: true,
+      });
+      logger.debug('📞 [CallNavigation] iOS headless WebRTC for CallKit accept:', {
+        source,
+        callId,
+      });
+      return true;
+    }
+
+    if (!(await hasActiveCallKitCall(callId))) {
+      await presentIncomingCallKit({
+        callId,
+        callType: params.callType,
+        callerId,
+        receiverId,
+        callerName: params.callerName,
+      });
+    }
+
+    logger.debug('📞 [CallNavigation] iOS CallKit incoming — custom UI skipped:', {
+      source,
+      callId,
+    });
+    return false;
+  }
 
   const screenName =
     params.callType === 'video' ? 'VideoCallingScreen' : 'CallingScreen';

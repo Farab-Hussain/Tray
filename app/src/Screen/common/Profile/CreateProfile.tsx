@@ -32,10 +32,9 @@ const CreateProfile = ({ navigation }: any) => {
     try {
       // Create user profile
       await api.post('/auth/register', {
-        uid: user?.uid,
         name: name.trim(),
-        role: 'student', // Default role
-        email: user?.email,
+        accountType: 'student',
+        email: user?.email!,
       });
 
       // Refresh user data

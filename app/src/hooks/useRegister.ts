@@ -1,9 +1,9 @@
 import useSWRMutation from "swr/mutation";
 import { api } from "../lib/fetcher";
 
-async function registerUser(url: string, { arg }: { arg: any }) {
-  const { uid, email, role, name } = arg;
-  const response = await api.post(url, { uid, email, role, name });
+async function registerUser(url: string, { arg }: { arg: { email: string; accountType: string; name?: string } }) {
+  const { email, accountType, name } = arg;
+  const response = await api.post(url, { email, accountType, ...(name ? { name } : {}) });
   return response.data;
 }
 

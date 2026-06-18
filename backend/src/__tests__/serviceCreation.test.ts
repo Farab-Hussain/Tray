@@ -7,6 +7,20 @@ import request from 'supertest';
 import app from '../app';
 import { adminAuth, consultantAuth } from './helpers/auth';
 
+jest.mock('../middleware/authMiddleware', () => ({
+  authenticateUser: () => (req: any, _res: any, next: any) => {
+    req.user = {
+      uid: 'consultant-459',
+      email: 'test-consultant@example.com',
+      email_verified: true,
+      role: 'consultant',
+      activeRole: 'consultant',
+    };
+    next();
+  },
+  authorizeRole: () => (_req: any, _res: any, next: any) => next(),
+}));
+
 jest.mock('../middleware/consultantMiddleware', () => ({
   checkConsultantStatus: (_req: any, _res: any, next: any) => next(),
   requireApprovedConsultant: (_req: any, _res: any, next: any) => next(),

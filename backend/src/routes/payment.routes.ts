@@ -29,7 +29,7 @@ router.post(
   handleWebhook
 );
 
-router.post("/create-payment-intent", createPaymentIntent);
+router.post("/create-payment-intent", authenticateUser(), createPaymentIntent);
 router.get("/job-posting/status", authenticateUser(), getJobPostingPaymentStatus);
 router.post("/job-posting/create-intent", authenticateUser(), createJobPostingPaymentIntent);
 router.post("/job-posting/confirm", authenticateUser(), confirmJobPostingPayment);
@@ -44,7 +44,7 @@ router.get("/platform-fee", getPlatformFeeConfig);
 router.put("/platform-fee", authenticateUser(), authorizeRole(["admin"]), validatePlatformFeeUpdate, updatePlatformFeeConfig);
 
 // Payout routes
-router.post("/payouts/process", authenticateUser(), triggerPayouts);
+router.post("/payouts/process", authenticateUser(), authorizeRole(["admin"]), triggerPayouts);
 router.get("/payouts/history", authenticateUser(), getPayoutHistory);
 
 export default router;

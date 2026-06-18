@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureTokenStorage } from '../utils/secureStorage';
 import { logger } from '../utils/logger';
 
 const PENDING_CALL_KEY = '@tray_pending_call_notification';
@@ -19,7 +19,7 @@ export type PendingChatPayload = {
 
 export const storePendingCall = async (payload: PendingCallPayload): Promise<void> => {
   try {
-    await AsyncStorage.setItem(PENDING_CALL_KEY, JSON.stringify(payload));
+    await secureTokenStorage.setItem(PENDING_CALL_KEY, JSON.stringify(payload));
   } catch (error) {
     logger.warn('⚠️ [PendingNotification] Failed to store pending call:', error);
   }
@@ -27,9 +27,9 @@ export const storePendingCall = async (payload: PendingCallPayload): Promise<voi
 
 export const consumePendingCall = async (): Promise<PendingCallPayload | null> => {
   try {
-    const raw = await AsyncStorage.getItem(PENDING_CALL_KEY);
+    const raw = await secureTokenStorage.getItem(PENDING_CALL_KEY);
     if (!raw) return null;
-    await AsyncStorage.removeItem(PENDING_CALL_KEY);
+    await secureTokenStorage.removeItem(PENDING_CALL_KEY);
     return JSON.parse(raw) as PendingCallPayload;
   } catch (error) {
     logger.warn('⚠️ [PendingNotification] Failed to read pending call:', error);
@@ -39,7 +39,7 @@ export const consumePendingCall = async (): Promise<PendingCallPayload | null> =
 
 export const storePendingChat = async (payload: PendingChatPayload): Promise<void> => {
   try {
-    await AsyncStorage.setItem(PENDING_CHAT_KEY, JSON.stringify(payload));
+    await secureTokenStorage.setItem(PENDING_CHAT_KEY, JSON.stringify(payload));
   } catch (error) {
     logger.warn('⚠️ [PendingNotification] Failed to store pending chat:', error);
   }
@@ -47,9 +47,9 @@ export const storePendingChat = async (payload: PendingChatPayload): Promise<voi
 
 export const consumePendingChat = async (): Promise<PendingChatPayload | null> => {
   try {
-    const raw = await AsyncStorage.getItem(PENDING_CHAT_KEY);
+    const raw = await secureTokenStorage.getItem(PENDING_CHAT_KEY);
     if (!raw) return null;
-    await AsyncStorage.removeItem(PENDING_CHAT_KEY);
+    await secureTokenStorage.removeItem(PENDING_CHAT_KEY);
     return JSON.parse(raw) as PendingChatPayload;
   } catch (error) {
     logger.warn('⚠️ [PendingNotification] Failed to read pending chat:', error);

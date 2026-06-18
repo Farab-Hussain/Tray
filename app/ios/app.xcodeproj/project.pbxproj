@@ -17,6 +17,7 @@
 		A1B2C3D42CA45674006654F4 /* TrayVoipStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D12CA45674006654F1 /* TrayVoipStorage.swift */; };
 		A1B2C3D52CA45674006654F5 /* TrayVoipModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D22CA45674006654F2 /* TrayVoipModule.swift */; };
 		A1B2C3D62CA45674006654F6 /* TrayVoipModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D32CA45674006654F3 /* TrayVoipModule.m */; };
+		B2C3D4E52CA45674006654F7 /* TrayCallKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E22CA45674006654F4 /* TrayCallKitManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -55,6 +56,7 @@
 		A1B2C3D12CA45674006654F1 /* TrayVoipStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrayVoipStorage.swift; path = app/TrayVoipStorage.swift; sourceTree = "<group>"; };
 		A1B2C3D22CA45674006654F2 /* TrayVoipModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrayVoipModule.swift; path = app/TrayVoipModule.swift; sourceTree = "<group>"; };
 		A1B2C3D32CA45674006654F3 /* TrayVoipModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = TrayVoipModule.m; path = app/TrayVoipModule.m; sourceTree = "<group>"; };
+		B2C3D4E22CA45674006654F4 /* TrayCallKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrayCallKitManager.swift; path = app/TrayCallKitManager.swift; sourceTree = "<group>"; };
 		AB342697E0396152F4F504D4 /* Pods-app.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.debug.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.debug.xcconfig"; sourceTree = "<group>"; };
 		E3658916B5EF34F6F0A52B04 /* Pods-app.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.release.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -82,6 +84,7 @@
 				A1B2C3D12CA45674006654F1 /* TrayVoipStorage.swift */,
 				A1B2C3D22CA45674006654F2 /* TrayVoipModule.swift */,
 				A1B2C3D32CA45674006654F3 /* TrayVoipModule.m */,
+				B2C3D4E22CA45674006654F4 /* TrayCallKitManager.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -305,6 +308,7 @@
 				A1B2C3D42CA45674006654F4 /* TrayVoipStorage.swift in Sources */,
 				A1B2C3D52CA45674006654F5 /* TrayVoipModule.swift in Sources */,
 				A1B2C3D62CA45674006654F6 /* TrayVoipModule.m in Sources */,
+				B2C3D4E52CA45674006654F7 /* TrayCallKitManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

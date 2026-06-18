@@ -1,7 +1,11 @@
 // src/routes/auth.ts
 import { Router } from "express";
 import { authenticateUser, authorizeRole } from "../middleware/authMiddleware";
-import { validateRegister, validateLogin, validateForgotPassword, validateVerifyOTP, validateResetPassword, validateUpdateProfile } from "../middleware/validation";
+import { validateLogin, validateForgotPassword, validateVerifyOTP, validateResetPassword, validateChangePassword, validateUpdateProfile } from "../middleware/validation";
+import { validateBody, validateParams } from "../middleware/zodValidation";
+import { registerSchema } from "../schemas/register.schema";
+import { uidParamSchema } from "../schemas/uidParam.schema";
+import { authLimiter } from "../middleware/rateLimit";
 import * as authController from "../controllers/auth.Controller";
 
 const router = Router();
@@ -9,14 +13,15 @@ const router = Router();
 /**
  * POST /auth/register
  * Register user (Firebase handles signup, we just store extra info)
+ * Requires Firebase ID token — uid is taken from the verified token, not the body.
  */
-router.post("/register", validateRegister, authController.register);
+router.post("/register", authLimiter, authenticateUser(), validateBody(registerSchema), authController.register);
 
 /**
  * POST /auth/login
  * Login with Firebase ID token and return user info
  */
-router.post("/login", validateLogin, authController.login);
+router.post("/login", authLimiter, validateLogin, authController.login);
 
 /**
  * GET /auth/me
@@ -34,10 +39,14 @@ router.get("/admin/users", authenticateUser(), authorizeRole(["admin"]), authCon
 
 /**
  * GET /auth/users/:uid
- * Get user details by UID (for consultants to fetch student names)
- * NOTE: This must be defined AFTER /admin/users to avoid route conflicts
+ * Get user profile by UID (authenticated; email hidden unless self or admin)
  */
-router.get("/users/:uid", authController.getUserById);
+router.get(
+  "/users/:uid",
+  authenticateUser(),
+  validateParams(uidParamSchema),
+  authController.getUserById,
+);
 
 /**
  * PUT /auth/profile
@@ -55,19 +64,19 @@ router.delete("/account", authenticateUser(), authController.deleteAccount);
  * POST /auth/forgot-password
  * Send OTP to user's email for password reset
  */
-router.post("/forgot-password", validateForgotPassword, authController.forgotPassword);
+router.post("/forgot-password", authLimiter, validateForgotPassword, authController.forgotPassword);
 
 /**
  * POST /auth/verify-otp
  * Verify OTP sent to user's email
  */
-router.post("/verify-otp", validateVerifyOTP, authController.verifyOTP);
+router.post("/verify-otp", authLimiter, validateVerifyOTP, authController.verifyOTP);
 
 /**
  * POST /auth/reset-password
  * Reset user's password after OTP verification
  */
-router.post("/reset-password", validateResetPassword, authController.resetPassword);
+router.post("/reset-password", authLimiter, validateResetPassword, authController.resetPassword);
 
 /**
  * GET /auth/verification-status
@@ -83,10 +92,10 @@ router.post("/resend-verification-email", authenticateUser(), authController.res
 
 /**
  * POST /auth/verify-email
- * Verify email using token-based verification (no auth required - token itself is the auth)
- * Supports both token+uid (new) and legacy email/uid verification
+ * Verify email using a one-time token+uid from the verification link.
+ * Legacy uid/email-only verification is not supported.
  */
-router.post("/verify-email", authController.verifyEmail);
+router.post("/verify-email", authLimiter, authController.verifyEmail);
 
 /**
  * POST /auth/request-consultant-role
@@ -104,7 +113,7 @@ router.post("/switch-role", authenticateUser(), authController.switchRole);
  * POST /auth/change-password
  * Change password for authenticated user
  */
-router.post("/change-password", authenticateUser(), authController.changePassword);
+router.post("/change-password", authLimiter, authenticateUser(), validateChangePassword, authController.changePassword);
 
 /**
  * POST /auth/admin/create-admin

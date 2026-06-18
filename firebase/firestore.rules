@@ -12,6 +12,41 @@ function isOwner(userId) {
 return isAuthenticated() && request.auth.uid == userId ;
 }
 
+// Helper: user is a participant in a chat document
+function isChatParticipant(chatId) {
+let chatDoc = get(/databases/$(database)/documents/chats/$(chatId)) ;
+return chatDoc != null && request.auth.uid in chatDoc.data.participants ;
+}
+
+// Helper: authenticated user may create an in-app notification for another user
+function canCreateNotification() {
+let payload = request.resource.data ;
+let extra = payload.data ;
+return isAuthenticated() &&
+payload.senderId == request.auth.uid &&
+payload.userId != request.auth.uid &&
+payload.read == false &&
+(
+(payload.type == 'chat_message' &&
+extra.chatId is string &&
+extra.senderId == request.auth.uid) ||
+(payload.type == 'call' &&
+extra.callerId == request.auth.uid &&
+payload.userId == extra.receiverId) ||
+(payload.type == 'review' &&
+extra.reviewerId == request.auth.uid &&
+payload.userId == extra.consultantId) ||
+(payload.type == 'payment' &&
+extra.consultantId == request.auth.uid &&
+payload.userId != request.auth.uid) ||
+(payload.type in ['booking', 'booking_confirmed', 'booking_cancelled'] &&
+(
+(request.auth.uid == extra.studentId && payload.userId == extra.consultantId) ||
+(request.auth.uid == extra.consultantId && payload.userId == extra.studentId)
+))
+) ;
+}
+
 // Users collection
 match /users/{userId} {
 // Users can read their own data, admins can read all
@@ -20,8 +55,13 @@ allow read: if isAuthenticated() && (request.auth.uid == userId) ;
 allow write: if false                                            ; // Backend only via Admin SDK
 }
 
-// FCM Tokens subcollection
+// FCM Tokens subcollection (backend also writes via Admin SDK)
 match /users/{userId}/fcmTokens/{tokenId} {
+allow read, write: if isOwner(userId)       ;
+}
+
+// VoIP Tokens subcollection (iOS call pushes; backend writes via Admin SDK)
+match /users/{userId}/voipTokens/{tokenId} {
 allow read, write: if isOwner(userId)       ;
 }
 
@@ -42,11 +82,13 @@ allow delete: if false                                   ;
 
 // Messages subcollection
 match /chats/{chatId}/messages/{messageId} {
-// Users can read messages from chats they're in
-allow read: if isAuthenticated()                   ;
-// Users can create messages
+// Users can read messages only from chats they're a participant in
+allow read: if isAuthenticated() &&
+isChatParticipant(chatId)                         ;
+// Users can create messages only in chats they belong to
 allow create: if isAuthenticated() &&
-request.resource.data.senderId == request.auth.uid ;
+request.resource.data.senderId == request.auth.uid &&
+isChatParticipant(chatId) ;
 // Users cannot update or delete messages
 allow update, delete: if false                     ;
 }
@@ -56,10 +98,9 @@ match /notifications/{notificationId} {
 // Users can only read their own notifications
 allow read: if isAuthenticated() &&
 (request.auth.uid == resource.data.userId)                                  ;
-// Allow authenticated users to create notifications for any user
-// This is needed for chat messages and other in-app notifications
-// The backend will also create notifications via Admin SDK
-allow create: if isAuthenticated()                                          ;
+// Users may create notifications only as the sender, with type-specific validation.
+// Backend Admin SDK bypasses rules for broadcasts and server-side writes.
+allow create: if canCreateNotification()                                  ;
 // Users can update their own notifications (e.g., mark as read)
 allow update: if isAuthenticated() &&
 (request.auth.uid == resource.data.userId) &&
@@ -83,10 +124,15 @@ allow write: if false                                    ;
 match /reviews/{reviewId} {
 // Anyone can read reviews
 allow read: if true                            ;
-// Only authenticated users can create reviews
-allow create: if isAuthenticated()             ;
+// Reviews are created via backend API (Admin SDK) only
+allow create: if false                          ;
 // Users cannot update or delete reviews
 allow update, delete: if false                 ;
+}
+
+// Security audit events — backend only
+match /securityEvents/{eventId} {
+allow read, write: if false                     ;
 }
 
 // Consultant profiles collection

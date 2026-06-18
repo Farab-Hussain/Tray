@@ -20,6 +20,7 @@ import { authStyles } from '../../constants/styles/authStyles';
 import { COLORS } from '../../constants/core/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
+import { roleToAccountType } from '../../utils/accountType';
 
 const EmailVerification = ({ route }: any) => {
   const navigation = useNavigation();
@@ -114,10 +115,9 @@ const EmailVerification = ({ route }: any) => {
         // Send user data to backend
         const userName = name || user.email?.split('@')[0] || null;
         await api.post('/auth/register', {
-          uid: user.uid,
-          email: user.email,
-          role: role || 'student',
-          ...(userName && { name: userName }), // Only include name if it's not empty
+          email: user.email!,
+          accountType: roleToAccountType(role || 'student'),
+          ...(userName && { name: userName }),
         });
 
                 if (__DEV__) {
@@ -708,41 +708,28 @@ const EmailVerification = ({ route }: any) => {
                 );
                 return;
               } else {
-                // Backend says verified but Firebase doesn't - force sync via verify-email endpoint
-                                if (__DEV__) {
-                  console.log('EmailVerification - Backend verified but Firebase not synced, forcing sync...')
+                // Backend says verified but Firebase client is stale — reload token state
+                if (__DEV__) {
+                  console.log('EmailVerification - Backend verified but Firebase not synced, reloading user...')
                 };
                 try {
-                  const verifyResponse = await api.post('/auth/verify-email', {
-                    email: user.email,
-                    uid: user.uid
-                  }, {
-                    headers: {
-                      'Authorization': `Bearer ${token}`
-                    }
-                  });
-                  
-                  if (verifyResponse.data?.success) {
-                    // Reload again after forcing verification
-                    await user.reload();
-                    if (user.emailVerified) {
-                      Alert.alert(
-                        'Email Verified! ✓',
-                        'Your email has been verified! Completing your registration...',
-                        [
-                          {
-                            text: 'Continue',
-                            onPress: completeRegistration,
-                          },
-                        ]
-                      );
-                      return;
-                    }
+                  await user.reload();
+                  if (user.emailVerified) {
+                    Alert.alert(
+                      'Email Verified! ✓',
+                      'Your email has been verified! Completing your registration...',
+                      [
+                        {
+                          text: 'Continue',
+                          onPress: completeRegistration,
+                        },
+                      ]
+                    );
+                    return;
                   }
-                } catch (verifyError: any) {
-                  // Silently ignore verification errors - just log for debugging
-                                    if (__DEV__) {
-                    console.warn('EmailVerification - Force sync failed (silently ignored):', verifyError?.response?.status || verifyError?.message)
+                } catch (reloadError: any) {
+                  if (__DEV__) {
+                    console.warn('EmailVerification - Firebase reload failed:', reloadError?.message)
                   };
                 }
               }

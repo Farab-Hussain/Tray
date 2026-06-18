@@ -216,19 +216,18 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
 
   const timeOptions = generateTimeOptions();
 
-  const renderTimePickerModal = (
+  const renderTimePickerOverlay = (
     visible: boolean,
     title: string,
     onSelect: (time: string) => void,
     onClose: () => void,
-  ) => (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={cleanStyles.timePickerModal}>
+  ) => {
+    if (!visible) {
+      return null;
+    }
+
+    return (
+      <View style={cleanStyles.timePickerOverlay} pointerEvents="box-none">
         <TouchableOpacity
           style={cleanStyles.timePickerBackdrop}
           activeOpacity={1}
@@ -261,8 +260,8 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
           </TouchableOpacity>
         </View>
       </View>
-    </Modal>
-  );
+    );
+  };
 
   // Parse time string to minutes
   function parseTime(timeStr: string): number {
@@ -1265,21 +1264,21 @@ const ConsultantAvailability = ({ navigation, route }: any) => {
               </TouchableOpacity>
             </View>
           </ScrollView>
+
+          {renderTimePickerOverlay(
+            showStartTimePicker,
+            'Select Start Time',
+            setStartTime,
+            () => setShowStartTimePicker(false),
+          )}
+          {renderTimePickerOverlay(
+            showEndTimePicker,
+            'Select End Time',
+            setEndTime,
+            () => setShowEndTimePicker(false),
+          )}
         </SafeAreaView>
       </Modal>
-
-      {renderTimePickerModal(
-        showStartTimePicker,
-        'Select Start Time',
-        setStartTime,
-        () => setShowStartTimePicker(false),
-      )}
-      {renderTimePickerModal(
-        showEndTimePicker,
-        'Select End Time',
-        setEndTime,
-        () => setShowEndTimePicker(false),
-      )}
     </SafeAreaView>
   );
 };

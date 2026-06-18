@@ -38,6 +38,10 @@ const ResetPassword = ({ navigation, route }: any) => {
     if (newPassword !== confirmPassword)
       return Alert.alert('Issue', 'Passwords do not match');
 
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      return Alert.alert('Issue', 'Password must be between 8 and 128 characters');
+    }
+
     setLoading(true);
     try {
       const { data } = await api.post("/auth/reset-password", {

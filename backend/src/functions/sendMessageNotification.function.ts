@@ -19,6 +19,7 @@
 // ROOT CAUSE FIX: Use shared Firebase instance from config to prevent collisions
 // This ensures we use the same Firebase initialization with proper credentials
 import { admin, db } from '../config/firebase';
+import { devLog, devError, maskToken } from '../utils/sanitizeLog';
 
 /**
  * Cloud Function that triggers when a new message is created in Firestore
@@ -35,17 +36,16 @@ export const sendMessageNotification = async (snap: admin.firestore.DocumentSnap
 
       // Skip if message data is missing
       if (!newMessage) {
-        console.log('⚠️ Skipping - message data is missing');
+        devLog('⚠️ Skipping - message data is missing');
         return null;
       }
 
-      console.log('📨 New message created:', messageId);
-      console.log('💬 Message text:', newMessage.text);
-      console.log('👤 Sender ID:', newMessage.senderId);
+      devLog('📨 New message created:', messageId);
+      devLog('👤 Sender ID:', newMessage.senderId);
 
       // Skip if message doesn't have required fields
       if (!newMessage.senderId || !newMessage.text) {
-        console.log('⚠️ Skipping - message missing required fields');
+        devLog('⚠️ Skipping - message missing required fields');
         return null;
       }
 
@@ -53,24 +53,24 @@ export const sendMessageNotification = async (snap: admin.firestore.DocumentSnap
       const chatDoc = await db.collection('chats').doc(chatId).get();
 
       if (!chatDoc.exists) {
-        console.log('⚠️ Chat document not found:', chatId);
+        devLog('⚠️ Chat document not found:', chatId);
         return null;
       }
 
       const chatData = chatDoc.data();
       const participants = chatData?.participants || [];
 
-      console.log('👥 Chat participants:', participants);
+      devLog('👥 Chat participants:', participants);
 
       // Find the recipient (not the sender)
       const recipientId = participants.find((p: string) => p !== newMessage.senderId);
 
       if (!recipientId) {
-        console.log('⚠️ Could not find recipient');
+        devLog('⚠️ Could not find recipient');
         return null;
       }
 
-      console.log('📤 Recipient ID:', recipientId);
+      devLog('📤 Recipient ID:', recipientId);
 
       // Get recipient's FCM tokens from Firestore
       const fcmTokensRef = db
@@ -81,7 +81,7 @@ export const sendMessageNotification = async (snap: admin.firestore.DocumentSnap
       const tokensSnapshot = await fcmTokensRef.get();
 
       if (tokensSnapshot.empty) {
-        console.log('⚠️ No FCM tokens found for recipient:', recipientId);
+        devLog('⚠️ No FCM tokens found for recipient:', recipientId);
         return null;
       }
 
@@ -94,7 +94,7 @@ export const sendMessageNotification = async (snap: admin.firestore.DocumentSnap
           senderName = senderData?.name || senderData?.displayName || 'Someone';
         }
       } catch (error) {
-        console.log('⚠️ Could not fetch sender name:', error);
+        devLog('⚠️ Could not fetch sender name:', error);
       }
 
       // Prepare notification payload
@@ -114,11 +114,11 @@ export const sendMessageNotification = async (snap: admin.firestore.DocumentSnap
       const tokens = tokensSnapshot.docs.map((doc) => doc.data().fcmToken).filter(Boolean);
 
       if (tokens.length === 0) {
-        console.log('⚠️ No valid FCM tokens found');
+        devLog('⚠️ No valid FCM tokens found');
         return null;
       }
 
-      console.log('📱 Sending notification to tokens:', tokens);
+      devLog('📱 Sending notification to token count:', tokens.length);
 
       // Send notifications to all devices using modern API
       const message: admin.messaging.MulticastMessage = {
@@ -146,15 +146,15 @@ export const sendMessageNotification = async (snap: admin.firestore.DocumentSnap
 
       const responses = await admin.messaging().sendEachForMulticast(message);
 
-      console.log('✅ Notification sent successfully');
-      console.log('📊 Response:', responses);
+      devLog('✅ Notification sent successfully');
+      devLog('📊 Response success count:', responses.successCount, 'failure count:', responses.failureCount);
 
       // Handle failed tokens (clean up invalid tokens)
       const failedTokenDocs: admin.firestore.QueryDocumentSnapshot[] = [];
       if (responses.responses) {
         responses.responses.forEach((result, index) => {
           if (result.error) {
-            console.error('❌ Failed to send to token:', tokens[index], result.error);
+            devError('❌ Failed to send to token:', maskToken(tokens[index]), result.error?.code || result.error);
             if (
               result.error.code === 'messaging/invalid-registration-token' ||
               result.error.code === 'messaging/registration-token-not-registered'
@@ -167,14 +167,14 @@ export const sendMessageNotification = async (snap: admin.firestore.DocumentSnap
 
       // Clean up failed tokens
       if (failedTokenDocs.length > 0) {
-        console.log('🧹 Removing invalid tokens:', failedTokenDocs.length);
+        devLog('🧹 Removing invalid tokens:', failedTokenDocs.length);
         const deletePromises = failedTokenDocs.map((doc) => doc.ref.delete());
         await Promise.all(deletePromises);
       }
 
       return null;
     } catch (error) {
-      console.error('❌ Error sending notification:', error);
+      devError('❌ Error sending notification:', error);
       return null;
     }
   };

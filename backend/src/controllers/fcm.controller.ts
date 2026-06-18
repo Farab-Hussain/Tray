@@ -40,7 +40,7 @@ export const registerFCMToken = async (req: Request, res: Response) => {
       await existingToken.ref.update({
         updatedAt: new Date(),
       });
-      Logger.success(route, user.uid, `FCM token updated: ${fcmToken}`);
+      Logger.success(route, user.uid, 'FCM token updated');
       return res.json({ success: true, message: 'FCM token updated' });
     }
 
@@ -52,7 +52,7 @@ export const registerFCMToken = async (req: Request, res: Response) => {
       updatedAt: new Date(),
     });
 
-    Logger.success(route, user.uid, `FCM token registered: ${fcmToken}`);
+    Logger.success(route, user.uid, 'FCM token registered');
     res.json({ success: true, message: 'FCM token registered' });
   } catch (error) {
     Logger.error(route, "", "Error registering FCM token", error);
@@ -98,7 +98,7 @@ export const deleteFCMToken = async (req: Request, res: Response) => {
       });
       await batch.commit();
 
-      Logger.success(route, user.uid, `FCM token deleted: ${fcmToken}`);
+      Logger.success(route, user.uid, 'FCM token deleted');
       res.json({ success: true, message: 'FCM token deleted' });
     } else {
       // Delete all tokens (on logout)

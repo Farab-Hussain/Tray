@@ -62,8 +62,13 @@ const ChangePassword = ({ navigation }: any) => {
       return;
     }
 
-    if (newPassword.trim().length < 6) {
-      Alert.alert('Password Too Short', 'Your new password must be at least 6 characters long.');
+    if (newPassword.trim().length < 8) {
+      Alert.alert('Password Too Short', 'Your new password must be at least 8 characters long.');
+      return;
+    }
+
+    if (newPassword.trim().length > 128) {
+      Alert.alert('Password Too Long', 'Your new password must be at most 128 characters long.');
       return;
     }
 

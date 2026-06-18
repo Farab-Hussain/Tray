@@ -3,6 +3,7 @@ import { API_URL } from '@env';
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { auth } from '../lib/firebase';
+import { sslPinningFetch } from '../lib/sslPinningFetch';
 import { logger } from '../utils/logger';
 
 export interface UploadResponse {
@@ -149,13 +150,14 @@ const uploadWithPlatformSpecificMethod = async (
 
     try {
       // Use fetch API which handles FormData correctly on Android
-      const response = await fetch(uploadUrl, {
+      const response = await sslPinningFetch(uploadUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           // Don't set Content-Type - fetch will set it automatically with boundary
         },
         body: formData,
+        timeout,
         signal: controller.signal,
       });
 

@@ -189,3 +189,9 @@ temp/
 #Documents
 #=========================
 doc
+
+*.p8
+AuthKey_*.p8
+/AuthKey_*.p8
+
+*.DS_Store

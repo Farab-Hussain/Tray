@@ -37,6 +37,9 @@ function initTrayFirebaseApp(): admin.app.App {
       {
         credential: admin.credential.cert(serviceAccount),
         projectId: firebaseConfig.project_id,
+        databaseURL:
+          process.env.FIREBASE_DATABASE_URL ||
+          `https://${firebaseConfig.project_id}-default-rtdb.firebaseio.com`,
       },
       FIREBASE_APP_NAME,
     );

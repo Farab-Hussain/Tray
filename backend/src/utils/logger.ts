@@ -1,5 +1,6 @@
 // src/utils/logger.ts
 import { Request, Response, NextFunction } from "express";
+import { devLog, sanitizeForLog } from "./sanitizeLog";
 
 /**
  * Logger utility for consistent logging across all routes
@@ -69,16 +70,12 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
   
   // Log request body if exists (except for sensitive data)
   if (req.body && Object.keys(req.body).length > 0) {
-    const sanitizedBody = { ...req.body };
-    // Hide sensitive fields
-    if (sanitizedBody.password) sanitizedBody.password = "***";
-    if (sanitizedBody.idToken) sanitizedBody.idToken = "***";
-    console.log(`   📦 Body:`, sanitizedBody);
+    devLog(`   📦 Body:`, sanitizeForLog(req.body));
   }
 
   // Log query parameters if exists
   if (req.query && Object.keys(req.query).length > 0) {
-    console.log(`   🔍 Query:`, req.query);
+    devLog(`   🔍 Query:`, sanitizeForLog(req.query));
   }
 
   // Capture response

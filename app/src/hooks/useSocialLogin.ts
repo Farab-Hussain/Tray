@@ -1,4 +1,4 @@
-import { signInWithCredential, GoogleAuthProvider, FacebookAuthProvider, OAuthProvider } from 'firebase/auth';
+import { signInWithCredential, GoogleAuthProvider, FacebookAuthProvider, OAuthProvider, updateProfile } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LoginManager, AccessToken, Settings } from 'react-native-fbsdk-next';
 import appleAuth from '@invertase/react-native-apple-authentication';
@@ -7,6 +7,7 @@ import { auth } from '../lib/firebase';
 import { api } from '../lib/fetcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showError } from '../utils/toast';
+import { roleToAccountType } from '../utils/accountType';
 import { GOOGLE_WEB_CLIENT_ID } from '@env';
 
 // Initialize Facebook SDK Settings
@@ -111,12 +112,19 @@ export const useSocialLogin = () => {
             console.log('Social Login - Firebase user photoURL:', firebaseUser.photoURL)
           };
           await api.post('/auth/register', {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
+            email: firebaseUser.email!,
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-            profileImage: firebaseUser.photoURL || null, // Include Google/Facebook/Apple profile image
-            role: role,
+            accountType: roleToAccountType(role),
           });
+          if (firebaseUser.photoURL) {
+            try {
+              await api.put('/auth/profile', { profileImage: firebaseUser.photoURL });
+            } catch (profileError) {
+              if (__DEV__) {
+                console.error('Social Login - Error saving profile image after register:', profileError);
+              }
+            }
+          }
                     if (__DEV__) {
             console.log('Social Login - User registered in backend with profile image:', firebaseUser.photoURL)
           };
@@ -474,13 +482,19 @@ export const useSocialLogin = () => {
       // Sign in to Firebase
       const userCredential = await signInWithCredential(auth, appleCredential);
       
-      // Apple only provides name on first sign-in, so update Firebase user if available
+      // Apple only provides name on first sign-in — update Firebase profile when available
       if (fullName) {
         const displayName = `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim();
         if (displayName && userCredential.user.displayName !== displayName) {
-          await userCredential.user.updateProfile({ displayName });
-          if (__DEV__) {
-            console.log('Social Login - Updated Firebase user displayName from Apple:', displayName);
+          try {
+            await updateProfile(userCredential.user, { displayName });
+            if (__DEV__) {
+              console.log('Social Login - Updated Firebase user displayName from Apple:', displayName);
+            }
+          } catch (profileError) {
+            if (__DEV__) {
+              console.warn('Social Login - Could not update Firebase displayName:', profileError);
+            }
           }
         }
       }

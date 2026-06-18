@@ -29,7 +29,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.1062926749049-ie0021lqc6seol2d025ii08p6pmq17rd</string>
+				<string>com.googleusercontent.apps.1062926749049-0h02n03feav6odik8vhkd41rdu65i04e</string>
 			</array>
 		</dict>
 		<dict>
@@ -83,7 +83,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to upload profile pictures and images</string>
 	<key>NSVoIPUsageDescription</key>
-	<string></string>
+	<string>Tray uses VoIP to show incoming audio and video calls when the app is closed, similar to phone calls.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIBackgroundModes</key>

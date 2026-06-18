@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { API_URL, FASTAPI_AI_PROVIDER, FASTAPI_AI_URL } from '@env';
+import { createSslPinningAdapter } from '../lib/sslPinningAdapter';
+import { isSslPinningEnabled } from '../constants/sslPinning';
 
 export type AIProvider = 'openai' | 'claude';
 
@@ -19,6 +21,7 @@ const aiApi = axios.create({
   // Keep instance creation stable; enforce URL presence per request.
   baseURL: aiBaseUrl || normalizeBaseUrl(API_URL),
   timeout: 30000,
+  ...(isSslPinningEnabled() ? { adapter: createSslPinningAdapter() } : {}),
   headers: {
     'Content-Type': 'application/json',
   },

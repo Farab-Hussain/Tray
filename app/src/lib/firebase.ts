@@ -3,7 +3,6 @@ import { initializeApp, type FirebaseApp } from "firebase/app";
 import { initializeAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getDatabase, type Database } from "firebase/database";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import {
   FIREBASE_API_KEY,
@@ -14,6 +13,7 @@ import {
   FIREBASE_APP_ID,
   FIREBASE_DATABASE_URL,
 } from "@env";
+import { firebaseAuthStorage } from '../utils/secureStorage';
 
 // Import React Native persistence
 // @ts-ignore - TypeScript doesn't resolve RN-specific exports correctly
@@ -84,10 +84,10 @@ try {
   }
 }
 
-// Initialize Auth with AsyncStorage persistence for React Native
+// Initialize Auth with Keychain-backed persistence for React Native
 try {
   auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
+    persistence: getReactNativePersistence(firebaseAuthStorage)
   });
   if (__DEV__) {
     console.log('✅ [Firebase] Auth initialized successfully');

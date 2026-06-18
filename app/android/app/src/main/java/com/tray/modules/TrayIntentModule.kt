@@ -32,7 +32,39 @@ class TrayIntentModule(reactContext: ReactApplicationContext) :
       if (callerId != null) map.putString("callerId", callerId)
       if (receiverId != null) map.putString("receiverId", receiverId)
 
-      prefs.edit().clear().apply()
+      prefs.edit()
+        .remove(KEY_CALL_ID)
+        .remove(KEY_CALL_TYPE)
+        .remove(KEY_ACTION)
+        .remove(KEY_CALLER_ID)
+        .remove(KEY_RECEIVER_ID)
+        .apply()
+      promise.resolve(map)
+    } catch (e: Exception) {
+      promise.reject("TRAY_INTENT_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun getPendingChatIntent(promise: Promise) {
+    try {
+      val prefs =
+        reactApplicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      val chatId = prefs.getString(KEY_PENDING_CHAT_ID, null)
+      if (chatId.isNullOrEmpty()) {
+        promise.resolve(null)
+        return
+      }
+
+      val map = Arguments.createMap()
+      map.putString("chatId", chatId)
+      val senderId = prefs.getString(KEY_PENDING_SENDER_ID, null)
+      if (senderId != null) map.putString("senderId", senderId)
+
+      prefs.edit()
+        .remove(KEY_PENDING_CHAT_ID)
+        .remove(KEY_PENDING_SENDER_ID)
+        .apply()
       promise.resolve(map)
     } catch (e: Exception) {
       promise.reject("TRAY_INTENT_ERROR", e.message, e)
@@ -46,5 +78,7 @@ class TrayIntentModule(reactContext: ReactApplicationContext) :
     const val KEY_ACTION = "action"
     const val KEY_CALLER_ID = "caller_id"
     const val KEY_RECEIVER_ID = "receiver_id"
+    const val KEY_PENDING_CHAT_ID = "pending_chat_id"
+    const val KEY_PENDING_SENDER_ID = "pending_sender_id"
   }
 }

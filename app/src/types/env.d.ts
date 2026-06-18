@@ -17,4 +17,6 @@ declare module '@env' {
   export const FIREBASE_DATABASE_URL: string;
   export const STRIPE_PUBLISHABLE_KEY: string;
   export const GOOGLE_WEB_CLIENT_ID: string;
+  export const SSL_PINNING_ENABLED: string;
+  export const SSL_PINNING_PUBLIC_KEY_HASHES: string;
 }
