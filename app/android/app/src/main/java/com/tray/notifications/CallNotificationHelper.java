@@ -124,7 +124,15 @@ public final class CallNotificationHelper {
   }
 
   public static void handleChatMessage(Context context, Map<String, String> data) {
-    if (context == null || data == null || isAppInForeground(context)) {
+    handleChatMessage(context, data, false);
+  }
+
+  public static void handleChatMessage(Context context, Map<String, String> data, boolean allowForeground) {
+    if (context == null || data == null) {
+      return;
+    }
+
+    if (!allowForeground && isAppInForeground(context)) {
       return;
     }
 

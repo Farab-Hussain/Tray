@@ -2,11 +2,8 @@ import { ref, push, set, get, update, onValue, off, query, orderByChild, serverT
 // @ts-ignore
 import { database, auth } from '../lib/firebase.ts';
 import { api } from '../lib/fetcher';
-import * as NotificationStorage from './notification-storage.service';
-import { UserService } from './user.service';
 import * as OfflineQueue from './offline-message-queue.service';
 import type { Message, Chat } from '../types/chatTypes';
-import { normalizeAvatarUrl } from '../utils/normalize';
 import { logger } from '../utils/logger';
 
 // @ts-ignore
@@ -141,37 +138,8 @@ export const notifyChatMessageRecipient = async (
             return;
         }
 
-        const { isChatActive } = await import('./active-chat.service');
-        if (isChatActive(chatId)) {
-            return;
-        }
-
-        let senderName = 'Someone';
-        let senderAvatar = '';
-        try {
-            const senderData = await UserService.getUserById(message.senderId);
-            if (senderData) {
-                senderName = senderData.name || senderData.displayName || 'Someone';
-                senderAvatar = normalizeAvatarUrl(senderData);
-            }
-        } catch {
-            // non-critical
-        }
-
         const displayText =
             message.type === 'text' ? (message.text || 'New message') : `[${message.type}]`;
-
-        NotificationStorage.createNotification({
-            userId: recipientId,
-            type: 'chat_message',
-            category: 'message',
-            title: senderName,
-            message: displayText,
-            data: { chatId, senderId: message.senderId },
-            senderId: message.senderId,
-            senderName,
-            senderAvatar,
-        }).catch(() => {});
 
         api.post(
             '/notifications/send-message',

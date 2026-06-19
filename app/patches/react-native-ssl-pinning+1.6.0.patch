@@ -1,0 +1,19 @@
+diff --git a/node_modules/react-native-ssl-pinning/android/build.gradle b/node_modules/react-native-ssl-pinning/android/build.gradle
+index d1d9c39..0a72499 100644
+--- a/node_modules/react-native-ssl-pinning/android/build.gradle
++++ b/node_modules/react-native-ssl-pinning/android/build.gradle
+@@ -1,11 +1,12 @@
+ 
+ buildscript {
+     repositories {
+-        jcenter()
++        google()
++        mavenCentral()
+     }
+ 
+     dependencies {
+-        classpath 'com.android.tools.build:gradle:2.3.0'
++        classpath 'com.android.tools.build:gradle:8.7.3'
+     }
+ }
+ 

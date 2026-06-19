@@ -6,6 +6,8 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.tray.notifications.CallNotificationHelper
+import java.util.HashMap
 
 class TrayIntentModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
@@ -68,6 +70,35 @@ class TrayIntentModule(reactContext: ReactApplicationContext) :
       promise.resolve(map)
     } catch (e: Exception) {
       promise.reject("TRAY_INTENT_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun showChatMessageNotification(chatId: String?, senderId: String?, title: String?, body: String?, promise: Promise) {
+    try {
+      if (chatId.isNullOrBlank()) {
+        promise.reject("INVALID_CHAT_NOTIFICATION", "chatId is required")
+        return
+      }
+
+      val data = HashMap<String, String>()
+      data["type"] = "chat_message"
+      data["chatId"] = chatId
+      if (!senderId.isNullOrBlank()) data["senderId"] = senderId
+      if (!title.isNullOrBlank()) {
+        data["title"] = title
+        data["senderName"] = title
+      }
+      if (!body.isNullOrBlank()) data["messageText"] = body
+
+      CallNotificationHelper.handleChatMessage(
+        reactApplicationContext,
+        data,
+        true,
+      )
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("TRAY_NOTIFICATION_ERROR", e.message, e)
     }
   }
 

@@ -18,6 +18,31 @@ import { consumeNativePendingCallIntent, getNativeVoipToken } from './native-int
 
 const FCM_TOKEN_KEY = 'fcm_token';
 
+const showAndroidForegroundChatNotification = async (remoteMessage: any) => {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
+  const messageData = remoteMessage?.data || {};
+  const chatId = messageData.chatId;
+  if (!chatId) {
+    return;
+  }
+
+  try {
+    await NativeModules.TrayIntentModule?.showChatMessageNotification?.(
+      String(chatId),
+      messageData.senderId ? String(messageData.senderId) : '',
+      String(messageData.senderName || messageData.title || remoteMessage?.notification?.title || 'New message'),
+      String(messageData.messageText || remoteMessage?.notification?.body || 'You have a new message'),
+    );
+  } catch (error: any) {
+    if (__DEV__) {
+      logger.warn('⚠️ [Foreground] Could not show Android chat notification:', error?.message || error);
+    }
+  }
+};
+
 // Safely import React Native Firebase messaging
 let messaging: any = null;
 try {
@@ -551,6 +576,8 @@ export const setupForegroundMessageHandler = () => {
             if (__DEV__) {
         logger.debug('💬 [Foreground] Message text:', messageData.messageText || notification.body)
       };
+
+      await showAndroidForegroundChatNotification(remoteMessage);
       
       // The chat context will handle refreshing chats when messages arrive
       // No need to manually refresh here as the real-time listeners will pick it up
@@ -758,7 +785,6 @@ const handleNotificationAction = async (remoteMessage: any, navigation: any) => 
       );
     } else if (action === 'decline') {
       // Decline the call
-      const { endCall } = require('./call.service');
       markCallTerminal(callId);
       endCall(callId, 'missed').catch(() => {});
     } else {
@@ -809,36 +835,6 @@ const handleNotificationAction = async (remoteMessage: any, navigation: any) => 
       }, 200);
     }
     return;
-  }
-};
-
-// Handle incoming call notification - navigate to calling screen
-const handleIncomingCallNotification = async (data: any) => {
-  const callId = data.callId;
-  const callType = data.callType || 'audio'; // 'audio' or 'video'
-  const callerId = data.callerId;
-  const receiverId = data.receiverId || data.userId;
-  
-  if (__DEV__) {
-    logger.debug('📞 [Call Notification] Handling incoming call:', { callId, callType, callerId, receiverId });
-  }
-  
-  if (!callId || !callerId || !receiverId) {
-    if (__DEV__) {
-      logger.warn('⚠️ [Call Notification] Missing call parameters');
-    }
-    return;
-  }
-  
-  try {
-    await navigateToIncomingCallIfNeeded(
-      { callId, callType, callerId, receiverId },
-      'notification-open',
-    );
-  } catch (error: any) {
-        if (__DEV__) {
-      logger.error('❌ [Call Notification] Error setting up navigation:', error.message || error)
-    };
   }
 };
 

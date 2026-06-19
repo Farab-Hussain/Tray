@@ -142,6 +142,8 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
     implementation 'com.google.android.gms:play-services-base:18.2.0'
+    implementation platform('com.google.firebase:firebase-bom:34.8.0')
+    implementation 'com.google.firebase:firebase-messaging'
     
     // Background call handling dependencies
     implementation 'androidx.work:work-runtime:2.8.1'

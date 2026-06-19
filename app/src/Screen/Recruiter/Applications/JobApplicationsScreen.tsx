@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -21,7 +22,8 @@ import {
   CheckCircle, 
   Clock,
   Filter,
-  Search
+  Search,
+  X,
 } from 'lucide-react-native';
 
 interface JobApplication {

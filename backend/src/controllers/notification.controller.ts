@@ -8,6 +8,20 @@ import { devLog, devWarn, devError, maskToken } from "../utils/sanitizeLog";
 const callPushLastSent = new Map<string, number>();
 const CALL_PUSH_COOLDOWN_MS = 8000;
 
+const getChatParticipants = async (chatId: string): Promise<string[]> => {
+  const snapshot = await admin.database(firebaseApp).ref(`chats/${chatId}`).get();
+  if (!snapshot.exists()) {
+    return [];
+  }
+
+  const chatData = snapshot.val() || {};
+  return Array.isArray(chatData.participants)
+    ? chatData.participants.filter(
+        (participant: unknown): participant is string => typeof participant === "string",
+      )
+    : [];
+};
+
 /**
  * Send push notification when a message is sent
  * This replaces Cloud Functions for users on Spark plan
@@ -36,6 +50,12 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'senderId must match authenticated user' });
     }
 
+    const participants = await getChatParticipants(String(chatId));
+    if (!participants.includes(senderId) || !participants.includes(recipientId) || senderId === recipientId) {
+      Logger.warn(route, user.uid, `Rejected message notification for non-participant chat ${chatId}`);
+      return res.status(403).json({ error: 'Sender and recipient must be chat participants' });
+    }
+
     const bodyText =
       typeof messageText === 'string' && messageText.trim().length > 0
         ? messageText.trim()
@@ -44,18 +64,6 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
     devLog('📨 Sending notification for message');
     devLog('👤 Sender ID:', senderId);
     devLog('📤 Recipient ID:', recipientId);
-
-    // Get recipient's FCM tokens from Firestore
-    const fcmTokensRef = db
-      .collection('users')
-      .doc(recipientId)
-      .collection('fcmTokens');
-    const tokensSnapshot = await fcmTokensRef.get();
-
-    if (tokensSnapshot.empty) {
-      devLog('⚠️ No FCM tokens found for recipient:', recipientId);
-      return res.json({ success: true, message: 'No FCM tokens found' });
-    }
 
     // Get sender's name
     let senderName = 'Someone';
@@ -67,6 +75,35 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
       }
     } catch (error) {
       devLog('⚠️ Could not fetch sender name:', error);
+    }
+
+    await db.collection('notifications').add({
+      userId: String(recipientId),
+      type: 'chat_message',
+      category: 'message',
+      title: senderName,
+      message: bodyText,
+      data: {
+        chatId: String(chatId),
+        senderId: String(senderId),
+      },
+      senderId: String(senderId),
+      senderName,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Get recipient's FCM tokens from Firestore. In-app notification is already stored,
+    // so push delivery can fail without hiding the message from the notification screen.
+    const fcmTokensRef = db
+      .collection('users')
+      .doc(recipientId)
+      .collection('fcmTokens');
+    const tokensSnapshot = await fcmTokensRef.get();
+
+    if (tokensSnapshot.empty) {
+      devLog('⚠️ No FCM tokens found for recipient:', recipientId);
+      return res.json({ success: true, stored: true, sent: 0, failed: 0, message: 'No FCM tokens found' });
     }
 
     // Prepare notification payload
@@ -125,7 +162,7 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
 
     if (tokens.length === 0) {
       devLog('⚠️ No valid FCM tokens found');
-      return res.json({ success: true, message: 'No valid tokens' });
+      return res.json({ success: true, stored: true, sent: 0, failed: 0, message: 'No valid tokens' });
     }
 
     devLog('📱 Sending notification to token count:', tokens.length);
@@ -211,7 +248,7 @@ export const sendMessageNotification = async (req: Request, res: Response) => {
     }
 
     Logger.success(route, senderId, `Notification sent to ${recipientId}`);
-    res.json({ success: true, sent: responses.successCount, failed: responses.failureCount });
+    res.json({ success: true, stored: true, sent: responses.successCount, failed: responses.failureCount });
   } catch (error) {
     Logger.error(route, "", "Error sending notification", error);
     res.status(500).json({ error: 'Failed to send notification' });

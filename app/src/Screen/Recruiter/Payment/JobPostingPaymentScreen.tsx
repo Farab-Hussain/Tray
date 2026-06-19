@@ -70,7 +70,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
       );
       
       if (response.success && response.clientSecret) {
-        const { error } = await initPaymentSheet({
+        const paymentSheetResult = await initPaymentSheet({
           paymentIntentClientSecret: response.clientSecret,
           merchantDisplayName: 'Tray Platform',
           allowsDelayedPaymentMethods: true,
@@ -79,6 +79,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
             email: user?.email || '',
           },
         });
+        const error = paymentSheetResult?.error;
 
         if (error) {
           Alert.alert('Issue', 'Failed to initialize payment sheet');
