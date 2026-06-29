@@ -20,6 +20,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { logger } from '../../../utils/logger';
+import { startOutgoingCall } from '../../../services/call-navigation.service';
 
 const Home = ({ navigation }: any) => {
   const [topConsultant, setTopConsultant] = useState<any>(null);
@@ -131,12 +132,12 @@ const Home = ({ navigation }: any) => {
         // Generate callId: callerId_receiverId-timestamp
         const callId = `${user.uid}_${consultantId}-${Date.now()}`;
 
-        // Navigate to audio call screen with proper parameters
-        navigation.navigate('CallingScreen', {
+        void startOutgoingCall({
           callId,
+          callType: 'audio',
           callerId: user.uid,
           receiverId: consultantId,
-          isCaller: true,
+          calleeName: consultant.name,
         });
       } else if (iconType === 'video') {
         // Initiate video call
@@ -148,12 +149,12 @@ const Home = ({ navigation }: any) => {
         // Generate callId: callerId_receiverId-timestamp
         const callId = `${user.uid}_${consultantId}-${Date.now()}`;
 
-        // Navigate to video call screen with proper parameters
-        navigation.navigate('VideoCallingScreen', {
+        void startOutgoingCall({
           callId,
+          callType: 'video',
           callerId: user.uid,
           receiverId: consultantId,
-          isCaller: true,
+          calleeName: consultant.name,
         });
       }
     } catch (error) {

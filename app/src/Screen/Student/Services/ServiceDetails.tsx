@@ -28,6 +28,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { BookingService } from '../../../services/booking.service';
 import { ConsultantService } from '../../../services/consultant.service';
 import { logger } from '../../../utils/logger';
+import { startOutgoingCall } from '../../../services/call-navigation.service';
 
 interface ServiceDetailsProps {
   consultantId: string;
@@ -216,11 +217,12 @@ const ServiceDetails = () => {
     if (!hasAccess || !user?.uid || !service?.consultantId) return;
 
     const callId = `${user.uid}_${service.consultantId}-${Date.now()}`;
-    navigation.navigate('CallingScreen', {
+    void startOutgoingCall({
       callId,
+      callType: 'audio',
       callerId: user.uid,
       receiverId: service.consultantId,
-      isCaller: true,
+      calleeName: service.consultantName,
     });
   };
 
@@ -229,11 +231,12 @@ const ServiceDetails = () => {
     if (!hasAccess || !user?.uid || !service?.consultantId) return;
 
     const callId = `${user.uid}_${service.consultantId}-${Date.now()}`;
-    navigation.navigate('VideoCallingScreen', {
+    void startOutgoingCall({
       callId,
+      callType: 'video',
       callerId: user.uid,
       receiverId: service.consultantId,
-      isCaller: true,
+      calleeName: service.consultantName,
     });
   };
 

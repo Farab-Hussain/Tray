@@ -3,6 +3,8 @@ import app from "./app";
 import { db, auth } from "./config/firebase";
 import { sendAppointmentReminders } from "./services/reminder.service";
 import { processAutomatedPayouts } from "./services/payout.service";
+import { isVoipPushConfigured } from "./services/voipPush.service";
+import { createTwilioIceServers } from "./services/webrtc.service";
 
 dotenv.config();
 
@@ -33,6 +35,44 @@ const verifyFirebaseConnection = async () => {
   }
 };
 
+const verifyCallingServices = async () => {
+  console.log("📞 Verifying calling services...");
+
+  const voipReady = isVoipPushConfigured();
+  const apnsProduction = process.env.APNS_PRODUCTION === "true";
+  console.log(
+    `  - VoIP push (APNS): ${voipReady ? "✅ Configured" : "❌ Not configured — set APNS_KEY_ID, APNS_TEAM_ID, and APNS_AUTH_KEY_PATH or APNS_KEY"}`,
+  );
+  if (voipReady) {
+    console.log(
+      `  - APNS environment: ${apnsProduction ? "production" : "sandbox (development)"}`,
+    );
+    console.log(`  - APNS bundle: ${process.env.APNS_BUNDLE_ID || "app.tray.com"}`);
+  }
+
+  const hasTwilioEnv =
+    Boolean(process.env.TWILIO_ACCOUNT_SID?.trim()) &&
+    Boolean(process.env.TWILIO_AUTH_TOKEN?.trim());
+
+  if (!hasTwilioEnv) {
+    console.log(
+      "  - Twilio TURN: ❌ Not configured — set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN",
+    );
+    return;
+  }
+
+  try {
+    const twilio = await createTwilioIceServers();
+    console.log(
+      `  - Twilio TURN: ✅ OK (${twilio.iceServers.length} ICE servers, ttl ${twilio.ttl}s)`,
+    );
+  } catch (error: any) {
+    console.log(
+      `  - Twilio TURN: ❌ Failed — ${error?.message || "unknown error"}`,
+    );
+  }
+};
+
 const PORT = process.env.PORT || 4000;
 
 
@@ -44,6 +84,7 @@ app.listen(PORT, async () => {
   
   // Run Firebase verification after server starts
   await verifyFirebaseConnection();
+  await verifyCallingServices();
   
   // Setup scheduled reminder job (runs every hour)
   setupReminderScheduler();

@@ -11,7 +11,7 @@ export const registerFCMToken = async (req: Request, res: Response) => {
   const route = "POST /fcm/token";
   
   try {
-    const { fcmToken, deviceType = 'ios' } = req.body;
+    const { fcmToken, deviceType } = req.body;
     const user = (req as any).user;
 
     if (!user || !user.uid) {
@@ -24,6 +24,11 @@ export const registerFCMToken = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'FCM token is required' });
     }
 
+    const resolvedDeviceType =
+      typeof deviceType === 'string' && deviceType.trim()
+        ? deviceType.trim().toLowerCase()
+        : 'android';
+
     // Check if token already exists for this user
     const fcmTokensRef = db
       .collection('users')
@@ -34,10 +39,11 @@ export const registerFCMToken = async (req: Request, res: Response) => {
       .where('fcmToken', '==', fcmToken)
       .get();
 
-    // If token exists, update it
+    // If token exists, update device type + timestamp
     if (!existingTokensSnapshot.empty) {
       const existingToken = existingTokensSnapshot.docs[0];
       await existingToken.ref.update({
+        deviceType: resolvedDeviceType,
         updatedAt: new Date(),
       });
       Logger.success(route, user.uid, 'FCM token updated');
@@ -47,7 +53,7 @@ export const registerFCMToken = async (req: Request, res: Response) => {
     // Create new token document
     await fcmTokensRef.add({
       fcmToken,
-      deviceType,
+      deviceType: resolvedDeviceType,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

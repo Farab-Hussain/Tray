@@ -11,6 +11,7 @@ import Loader from '../../../components/ui/Loader';
 import { useChatContext } from '../../../contexts/ChatContext';
 import { formatFirestoreTimeRelative } from '../../../utils/time';
 import { UserService } from '../../../services/user.service';
+import { resolveUserDisplayName } from '../../../utils/displayName';
 import { ConsultantService } from '../../../services/consultant.service';
 import type { Chat } from '../../../types/chatTypes';
 import { COLORS } from '../../../constants/core/colors';
@@ -183,7 +184,7 @@ const Messages = ({ navigation }: any) => {
       }
 
       setIsLoadingUserNames(true);
-      const nameMap = new Map<string, { name: string; avatar?: string }>();
+      const nameMap = new Map<string, { name: string; avatar?: string; role?: string }>();
 
       try {
         for (const chat of chats) {
@@ -207,12 +208,13 @@ const Messages = ({ navigation }: any) => {
                 nameMap.set(otherUserId, {
                   name: userName,
                   avatar: userAvatar,
+                  role: 'consultant',
                 });
               } else {
                 // Fall back to regular user data
                 const userData = await UserService.getUserById(otherUserId);
                 if (userData) {
-                  const userName = userData.name || userData.displayName || 'User';
+                  const userName = resolveUserDisplayName(userData, otherUserId);
                   
                   // Try multiple possible profile image fields
                   const profileImage = 
@@ -225,9 +227,12 @@ const Messages = ({ navigation }: any) => {
                   nameMap.set(otherUserId, {
                     name: userName,
                     avatar: profileImage,
+                    role: userData.role,
                   });
                 } else {
-                  nameMap.set(otherUserId, { name: 'User' });
+                  nameMap.set(otherUserId, {
+                    name: resolveUserDisplayName({ uid: otherUserId }, otherUserId),
+                  });
                 }
               }
             } catch (error: any) {
@@ -237,7 +242,9 @@ const Messages = ({ navigation }: any) => {
                   console.error('❌ [Messages] Error fetching user info:', error)
                 };
               }
-              nameMap.set(otherUserId, { name: 'User' });
+              nameMap.set(otherUserId, {
+                name: resolveUserDisplayName({ uid: otherUserId }, otherUserId),
+              });
             }
           }
         }
@@ -334,8 +341,15 @@ const Messages = ({ navigation }: any) => {
               const otherUserId =
                 chat.participants?.find(p => p !== userId) || '';
               const userInfo = userNames.get(otherUserId);
-              const displayName = userInfo?.name || 'User';
+              const displayName =
+                userInfo?.name || resolveUserDisplayName({ uid: otherUserId }, otherUserId);
               const avatar = userInfo?.avatar ? { uri: userInfo.avatar } : undefined;
+              const otherUserTitle =
+                userInfo?.role === 'student'
+                  ? 'Student'
+                  : userInfo?.role === 'consultant'
+                    ? 'Consultant'
+                    : 'User';
 
               return (
              <TouchableOpacity
@@ -346,7 +360,7 @@ const Messages = ({ navigation }: any) => {
                       otherUserId,
                  consultant: {
                         name: displayName,
-                        title: 'Consultant',
+                        title: otherUserTitle,
                         avatar: avatar,
                         isOnline: true,
                       },

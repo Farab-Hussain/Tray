@@ -19,4 +19,5 @@ declare module '@env' {
   export const GOOGLE_WEB_CLIENT_ID: string;
   export const SSL_PINNING_ENABLED: string;
   export const SSL_PINNING_PUBLIC_KEY_HASHES: string;
+  export const WEB_BASE_URL: string;
 }

@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '../lib/firebase';
 import { api } from '../lib/fetcher';
 import { getConsultantProfile } from '../services/consultantFlow.service';
+import { clearUserContext, setUserContext } from '../utils/crashReporting';
 
 interface AuthContextType {
   user: User | null;
@@ -98,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setActiveRole(null);
       setRoles([]);
       setConsultantVerificationStatus(null);
+      clearUserContext();
       if (__DEV__) {
         console.log('User logged out successfully');
       }
@@ -684,6 +686,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
           // Set user after reload to ensure we have latest verification status
           setUser(reloadedUser);
+          if (reloadedUser?.uid) {
+            setUserContext({
+              id: reloadedUser.uid,
+              email: reloadedUser.email,
+              username: reloadedUser.displayName,
+            });
+          }
 
           // Check if email is verified before proceeding (required)
           // Use reloadedUser which has the latest verification status
@@ -768,6 +777,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setRole(null);
           setActiveRole(null);
           setRoles([]);
+          clearUserContext();
           await AsyncStorage.removeItem('role');
           await AsyncStorage.removeItem('activeRole');
           await AsyncStorage.removeItem('roles');

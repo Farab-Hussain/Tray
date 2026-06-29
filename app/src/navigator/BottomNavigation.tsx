@@ -33,7 +33,7 @@ const Tab = createBottomTabNavigator();
 
 const getTabBarVisibility = (route: any) => {
   const routeName = getFocusedRouteNameFromRoute(route);
-  const hideOnScreens = ['BookingSlots', 'Cart', 'Account', 'CourseDetail'];
+  const hideOnScreens = ['BookingSlots', 'Cart', 'Payment', 'Account', 'CourseDetail'];
   return routeName && hideOnScreens.includes(routeName) ? 'none' : 'flex';
 };
 

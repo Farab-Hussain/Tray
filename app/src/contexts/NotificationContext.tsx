@@ -11,10 +11,11 @@ import { useAuth } from './AuthContext';
 import * as NotificationService from '../services/notification.service';
 import * as NotificationStorage from '../services/notification-storage.service';
 import { useChatContext } from './ChatContext';
-import { listenIncomingCalls, markCallDelivered } from '../services/call.service';
+import { listenIncomingCalls, endCall, isCallEndable } from '../services/call.service';
 import { navigateToIncomingCallIfNeeded, markCallTerminal } from '../services/call-navigation.service';
+import { handleIncomingCallDetected } from '../services/call-incoming-handler.service';
+import { syncMissedCallNotifications } from '../services/missed-call.service';
 import { subscribeToCallKitActions } from '../services/native-intent.service';
-import { endCall } from '../services/call.service';
 import type { AppNotification } from '../services/notification-storage.service';
 import { logger } from '../utils/logger';
 
@@ -62,35 +63,55 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     refreshChats();
   }, [refreshChats]);
 
+  const lastMissedCallSyncAtRef = useRef(0);
+  const MISSED_CALL_SYNC_COOLDOWN_MS = 60_000;
+
   // Check for missed calls when app comes to foreground
   const checkForMissedCalls = useCallback(async () => {
     if (!user?.uid) return;
 
+    const now = Date.now();
+    if (now - lastMissedCallSyncAtRef.current < MISSED_CALL_SYNC_COOLDOWN_MS) {
+      return;
+    }
+    lastMissedCallSyncAtRef.current = now;
+
     try {
-      // This would query Firestore for any calls that were missed while backgrounded
-      // Implementation depends on your call data structure
       logger.debug('📞 [NotificationContext] Checking for missed calls for user:', user.uid);
-      // TODO: Implement missed call checking logic
+      const created = await syncMissedCallNotifications(user.uid);
+      if (created > 0) {
+        logger.debug('📞 [NotificationContext] Synced missed call notifications:', created);
+      }
     } catch (error) {
       logger.error('❌ [NotificationContext] Error checking missed calls:', error);
     }
   }, [user?.uid]);
 
-  // iOS CallKit accept / decline / end while app is open
+  // iOS CallKit accept / decline / end while app is open (receiver only for ringing actions)
   useEffect(() => {
     const unsubscribe = subscribeToCallKitActions(async payload => {
       const { action, callId, callType, callerId, receiverId } = payload;
-      if (!callId) return;
+      if (!callId || !user?.uid) return;
 
       logger.debug('📞 [NotificationContext] CallKit action:', payload);
 
+      const isReceiver = receiverId === user.uid;
+      const isCaller = callerId === user.uid;
+
+      // Outgoing CallKit on the caller must not end the Firestore call as "missed".
+      if ((action === 'decline' || action === 'cancel') && isCaller) {
+        logger.debug('📞 [NotificationContext] Ignoring caller-side CallKit decline/cancel');
+        return;
+      }
+
       if (action === 'accept') {
+        if (!isReceiver) return;
         await navigateToIncomingCallIfNeeded(
           {
             callId,
             callType: callType || 'audio',
             callerId,
-            receiverId: receiverId || user?.uid,
+            receiverId: receiverId || user.uid,
             autoAccept: true,
           },
           'callkit-action',
@@ -99,14 +120,29 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (action === 'decline') {
-        markCallTerminal(callId);
-        endCall(callId, 'missed').catch(() => {});
+        if (!isReceiver) return;
+        if (await isCallEndable(callId)) {
+          markCallTerminal(callId);
+          endCall(callId, 'missed').catch(() => {});
+        }
+        return;
+      }
+
+      if (action === 'cancel') {
+        if (!isCaller) return;
+        if (await isCallEndable(callId)) {
+          markCallTerminal(callId);
+          endCall(callId, 'ended').catch(() => {});
+        }
         return;
       }
 
       if (action === 'end') {
-        markCallTerminal(callId);
-        endCall(callId, 'ended').catch(() => {});
+        if (!isReceiver && !isCaller) return;
+        if (await isCallEndable(callId)) {
+          markCallTerminal(callId);
+          endCall(callId, 'ended').catch(() => {});
+        }
       }
     });
 
@@ -119,9 +155,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       logger.debug('📱 [NotificationContext] App state changed:', appState, '->', nextAppState);
       
       if (appState.match(/inactive|background/) && nextAppState === 'active') {
-        logger.debug('📱 [NotificationContext] App came to foreground — re-registering FCM token');
-        void NotificationService.ensurePushNotificationsRegistered({ forceRefresh: true });
-        checkForMissedCalls();
+        if (user?.uid) {
+          logger.debug('📱 [NotificationContext] App came to foreground — re-registering FCM token');
+          void NotificationService.ensurePushNotificationsRegistered({ forceRefresh: true });
+          void NotificationService.processPendingNotificationLaunch();
+          checkForMissedCalls();
+        }
       }
       
       setAppState(nextAppState);
@@ -132,7 +171,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       subscription?.remove();
     };
-  }, [appState, checkForMissedCalls]);
+  }, [appState, checkForMissedCalls, user?.uid]);
 
   // Log provider mount
   useEffect(() => {
@@ -167,22 +206,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           status: callData.status,
         });
 
-        try {
-          if (!callData.delivered) {
-            await markCallDelivered(callId);
-          }
-          await navigateToIncomingCallIfNeeded(
-            {
-              callId,
-              callType: callData.type,
-              callerId: callData.callerId,
-              receiverId: user.uid,
-            },
-            'firestore-listener',
-          );
-        } catch (error: any) {
-          logger.warn('⚠️ [NotificationContext] Error handling incoming call:', error);
-        }
+        await handleIncomingCallDetected(callId, callData, user.uid, 'firestore-listener');
       });
       cleanupRef.current.push(unsubscribeIncomingCalls);
       logger.debug('✅ [NotificationContext] Incoming call listener set up successfully');
@@ -220,6 +244,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           cleanupRef.current.push(unsubscribeNotificationOpened);
 
           await NotificationService.processPendingNotificationLaunch();
+
+          void checkForMissedCalls();
 
           logger.debug('✅ [NotificationContext] Notification handlers set up successfully');
         } else {

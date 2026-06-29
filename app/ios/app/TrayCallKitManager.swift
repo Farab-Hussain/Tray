@@ -10,6 +10,7 @@ final class TrayCallKitManager: NSObject {
   private var callIdByUUID: [UUID: String] = [:]
   private var payloadByCallId: [String: [String: String]] = [:]
   private var answeredCallIds = Set<String>()
+  private var outgoingCallIds = Set<String>()
 
   private override init() {
     super.init()
@@ -21,7 +22,7 @@ final class TrayCallKitManager: NSObject {
     configuration.maximumCallsPerCallGroup = 1
     configuration.supportsVideo = true
     configuration.supportedHandleTypes = [.generic]
-    configuration.includesCallsInRecents = false
+    configuration.includesCallsInRecents = true
     provider = CXProvider(configuration: configuration)
     provider?.setDelegate(self, queue: nil)
   }
@@ -95,6 +96,7 @@ final class TrayCallKitManager: NSObject {
       "callerId": callerId,
       "receiverId": receiverId,
     ]
+    outgoingCallIds.insert(callId)
 
     let handle = CXHandle(type: .generic, value: receiverId.isEmpty ? callId : receiverId)
     let action = CXStartCallAction(call: uuid, handle: handle)
@@ -117,6 +119,9 @@ final class TrayCallKitManager: NSObject {
 
   func reportCallConnected(callId: String) {
     guard let uuid = uuidByCallId[callId] else { return }
+    // CallKit has no separate "incoming connected" API. Apple documents
+    // reportOutgoingCall(with:connectedAt:) for moving a call UUID to the
+    // connected/in-call state after media is established (SpeakerBox pattern).
     provider?.reportOutgoingCall(with: uuid, connectedAt: Date())
   }
 
@@ -144,6 +149,7 @@ final class TrayCallKitManager: NSObject {
     callIdByUUID.removeValue(forKey: uuid)
     payloadByCallId.removeValue(forKey: callId)
     answeredCallIds.remove(callId)
+    outgoingCallIds.remove(callId)
   }
 
   private func payload(for uuid: UUID) -> [String: String] {
@@ -158,6 +164,7 @@ extension TrayCallKitManager: CXProviderDelegate {
     callIdByUUID.removeAll()
     payloadByCallId.removeAll()
     answeredCallIds.removeAll()
+    outgoingCallIds.removeAll()
   }
 
   func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
@@ -190,7 +197,15 @@ extension TrayCallKitManager: CXProviderDelegate {
     let callPayload = payload(for: action.callUUID)
     let callId = callPayload["callId"] ?? ""
     let wasAnswered = answeredCallIds.contains(callId)
-    let actionName = wasAnswered ? "end" : "decline"
+    let isOutgoing = outgoingCallIds.contains(callId)
+    let actionName: String
+    if wasAnswered {
+      actionName = "end"
+    } else if isOutgoing {
+      actionName = "cancel"
+    } else {
+      actionName = "decline"
+    }
 
     TrayVoipStorage.savePendingCall(
       callId: callId,

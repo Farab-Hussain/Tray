@@ -12,6 +12,18 @@ import { getWebAppUrl } from "../utils/webAppUrl";
 
 dotenv.config();
 
+function isDirectPaymentWithoutBooking(
+  bookingId: unknown,
+  consultantId?: string,
+): boolean {
+  if (typeof bookingId === 'string') {
+    if (bookingId.startsWith('CART_') || bookingId.startsWith('COURSE_')) {
+      return true;
+    }
+  }
+  return consultantId === 'MULTIPLE';
+}
+
 export const createPaymentIntent = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
@@ -27,6 +39,49 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
 
     if (studentId && studentId !== user.uid) {
       return res.status(403).json({ error: "studentId must match authenticated user" });
+    }
+
+    const isDirectPayment = isDirectPaymentWithoutBooking(bookingId, consultantId);
+
+    if (isDirectPayment) {
+      if (!amount || typeof amount !== "number" || isNaN(amount)) {
+        return res.status(400).json({ error: "Invalid amount. Amount must be a valid number." });
+      }
+
+      const amountInCents = Math.round(amount * 100);
+      if (amountInCents < 50) {
+        return res.status(400).json({
+          error: "Amount too low. Minimum payment amount is $0.50 (or equivalent in your currency).",
+          minimumAmount: 0.50,
+          providedAmount: amount,
+        });
+      }
+
+      const isCoursePayment =
+        typeof bookingId === 'string' && bookingId.startsWith('COURSE_');
+      const courseIdMatch =
+        isCoursePayment && typeof bookingId === 'string'
+          ? bookingId.match(/^COURSE_([^_]+)_/)
+          : null;
+
+      const paymentIntent = await getStripeClient().paymentIntents.create({
+        amount: amountInCents,
+        currency: currency || "usd",
+        metadata: {
+          bookingId,
+          studentId: user.uid,
+          consultantId: consultantId || (isCoursePayment ? 'COURSE' : 'MULTIPLE'),
+          userId: user.uid,
+          cartPayment: isCoursePayment ? 'false' : 'true',
+          coursePayment: isCoursePayment ? 'true' : 'false',
+          courseId: courseIdMatch?.[1] || '',
+        },
+      });
+
+      return res.status(200).json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      });
     }
 
     const bookingDoc = await db.collection("bookings").doc(bookingId).get();

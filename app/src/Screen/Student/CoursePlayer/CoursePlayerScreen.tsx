@@ -216,14 +216,14 @@ export default function CoursePlayerScreen() {
       });
 
       if (initError) {
-        Alert.alert('Payment Issue', initIssue.message || 'Failed to initialize payment form.');
+        Alert.alert('Payment Issue', initError.message || 'Failed to initialize payment form.');
         return;
       }
 
       const { error: paymentError } = await presentPaymentSheet();
       if (paymentError) {
         if (paymentError.code !== 'Canceled') {
-          Alert.alert('Payment Failed', paymentIssue.message || 'Payment could not be processed.');
+          Alert.alert('Payment Failed', paymentError.message || 'Payment could not be processed.');
         }
         return;
       }
@@ -233,7 +233,7 @@ export default function CoursePlayerScreen() {
       setShowEnrollmentModal(false);
       Alert.alert('Success!', 'Payment completed and enrollment successful.');
     } catch (error: any) {
-      Alert.alert('Issue', issue?.message || 'Failed to complete payment and enrollment');
+      Alert.alert('Issue', error?.message || 'Failed to complete payment and enrollment');
     } finally {
       setIsEnrolling(false);
     }

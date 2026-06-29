@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler, Platform, Alert } from 'react-native';
+import { View, TouchableOpacity, StatusBar, Text, Image, BackHandler, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Phone, PhoneOff, Mic, MicOff, Camera, UserRound } from 'lucide-react-native';
@@ -15,15 +15,38 @@ try {
 import { COLORS } from '../../../constants/core/colors';
 import { callingStyles } from '../../../constants/styles/callingStyles';
 import { createPeer, applyAnswer, addRemoteIce } from '../../../webrtc/peer';
-import { addIceCandidate, answerCall, createCall, endCall, listenCall, listenCandidates, getCallOnce, getExistingCandidates, type CallDocument } from '../../../services/call.service';
+import {
+  addIceCandidate,
+  answerCall,
+  createCall,
+  createCallSession,
+  updateCallOffer,
+  endCall,
+  endOtherRingingCallsForParticipants,
+  listenCall,
+  listenCandidates,
+  getCallOnce,
+  getExistingCandidates,
+  type CallDocument,
+} from '../../../services/call.service';
 import { UserService } from '../../../services/user.service';
 import { getConsultantProfile } from '../../../services/consultantFlow.service';
 import { markCallTerminal } from '../../../services/call-navigation.service';
 import { usesNativeCallUi } from '../../../utils/callUi';
+import { logCallState } from '../../../utils/call-state-logger';
+import { subscribeCallAcceptRequest } from '../../../services/call-accept-events.service';
 import {
-  presentOutgoingCallKit,
   reportCallKitConnected,
+  setVideoCallActiveNative,
+  dismissNativeCallUi,
 } from '../../../services/native-intent.service';
+import {
+  setLocalActiveCall,
+  clearLocalActiveCall,
+} from '../../../services/active-call.service';
+import { useCallConnectionState } from '../../../hooks/useCallConnectionState';
+import { CallConnectionBanner } from '../../../components/calling/CallConnectionBanner';
+import { IncomingCallRingingView } from '../../../components/calling/IncomingCallRingingView';
 import { ensureCallMediaPermissions } from '../../../utils/mediaPermissions';
 import { getMediaStreamRenderURL } from '../../../utils/webrtcStream';
 // Avoid static RTCView import; require dynamically to prevent crashes if pod not installed
@@ -42,6 +65,11 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const [remote, setRemote] = useState<any | null>(null);
   const [otherUser, setOtherUser] = useState<{ name: string; profileImage?: string } | null>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const {
+    connectionUiState,
+    onConnectionStateChange,
+    onIceConnectionStateChange,
+  } = useCallConnectionState();
 
   const pcRef = useRef<any | null>(null);
   const localStreamRef = useRef<any | null>(null);
@@ -49,14 +77,70 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   const iceCandidateQueueRef = useRef<Array<{ senderId: string; candidate: any }>>([]);
   const isMutedRef = useRef<boolean>(false);
   const didResetAfterCallEndRef = useRef(false);
+  const renderDecisionRef = useRef('');
+  const acceptInProgressRef = useRef(false);
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const { callId, isCaller, callerId, receiverId, switchingFromAudio, autoAccept } = route?.params || {};
   const nativeCallUi = usesNativeCallUi();
+
+  useEffect(() => {
+    logCallState({
+      callId,
+      role: isCaller ? 'Caller' : 'Receiver',
+      event: 'screen-mounted',
+      status,
+      screen: 'VideoCallingScreen',
+      isCaller,
+      nativeCallUi,
+    });
+  }, [callId, isCaller, nativeCallUi]);
+
+  useEffect(() => {
+    logCallState({
+      callId,
+      role: isCaller ? 'Caller' : 'Receiver',
+      event: 'local-status-changed',
+      status,
+      screen: 'VideoCallingScreen',
+      isCaller,
+      nativeCallUi,
+    });
+  }, [callId, status, isCaller, nativeCallUi]);
+
+  useEffect(() => {
+    if (!callId) return;
+    if (status === 'ringing' || status === 'active') {
+      setLocalActiveCall(callId, status);
+    } else {
+      clearLocalActiveCall(callId);
+    }
+  }, [callId, status]);
+
+  useEffect(() => {
+    return () => {
+      clearLocalActiveCall(callId);
+    };
+  }, [callId]);
+
+  useEffect(() => {
+    if (status === 'active') {
+      void setVideoCallActiveNative(true);
+    } else {
+      void setVideoCallActiveNative(false);
+    }
+    return () => {
+      void setVideoCallActiveNative(false);
+    };
+  }, [status]);
+
   const resetToHome = React.useCallback(() => {
     if (didResetAfterCallEndRef.current) {
       return;
     }
     didResetAfterCallEndRef.current = true;
     markCallTerminal(callId);
+    clearLocalActiveCall(callId);
     if (nativeCallUi && navigation.canGoBack()) {
       navigation.goBack();
       return;
@@ -110,6 +194,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       // Use 'missed' only when receiver declines during ringing.
       const nextStatus = !isCaller && status === 'ringing' ? 'missed' : 'ended';
       setStatus(nextStatus);
+      clearLocalActiveCall(callId);
+      markCallTerminal(callId);
       await endCall(callId, nextStatus);
       if (__DEV__) {
         console.log('📞 [VideoHandleHangup] Ending call with status:', nextStatus)
@@ -177,13 +263,22 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
       return;
     }
     
-    // Prevent multiple simultaneous accepts
-    if (pcRef.current || status !== 'ringing') {
+    // Prevent duplicate accept
+    if (pcRef.current) {
       if (__DEV__) {
-        console.warn('⚠️ [VideoHandleAccept] Call already being processed - ignoring duplicate accept')
+        console.warn('⚠️ [VideoHandleAccept] Peer connection already exists - ignoring duplicate accept');
       };
       return;
     }
+
+    if (statusRef.current === 'ended' || statusRef.current === 'missed') {
+      if (__DEV__) {
+        console.warn('⚠️ [VideoHandleAccept] Call already ended:', statusRef.current);
+      };
+      return;
+    }
+
+    acceptInProgressRef.current = true;
     
     // Create peer connection and answer the call
     try {
@@ -213,12 +308,16 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         return;
       }
 
+      void dismissNativeCallUi(callId).catch(() => {});
+
             if (__DEV__) {
         console.log('📞 Creating peer connection for receiver...')
       };
       const { pc, localDescription } = await createPeer({
         isCaller: false,
         audioOnly: false,
+        onConnectionStateChange,
+        onIceConnectionStateChange,
         onLocalStream: (stream) => {
                     if (__DEV__) {
             console.log('✅ Local stream created for receiver')
@@ -531,22 +630,57 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             if (__DEV__) {
         console.error('❌ Error accepting call:', error)
       };
-      await endCall(callId, 'missed').catch(() => {});
-      resetToHome();
+      Alert.alert(
+        'Call Failed',
+        'Unable to accept call. Please try again.',
+        [{ text: 'OK' }],
+      );
+    } finally {
+      acceptInProgressRef.current = false;
     }
   };
 
   const autoAcceptTriggeredRef = useRef(false);
+  const handleAcceptRef = useRef(handleAccept);
+  handleAcceptRef.current = handleAccept;
+
+  useEffect(() => {
+    return subscribeCallAcceptRequest((id) => {
+      if (id !== callId || isCaller) {
+        return;
+      }
+      if (acceptInProgressRef.current || pcRef.current) {
+        return;
+      }
+      logCallState({
+        callId,
+        role: 'Receiver',
+        event: 'callkit-accept-event',
+        status: statusRef.current,
+        screen: 'VideoCallingScreen',
+        isCaller: false,
+        nativeCallUi,
+      });
+      void handleAcceptRef.current();
+    });
+  }, [callId, isCaller, nativeCallUi]);
+
   useEffect(() => {
     if (!autoAccept || isCaller || autoAcceptTriggeredRef.current || !callId) {
       return;
     }
     autoAcceptTriggeredRef.current = true;
-    const timer = setTimeout(() => {
-      handleAccept();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [autoAccept, isCaller, callId]);
+    logCallState({
+      callId,
+      role: 'Receiver',
+      event: 'autoAccept-trigger',
+      status,
+      screen: 'VideoCallingScreen',
+      isCaller: false,
+      nativeCallUi,
+    });
+    void handleAcceptRef.current();
+  }, [autoAccept, isCaller, callId, nativeCallUi, status]);
 
   // Fetch other user's profile data
   useEffect(() => {
@@ -938,6 +1072,20 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             }
           }
         }
+
+        if (!switchingFromAudio) {
+          try {
+            await endOtherRingingCallsForParticipants(callerId, callId);
+          } catch (error) {
+            if (__DEV__) {
+              console.warn('⚠️ [VideoCaller] Could not clear prior ringing calls:', error);
+            }
+          }
+          if (__DEV__) {
+            console.log('📞 Initializing video call session before peer connection...');
+          }
+          await createCallSession(callId, { callerId, receiverId, type: 'video' });
+        }
         
                 if (__DEV__) {
           console.log('📞 Caller: Creating video peer connection...')
@@ -945,6 +1093,8 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         const { pc, localDescription } = await createPeer({
           isCaller: true,
           audioOnly: false,
+          onConnectionStateChange,
+          onIceConnectionStateChange,
           onLocalStream: (stream) => {
                         if (__DEV__) {
               console.log('✅ Local stream created for caller')
@@ -1163,11 +1313,14 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
                 }
               });
             } else {
-              // Call is still ringing - create video call (will overwrite audio call)
+              // Call is still ringing - update offer for video
                             if (__DEV__) {
-                console.log('📞 Creating video call document (replacing audio call)...')
+                console.log('📞 Updating ringing call to video offer...')
               };
-              await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
+              await updateCallOffer(callId, localDescription);
+              const { updateDoc, doc } = require('firebase/firestore');
+              const { firestore } = require('../../../lib/firebase');
+              await updateDoc(doc(firestore, 'calls', callId), { type: 'video' });
             }
           } else {
             // Call document doesn't exist - create new video call
@@ -1178,9 +1331,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           }
         } else {
                     if (__DEV__) {
-            console.log('📞 Creating video call document...')
+            console.log('📞 Saving video call offer...')
           };
-          await createCall(callId, { callerId, receiverId, type: 'video', offer: localDescription });
+          await updateCallOffer(callId, localDescription);
         }
         
         // Send push notification to receiver
@@ -1193,6 +1346,22 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
             callType: 'video',
           });
           
+          if (response.data?.busy) {
+            Alert.alert(
+              'Cannot place call',
+              response.data?.role === 'receiver'
+                ? 'This user is busy on another call.'
+                : 'You are already in a call.',
+            );
+            statusRef.current = 'ended';
+            setStatus('ended');
+            clearLocalActiveCall(callId);
+            markCallTerminal(callId);
+            await endCall(callId, 'ended');
+            resetToHome();
+            return;
+          }
+
           if (response.data?.offline) {
             if (__DEV__) {
               console.log('⚠️ Receiver appears to be offline (no push tokens)');
@@ -1203,7 +1372,23 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
               console.log('✅ Call notification sent to receiver');
             }
           }
-        } catch (error) {
+        } catch (error: any) {
+          if (error?.response?.status === 409) {
+            const role = error?.response?.data?.role;
+            Alert.alert(
+              'Cannot place call',
+              role === 'receiver'
+                ? 'This user is busy on another call.'
+                : 'You are already in a call.',
+            );
+            statusRef.current = 'ended';
+            setStatus('ended');
+            clearLocalActiveCall(callId);
+            markCallTerminal(callId);
+            await endCall(callId, 'ended');
+            resetToHome();
+            return;
+          }
                     if (__DEV__) {
             console.warn('⚠️ Failed to send call notification:', error)
           };
@@ -1212,16 +1397,30 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         let lastAnswerSdp: string | null = null;
         unsubCall = listenCall(callId, async (data) => {
           const callStatus = data.status;
+          const nextStatus =
+            callStatus === 'ringing' && data.answer ? 'active' : callStatus;
+          logCallState({
+            callId,
+            role: 'Caller',
+            event: 'firestore-listener',
+            status: nextStatus,
+            screen: 'VideoCallingScreen',
+            isCaller: true,
+            nativeCallUi,
+            extra: {
+              firestoreStatus: callStatus,
+              delivered: data.delivered,
+              hasAnswer: Boolean(data.answer),
+            },
+          });
           setStatus((prevStatus) => {
-            // Only update if status actually changed to avoid unnecessary re-renders
-            if (prevStatus !== callStatus) {
-              return callStatus;
+            if (prevStatus !== nextStatus) {
+              return nextStatus;
             }
             return prevStatus;
           });
           
-          // Only apply answer if call is still active (not ended/missed) and peer connection exists
-          if (data.answer && pcRef.current && callStatus !== 'ended' && callStatus !== 'missed') {
+          if (data.answer && pcRef.current && nextStatus !== 'ended' && nextStatus !== 'missed') {
             // Check if answer was already applied (prevent duplicate application)
             const currentState = pcRef.current.signalingState;
             if (currentState === 'stable' || currentState === 'have-remote-answer') {
@@ -1374,6 +1573,9 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
           }
           
           if (callStatus === 'ended' || callStatus === 'missed') {
+            if (callStatus === 'missed' && data.endReason === 'busy') {
+              Alert.alert('User busy', 'The person you are calling is on another call.');
+            }
             resetToHome();
           }
         });
@@ -1381,6 +1583,16 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         // Receiver: Wait for user to accept/decline - don't auto-answer
         let lastOfferSdp: string | null = null;
         unsubCall = listenCall(callId, async (data) => {
+          logCallState({
+            callId,
+            role: 'Receiver',
+            event: 'firestore-listener',
+            status: data.status,
+            screen: 'VideoCallingScreen',
+            isCaller: false,
+            nativeCallUi,
+            extra: { delivered: data.delivered, hasAnswer: Boolean(data.answer) },
+          });
           if (data.delivered) {
             setIsDelivered(true);
             setIsReceiverOffline(false);
@@ -1700,40 +1912,146 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
   }, [remote, status]); // Removed remoteTrackCount and remoteVideoTrackIds from dependencies
 
   useEffect(() => {
-    if (!nativeCallUi || !isCaller || !callId || !callerId || !receiverId) {
-      return;
-    }
-    void presentOutgoingCallKit({
-      callId,
-      callType: 'video',
-      callerId,
-      receiverId,
-      calleeName: otherUser?.name,
-    });
-  }, [nativeCallUi, isCaller, callId, callerId, receiverId, otherUser?.name]);
-
-  useEffect(() => {
-    if (!nativeCallUi || !callId || status !== 'active') {
+    if (!nativeCallUi || isCaller || !callId || status !== 'active') {
       return;
     }
     void reportCallKitConnected(callId);
-  }, [nativeCallUi, callId, status]);
+  }, [nativeCallUi, isCaller, callId, status]);
 
-  if (nativeCallUi) {
+  if (nativeCallUi && !isCaller && status === 'ringing') {
+    if (renderDecisionRef.current !== 'receiver-ringing-null') {
+      renderDecisionRef.current = 'receiver-ringing-null';
+      logCallState({
+        callId,
+        role: 'Render',
+        event: 'RETURN_NULL: nativeCallUi && !isCaller && status===ringing',
+        status,
+        screen: 'VideoCallingScreen',
+        isCaller,
+        nativeCallUi,
+      });
+    }
     return null;
+  }
+
+  if (!isCaller && status === 'ringing') {
+    if (renderDecisionRef.current !== 'receiver-ringing-ui') {
+      renderDecisionRef.current = 'receiver-ringing-ui';
+      logCallState({
+        callId,
+        role: 'Render',
+        event: 'RENDER: receiver incoming ringing UI',
+        status,
+        screen: 'VideoCallingScreen',
+        isCaller,
+        nativeCallUi,
+      });
+    }
+    return (
+      <IncomingCallRingingView
+        callMode="video"
+        displayName={otherUser?.name}
+        profileImage={otherUser?.profileImage}
+        avatarLoadFailed={avatarLoadFailed}
+        onAvatarError={() => setAvatarLoadFailed(true)}
+        isLoading={!otherUser}
+        onAccept={handleAccept}
+        onDecline={handleHangup}
+      />
+    );
+  }
+
+  if (isCaller && status === 'ringing') {
+    if (renderDecisionRef.current !== 'caller-ringing-ui') {
+      renderDecisionRef.current = 'caller-ringing-ui';
+      logCallState({
+        callId,
+        role: 'Render',
+        event: 'RENDER: caller outgoing ringing UI',
+        status,
+        screen: 'VideoCallingScreen',
+        isCaller,
+        nativeCallUi,
+      });
+    }
+    return (
+      <View style={[callingStyles.videoCallContainer, { backgroundColor: COLORS.black }]}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.black} />
+        <View style={[callingStyles.mainVideoFeed, { backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }]}>
+          {otherUser && (
+            <>
+              {!!otherUser.profileImage && !avatarLoadFailed ? (
+                <Image
+                  source={{ uri: otherUser.profileImage }}
+                  style={{ width: 120, height: 120, borderRadius: 60 }}
+                  onError={() => setAvatarLoadFailed(true)}
+                />
+              ) : (
+                <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: '#A5AFBD', alignItems: 'center', justifyContent: 'center' }}>
+                  <UserRound size={54} color={COLORS.gray} />
+                </View>
+              )}
+              <Text style={{ color: COLORS.white, marginTop: 16, fontSize: 18, fontWeight: '600' }}>
+                {otherUser.name}
+              </Text>
+              <Text style={{ color: COLORS.white, marginTop: 8, fontSize: 16 }}>
+                {isDelivered ? 'Ringing…' : isReceiverOffline ? 'User may be offline…' : 'Calling…'}
+              </Text>
+            </>
+          )}
+        </View>
+        <View style={[callingStyles.bottomControls, { bottom: insets.bottom + 20 }]}>
+          <TouchableOpacity
+            style={[callingStyles.controlButton, callingStyles.videoHangupButton]}
+            onPress={handleHangup}
+          >
+            <PhoneOff size={28} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (status !== 'active') {
+    if (renderDecisionRef.current !== `not-active-null-${status}`) {
+      renderDecisionRef.current = `not-active-null-${status}`;
+      logCallState({
+        callId,
+        role: 'Render',
+        event: `RETURN_NULL: status!==active (status=${status})`,
+        status,
+        screen: 'VideoCallingScreen',
+        isCaller,
+        nativeCallUi,
+      });
+    }
+    return null;
+  }
+
+  if (renderDecisionRef.current !== 'active-ui') {
+    renderDecisionRef.current = 'active-ui';
+    logCallState({
+      callId,
+      role: 'Render',
+      event: 'RENDER: active in-call UI',
+      status,
+      screen: 'VideoCallingScreen',
+      isCaller,
+      nativeCallUi,
+    });
   }
 
   return (
     <View style={callingStyles.videoCallContainer}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.black} />
+      <CallConnectionBanner state={connectionUiState} topInset={insets.top} />
 
-      {/* Main video feed (full screen) - shows remote by default, local when swapped */}
       {shouldShowMainVideo && mainVideoStream ? (
-        <RTCViewRef.current 
+        <RTCViewRef.current
           key={`main-${getMediaStreamRenderURL(mainVideoStream) || 'main'}-${isSwapped ? 'local' : 'remote'}-${mainVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
-          streamURL={getMediaStreamRenderURL(mainVideoStream)} 
-          style={callingStyles.mainVideoFeed} 
-          objectFit="cover" 
+          streamURL={getMediaStreamRenderURL(mainVideoStream)}
+          style={callingStyles.mainVideoFeed}
+          objectFit="cover"
           mirror={mainVideoStream === local && facingMode === 'user'}
           zOrder={0}
         />
@@ -1769,102 +2087,55 @@ const VideoCallingScreen = ({ navigation, route }: any) => {
         </View>
       )}
 
-      {/* User info overlay - only show when no remote video */}
       {!remote && otherUser && (
         <View style={{ position: 'absolute', top: insets.top + 20, left: 20, right: 20, zIndex: 5 }}>
           <Text style={{ color: COLORS.white, fontSize: 24, fontWeight: 'bold' }}>
             {otherUser.name}
           </Text>
           <Text style={{ color: COLORS.white, fontSize: 14, marginTop: 4 }}>
-            {status === 'active' ? 'In Call' : 
-             status === 'ringing' ? (
-               isReceiverOffline ? 'User is offline (Calling...)' : 
-               isDelivered ? 'Ringing...' : 'Calling...'
-             ) : status}
+            In Call
           </Text>
         </View>
       )}
 
-      {/* Inset video preview (small) - shows local by default, remote when swapped */}
-      {/* Only show when call is active and video is enabled */}
       {shouldShowInsetVideo && (
         <TouchableOpacity
-          style={[
-            callingStyles.insetVideoContainer,
-            { bottom: insets.bottom + 100 },
-          ]}
+          style={[callingStyles.insetVideoContainer, { bottom: insets.bottom + 100 }]}
           onPress={handleSwap}
           activeOpacity={0.8}
         >
-          <RTCViewRef.current 
+          <RTCViewRef.current
             key={`inset-${getMediaStreamRenderURL(insetVideoStream) || 'inset'}-${isSwapped ? 'remote' : 'local'}-${insetVideoStream === local ? (local?.getVideoTracks().map((t: any) => t.id).join('-') || '') : `${remoteVideoTrackIds.join('-')}-v${streamVersion}`}`}
-            streamURL={getMediaStreamRenderURL(insetVideoStream)} 
-            style={callingStyles.insetVideo} 
-            objectFit="cover" 
+            streamURL={getMediaStreamRenderURL(insetVideoStream)}
+            style={callingStyles.insetVideo}
+            objectFit="cover"
             mirror={insetVideoStream === local && facingMode === 'user'}
             zOrder={1}
           />
         </TouchableOpacity>
       )}
 
-      {/* Call Control Buttons - Bottom */}
-      <View
-        style={[
-          callingStyles.bottomControls,
-          { bottom: insets.bottom + 20 },
-        ]}
-      >
-        {!isCaller && status === 'ringing' ? (
-          // Receiver: Show Accept and Decline buttons
-          <>
-                    <TouchableOpacity
-                      style={[callingStyles.controlButton, callingStyles.videoDeclineButton]}
-                      onPress={handleHangup}
-                    >
-                      <PhoneOff size={32} color={COLORS.white} />
-                    </TouchableOpacity>
-                   <TouchableOpacity
-                     style={[callingStyles.controlButton, callingStyles.videoAcceptButton]}
-                     onPress={handleAccept}
-                   >
-                     <Phone size={32} color={COLORS.white} />
-                   </TouchableOpacity>
-          </>
-        ) : (
-          // Caller or active call: Show normal controls
-          <>
-            {status === 'active' && (
+      <View style={[callingStyles.bottomControls, { bottom: insets.bottom + 20 }]}>
         <TouchableOpacity
           style={callingStyles.controlButton}
-                onPress={handleSwitchCamera}
-                disabled={!isVideoEnabled}
-              >
-                <Camera size={24} color={isVideoEnabled ? COLORS.black : COLORS.gray} />
-              </TouchableOpacity>
-            )}
+          onPress={handleSwitchCamera}
+          disabled={!isVideoEnabled}
+        >
+          <Camera size={24} color={isVideoEnabled ? COLORS.black : COLORS.gray} />
+        </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            callingStyles.controlButton,
-            callingStyles.videoHangupButton,
-          ]}
+          style={[callingStyles.controlButton, callingStyles.videoHangupButton]}
           onPress={handleHangup}
         >
           <PhoneOff size={28} color={COLORS.white} />
         </TouchableOpacity>
-            {status === 'active' && (
-        <TouchableOpacity
-          style={callingStyles.controlButton}
-          onPress={handleMute}
-        >
+        <TouchableOpacity style={callingStyles.controlButton} onPress={handleMute}>
           {isMuted ? (
             <MicOff size={24} color={COLORS.black} />
           ) : (
             <Mic size={24} color={COLORS.black} />
           )}
         </TouchableOpacity>
-            )}
-          </>
-        )}
       </View>
     </View>
   );

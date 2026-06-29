@@ -13,7 +13,37 @@ export const ACCESS_FEE_ROLE_LABELS: Record<AccessFeeRoleKey, string> = {
 export type PlatformAccessReturnTo = {
   screen: string;
   params?: Record<string, unknown>;
+  /** Tab inside MainTabs when the target screen lives in a nested stack (e.g. Services) */
+  tab?: string;
 };
+
+/** Navigate back to a screen that may live inside a nested tab stack. */
+export function navigateToReturnTarget(
+  navigation: {
+    navigate: (screen: string, params?: object) => void;
+    replace?: (screen: string, params?: object) => void;
+  },
+  returnTo: PlatformAccessReturnTo,
+  method: 'replace' | 'navigate' = 'replace',
+): void {
+  const action =
+    method === 'replace' && navigation.replace
+      ? navigation.replace
+      : navigation.navigate;
+
+  if (returnTo.tab) {
+    action('MainTabs', {
+      screen: returnTo.tab,
+      params: {
+        screen: returnTo.screen,
+        params: returnTo.params,
+      },
+    });
+    return;
+  }
+
+  action(returnTo.screen, returnTo.params);
+}
 
 export function getAccessFeeRoleForActiveRole(activeRole: string | null): AccessFeeRoleKey | null {
   if (

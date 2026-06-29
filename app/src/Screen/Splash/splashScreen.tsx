@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { auth } from '../../lib/firebase';
 import { api } from '../../lib/fetcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { resolveColdStartCallLaunch, hasColdStartCallIntent } from '../../services/cold-start-call.service';
 // import { getConsultantApplications } from '../services/consultantFlow.service';
 
 const SplashScreen = ({ navigation }: any) => {
@@ -20,8 +21,12 @@ const SplashScreen = ({ navigation }: any) => {
         return;
       }
 
-      // Minimum splash display time for better UX
-      const minSplashTime = Platform.OS === 'android' ? 2000 : 2500;
+      const coldStartPending = await hasColdStartCallIntent();
+      const minSplashTime = coldStartPending
+        ? 0
+        : Platform.OS === 'android'
+          ? 800
+          : 2500;
       const startTime = Date.now();
 
       try {
@@ -132,6 +137,19 @@ const SplashScreen = ({ navigation }: any) => {
                 }
               });
             }, remainingTime);
+            return;
+          }
+
+          // Email IS verified — cold-start incoming call goes directly to call screen (skip home + delay)
+          const coldStartCall = await resolveColdStartCallLaunch();
+          if (coldStartCall) {
+            if (__DEV__) {
+              console.log('SplashScreen - Cold start call launch:', coldStartCall.screen);
+            }
+            navigation.replace('Screen', {
+              screen: coldStartCall.screen,
+              params: coldStartCall.params,
+            });
             return;
           }
 

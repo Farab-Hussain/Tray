@@ -1,10 +1,11 @@
+import { Platform } from 'react-native';
 import { navigate } from '../navigator/navigationRef';
 import { logger } from '../utils/logger';
 import {
+  handleCallNotificationByStatus,
   markCallTerminal,
-  navigateToIncomingCallIfNeeded,
 } from './call-navigation.service';
-import { endCall } from './call.service';
+import { endCall, isCallEndable } from './call.service';
 
 type NotificationData = Record<string, string | undefined>;
 
@@ -25,20 +26,26 @@ export const handleNotificationOpen = async (
     const receiverId = messageData.receiverId || messageData.userId;
 
     if (action === 'decline' && callId) {
-      markCallTerminal(callId);
-      endCall(callId, 'missed').catch(() => {});
+      if (await isCallEndable(callId)) {
+        markCallTerminal(callId);
+        endCall(callId, 'missed').catch(() => {});
+      }
       return;
     }
 
-    await navigateToIncomingCallIfNeeded(
+    const explicitAccept =
+      action === 'accept' && Platform.OS === 'android';
+
+    await handleCallNotificationByStatus(
       {
         callId,
         callType,
         callerId,
         receiverId,
-        autoAccept: action === 'accept',
+        callerName: messageData.callerName,
       },
-      action === 'accept' ? 'notification-action-accept' : 'notification-open',
+      explicitAccept ? 'notification-action-accept' : 'notification-open',
+      { explicitAccept },
     );
     return;
   }

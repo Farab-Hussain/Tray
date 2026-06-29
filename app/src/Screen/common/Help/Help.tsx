@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import { screenStyles } from '../../../constants/styles/screenStyles';
 import ScreenHeader from '../../../components/shared/ScreenHeader';
@@ -19,6 +20,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { SupportService } from '../../../services/support.service';
 import { helpStyles } from '../../../constants/styles/helpStyles';
 import { AIService } from '../../../services/ai.service';
+import { LEGAL_URLS } from '../../../constants/core/legal';
 
 const SUPPORT_EMAIL = 'umi342606@gmail.com';
 const INITIAL_AI_MESSAGES = [
@@ -314,6 +316,30 @@ ${transcript}`,
               <View style={styles.contactContent}>
                 <Text style={styles.contactTitle}>AI Prompt Studio</Text>
                 <Text style={styles.responseTime}>Test prompts in a multi-turn chat flow</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Legal</Text>
+            <TouchableOpacity
+              style={styles.emailCard}
+              activeOpacity={0.85}
+              onPress={() => Linking.openURL(LEGAL_URLS.privacyPolicy)}
+            >
+              <View style={styles.contactContent}>
+                <Text style={styles.contactTitle}>Privacy Policy</Text>
+                <Text style={styles.responseTime}>How we collect and use your data</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.emailCard}
+              activeOpacity={0.85}
+              onPress={() => Linking.openURL(LEGAL_URLS.termsOfService)}
+            >
+              <View style={styles.contactContent}>
+                <Text style={styles.contactTitle}>Terms of Service</Text>
+                <Text style={styles.responseTime}>Rules for using Tray</Text>
               </View>
             </TouchableOpacity>
           </View>

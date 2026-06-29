@@ -24,6 +24,10 @@ import type { Message } from '../../../types/chatTypes';
 import { Modal, Alert } from 'react-native';
 import ProfileAvatar from '../../../components/ui/ProfileAvatar';
 import { setActiveChatId } from '../../../services/active-chat.service';
+import { ref, onValue } from 'firebase/database';
+import { database } from '../../../lib/firebase';
+import { startOutgoingCall } from '../../../services/call-navigation.service';
+import { resolveUserDisplayName } from '../../../utils/displayName';
 
 const ChatScreen = ({ navigation, route }: any) => {
   const [message, setMessage] = useState('');
@@ -32,7 +36,7 @@ const ChatScreen = ({ navigation, route }: any) => {
   const isSendingRef = useRef(false); // Ref-based lock to prevent race conditions
   const [otherUserName, setOtherUserName] = useState<string>('');
   const [otherUserAvatar, setOtherUserAvatar] = useState<string | null>(null);
-  const [otherUserTitle, setOtherUserTitle] = useState<string>('User');
+  const [otherUserTitle, setOtherUserTitle] = useState<string>('Student');
   const [otherUserRole, setOtherUserRole] = useState<'student' | 'consultant' | 'recruiter' | string>('student');
   const flatListRef = useRef<FlatList>(null);
   const textInputRef = useRef<TextInput>(null);
@@ -203,9 +207,6 @@ const ChatScreen = ({ navigation, route }: any) => {
     let wasOffline = false;
 
     try {
-      // Use Firebase's connection state listener
-      const { ref, onValue, off } = require('firebase/database');
-      const { database } = require('../../lib/firebase');
       const connectedRef = ref(database, '.info/connected');
       
       connectionUnsubscribe = onValue(connectedRef, async (snapshot: any) => {
@@ -313,7 +314,13 @@ const ChatScreen = ({ navigation, route }: any) => {
 
           // If we found consultant data, use it
           if (consultantData?.personalInfo) {
-            setOtherUserName(consultantData.personalInfo.fullName || consultantFromParams?.name || 'User');
+            setOtherUserName(
+              resolveUserDisplayName({
+                name: consultantData.personalInfo.fullName,
+                role: 'consultant',
+                uid: otherUserId,
+              }, otherUserId) || consultantFromParams?.name || 'Consultant',
+            );
             setOtherUserAvatar(
               extractAvatarUrl(consultantData.personalInfo.profileImage) ||
               extractAvatarUrl(consultantFromParams?.avatar)
@@ -327,12 +334,22 @@ const ChatScreen = ({ navigation, route }: any) => {
                             if (__DEV__) {
                 console.log('📥 [ChatScreen] Fetched user data:', userData)
               };
-              setOtherUserName(userData.name || consultantFromParams?.name || 'User');
+              setOtherUserName(
+                resolveUserDisplayName(userData, otherUserId) ||
+                  consultantFromParams?.name ||
+                  'User',
+              );
               setOtherUserAvatar(
                 extractAvatarUrl(userData.profileImage || userData.avatarUrl) ||
                 extractAvatarUrl(consultantFromParams?.avatar)
               );
-              setOtherUserTitle(userData.role || consultantFromParams?.title || 'User');
+              setOtherUserTitle(
+                userData.role === 'student'
+                  ? 'Student'
+                  : userData.role === 'consultant'
+                    ? 'Consultant'
+                    : consultantFromParams?.title || 'User',
+              );
               setOtherUserRole(userData.role || consultantFromParams?.role || 'student');
             } else if (consultantFromParams) {
               setOtherUserName(consultantFromParams.name || 'User');
@@ -440,22 +457,24 @@ const ChatScreen = ({ navigation, route }: any) => {
   const handleCall = () => {
     if (!chatId || !userId || !otherUserId) return;
     const callId = `${chatId}-${Date.now()}`;
-    navigation.navigate('CallingScreen', {
+    void startOutgoingCall({
       callId,
-      isCaller: true,
+      callType: 'audio',
       callerId: userId,
       receiverId: otherUserId,
+      calleeName: otherUserName || undefined,
     });
   };
 
   const handleVideoCall = () => {
     if (!chatId || !userId || !otherUserId) return;
     const callId = `${chatId}-${Date.now()}`;
-    navigation.navigate('VideoCallingScreen', {
+    void startOutgoingCall({
       callId,
-      isCaller: true,
+      callType: 'video',
       callerId: userId,
       receiverId: otherUserId,
+      calleeName: otherUserName || undefined,
     });
   };
 

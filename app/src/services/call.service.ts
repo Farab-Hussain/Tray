@@ -1,8 +1,10 @@
 import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc, serverTimestamp, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 import { logger } from '../utils/logger';
+import { logCallState } from '../utils/call-state-logger';
 
 export type CallStatus = 'ringing' | 'active' | 'ended' | 'missed';
+export type CallEndReason = 'busy' | 'timeout' | 'declined' | 'normal';
 
 export interface CallDocument {
   callerId: string;
@@ -14,6 +16,7 @@ export interface CallDocument {
   answer?: any;
   startedAt: any;
   endedAt?: any;
+  endReason?: CallEndReason;
 }
 
 export const createCall = async (callId: string, payload: Omit<CallDocument, 'status' | 'startedAt'> & { offer: any }) => {
@@ -27,6 +30,30 @@ export const createCall = async (callId: string, payload: Omit<CallDocument, 'st
     startedAt: serverTimestamp(),
   } as CallDocument);
   return ref;
+};
+
+/** Create ringing call doc before WebRTC offer is ready (so ICE candidates can be written). */
+export const createCallSession = async (
+  callId: string,
+  payload: Pick<CallDocument, 'callerId' | 'receiverId' | 'type'>,
+) => {
+  const ref = doc(firestore, 'calls', callId);
+  await setDoc(ref, {
+    callerId: payload.callerId,
+    receiverId: payload.receiverId,
+    type: payload.type,
+    status: 'ringing',
+    startedAt: serverTimestamp(),
+  });
+  return ref;
+};
+
+export const updateCallOffer = async (callId: string, offer: any) => {
+  const ref = doc(firestore, 'calls', callId);
+  const serialized = offer?.toJSON
+    ? offer.toJSON()
+    : { type: offer?.type, sdp: offer?.sdp };
+  await updateDoc(ref, { offer: serialized });
 };
 
 export const getCallOnce = async (callId: string) => {
@@ -48,12 +75,40 @@ export const markCallDelivered = async (callId: string) => {
   }
 };
 
+export const isCallEndable = async (callId: string): Promise<boolean> => {
+  try {
+    const callDoc = await getCallOnce(callId);
+    if (!callDoc.exists()) {
+      return false;
+    }
+    const currentStatus = (callDoc.data() as CallDocument)?.status;
+    return currentStatus === 'ringing' || currentStatus === 'active';
+  } catch {
+    return false;
+  }
+};
+
 export const endCall = async (
   callId: string,
   status: CallStatus = 'ended',
   endedBy?: string,
+  endReason?: CallEndReason,
 ) => {
   const ref = doc(firestore, 'calls', callId);
+  const callDoc = await getCallOnce(callId);
+  if (!callDoc.exists()) {
+    logger.warn('⚠️ [endCall] Call document not found:', callId);
+    return;
+  }
+
+  const currentStatus = (callDoc.data() as CallDocument)?.status;
+  if (currentStatus === 'ended' || currentStatus === 'missed') {
+    return;
+  }
+  if (currentStatus !== 'ringing' && currentStatus !== 'active') {
+    return;
+  }
+
   await setDoc(
     ref,
     {
@@ -61,26 +116,111 @@ export const endCall = async (
       endedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       ...(endedBy ? { endedBy } : {}),
+      ...(endReason ? { endReason } : {}),
     },
     { merge: true },
   );
 };
 
+/** Receiver declines an incoming call because they are already in another call. */
+export const rejectCallAsBusy = async (callId: string, endedBy?: string) => {
+  await endCall(callId, 'missed', endedBy, 'busy');
+};
+
+/**
+ * End other ringing calls for the current user before starting a new outbound call.
+ * Only queries the authenticated user's calls (Firestore rules do not allow listing others').
+ */
+export const endOtherRingingCallsForParticipants = async (
+  currentUserId: string,
+  exceptCallId: string,
+): Promise<void> => {
+  if (!currentUserId) return;
+
+  const callsRef = collection(firestore, 'calls');
+  const endedIds = new Set<string>();
+  const queries = [
+    query(
+      callsRef,
+      where('callerId', '==', currentUserId),
+      where('status', '==', 'ringing'),
+    ),
+    query(
+      callsRef,
+      where('receiverId', '==', currentUserId),
+      where('status', '==', 'ringing'),
+    ),
+  ];
+
+  for (const q of queries) {
+    try {
+      const snap = await getDocs(q);
+      for (const docSnap of snap.docs) {
+        if (docSnap.id === exceptCallId || endedIds.has(docSnap.id)) continue;
+        endedIds.add(docSnap.id);
+        try {
+          await endCall(docSnap.id, 'ended', currentUserId);
+        } catch (error) {
+          logger.warn('⚠️ [endOtherRingingCalls] Failed to end call:', docSnap.id, error);
+        }
+      }
+    } catch (error) {
+      logger.warn('⚠️ [endOtherRingingCalls] Query failed:', error);
+    }
+  }
+};
+
+export const getRecentMissedCallsForUser = async (receiverId: string) => {
+  const callsRef = collection(firestore, 'calls');
+  const q = query(
+    callsRef,
+    where('receiverId', '==', receiverId),
+    where('status', '==', 'missed'),
+  );
+  const snapshot = await getDocs(q);
+  const results: Array<{ callId: string; data: CallDocument }> = [];
+  snapshot.forEach(docSnap => {
+    results.push({ callId: docSnap.id, data: docSnap.data() as CallDocument });
+  });
+  return results;
+};
+
 export const addIceCandidate = async (callId: string, senderId: string, candidate: any) => {
-  const ref = collection(firestore, 'calls', callId, 'candidates');
-  // Serialize RTCIceCandidate to plain object for Firestore
-  const candidateData = candidate ? {
-    candidate: candidate.candidate || candidate.toString(),
-    sdpMLineIndex: candidate.sdpMLineIndex ?? null,
-    sdpMid: candidate.sdpMid ?? null,
-  } : null;
-  await addDoc(ref, { senderId, candidate: candidateData, createdAt: serverTimestamp() });
+  try {
+    const ref = collection(firestore, 'calls', callId, 'candidates');
+    const candidateData = candidate
+      ? {
+          candidate: candidate.candidate || candidate.toString(),
+          sdpMLineIndex: candidate.sdpMLineIndex ?? null,
+          sdpMid: candidate.sdpMid ?? null,
+        }
+      : null;
+    await addDoc(ref, { senderId, candidate: candidateData, createdAt: serverTimestamp() });
+  } catch (error) {
+    logger.warn('⚠️ [addIceCandidate] Failed to write candidate:', error);
+  }
 };
 
 export const listenCall = (callId: string, cb: (data: CallDocument) => void) => {
   const ref = doc(firestore, 'calls', callId);
   return onSnapshot(ref, (snap) => {
-    if (snap.exists()) cb(snap.data() as CallDocument);
+    if (snap.exists()) {
+      const data = snap.data() as CallDocument;
+      logCallState({
+        callId,
+        role: 'Firestore',
+        event: 'document-snapshot',
+        status: data.status,
+        extra: {
+          callerId: data.callerId,
+          receiverId: data.receiverId,
+          delivered: data.delivered,
+          hasOffer: Boolean(data.offer),
+          hasAnswer: Boolean(data.answer),
+        },
+      });
+      cb(data);
+    }
   });
 };
 
@@ -120,15 +260,21 @@ export const listenIncomingCalls = (receiverId: string, cb: (callId: string, cal
   let isFirstSnapshot = true;
   let pollInterval: any = null;
   
+  const polledCallIds = new Set<string>();
+
   // Set up polling as fallback if listener fails
   const startPolling = () => {
     logger.debug('📞 [listenIncomingCalls] Starting polling fallback...');
     pollInterval = setInterval(async () => {
       try {
         const snapshot = await getDocs(q);
-        snapshot.forEach((doc) => {
-          const callData = doc.data() as CallDocument;
-          const callId = doc.id;
+        snapshot.forEach((docSnap) => {
+          const callData = docSnap.data() as CallDocument;
+          const callId = docSnap.id;
+          if (polledCallIds.has(callId) || callData.status !== 'ringing') {
+            return;
+          }
+          polledCallIds.add(callId);
           logger.debug('📞 [Polling] Found ringing call:', callId);
           cb(callId, callData);
         });

@@ -48,6 +48,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
   }
 
   func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    let userInfo = notification.request.content.userInfo
+    if isCallNotification(userInfo) {
+      completionHandler([])
+      return
+    }
     completionHandler([.banner, .sound, .badge])
   }
 
@@ -108,6 +113,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     let receiverId = stringValue(dict["receiverId"]) ?? ""
     let callerName = stringValue(dict["callerName"]) ?? "Incoming Call"
 
+    // App is open — use in-app CallingScreen instead of system CallKit UI.
+    if UIApplication.shared.applicationState == .active {
+      TrayVoipStorage.savePendingCall(
+        callId: callId,
+        callType: callType,
+        callerId: callerId,
+        receiverId: receiverId,
+        action: "open"
+      )
+      completion?()
+      return
+    }
+
     TrayCallKitManager.shared.reportIncomingCall(
       callId: callId,
       callType: callType,
@@ -143,6 +161,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         action: "open"
       )
     }
+  }
+
+  private func isCallNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
+    if stringValue(userInfo["type"]) == "call" { return true }
+    if stringValue(userInfo["callId"]) != nil { return true }
+    if let nested = userInfo["data"] as? [String: Any] {
+      if stringValue(nested["type"]) == "call" { return true }
+      if stringValue(nested["callId"]) != nil { return true }
+    }
+    return false
   }
 
   private func stringValue(_ value: Any?) -> String? {

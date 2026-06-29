@@ -23,6 +23,7 @@ import { api } from '../../lib/fetcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { validatePassword, PasswordValidation } from '../../utils/passwordValidation';
 import { useSocialLogin } from '../../hooks/useSocialLogin';
+import LegalLinks from '../../components/ui/LegalLinks';
 
 
 const Register = ({ navigation, route }: any) => {
@@ -550,6 +551,8 @@ const Register = ({ navigation, route }: any) => {
                 </TouchableOpacity>
               )}
             </View>
+
+            <LegalLinks style={{ marginBottom: 12, paddingHorizontal: 8 }} />
 
             <Text style={authStyles.footer}>
               Already have an account?{' '}

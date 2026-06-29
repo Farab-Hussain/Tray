@@ -3,10 +3,11 @@ import { api } from '../lib/fetcher';
 import { logger } from '../utils/logger';
 import { secureTokenStorage } from '../utils/secureStorage';
 import {
+  handleCallNotificationByStatus,
   markCallTerminal,
-  navigateToIncomingCallIfNeeded,
 } from './call-navigation.service';
-import { endCall } from './call.service';
+import { endCall, isCallEndable } from './call.service';
+import { handleIncomingCallDetected } from './call-incoming-handler.service';
 import { handleNotificationOpen } from './notification-navigation.service';
 import {
   consumePendingCall,
@@ -14,34 +15,9 @@ import {
   storePendingCall,
   storePendingChat,
 } from './pending-notification.service';
-import { consumeNativePendingCallIntent, getNativeVoipToken } from './native-intent.service';
+import { consumeNativePendingCallIntent, getNativeVoipToken, hasActiveCallKitCall, presentIncomingCallNative } from './native-intent.service';
 
 const FCM_TOKEN_KEY = 'fcm_token';
-
-const showAndroidForegroundChatNotification = async (remoteMessage: any) => {
-  if (Platform.OS !== 'android') {
-    return;
-  }
-
-  const messageData = remoteMessage?.data || {};
-  const chatId = messageData.chatId;
-  if (!chatId) {
-    return;
-  }
-
-  try {
-    await NativeModules.TrayIntentModule?.showChatMessageNotification?.(
-      String(chatId),
-      messageData.senderId ? String(messageData.senderId) : '',
-      String(messageData.senderName || messageData.title || remoteMessage?.notification?.title || 'New message'),
-      String(messageData.messageText || remoteMessage?.notification?.body || 'You have a new message'),
-    );
-  } catch (error: any) {
-    if (__DEV__) {
-      logger.warn('⚠️ [Foreground] Could not show Android chat notification:', error?.message || error);
-    }
-  }
-};
 
 // Safely import React Native Firebase messaging
 let messaging: any = null;
@@ -521,7 +497,7 @@ export const setupForegroundMessageHandler = () => {
   }
 
   const originalWarn = suppressDeprecationWarnings();
-  const unsubscribe = messaging().onMessage(async (remoteMessage: any) => {
+    const unsubscribe = messaging().onMessage(async (remoteMessage: any) => {
     if (__DEV__) {
       logger.debug('📨 [Foreground] Message received while app is open:', remoteMessage);
     }
@@ -533,9 +509,35 @@ export const setupForegroundMessageHandler = () => {
     // Handle incoming call notifications
     if (messageData.type === 'call' || messageData.callId) {
       const callId = messageData.callId;
-      const callType = messageData.callType || 'audio'; // 'audio' or 'video'
+      const callType = messageData.callType || 'audio';
       const callerId = messageData.callerId;
       const receiverId = messageData.receiverId || messageData.userId;
+
+      if (Platform.OS === 'ios') {
+        if (callId && (await hasActiveCallKitCall(callId))) {
+          if (__DEV__) {
+            logger.debug('📞 [Foreground] iOS call FCM ignored — CallKit already active');
+          }
+          return;
+        }
+        if (__DEV__) {
+          logger.debug('📞 [Foreground] iOS VoIP fallback — presenting CallKit from FCM');
+        }
+        try {
+          await presentIncomingCallNative({
+            callId,
+            callType,
+            callerId,
+            receiverId,
+            callerName: messageData.callerName || 'Incoming Call',
+          });
+        } catch (error: any) {
+          if (__DEV__) {
+            logger.error('❌ [Foreground] iOS CallKit fallback failed:', error.message || error);
+          }
+        }
+        return;
+      }
       
             if (__DEV__) {
         logger.debug('📞 [Foreground] Incoming call notification received:', { 
@@ -548,8 +550,15 @@ export const setupForegroundMessageHandler = () => {
       };
       
       try {
-        await navigateToIncomingCallIfNeeded(
-          { callId, callType, callerId, receiverId },
+        await handleIncomingCallDetected(
+          callId,
+          {
+            callerId: callerId || '',
+            receiverId: receiverId || '',
+            type: (callType === 'video' ? 'video' : 'audio') as 'audio' | 'video',
+            status: 'ringing',
+          },
+          receiverId || '',
           'foreground-fcm',
         );
       } catch (error: any) {
@@ -558,7 +567,7 @@ export const setupForegroundMessageHandler = () => {
         };
       }
       
-      return; // Don't process further for call notifications
+      return;
     }
     
     // For foreground messages:
@@ -576,8 +585,6 @@ export const setupForegroundMessageHandler = () => {
             if (__DEV__) {
         logger.debug('💬 [Foreground] Message text:', messageData.messageText || notification.body)
       };
-
-      await showAndroidForegroundChatNotification(remoteMessage);
       
       // The chat context will handle refreshing chats when messages arrive
       // No need to manually refresh here as the real-time listeners will pick it up
@@ -655,26 +662,51 @@ export const processPendingNotificationLaunch = async (): Promise<void> => {
   const nativeCall = await consumeNativePendingCallIntent();
   if (nativeCall?.callId) {
     if (nativeCall.action === 'decline') {
-      markCallTerminal(nativeCall.callId);
-      endCall(nativeCall.callId, 'missed').catch(() => {});
+      if (await isCallEndable(nativeCall.callId)) {
+        markCallTerminal(nativeCall.callId);
+        endCall(nativeCall.callId, 'missed').catch(() => {});
+      }
+      return;
+    }
+
+    if (nativeCall.action === 'cancel') {
+      if (await isCallEndable(nativeCall.callId)) {
+        markCallTerminal(nativeCall.callId);
+        endCall(nativeCall.callId, 'ended').catch(() => {});
+      }
       return;
     }
 
     if (nativeCall.action === 'end') {
-      markCallTerminal(nativeCall.callId);
-      endCall(nativeCall.callId, 'ended').catch(() => {});
+      if (await isCallEndable(nativeCall.callId)) {
+        markCallTerminal(nativeCall.callId);
+        endCall(nativeCall.callId, 'ended').catch(() => {});
+      }
       return;
     }
 
-    await navigateToIncomingCallIfNeeded(
+    if (nativeCall.action === 'accept') {
+      await handleCallNotificationByStatus(
+        {
+          callId: nativeCall.callId,
+          callType: nativeCall.callType || 'audio',
+          callerId: nativeCall.callerId,
+          receiverId: nativeCall.receiverId,
+        },
+        Platform.OS === 'ios' ? 'callkit-cold-start' : 'android-native-intent',
+        { explicitAccept: true },
+      );
+      return;
+    }
+
+    await handleCallNotificationByStatus(
       {
         callId: nativeCall.callId,
         callType: nativeCall.callType || 'audio',
         callerId: nativeCall.callerId,
         receiverId: nativeCall.receiverId,
-        autoAccept: nativeCall.action === 'accept',
       },
-      'android-native-intent',
+      Platform.OS === 'ios' ? 'callkit-pending-open' : 'android-native-intent',
     );
     return;
   }
@@ -699,13 +731,18 @@ export const processPendingNotificationLaunch = async (): Promise<void> => {
 
   const pendingCall = await consumePendingCall();
   if (pendingCall?.callId) {
-    await navigateToIncomingCallIfNeeded(
+    if (Platform.OS === 'ios') {
+      if (__DEV__) {
+        logger.debug('📞 [Pending] iOS FCM pending call ignored — VoIP/CallKit owns ringing');
+      }
+      return;
+    }
+    await handleCallNotificationByStatus(
       {
         callId: pendingCall.callId,
         callType: pendingCall.callType || 'audio',
         callerId: pendingCall.callerId,
         receiverId: pendingCall.receiverId,
-        autoAccept: pendingCall.autoAccept,
       },
       'pending-call-storage',
     );
@@ -778,17 +815,19 @@ const handleNotificationAction = async (remoteMessage: any, navigation: any) => 
     const callerId = messageData.callerId;
     const receiverId = messageData.receiverId;
     
-    if (action === 'accept') {
-      await navigateToIncomingCallIfNeeded(
-        { callId, callType, callerId, receiverId, autoAccept: true },
+    if (action === 'accept' && Platform.OS === 'android') {
+      await handleCallNotificationByStatus(
+        { callId, callType, callerId, receiverId },
         'notification-action-accept',
+        { explicitAccept: true },
       );
     } else if (action === 'decline') {
-      // Decline the call
-      markCallTerminal(callId);
-      endCall(callId, 'missed').catch(() => {});
+      if (await isCallEndable(callId)) {
+        markCallTerminal(callId);
+        endCall(callId, 'missed').catch(() => {});
+      }
     } else {
-      await navigateToIncomingCallIfNeeded(
+      await handleCallNotificationByStatus(
         { callId, callType, callerId, receiverId },
         'notification-action-open',
       );

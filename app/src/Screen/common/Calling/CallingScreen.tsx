@@ -14,7 +14,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Phone, PhoneOff, Mic, MicOff, UserRound } from 'lucide-react-native';
+import { Phone, PhoneOff, Mic, MicOff, UserRound, Volume2 } from 'lucide-react-native';
 // Safely import InCallManager - may not be available until native module is linked
 let InCallManager: any = null;
 try {
@@ -34,7 +34,10 @@ import {
   addIceCandidate,
   answerCall,
   createCall,
+  createCallSession,
+  updateCallOffer,
   endCall,
+  endOtherRingingCallsForParticipants,
   listenCall,
   listenCandidates,
   getCallOnce,
@@ -48,10 +51,19 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { AudioSessionManager } from '../../../utils/audioSessionManager';
 import { markCallTerminal } from '../../../services/call-navigation.service';
 import { usesNativeCallUi } from '../../../utils/callUi';
+import { logCallState } from '../../../utils/call-state-logger';
+import { subscribeCallAcceptRequest } from '../../../services/call-accept-events.service';
 import {
-  presentOutgoingCallKit,
+  dismissNativeCallUi,
   reportCallKitConnected,
 } from '../../../services/native-intent.service';
+import {
+  setLocalActiveCall,
+  clearLocalActiveCall,
+} from '../../../services/active-call.service';
+import { useCallConnectionState } from '../../../hooks/useCallConnectionState';
+import { CallConnectionBanner } from '../../../components/calling/CallConnectionBanner';
+import { IncomingCallRingingView } from '../../../components/calling/IncomingCallRingingView';
 
 const CallingScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
@@ -73,6 +85,12 @@ const CallingScreen = ({ navigation, route }: any) => {
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const {
+    connectionUiState,
+    onConnectionStateChange,
+    onIceConnectionStateChange,
+  } = useCallConnectionState();
 
   const pcRef = useRef<any | null>(null);
   const localStreamRef = useRef<any | null>(null);
@@ -87,15 +105,57 @@ const CallingScreen = ({ navigation, route }: any) => {
   const handlingRemoteOfferSdpRef = useRef<string | null>(null);
   const isMutedRef = useRef<boolean>(false);
   const didResetAfterCallEndRef = useRef(false);
+  const renderDecisionRef = useRef('');
   const { callId, isCaller, callerId, receiverId, autoAccept } = route?.params || {};
   const type: 'audio' = 'audio';
   const nativeCallUi = usesNativeCallUi();
+
+  useEffect(() => {
+    logCallState({
+      callId,
+      role: isCaller ? 'Caller' : 'Receiver',
+      event: 'screen-mounted',
+      status,
+      screen: 'CallingScreen',
+      isCaller,
+      nativeCallUi,
+    });
+  }, [callId, isCaller, nativeCallUi]);
+
+  useEffect(() => {
+    if (!callId) return;
+    if (status === 'ringing' || status === 'active') {
+      setLocalActiveCall(callId, status);
+    } else {
+      clearLocalActiveCall(callId);
+    }
+  }, [callId, status]);
+
+  useEffect(() => {
+    return () => {
+      clearLocalActiveCall(callId);
+    };
+  }, [callId]);
+
+  useEffect(() => {
+    logCallState({
+      callId,
+      role: isCaller ? 'Caller' : 'Receiver',
+      event: 'local-status-changed',
+      status,
+      screen: 'CallingScreen',
+      isCaller,
+      nativeCallUi,
+    });
+  }, [callId, status, isCaller, nativeCallUi]);
+
   const resetToHome = React.useCallback(() => {
     if (didResetAfterCallEndRef.current) {
       return;
     }
     didResetAfterCallEndRef.current = true;
     markCallTerminal(callId);
+    clearLocalActiveCall(callId);
     if (nativeCallUi && navigation.canGoBack()) {
       navigation.goBack();
       return;
@@ -213,12 +273,27 @@ const CallingScreen = ({ navigation, route }: any) => {
           }
         }
 
+        try {
+          await endOtherRingingCallsForParticipants(callerId, callId);
+        } catch (error) {
+          if (__DEV__) {
+            console.warn('⚠️ [Caller] Could not clear prior ringing calls:', error);
+          }
+        }
+
+        if (__DEV__) {
+          console.log('📞 Initializing call session before peer connection...');
+        }
+        await createCallSession(callId, { callerId, receiverId, type });
+
                 if (__DEV__) {
           console.log('📞 Caller: Creating peer connection...')
         };
         const { pc, localDescription } = await createPeer({
           isCaller: true,
           audioOnly: true,
+          onConnectionStateChange,
+          onIceConnectionStateChange,
           onError: (error: string) => {
                         if (__DEV__) {
               console.error('❌ [Caller] Peer connection error:', error)
@@ -702,14 +777,9 @@ const CallingScreen = ({ navigation, route }: any) => {
         });
 
                 if (__DEV__) {
-          console.log('📞 Creating call document...')
+          console.log('📞 Saving call offer...')
         };
-        await createCall(callId, {
-          callerId,
-          receiverId,
-          type,
-          offer: localDescription,
-        });
+        await updateCallOffer(callId, localDescription);
 
         // Create in-app notification for receiver
         try {
@@ -771,6 +841,22 @@ const CallingScreen = ({ navigation, route }: any) => {
             callType: type,
           });
           
+          if (response.data?.busy) {
+            Alert.alert(
+              'Cannot place call',
+              response.data?.role === 'receiver'
+                ? 'This user is busy on another call.'
+                : 'You are already in a call.',
+            );
+            statusRef.current = 'ended';
+            setStatus('ended');
+            clearLocalActiveCall(callId);
+            markCallTerminal(callId);
+            await endCall(callId, 'ended');
+            resetToHome();
+            return;
+          }
+
           if (response.data?.offline) {
             if (__DEV__) {
               console.log('⚠️ Receiver appears to be offline (no push tokens)');
@@ -781,7 +867,23 @@ const CallingScreen = ({ navigation, route }: any) => {
               console.log('✅ Call notification sent to receiver');
             }
           }
-        } catch (error) {
+        } catch (error: any) {
+          if (error?.response?.status === 409) {
+            const role = error?.response?.data?.role;
+            Alert.alert(
+              'Cannot place call',
+              role === 'receiver'
+                ? 'This user is busy on another call.'
+                : 'You are already in a call.',
+            );
+            statusRef.current = 'ended';
+            setStatus('ended');
+            clearLocalActiveCall(callId);
+            markCallTerminal(callId);
+            await endCall(callId, 'ended');
+            resetToHome();
+            return;
+          }
                     if (__DEV__) {
             console.warn('⚠️ Failed to send call notification:', error)
           };
@@ -790,8 +892,24 @@ const CallingScreen = ({ navigation, route }: any) => {
 
         unsubCall = listenCall(callId, async data => {
           const callStatus = data.status;
-          setStatus(callStatus);
-          statusRef.current = callStatus;
+          const nextStatus =
+            callStatus === 'ringing' && data.answer ? 'active' : callStatus;
+          logCallState({
+            callId,
+            role: 'Caller',
+            event: 'firestore-listener',
+            status: nextStatus,
+            screen: 'CallingScreen',
+            isCaller: true,
+            nativeCallUi,
+            extra: {
+              firestoreStatus: callStatus,
+              delivered: data.delivered,
+              hasAnswer: Boolean(data.answer),
+            },
+          });
+          setStatus(nextStatus);
+          statusRef.current = nextStatus;
           
           if (data.delivered) {
             setIsDelivered(true);
@@ -802,8 +920,8 @@ const CallingScreen = ({ navigation, route }: any) => {
           if (
             data.answer &&
             pcRef.current &&
-            callStatus !== 'ended' &&
-            callStatus !== 'missed'
+            nextStatus !== 'ended' &&
+            nextStatus !== 'missed'
           ) {
             try {
                             if (__DEV__) {
@@ -965,12 +1083,25 @@ const CallingScreen = ({ navigation, route }: any) => {
           }
 
           if (callStatus === 'ended' || callStatus === 'missed') {
+            if (callStatus === 'missed' && (data as CallDocument).endReason === 'busy') {
+              Alert.alert('User busy', 'The person you are calling is on another call.');
+            }
             resetToHome();
           }
         });
       } else {
         // Receiver: Wait for user to accept/decline - don't auto-answer
         unsubCall = listenCall(callId, async data => {
+          logCallState({
+            callId,
+            role: 'Receiver',
+            event: 'firestore-listener',
+            status: data.status,
+            screen: 'CallingScreen',
+            isCaller: false,
+            nativeCallUi,
+            extra: { delivered: data.delivered, hasAnswer: Boolean(data.answer) },
+          });
           setStatus(data.status);
           statusRef.current = data.status;
 
@@ -992,8 +1123,9 @@ const CallingScreen = ({ navigation, route }: any) => {
               }
 
               const currentState = pcRef.current.signalingState;
-              // Only apply if we're in a state that can accept a new offer
-              if (currentState === 'stable' || currentState === 'have-local-answer') {
+              // ICE restart only when caller sends a NEW offer while negotiation is stable.
+              // Skip have-local-answer — that is the normal state right after we answered.
+              if (currentState === 'stable') {
                 handlingRemoteOfferSdpRef.current = currentOfferSdp;
                 if (__DEV__) {
                   console.log('📞 Receiver: Received new offer (ICE restart), applying...')
@@ -1140,24 +1272,11 @@ const CallingScreen = ({ navigation, route }: any) => {
   );
 
   useEffect(() => {
-    if (!nativeCallUi || !isCaller || !callId || !callerId || !receiverId) {
-      return;
-    }
-    void presentOutgoingCallKit({
-      callId,
-      callType: type,
-      callerId,
-      receiverId,
-      calleeName: otherUser?.name,
-    });
-  }, [nativeCallUi, isCaller, callId, callerId, receiverId, otherUser?.name, type]);
-
-  useEffect(() => {
-    if (!nativeCallUi || !callId || status !== 'active') {
+    if (!nativeCallUi || isCaller || !callId || status !== 'active') {
       return;
     }
     void reportCallKitConnected(callId);
-  }, [nativeCallUi, callId, status]);
+  }, [nativeCallUi, isCaller, callId, status]);
 
   const handleHangup = async () => {
     if (!callId) {
@@ -1182,6 +1301,8 @@ const CallingScreen = ({ navigation, route }: any) => {
         !isCaller && statusRef.current === 'ringing' ? 'missed' : 'ended';
       statusRef.current = nextStatus;
       setStatus(nextStatus);
+      clearLocalActiveCall(callId);
+      markCallTerminal(callId);
       
       if (__DEV__) {
         console.log('📞 [handleHangup] Ending call with status:', nextStatus)
@@ -1253,13 +1374,23 @@ const CallingScreen = ({ navigation, route }: any) => {
       return;
     }
     
-    // Prevent multiple simultaneous accepts
-    if (pcRef.current || statusRef.current !== 'ringing') {
-            if (__DEV__) {
-        console.warn('⚠️ [handleAccept] Call already being processed - ignoring duplicate accept')
-      };
+    // Prevent duplicate accept; allow if Firestore already active but WebRTC not started
+    if (pcRef.current) {
+      if (__DEV__) {
+        console.warn('⚠️ [handleAccept] Peer connection already exists - ignoring duplicate accept');
+      }
       return;
     }
+
+    if (statusRef.current === 'ended' || statusRef.current === 'missed') {
+      if (__DEV__) {
+        console.warn('⚠️ [handleAccept] Call already ended:', statusRef.current);
+      }
+      return;
+    }
+
+    acceptInProgressRef.current = true;
+    void dismissNativeCallUi(callId).catch(() => {});
 
     // Create peer connection and answer the call
     try {
@@ -1284,6 +1415,14 @@ const CallingScreen = ({ navigation, route }: any) => {
         return;
       }
 
+      const initialOfferSdp =
+        typeof callData.offer === 'string'
+          ? callData.offer
+          : callData.offer?.sdp || '';
+      if (initialOfferSdp) {
+        lastHandledRemoteOfferSdpRef.current = initialOfferSdp;
+      }
+
             if (__DEV__) {
         console.log('📞 Creating peer connection for receiver...')
       };
@@ -1305,6 +1444,8 @@ const CallingScreen = ({ navigation, route }: any) => {
       const { pc, localDescription } = await createPeer({
         isCaller: false,
         audioOnly: true,
+        onConnectionStateChange,
+        onIceConnectionStateChange,
         onError: (error: string) => {
                     if (__DEV__) {
             console.error('❌ [Receiver] Peer connection error:', error)
@@ -1953,31 +2094,67 @@ const CallingScreen = ({ navigation, route }: any) => {
       Alert.alert(
         'Call Failed',
         'Unable to accept call. Please try again.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Clean up and navigate away
-              endCall(callId, 'missed').catch(() => {});
-              resetToHome();
-            },
-          },
-        ]
+        [{ text: 'OK' }],
       );
+    } finally {
+      acceptInProgressRef.current = false;
     }
   };
 
   const autoAcceptTriggeredRef = useRef(false);
+  const acceptInProgressRef = useRef(false);
+  const handleAcceptRef = useRef(handleAccept);
+  handleAcceptRef.current = handleAccept;
+
+  useEffect(() => {
+    return subscribeCallAcceptRequest((id) => {
+      if (id !== callId || isCaller) {
+        return;
+      }
+      if (acceptInProgressRef.current || pcRef.current) {
+        return;
+      }
+      logCallState({
+        callId,
+        role: 'Receiver',
+        event: 'callkit-accept-event',
+        status: statusRef.current,
+        screen: 'CallingScreen',
+        isCaller: false,
+        nativeCallUi,
+      });
+      void handleAcceptRef.current();
+    });
+  }, [callId, isCaller, nativeCallUi]);
+
   useEffect(() => {
     if (!autoAccept || isCaller || autoAcceptTriggeredRef.current || !callId) {
       return;
     }
     autoAcceptTriggeredRef.current = true;
-    const timer = setTimeout(() => {
-      handleAccept();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [autoAccept, isCaller, callId]);
+    logCallState({
+      callId,
+      role: 'Receiver',
+      event: 'autoAccept-trigger',
+      status: statusRef.current,
+      screen: 'CallingScreen',
+      isCaller: false,
+      nativeCallUi,
+    });
+    void handleAcceptRef.current();
+  }, [autoAccept, isCaller, callId, nativeCallUi]);
+
+  const handleSpeakerToggle = async () => {
+    try {
+      const next = await AudioSessionManager.toggleSpeakerphone();
+      setIsSpeakerOn(next ?? false);
+      if (InCallManager) {
+        InCallManager.setForceSpeakerphoneOn(next);
+      }
+    } catch {
+      // non-critical
+    }
+  };
 
   const handleMute = async () => {
     if (!localStreamRef.current) return;
@@ -2472,15 +2649,139 @@ const CallingScreen = ({ navigation, route }: any) => {
     return () => {};
   }, [status]);
 
-  if (nativeCallUi) {
+  if (nativeCallUi && !isCaller && status === 'ringing') {
+    if (renderDecisionRef.current !== 'receiver-ringing-null') {
+      renderDecisionRef.current = 'receiver-ringing-null';
+      logCallState({
+        callId,
+        role: 'Render',
+        event: 'RETURN_NULL: nativeCallUi && !isCaller && status===ringing',
+        status,
+        screen: 'CallingScreen',
+        isCaller,
+        nativeCallUi,
+      });
+    }
     return null;
+  }
+
+  if (!isCaller && status === 'ringing') {
+    if (renderDecisionRef.current !== 'receiver-ringing-ui') {
+      renderDecisionRef.current = 'receiver-ringing-ui';
+      logCallState({
+        callId,
+        role: 'Render',
+        event: 'RENDER: receiver incoming ringing UI',
+        status,
+        screen: 'CallingScreen',
+        isCaller,
+        nativeCallUi,
+      });
+    }
+    return (
+      <IncomingCallRingingView
+        callMode="audio"
+        displayName={otherUser?.name}
+        profileImage={otherUser?.profileImage}
+        avatarLoadFailed={avatarLoadFailed}
+        onAvatarError={() => setAvatarLoadFailed(true)}
+        isLoading={isLoadingUser}
+        onAccept={handleAccept}
+        onDecline={handleHangup}
+      />
+    );
+  }
+
+  if (isCaller && status === 'ringing') {
+    if (renderDecisionRef.current !== 'caller-ringing-ui') {
+      renderDecisionRef.current = 'caller-ringing-ui';
+      logCallState({
+        callId,
+        role: 'Render',
+        event: 'RENDER: caller outgoing ringing UI',
+        status,
+        screen: 'CallingScreen',
+        isCaller,
+        nativeCallUi,
+      });
+    }
+    return (
+      <View style={[callingStyles.videoCallContainer, { backgroundColor: COLORS.black }]}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.black} />
+        <View style={[callingStyles.mainVideoFeed, { backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }]}>
+          {isLoadingUser ? (
+            <ActivityIndicator size="large" color={COLORS.white} />
+          ) : (
+            <>
+              {!!otherUser?.profileImage && !avatarLoadFailed ? (
+                <Image
+                  source={{ uri: otherUser.profileImage }}
+                  style={callingStyles.profileImage}
+                  onError={() => setAvatarLoadFailed(true)}
+                />
+              ) : (
+                <View
+                  style={[
+                    callingStyles.profileImage,
+                    { backgroundColor: '#A5AFBD', alignItems: 'center', justifyContent: 'center' },
+                  ]}
+                >
+                  <UserRound size={54} color={COLORS.gray} />
+                </View>
+              )}
+              <Text style={callingStyles.name}>{otherUser?.name || 'Calling…'}</Text>
+              <Text style={{ color: COLORS.white, marginTop: 8, fontSize: 16 }}>
+                {isDelivered ? 'Ringing…' : isReceiverOffline ? 'User may be offline…' : 'Calling…'}
+              </Text>
+            </>
+          )}
+        </View>
+        <View style={[callingStyles.bottomControls, { bottom: insets.bottom + 20 }]}>
+          <TouchableOpacity
+            style={[callingStyles.controlButton, callingStyles.videoHangupButton]}
+            onPress={handleHangup}
+          >
+            <PhoneOff size={28} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (status !== 'active') {
+    if (renderDecisionRef.current !== `not-active-null-${status}`) {
+      renderDecisionRef.current = `not-active-null-${status}`;
+      logCallState({
+        callId,
+        role: 'Render',
+        event: `RETURN_NULL: status!==active (status=${status})`,
+        status,
+        screen: 'CallingScreen',
+        isCaller,
+        nativeCallUi,
+      });
+    }
+    return null;
+  }
+
+  if (renderDecisionRef.current !== 'active-ui') {
+    renderDecisionRef.current = 'active-ui';
+    logCallState({
+      callId,
+      role: 'Render',
+      event: 'RENDER: active in-call UI',
+      status,
+      screen: 'CallingScreen',
+      isCaller,
+      nativeCallUi,
+    });
   }
 
   return (
     <View style={callingStyles.videoCallContainer}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.black} />
+      <CallConnectionBanner state={connectionUiState} topInset={insets.top} />
 
-      {/* Black background with profile picture centered */}
       <View style={[callingStyles.mainVideoFeed, { backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }]}>
         {isLoadingUser ? (
           <ActivityIndicator size="large" color={COLORS.white} />
@@ -2513,74 +2814,36 @@ const CallingScreen = ({ navigation, route }: any) => {
         )}
       </View>
 
-      {/* User info overlay at top - matching video call screen */}
       {otherUser && (
         <View style={{ position: 'absolute', top: insets.top + 20, left: 20, right: 20, zIndex: 5 }}>
           <Text style={{ color: COLORS.white, fontSize: 24, fontWeight: 'bold' }}>
             {otherUser.name}
           </Text>
           <Text style={{ color: COLORS.white, fontSize: 14, marginTop: 4 }}>
-            {status === 'active' ? 'In Call' : 
-             status === 'ringing' ? (
-               isReceiverOffline ? 'User is offline (Calling...)' : 
-               isDelivered ? 'Ringing...' : 'Calling...'
-             ) : status}
+            In Call
           </Text>
         </View>
       )}
 
-      {/* Action Buttons */}
-      <View
-        style={[
-          callingStyles.bottomControls,
-          { bottom: insets.bottom + 20 },
-        ]}
-      >
-        {!isCaller && status === 'ringing' ? (
-          // Receiver: Show Accept and Decline buttons
-          <>
-            <TouchableOpacity
-              style={[callingStyles.controlButton, callingStyles.videoDeclineButton]}
-              onPress={handleHangup}
-            >
-              <PhoneOff size={32} color={COLORS.white} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[callingStyles.controlButton, callingStyles.videoAcceptButton]}
-              onPress={handleAccept}
-            >
-              <Phone size={32} color={COLORS.white} />
-            </TouchableOpacity>
-          </>
-        ) : (
-          // Caller or active call: Show normal controls
-          <>
-            <TouchableOpacity
-              style={[
-                callingStyles.controlButton,
-                callingStyles.videoHangupButton,
-              ]}
-              onPress={handleHangup}
-            >
-              <PhoneOff size={28} color={COLORS.white} />
-            </TouchableOpacity>
-            {status === 'active' && (
-              <TouchableOpacity
-                style={callingStyles.controlButton}
-                onPress={handleMute}
-              >
-                {isMuted ? (
-                  <MicOff size={24} color={COLORS.black} />
-                ) : (
-                  <Mic size={24} color={COLORS.black} />
-                )}
-              </TouchableOpacity>
-            )}
-          </>
-        )}
+      <View style={[callingStyles.bottomControls, { bottom: insets.bottom + 20 }]}>
+        <TouchableOpacity
+          style={[callingStyles.controlButton, callingStyles.videoHangupButton]}
+          onPress={handleHangup}
+        >
+          <PhoneOff size={28} color={COLORS.white} />
+        </TouchableOpacity>
+        <TouchableOpacity style={callingStyles.controlButton} onPress={handleMute}>
+          {isMuted ? (
+            <MicOff size={24} color={COLORS.black} />
+          ) : (
+            <Mic size={24} color={COLORS.black} />
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity style={callingStyles.controlButton} onPress={handleSpeakerToggle}>
+          <Volume2 size={24} color={isSpeakerOn ? COLORS.green : COLORS.black} />
+        </TouchableOpacity>
       </View>
     </View>
   );
 };
-
 export default CallingScreen;

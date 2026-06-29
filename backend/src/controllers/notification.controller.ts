@@ -1,9 +1,15 @@
 // src/controllers/notification.controller.ts
 import { Request, Response } from "express";
-import { db, admin, firebaseApp } from "../config/firebase";
+import { db, admin, firebaseApp, auth } from "../config/firebase";
 import { Logger } from "../utils/logger";
 import { sendVoipCallPush } from "../services/voipPush.service";
+import {
+  isUserBusy,
+  cleanupStaleCallsForUsers,
+  endOtherRingingCallsForParticipants,
+} from "../services/callBusy.service";
 import { devLog, devWarn, devError, maskToken } from "../utils/sanitizeLog";
+import { resolveUserDisplayName } from "../utils/displayName";
 
 const callPushLastSent = new Map<string, number>();
 const CALL_PUSH_COOLDOWN_MS = 8000;
@@ -282,6 +288,27 @@ export const sendCallNotification = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'callerId must match authenticated user' });
     }
 
+    await cleanupStaleCallsForUsers([callerId, receiverId]);
+    await endOtherRingingCallsForParticipants(callerId, receiverId, callId);
+
+    if (await isUserBusy(callerId, callId)) {
+      devLog('📞 send-call rejected: caller busy', { callerId, callId });
+      return res.status(409).json({
+        error: 'You are already in a call',
+        busy: true,
+        role: 'caller',
+      });
+    }
+
+    if (await isUserBusy(receiverId, callId)) {
+      devLog('📞 send-call rejected: receiver busy', { receiverId, callId });
+      return res.status(409).json({
+        error: 'Receiver is busy',
+        busy: true,
+        role: 'receiver',
+      });
+    }
+
     const lastSent = callPushLastSent.get(callerId) ?? 0;
     if (Date.now() - lastSent < CALL_PUSH_COOLDOWN_MS) {
       return res.status(429).json({ error: 'Please wait before placing another call' });
@@ -304,10 +331,22 @@ export const sendCallNotification = async (req: Request, res: Response) => {
     let callerName = 'Someone';
     try {
       const callerDoc = await db.collection('users').doc(callerId).get();
-      if (callerDoc.exists) {
-        const callerData = callerDoc.data();
-        callerName = callerData?.name || callerData?.displayName || 'Someone';
+      const callerData = callerDoc.exists ? callerDoc.data() : undefined;
+      let authDisplayName: string | undefined;
+      let authEmail: string | undefined;
+      try {
+        const authUser = await auth.getUser(callerId);
+        authDisplayName = authUser.displayName;
+        authEmail = authUser.email;
+      } catch {
+        // non-critical
       }
+      callerName = resolveUserDisplayName({
+        name: callerData?.name,
+        displayName: authDisplayName,
+        email: callerData?.email || authEmail,
+        uid: callerId,
+      });
     } catch {
       // non-critical
     }
@@ -425,6 +464,7 @@ export const sendCallNotification = async (req: Request, res: Response) => {
           android: {
             priority: 'high' as const,
             ttl: 30000,
+            directBootOk: true,
           },
         };
         return (firebaseApp || admin).messaging().send(androidMessage)
@@ -432,33 +472,47 @@ export const sendCallNotification = async (req: Request, res: Response) => {
           .catch(error => ({ success: false, error }));
       }
 
-      // iOS: alert banner (fallback) + data for RN navigation when app opens
-      const iosMessage = {
-        token,
-        data: stringData,
-        apns: {
-          headers: {
-            'apns-priority': '10',
-            'apns-push-type': 'alert',
-          },
-          payload: {
-            aps: {
-              alert: {
-                title: notification.title,
-                body: notification.body,
+      // iOS: VoIP + CallKit owns ringing when VoIP succeeds. Skip duplicate FCM alert.
+      // When VoIP fails, send alert FCM as fallback so the receiver still gets notified.
+      if (deviceType === 'ios') {
+        if (voipSent > 0) {
+          devLog('📞 [iOS] VoIP delivered — skipping FCM call alert for token:', maskToken(token));
+          return Promise.resolve({ success: true, response: 'skipped-voip-delivered' });
+        }
+
+        const iosFallbackMessage = {
+          token,
+          data: stringData,
+          apns: {
+            headers: {
+              'apns-priority': '10',
+              'apns-push-type': 'alert',
+            },
+            payload: {
+              aps: {
+                alert: {
+                  title: notification.title,
+                  body: notification.body,
+                },
+                sound: 'default',
+                badge: 1,
+                'content-available': 1,
+                category: 'CALL_CATEGORY',
+                'thread-id': callId,
               },
-              sound: 'default',
-              badge: 1,
-              'content-available': 1,
-              category: 'CALL_CATEGORY',
-              'thread-id': callId,
             },
           },
-        },
-      };
-      return (firebaseApp || admin).messaging().send(iosMessage)
-        .then(response => ({ success: true, response }))
-        .catch(error => ({ success: false, error }));
+        };
+        return (firebaseApp || admin).messaging().send(iosFallbackMessage)
+          .then(response => ({ success: true, response }))
+          .catch(error => ({ success: false, error }));
+      }
+
+      devWarn('⚠️ Unknown deviceType, skipping FCM:', deviceType);
+      return Promise.resolve({
+        success: false,
+        error: new Error(`Unknown deviceType: ${deviceType}`),
+      });
     });
 
     const results = await Promise.all(sendPromises);

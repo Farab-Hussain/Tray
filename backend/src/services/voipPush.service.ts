@@ -37,8 +37,11 @@ const resolveApnsPrivateKey = (): string | null => {
 
   for (const filePath of candidates) {
     try {
-      if (fs.existsSync(filePath)) {
-        cachedPrivateKey = fs.readFileSync(filePath, 'utf8').trim();
+      const resolvedPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.resolve(process.cwd(), filePath);
+      if (fs.existsSync(resolvedPath)) {
+        cachedPrivateKey = fs.readFileSync(resolvedPath, 'utf8').trim();
         return cachedPrivateKey;
       }
     } catch {

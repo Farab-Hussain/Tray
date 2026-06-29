@@ -1,7 +1,11 @@
 package com.tray
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.util.Rational
+import android.view.WindowManager
+import android.app.PictureInPictureParams
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -10,6 +14,11 @@ import com.tray.modules.TrayIntentModule
 import com.tray.security.IntentSecurity
 
 class MainActivity : ReactActivity() {
+
+  companion object {
+    @JvmStatic
+    var videoCallActive: Boolean = false
+  }
 
   override fun getMainComponentName(): String = "app"
 
@@ -25,6 +34,20 @@ class MainActivity : ReactActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     saveValidatedIntentExtras(intent)
+  }
+
+  override fun onUserLeaveHint() {
+    if (videoCallActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      try {
+        val params = PictureInPictureParams.Builder()
+          .setAspectRatio(Rational(9, 16))
+          .build()
+        enterPictureInPictureMode(params)
+      } catch (_: Exception) {
+        // PiP not supported on this device/OEM
+      }
+    }
+    super.onUserLeaveHint()
   }
 
   private fun saveValidatedIntentExtras(intent: Intent?) {
@@ -51,6 +74,8 @@ class MainActivity : ReactActivity() {
         .putString(TrayIntentModule.KEY_CALLER_ID, intent.getStringExtra("callerId"))
         .putString(TrayIntentModule.KEY_RECEIVER_ID, intent.getStringExtra("receiverId"))
         .apply()
+
+      wakeForIncomingCall()
       return
     }
 
@@ -65,6 +90,19 @@ class MainActivity : ReactActivity() {
         .putString(TrayIntentModule.KEY_PENDING_CHAT_ID, chatId)
         .putString(TrayIntentModule.KEY_PENDING_SENDER_ID, intent.getStringExtra("senderId"))
         .apply()
+    }
+  }
+
+  private fun wakeForIncomingCall() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true)
+      setTurnScreenOn(true)
+    } else {
+      window.addFlags(
+        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+          WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+      )
     }
   }
 }

@@ -83,6 +83,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
         const paid = await ensurePlatformAccessPaid(navigation, {
           activeRole: 'student',
           returnTo: {
+            tab: 'Services',
             screen: 'Payment',
             params: { cartItems: route.params?.cartItems || cartItems },
           },
@@ -191,7 +192,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
                 if (__DEV__) {
           logger.error('❌ Error creating payment intent:', error)
         };
-        Alert.alert('Payment Issue', issue?.message || 'Failed to initialize payment. Please try again.');
+        Alert.alert('Payment Issue', error?.message || 'Failed to initialize payment. Please try again.');
         setPaymentLoading(false);
         return;
       }
@@ -211,7 +212,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
                 if (__DEV__) {
           logger.error('❌ Error initializing payment sheet:', initError)
         };
-        Alert.alert('Payment Issue', initIssue.message || 'Failed to initialize payment form');
+        Alert.alert('Payment Issue', initError.message || 'Failed to initialize payment form');
         setPaymentLoading(false);
         return;
       }
@@ -228,7 +229,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           logger.error('Payment failed:', paymentError)
         };
         if (paymentError.code !== 'Canceled') {
-          Alert.alert('Payment Failed', paymentIssue.message || 'Payment could not be processed');
+          Alert.alert('Payment Failed', paymentError.message || 'Payment could not be processed');
         }
         setPaymentLoading(false);
         return;
@@ -241,7 +242,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
             if (__DEV__) {
         logger.error('Payment error:', error)
       };
-      Alert.alert('Payment Issue', issue.message || 'An unexpected issue occurred');
+      Alert.alert('Payment Issue', error?.message || 'An unexpected issue occurred');
       setPaymentLoading(false);
     }
   };
@@ -405,6 +406,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
                 data: {
                   bookingId,
                   consultantId: bookingData.consultantId,
+                  studentId: bookingData.studentId,
                   serviceId: bookingData.serviceId,
                 },
                 senderId: bookingData.consultantId,
@@ -445,6 +447,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
           if (error.response?.status === 402 && error.response?.data?.code === 'ACCESS_FEE_REQUIRED') {
             await ensurePlatformAccessPaid(navigation, {
               returnTo: {
+                tab: 'Services',
                 screen: 'Payment',
                 params: { cartItems: route.params?.cartItems || cartItems },
               },

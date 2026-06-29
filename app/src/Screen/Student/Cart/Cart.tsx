@@ -233,7 +233,11 @@ const Cart = ({ navigation, route }: any) => {
 
     const { ensurePlatformAccessPaid } = await import('../../../utils/platformAccessFee');
     const paid = await ensurePlatformAccessPaid(navigation, {
-      returnTo: { screen: 'Payment', params: { cartItems: cartItemsState } },
+      returnTo: {
+        tab: 'Services',
+        screen: 'Payment',
+        params: { cartItems: cartItemsState },
+      },
     });
     if (!paid) {
       return;

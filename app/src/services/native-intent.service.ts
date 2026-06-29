@@ -12,10 +12,33 @@ export type PendingCallIntent = {
 const getTrayVoipModule = () =>
   Platform.OS === 'ios' ? NativeModules.TrayVoipModule : null;
 
+const getTrayIntentModule = () =>
+  Platform.OS === 'android' ? NativeModules.TrayIntentModule : null;
+
+export const peekNativePendingCallIntent = async (): Promise<PendingCallIntent | null> => {
+  try {
+    if (Platform.OS === 'android') {
+      const mod = getTrayIntentModule();
+      if (!mod?.peekPendingCallIntent) return null;
+      const result = await mod.peekPendingCallIntent();
+      if (!result?.callId) return null;
+      return result as PendingCallIntent;
+    }
+    const mod = getTrayVoipModule();
+    if (!mod?.getPendingCallIntent) return null;
+    const result = await mod.getPendingCallIntent();
+    if (!result?.callId) return null;
+    return result as PendingCallIntent;
+  } catch (error) {
+    logger.warn('⚠️ [NativeIntent] peekPendingCallIntent failed:', error);
+    return null;
+  }
+};
+
 export const consumeNativePendingCallIntent = async (): Promise<PendingCallIntent | null> => {
   try {
     const mod =
-      Platform.OS === 'android' ? NativeModules.TrayIntentModule : getTrayVoipModule();
+      Platform.OS === 'android' ? getTrayIntentModule() : getTrayVoipModule();
     if (!mod?.getPendingCallIntent) return null;
     const result = await mod.getPendingCallIntent();
     if (!result?.callId) return null;
@@ -45,28 +68,45 @@ export const hasActiveCallKitCall = async (callId: string): Promise<boolean> => 
   }
 };
 
-export const dismissCallKitCall = async (
+export const dismissNativeCallUi = async (
   callId?: string,
   reason: 'ended' | 'missed' | 'failed' = 'ended',
 ): Promise<void> => {
-  if (Platform.OS !== 'ios') return;
   try {
-    await getTrayVoipModule()?.endCallKitCall?.(callId || '', reason);
+    if (Platform.OS === 'ios') {
+      await getTrayVoipModule()?.endCallKitCall?.(callId || '', reason);
+      return;
+    }
+    if (Platform.OS === 'android') {
+      await getTrayIntentModule()?.dismissCallUi?.(callId || '');
+    }
   } catch (error) {
-    logger.warn('⚠️ [CallKit] Failed to dismiss call UI:', error);
+    logger.warn('⚠️ [NativeCall] Failed to dismiss call UI:', error);
   }
 };
 
-export const presentIncomingCallKit = async (params: {
+/** @deprecated Use dismissNativeCallUi */
+export const dismissCallKitCall = dismissNativeCallUi;
+
+export const presentIncomingCallNative = async (params: {
   callId: string;
   callType?: string;
   callerId: string;
   receiverId: string;
   callerName?: string;
 }): Promise<void> => {
-  if (Platform.OS !== 'ios') return;
   try {
-    await getTrayVoipModule()?.presentIncomingCall?.(
+    if (Platform.OS === 'ios') {
+      await getTrayVoipModule()?.presentIncomingCall?.(
+        params.callId,
+        params.callType || 'audio',
+        params.callerId,
+        params.receiverId,
+        params.callerName || 'Incoming Call',
+      );
+      return;
+    }
+    await getTrayIntentModule()?.presentIncomingCall?.(
       params.callId,
       params.callType || 'audio',
       params.callerId,
@@ -74,30 +114,45 @@ export const presentIncomingCallKit = async (params: {
       params.callerName || 'Incoming Call',
     );
   } catch (error) {
-    logger.warn('⚠️ [CallKit] Failed to present incoming call:', error);
+    logger.warn('⚠️ [NativeCall] Failed to present incoming call:', error);
   }
 };
 
-export const presentOutgoingCallKit = async (params: {
+/** @deprecated Use presentIncomingCallNative */
+export const presentIncomingCallKit = presentIncomingCallNative;
+
+export const presentOutgoingCallNative = async (params: {
   callId: string;
   callType?: string;
   callerId: string;
   receiverId: string;
   calleeName?: string;
 }): Promise<void> => {
-  if (Platform.OS !== 'ios') return;
   try {
-    await getTrayVoipModule()?.presentOutgoingCall?.(
+    if (Platform.OS === 'ios') {
+      await getTrayVoipModule()?.presentOutgoingCall?.(
+        params.callId,
+        params.callType || 'audio',
+        params.callerId,
+        params.receiverId,
+        params.calleeName || 'Outgoing Call',
+      );
+      return;
+    }
+    await getTrayIntentModule()?.presentOutgoingCall?.(
       params.callId,
       params.callType || 'audio',
       params.callerId,
       params.receiverId,
-      params.calleeName || 'Outgoing Call',
+      params.calleeName || 'Calling…',
     );
   } catch (error) {
-    logger.warn('⚠️ [CallKit] Failed to present outgoing call:', error);
+    logger.warn('⚠️ [NativeCall] Failed to present outgoing call:', error);
   }
 };
+
+/** @deprecated Use presentOutgoingCallNative */
+export const presentOutgoingCallKit = presentOutgoingCallNative;
 
 export const reportCallKitConnected = async (callId: string): Promise<void> => {
   if (Platform.OS !== 'ios' || !callId) return;
@@ -105,6 +160,15 @@ export const reportCallKitConnected = async (callId: string): Promise<void> => {
     await getTrayVoipModule()?.reportCallKitConnected?.(callId);
   } catch {
     // non-critical
+  }
+};
+
+export const setVideoCallActiveNative = async (active: boolean): Promise<void> => {
+  if (Platform.OS !== 'android') return;
+  try {
+    await getTrayIntentModule()?.setVideoCallActive?.(active);
+  } catch (error) {
+    logger.warn('⚠️ [NativeCall] Failed to set video call active:', error);
   }
 };
 

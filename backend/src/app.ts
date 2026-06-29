@@ -39,6 +39,11 @@ dotenv.config();
 
 const app = express();
 
+// Required behind ngrok, Vercel, and other reverse proxies for rate-limit IP detection
+if (process.env.TRUST_PROXY !== 'false') {
+  app.set('trust proxy', 1);
+}
+
 // Middleware
 app.use(
   helmet({

@@ -8,6 +8,18 @@ export const appStyles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#ffffff',
   },
+  bootContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#60C169',
+  },
+  bootText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
   loadingText: {
     marginTop: 16,
     fontSize: 16,

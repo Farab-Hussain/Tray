@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View, Text, LogBox, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import RootNavigator from './navigator/RootNavigation';
 import { AuthProvider } from './contexts/AuthContext';
@@ -12,6 +13,7 @@ import OfflineOverlay from './components/ui/OfflineOverlay';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import { navigationRef } from './navigator/navigationRef';
 import { appStyles } from './constants/styles/appStyles';
+import { COLORS } from './constants/core/colors';
 import { validateEnvironmentOrThrow } from './utils/envValidation';
 import { sanitizeAlertPayload } from './utils/sanitizeUserMessage';
 
@@ -126,25 +128,36 @@ const sanitizeEnvStripeKey = () => {
   return trimmedKey;
 };
 
+const STRIPE_LOAD_TIMEOUT_MS = 2500;
+
 export default function App() {
-  const [stripeKey, setStripeKey] = useState<string | null>(sanitizeEnvStripeKey());
+  const initialStripeKey = sanitizeEnvStripeKey();
+  const [stripeKey, setStripeKey] = useState<string | null>(initialStripeKey);
   const [stripeKeyError, setStripeKeyError] = useState<string | null>(null);
-  const [loadingStripeKey, setLoadingStripeKey] = useState<boolean>(!sanitizeEnvStripeKey());
+  const [loadingStripeKey, setLoadingStripeKey] = useState<boolean>(!initialStripeKey);
 
   useEffect(() => {
-    if (stripeKey) {
+    if (initialStripeKey) {
       return;
     }
 
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        setLoadingStripeKey(false);
+      }
+    }, STRIPE_LOAD_TIMEOUT_MS);
+
     const loadStripeKey = async () => {
-      setLoadingStripeKey(true);
       try {
         const response = await api.get<{ publishableKey: string; mode: 'test' | 'live' | 'unknown' }>('/payment/config');
         const publishableKey = response.data?.publishableKey?.trim();
         if (!publishableKey) {
           throw new Error('Missing publishable key in response');
         }
-        setStripeKey(publishableKey);
+        if (!cancelled) {
+          setStripeKey(publishableKey);
+        }
         if (__DEV__) {
           console.log('✅ Loaded Stripe publishable key from backend:', publishableKey.slice(0, 10) + '…');
         }
@@ -153,14 +166,23 @@ export default function App() {
         if (__DEV__) {
           console.error('❌ Error loading Stripe publishable key:', error);
         }
-        setStripeKeyError(message);
+        if (!cancelled) {
+          setStripeKeyError(message);
+        }
       } finally {
-        setLoadingStripeKey(false);
+        if (!cancelled) {
+          setLoadingStripeKey(false);
+        }
       }
     };
 
     loadStripeKey();
-  }, [stripeKey]);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [initialStripeKey]);
 
   const stripeUnavailableView = useMemo(() => {
     if (!stripeKeyError) {
@@ -179,34 +201,39 @@ export default function App() {
 
   if (loadingStripeKey) {
     return (
-      <View style={styles.centeredContainer}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.loadingText}>Preparing secure payments…</Text>
+      <View style={styles.bootContainer}>
+        <ActivityIndicator size="large" color={COLORS.white} />
+        <Text style={styles.bootText}>Starting Tray…</Text>
       </View>
     );
   }
 
-  if (!stripeKey) {
+  const effectiveStripeKey =
+    stripeKey || sanitizeEnvStripeKey() || 'pk_test_placeholder';
+
+  if (!stripeKey && stripeKeyError && !sanitizeEnvStripeKey()) {
     return stripeUnavailableView;
   }
 
   return (
     <ErrorBoundary>
-      <StripeProvider publishableKey={stripeKey}>
-        <NetworkProvider>
-          <AuthProvider>
-            <ChatProvider>
-              <NotificationProvider>
-                <NavigationContainer ref={navigationRef}>
-                  <RootNavigator />
-                </NavigationContainer>
-                <OfflineOverlay />
-                <Toast />
-              </NotificationProvider>
-            </ChatProvider>
-          </AuthProvider>
-        </NetworkProvider>
-      </StripeProvider>
+      <SafeAreaProvider>
+        <StripeProvider publishableKey={effectiveStripeKey}>
+          <NetworkProvider>
+            <AuthProvider>
+              <ChatProvider>
+                <NotificationProvider>
+                  <NavigationContainer ref={navigationRef}>
+                    <RootNavigator />
+                  </NavigationContainer>
+                  <OfflineOverlay />
+                  <Toast />
+                </NotificationProvider>
+              </ChatProvider>
+            </AuthProvider>
+          </NetworkProvider>
+        </StripeProvider>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 }

@@ -2,16 +2,21 @@ package com.tray.notifications;
 
 import android.app.ActivityManager;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 
-import com.tray.IncomingCallActivity;
 import com.tray.MainActivity;
 import com.tray.R;
 import com.tray.modules.TrayIntentModule;
@@ -31,6 +36,10 @@ public final class CallNotificationHelper {
   private CallNotificationHelper() {}
 
   public static void handleIncomingCall(Context context, Map<String, String> data) {
+    handleIncomingCall(context, data, false);
+  }
+
+  public static void handleIncomingCall(Context context, Map<String, String> data, boolean forceWhenForeground) {
     if (context == null || data == null) {
       return;
     }
@@ -40,8 +49,8 @@ public final class CallNotificationHelper {
       return;
     }
 
-    if (isAppInForeground(context)) {
-      Log.d(TAG, "App foreground — RN handles call UI");
+    if (!forceWhenForeground && isAppInForeground(context)) {
+      Log.d(TAG, "App foreground — skipping background-only incoming handler");
       return;
     }
 
@@ -50,54 +59,36 @@ public final class CallNotificationHelper {
     String receiverId = valueOrDefault(data.get("receiverId"), "");
     String callerName = valueOrDefault(data.get("callerName"), "Incoming Call");
 
-    ensureChannel(context);
-
-    Intent fullScreenIntent = buildIncomingActivityIntent(context, callId, callType, callerId, receiverId, callerName);
-
-    PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
+    TrayIntentModule.storePendingIncomingCall(
       context,
-      callId.hashCode(),
-      fullScreenIntent,
-      pendingIntentFlags()
+      callId,
+      callType,
+      callerId,
+      receiverId,
+      callerName,
+      "open"
     );
 
-    PendingIntent acceptPendingIntent = PendingIntent.getActivity(
-      context,
-      (callId + "_accept").hashCode(),
-      buildCallIntent(context, callId, callType, callerId, receiverId, "accept"),
-      pendingIntentFlags()
-    );
-
-    PendingIntent declinePendingIntent = PendingIntent.getActivity(
-      context,
-      (callId + "_decline").hashCode(),
-      buildCallIntent(context, callId, callType, callerId, receiverId, "decline"),
-      pendingIntentFlags()
-    );
-
-    String title = "video".equalsIgnoreCase(callType) ? "Incoming Video Call" : "Incoming Audio Call";
-    String body = callerName + " is calling you…";
-
-    NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
-      .setSmallIcon(R.mipmap.ic_launcher)
-      .setContentTitle(title)
-      .setContentText(body)
-      .setSubText(callerName)
-      .setPriority(NotificationCompat.PRIORITY_MAX)
-      .setCategory(NotificationCompat.CATEGORY_CALL)
-      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-      .setAutoCancel(true)
-      .setOngoing(true)
-      .setContentIntent(fullScreenPendingIntent)
-      .setFullScreenIntent(fullScreenPendingIntent, true)
-      .addAction(0, "Decline", declinePendingIntent)
-      .addAction(0, "Accept", acceptPendingIntent)
-      .setDefaults(Notification.DEFAULT_ALL);
-
-    NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-    if (manager != null) {
-      manager.notify(NOTIFICATION_ID, builder.build());
+    if (isAppInForeground(context)) {
+      Log.d(TAG, "App foreground — stored pending call for React Native UI");
+      return;
     }
+
+    if (!canPostNotifications(context)) {
+      Log.w(TAG, "POST_NOTIFICATIONS denied — launching MainActivity directly");
+      launchIncomingActivityDirect(context, callId, callType, callerId, receiverId, callerName);
+      return;
+    }
+
+    if (Build.VERSION.SDK_INT >= 34) {
+      NotificationManager nm = context.getSystemService(NotificationManager.class);
+      if (nm != null && !nm.canUseFullScreenIntent()) {
+        Log.w(TAG, "Full-screen intent not allowed — user may need to enable in system settings");
+      }
+    }
+
+    ensureChannel(context);
+    acquireBriefWakeLock(context);
 
     try {
       Intent serviceIntent = new Intent(context, CallService.class);
@@ -107,19 +98,59 @@ public final class CallNotificationHelper {
       serviceIntent.putExtra("receiverId", receiverId);
       serviceIntent.putExtra("callerName", callerName);
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.startForegroundService(serviceIntent);
+        ContextCompat.startForegroundService(context, serviceIntent);
       } else {
         context.startService(serviceIntent);
       }
     } catch (Exception e) {
-      Log.w(TAG, "Could not start CallService", e);
+      Log.w(TAG, "Could not start CallService — falling back to notification", e);
+      postFallbackNotification(context, callId, callType, callerId, receiverId, callerName);
     }
 
+    launchIncomingActivityDirect(context, callId, callType, callerId, receiverId, callerName);
+  }
+
+  public static void handleOutgoingCall(
+    Context context,
+    String callId,
+    String callType,
+    String callerId,
+    String receiverId,
+    String calleeName
+  ) {
+    if (context == null || callId == null || callId.isEmpty()) {
+      return;
+    }
+
+    ensureChannel(context);
+
     try {
-      Intent activityIntent = buildIncomingActivityIntent(context, callId, callType, callerId, receiverId, callerName);
+      Intent activityIntent = buildOutgoingActivityIntent(
+        context,
+        callId,
+        valueOrDefault(callType, "audio"),
+        valueOrDefault(callerId, ""),
+        valueOrDefault(receiverId, ""),
+        valueOrDefault(calleeName, "Calling…")
+      );
       context.startActivity(activityIntent);
     } catch (Exception e) {
-      Log.w(TAG, "Could not launch IncomingCallActivity", e);
+      Log.w(TAG, "Could not launch outgoing call UI", e);
+    }
+  }
+
+  public static void dismissCallUi(Context context) {
+    if (context == null) {
+      return;
+    }
+    NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+    if (manager != null) {
+      manager.cancel(NOTIFICATION_ID);
+    }
+    try {
+      context.stopService(new Intent(context, CallService.class));
+    } catch (Exception e) {
+      Log.w(TAG, "Could not stop CallService", e);
     }
   }
 
@@ -127,12 +158,11 @@ public final class CallNotificationHelper {
     handleChatMessage(context, data, false);
   }
 
-  public static void handleChatMessage(Context context, Map<String, String> data, boolean allowForeground) {
+  public static void handleChatMessage(Context context, Map<String, String> data, boolean forceWhenForeground) {
     if (context == null || data == null) {
       return;
     }
-
-    if (!allowForeground && isAppInForeground(context)) {
+    if (!forceWhenForeground && isAppInForeground(context)) {
       return;
     }
 
@@ -174,6 +204,82 @@ public final class CallNotificationHelper {
     }
   }
 
+  private static void postFallbackNotification(
+    Context context,
+    String callId,
+    String callType,
+    String callerId,
+    String receiverId,
+    String callerName
+  ) {
+    Intent fullScreenIntent = buildIncomingActivityIntent(context, callId, callType, callerId, receiverId, callerName);
+    PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
+      context,
+      callId.hashCode(),
+      fullScreenIntent,
+      pendingIntentFlags()
+    );
+
+    String title = "video".equalsIgnoreCase(callType) ? "Incoming Video Call" : "Incoming Audio Call";
+
+    NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+      .setSmallIcon(R.mipmap.ic_launcher)
+      .setContentTitle(title)
+      .setContentText(callerName + " is calling you…")
+      .setPriority(NotificationCompat.PRIORITY_MAX)
+      .setCategory(NotificationCompat.CATEGORY_CALL)
+      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+      .setOngoing(true)
+      .setContentIntent(fullScreenPendingIntent)
+      .setFullScreenIntent(fullScreenPendingIntent, true)
+      .setDefaults(Notification.DEFAULT_ALL);
+
+    NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+    if (manager != null) {
+      manager.notify(NOTIFICATION_ID, builder.build());
+    }
+  }
+
+  private static void launchIncomingActivityDirect(
+    Context context,
+    String callId,
+    String callType,
+    String callerId,
+    String receiverId,
+    String callerName
+  ) {
+    try {
+      Intent activityIntent = buildIncomingActivityIntent(context, callId, callType, callerId, receiverId, callerName);
+      context.startActivity(activityIntent);
+    } catch (Exception e) {
+      Log.w(TAG, "Could not launch IncomingCallActivity", e);
+    }
+  }
+
+  private static void acquireBriefWakeLock(Context context) {
+    try {
+      PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+      if (powerManager == null) {
+        return;
+      }
+      PowerManager.WakeLock wakeLock = powerManager.newWakeLock(
+        PowerManager.PARTIAL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+        "tray:fcm_call_wake"
+      );
+      wakeLock.acquire(15_000L);
+    } catch (Exception e) {
+      Log.w(TAG, "Could not acquire wake lock", e);
+    }
+  }
+
+  private static boolean canPostNotifications(Context context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+      return true;
+    }
+    NotificationManager manager = context.getSystemService(NotificationManager.class);
+    return manager != null && manager.areNotificationsEnabled();
+  }
+
   private static Intent buildIncomingActivityIntent(
     Context context,
     String callId,
@@ -182,38 +288,41 @@ public final class CallNotificationHelper {
     String receiverId,
     String callerName
   ) {
-    Intent intent = new Intent(context, IncomingCallActivity.class);
+    Intent intent = new Intent(context, MainActivity.class);
     intent.putExtra("callId", callId);
     intent.putExtra("callType", callType);
     intent.putExtra("callerId", callerId);
     intent.putExtra("receiverId", receiverId);
     intent.putExtra("callerName", callerName);
+    intent.putExtra("direction", "incoming");
     intent.putExtra("action", "open");
     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
     IntentSecurity.markInternal(context, intent);
     return intent;
   }
 
-  private static Intent buildCallIntent(
+  private static Intent buildOutgoingActivityIntent(
     Context context,
     String callId,
     String callType,
     String callerId,
     String receiverId,
-    String action
+    String calleeName
   ) {
-    Intent intent = new Intent(context, IncomingCallActivity.class);
+    Intent intent = new Intent(context, MainActivity.class);
     intent.putExtra("callId", callId);
     intent.putExtra("callType", callType);
     intent.putExtra("callerId", callerId);
     intent.putExtra("receiverId", receiverId);
-    intent.putExtra("action", action);
-    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+    intent.putExtra("callerName", calleeName);
+    intent.putExtra("direction", "outgoing");
+    intent.putExtra("action", "open");
+    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
     IntentSecurity.markInternal(context, intent);
     return intent;
   }
 
-  private static boolean isAppInForeground(Context context) {
+  public static boolean isAppInForeground(Context context) {
     ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
     if (activityManager == null) {
       return false;
@@ -235,17 +344,33 @@ public final class CallNotificationHelper {
       return;
     }
     NotificationManager manager = context.getSystemService(NotificationManager.class);
-    if (manager == null || manager.getNotificationChannel(CHANNEL_ID) != null) {
+    if (manager == null) {
       return;
     }
-    android.app.NotificationChannel channel = new android.app.NotificationChannel(
+
+    if (manager.getNotificationChannel(CHANNEL_ID) != null) {
+      return;
+    }
+
+    Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+      .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+      .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+      .build();
+
+    NotificationChannel channel = new NotificationChannel(
       CHANNEL_ID,
       "Incoming Calls",
       NotificationManager.IMPORTANCE_HIGH
     );
     channel.setDescription("Incoming audio and video calls");
     channel.enableVibration(true);
+    channel.setVibrationPattern(new long[] { 0, 1000, 1000, 1000 });
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+    channel.setBypassDnd(true);
+    if (ringtoneUri != null) {
+      channel.setSound(ringtoneUri, audioAttributes);
+    }
     manager.createNotificationChannel(channel);
   }
 

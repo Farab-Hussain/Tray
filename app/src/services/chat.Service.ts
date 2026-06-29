@@ -2,8 +2,11 @@ import { ref, push, set, get, update, onValue, off, query, orderByChild, serverT
 // @ts-ignore
 import { database, auth } from '../lib/firebase.ts';
 import { api } from '../lib/fetcher';
+import * as NotificationStorage from './notification-storage.service';
+import { UserService } from './user.service';
 import * as OfflineQueue from './offline-message-queue.service';
 import type { Message, Chat } from '../types/chatTypes';
+import { normalizeAvatarUrl } from '../utils/normalize';
 import { logger } from '../utils/logger';
 
 // @ts-ignore
@@ -74,6 +77,21 @@ const syncUserChatIndex = async (userId: string, chatId: string) => {
     });
 };
 
+const syncUserChatIndexes = async (uidA: string, uidB: string, chatId: string) => {
+    const results = await Promise.allSettled([
+        syncUserChatIndex(uidA, chatId),
+        syncUserChatIndex(uidB, chatId),
+    ]);
+
+    const failures = results.filter(r => r.status === 'rejected');
+    if (failures.length > 0 && __DEV__) {
+        logger.warn(
+            '⚠️ [ChatService] Some userChats index writes failed (chat may still work for creator):',
+            failures.length,
+        );
+    }
+};
+
 export const createChatIfNotExists = async (uidA: string, uidB: string) => {
     const chatId = getChatIdFor(uidA, uidB);
     const chatRef = ref(db, `chats/${chatId}`);
@@ -104,10 +122,7 @@ export const createChatIfNotExists = async (uidA: string, uidB: string) => {
             };
         }
 
-        await Promise.all([
-            syncUserChatIndex(uidA, chatId),
-            syncUserChatIndex(uidB, chatId),
-        ]);
+        await syncUserChatIndexes(uidA, uidB, chatId);
     } catch (error) {
         if (__DEV__) {
             logger.error('❌ [ChatService] Error creating chat:', error)
@@ -138,8 +153,37 @@ export const notifyChatMessageRecipient = async (
             return;
         }
 
+        const { isChatActive } = await import('./active-chat.service');
+        if (isChatActive(chatId)) {
+            return;
+        }
+
+        let senderName = 'Someone';
+        let senderAvatar = '';
+        try {
+            const senderData = await UserService.getUserById(message.senderId);
+            if (senderData) {
+                senderName = senderData.name || senderData.displayName || 'Someone';
+                senderAvatar = normalizeAvatarUrl(senderData);
+            }
+        } catch {
+            // non-critical
+        }
+
         const displayText =
             message.type === 'text' ? (message.text || 'New message') : `[${message.type}]`;
+
+        NotificationStorage.createNotification({
+            userId: recipientId,
+            type: 'chat_message',
+            category: 'message',
+            title: senderName,
+            message: displayText,
+            data: { chatId, senderId: message.senderId },
+            senderId: message.senderId,
+            senderName,
+            senderAvatar,
+        }).catch(() => {});
 
         api.post(
             '/notifications/send-message',

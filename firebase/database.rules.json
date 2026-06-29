@@ -4,34 +4,35 @@
       ".read": false,
       ".write": false,
       "$chatId": {
-        ".read": "auth != null && data.child('participants').val().contains(auth.uid)",
-        ".write": "auth != null && ((!data.exists() && newData.child('participants').val().contains(auth.uid)) || data.child('participants').val().contains(auth.uid))",
+        ".read": "auth != null && (!data.exists() || data.child('participants').child('0').val() == auth.uid || data.child('participants').child('1').val() == auth.uid)",
+        ".write": "auth != null && ((!data.exists() && (newData.child('participants').child('0').val() == auth.uid || newData.child('participants').child('1').val() == auth.uid)) || (data.exists() && (data.child('participants').child('0').val() == auth.uid || data.child('participants').child('1').val() == auth.uid)))",
         "messages": {
-          ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid)",
+          ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
           ".write": false,
           "$messageId": {
-            ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid)",
-            ".write": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid) && ((!data.exists() && newData.child('senderId').val() == auth.uid) || (data.exists() && data.child('senderId').val() == auth.uid && !newData.exists()))",
+            ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
+            ".write": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid) && ((!data.exists() && newData.child('senderId').val() == auth.uid) || (data.exists() && data.child('senderId').val() == auth.uid && !newData.exists()))",
             "seenBy": {
-              ".write": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid)"
+              ".write": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)"
             }
           }
         },
         "typing": {
-          ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.uid)",
+          ".read": "auth != null && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)",
           "$typingUserId": {
-            ".write": "auth != null && auth.uid == $typingUserId && root.child('chats').child($chatId).child('participants').val().contains(auth.uid)"
+            ".write": "auth != null && auth.uid == $typingUserId && (root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)"
           }
         }
       }
     },
     "userChats": {
-      ".read": "auth != null",
       "$userId": {
         ".read": "auth != null && auth.uid == $userId",
-        ".write": "auth != null && auth.uid == $userId"
+        "$chatId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && (auth.uid == $userId || root.child('chats').child($chatId).child('participants').child('0').val() == auth.uid || root.child('chats').child($chatId).child('participants').child('1').val() == auth.uid)"
+        }
       }
     }
   }
 }
-

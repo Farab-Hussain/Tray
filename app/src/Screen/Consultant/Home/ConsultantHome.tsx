@@ -17,6 +17,8 @@ import { useChatContext } from '../../../contexts/ChatContext';
 import { useRefresh } from '../../../hooks/useRefresh';
 import { AIService } from '../../../services/ai.service';
 import { logger } from '../../../utils/logger';
+import { UserService } from '../../../services/user.service';
+import { resolveUserDisplayName } from '../../../utils/displayName';
 import { usePlatformAccessFee } from '../../../hooks/usePlatformAccessFee';
 import {
   normalizeAvatarUrl,
@@ -149,33 +151,23 @@ const ConsultantHome = ({ navigation }: any) => {
       const studentDetailsMap = new Map();
       const studentPromises = studentIds.map(async (studentId) => {
         try {
-          const studentResponse = await api.get(`/auth/users/${studentId}`);
-          if (studentResponse.data) {
-            // Check multiple possible fields for profile image (profileImage, avatarUrl, avatar, photoURL)
-            // Also handle empty strings by converting them to null
-            const getValidImageUrl = (url: string | null | undefined): string | null => {
-              if (!url || typeof url !== 'string' || url.trim() === '') {
-                return null;
-              }
-              return url.trim();
-            };
-            
-            const normalizedAvatar = normalizeAvatarUrl(studentResponse.data);
-            const profileImage = getValidImageUrl(normalizedAvatar) || null;
+          const studentData = await UserService.getUserById(studentId);
+          if (studentData) {
+            const profileImage = normalizeAvatarUrl(studentData) || null;
             logger.debug(`📸 [ConsultantHome] Student ${studentId} profile loaded`);
-            
+
             studentDetailsMap.set(studentId, {
-              name: studentResponse.data.name || `Student ${studentId.slice(0, 8)}`,
-              email: studentResponse.data.email || `student@example.com`,
-              profileImage: profileImage
+              name: studentData.name || studentData.displayName || resolveUserDisplayName(studentData, studentId),
+              email: studentData.email || 'student@example.com',
+              profileImage,
             });
           }
         } catch (error: any) {
           logger.debug(`⚠️ [ConsultantHome] Could not fetch student details for ${studentId}:`, error?.message || error);
           studentDetailsMap.set(studentId, {
             name: `Student ${studentId.slice(0, 8)}`,
-            email: `student@example.com`,
-            profileImage: null
+            email: 'student@example.com',
+            profileImage: null,
           });
         }
       });

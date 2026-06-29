@@ -86,20 +86,25 @@ export const useSocialLogin = () => {
           await AsyncStorage.setItem('role', res.data?.role || role);
         }
         
-        // Update profile image if missing and user has photoURL from social login
+        // Update profile image and name if missing from social login
+        const profileUpdates: Record<string, string> = {};
         if (firebaseUser.photoURL && !res.data.profileImage && !res.data.avatarUrl) {
-                    if (__DEV__) {
-            console.log('Social Login - Updating missing profile image with photoURL:', firebaseUser.photoURL)
-          };
+          profileUpdates.profileImage = firebaseUser.photoURL;
+        }
+        const socialName = firebaseUser.displayName?.trim();
+        if (socialName && !String(res.data.name || '').trim()) {
+          profileUpdates.name = socialName;
+        }
+        if (Object.keys(profileUpdates).length > 0) {
           try {
-            await api.put('/auth/profile', { profileImage: firebaseUser.photoURL });
-                        if (__DEV__) {
-              console.log('Social Login - Profile image updated successfully')
-            };
+            await api.put('/auth/profile', profileUpdates);
+            if (__DEV__) {
+              console.log('Social Login - Profile synced from social account:', profileUpdates);
+            }
           } catch (updateError) {
-                        if (__DEV__) {
-              console.error('Social Login - Error updating profile image:', updateError)
-            };
+            if (__DEV__) {
+              console.error('Social Login - Error updating profile from social login:', updateError);
+            }
           }
         }
       } catch (error: any) {

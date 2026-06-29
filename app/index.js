@@ -2,7 +2,7 @@
  * @format
  */
 
-import { AppRegistry } from 'react-native';
+import { AppRegistry, Platform } from 'react-native';
 import App from './src/App';
 import { name as appName } from './app.json';
 import {
@@ -50,6 +50,12 @@ try {
 
           // Handle different types of background messages
           if (messageData.type === 'call' || messageData.callId) {
+            if (Platform.OS === 'ios') {
+              if (__DEV__) {
+                console.log('📞 [Background] iOS call FCM ignored — VoIP/CallKit owns ringing');
+              }
+              return;
+            }
             await storePendingCall({
               callId: messageData.callId,
               callType: messageData.callType || 'audio',

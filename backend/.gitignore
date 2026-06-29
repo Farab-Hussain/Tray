@@ -211,6 +211,8 @@ firestore-debug.log
 **/firebase-adminsdk-*.json
 **/tray-ed2f7-firebase-adminsdk-*.json
 src/config/*firebase*.json
+*.p8
+AuthKey_*.p8
 
 # Testing
 coverage/

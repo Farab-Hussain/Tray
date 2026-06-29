@@ -23,9 +23,21 @@ function canCreateNotification() {
 let payload = request.resource.data ;
 let extra = payload.data ;
 return isAuthenticated() &&
-payload.senderId == request.auth.uid &&
-payload.userId != request.auth.uid &&
 payload.read == false &&
+(
+// Receiver records a missed-call notification for themselves (caller is senderId).
+(payload.type == 'call' &&
+extra.missed == true &&
+payload.userId == request.auth.uid &&
+extra.receiverId == request.auth.uid &&
+payload.senderId == extra.callerId) ||
+// Student records a payment receipt notification for themselves (consultant is senderId).
+(payload.type == 'payment' &&
+payload.userId == request.auth.uid &&
+extra.studentId == request.auth.uid &&
+payload.senderId == extra.consultantId) ||
+(payload.senderId == request.auth.uid &&
+payload.userId != request.auth.uid &&
 (
 (payload.type == 'chat_message' &&
 extra.chatId is string &&
@@ -43,6 +55,7 @@ payload.userId != request.auth.uid) ||
 (
 (request.auth.uid == extra.studentId && payload.userId == extra.consultantId) ||
 (request.auth.uid == extra.consultantId && payload.userId == extra.studentId)
+))
 ))
 ) ;
 }
@@ -172,13 +185,10 @@ allow delete: if false                                            ;
 match /calls/{callId}/candidates/{candidateId} {
 // Helper to check if user is involved in the parent call
 function isCallParticipant() {
-let callDoc = get(/databases/$(database)/documents/calls/$(callId))                              ;
-// If call document doesn't exist yet (race condition during call setup), allow if authenticated
-// This handles the case where ICE candidates are generated before call document is created
 return isAuthenticated() &&
-(!exists(callDoc) ||
-request.auth.uid == callDoc.data.callerId ||
-request.auth.uid == callDoc.data.receiverId)                                                     ;
+(!exists(/databases/$(database)/documents/calls/$(callId)) ||
+request.auth.uid == get(/databases/$(database)/documents/calls/$(callId)).data.callerId ||
+request.auth.uid == get(/databases/$(database)/documents/calls/$(callId)).data.receiverId);
 }
 
 // Users can read candidates for calls they're involved in

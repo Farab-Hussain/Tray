@@ -13,6 +13,7 @@ import { BookingService } from '../../../services/booking.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { showError } from '../../../utils/toast';
 import { logger } from '../../../utils/logger';
+import { startOutgoingCall } from '../../../services/call-navigation.service';
 import { normalizeAvatarUrl, normalizeBookingStatus, normalizeTimestampToIso } from '../../../utils/normalize';
 
 const BookedConsultants = ({ navigation }: any) => {
@@ -180,12 +181,12 @@ const BookedConsultants = ({ navigation }: any) => {
       // Generate callId: callerId_receiverId-timestamp
       const callId = `${user.uid}_${consultantId}-${Date.now()}`;
 
-      // Navigate to audio call screen
-      navigation.navigate('CallingScreen', {
+      void startOutgoingCall({
         callId,
+        callType: 'audio',
         callerId: user.uid,
         receiverId: consultantId,
-        isCaller: true,
+        calleeName: consultant.name,
       });
     } catch (error: any) {
       if (__DEV__) {

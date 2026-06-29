@@ -18,7 +18,7 @@ import PaymentService from '../../../services/payment.service';
 import { paymentScreenStyles } from '../../../constants/styles/paymentScreenStyles';
 import { Lock } from 'lucide-react-native';
 import type { PlatformAccessReturnTo } from '../../../utils/platformAccessFee';
-import { ACCESS_FEE_ROLE_LABELS } from '../../../utils/platformAccessFee';
+import { ACCESS_FEE_ROLE_LABELS, navigateToReturnTarget } from '../../../utils/platformAccessFee';
 import {
   formatStripePaymentError,
   getStripePaymentSheetOptions,
@@ -83,7 +83,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
 
   const finishAndNavigate = useCallback(() => {
     if (returnTo?.screen) {
-      navigation.replace(returnTo.screen, returnTo.params);
+      navigateToReturnTarget(navigation, returnTo, 'replace');
       return;
     }
     navigation.replace('MainTabs');

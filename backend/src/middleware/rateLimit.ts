@@ -1,6 +1,10 @@
 import rateLimit from 'express-rate-limit';
 
-const isTestEnv = process.env.NODE_ENV === 'test';
+const nodeEnv = (process.env.NODE_ENV || 'development').toLowerCase();
+const isTestEnv = nodeEnv === 'test';
+const isDevEnv =
+  nodeEnv === 'development' ||
+  process.env.DISABLE_RATE_LIMIT === 'true';
 
 /**
  * General auth endpoint limiter — login, OTP, password reset, register, verify-email.
@@ -24,7 +28,7 @@ export const authLimiter = rateLimit({
  */
 export const globalApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isTestEnv ? 100_000 : 300,
+  max: isTestEnv || isDevEnv ? 100_000 : 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

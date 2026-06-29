@@ -14,6 +14,7 @@ import { OTP_MAX_ATTEMPTS } from "../constants/authSecurity";
 import { validatePasswordLength } from "../utils/passwordValidation";
 import { devLog, devWarn, devError } from "../utils/sanitizeLog";
 import { getClientIp, recordSecurityEvent } from "../services/securityEvent.service";
+import { resolveUserDisplayName } from "../utils/displayName";
 
 // Validate JWT secret on startup
 JWTUtils.validateSecret();
@@ -300,7 +301,9 @@ export const updateProfile = async (req: Request, res: Response) => {
       updatedAt: new Date(),
     };
 
-    if (name) updateData.name = name;
+    if (name !== undefined && name !== null && String(name).trim()) {
+      updateData.name = String(name).trim();
+    }
     if (profileImage !== undefined) updateData.profileImage = profileImage;
     if (externalProfiles) updateData.externalProfiles = externalProfiles;
 
@@ -641,9 +644,28 @@ export const getUserById = async (req: Request, res: Response) => {
     const requesterRole = requesterDoc.data()?.role;
     const isAdmin = requesterRole === "admin";
 
+    let authDisplayName: string | undefined;
+    let authEmail: string | undefined;
+    try {
+      const authUser = await auth.getUser(uid);
+      authDisplayName = authUser.displayName;
+      authEmail = authUser.email;
+    } catch {
+      // Non-fatal — fall back to Firestore fields
+    }
+
+    const resolvedName = resolveUserDisplayName({
+      name: userData?.name,
+      displayName: authDisplayName,
+      email: userData?.email || authEmail,
+      role: userData?.role,
+      uid,
+    });
+
     const response: Record<string, unknown> = {
       uid: userData?.uid || uid,
-      name: userData?.name,
+      name: resolvedName,
+      displayName: resolvedName,
       role: userData?.role,
       profileImage:
         userData?.profileImage ||

@@ -17,6 +17,8 @@ try {
 export class AudioSessionManager {
   private static isSessionActive = false;
   private static pendingOperations: Array<() => void> = [];
+  /** Tracked locally — InCallManager.getSpeakerphoneOn is not available on all platforms. */
+  private static speakerOn = false;
 
   /**
    * Initialize audio session for calls
@@ -38,10 +40,12 @@ export class AudioSessionManager {
 
       // Configure audio routing
       if (isVideo) {
+        this.speakerOn = true;
         InCallManager.setForceSpeakerphoneOn(true);
         InCallManager.setSpeakerphoneOn(true);
         console.log('🔊 [AudioSession] Speakerphone enabled for video call');
       } else {
+        this.speakerOn = false;
         if (Platform.OS === 'ios') {
           // On iOS, use earpiece by default for audio calls
           InCallManager.setForceSpeakerphoneOn(false);
@@ -50,7 +54,12 @@ export class AudioSessionManager {
         } else {
           // On Android, configure for voice calls
           InCallManager.setForceSpeakerphoneOn(false);
+          InCallManager.setSpeakerphoneOn(false);
           console.log('👂 [AudioSession] Earpiece configured for audio call (Android)');
+        }
+        if (typeof InCallManager.setProximitySensorEnabled === 'function') {
+          InCallManager.setProximitySensorEnabled(true);
+          console.log('📱 [AudioSession] Proximity sensor enabled');
         }
       }
 
@@ -73,8 +82,13 @@ export class AudioSessionManager {
     try {
       console.log('🔇 [AudioSession] Stopping audio session');
       
+      if (typeof InCallManager.setProximitySensorEnabled === 'function') {
+        InCallManager.setProximitySensorEnabled(false);
+      }
+
       await InCallManager.stop();
       this.isSessionActive = false;
+      this.speakerOn = false;
       
       // Process any pending operations
       this.pendingOperations.forEach(operation => {
@@ -111,22 +125,25 @@ export class AudioSessionManager {
   /**
    * Toggle speakerphone
    */
-  static async toggleSpeakerphone() {
+  static isSpeakerOn(): boolean {
+    return this.speakerOn;
+  }
+
+  static async toggleSpeakerphone(): Promise<boolean> {
     if (!InCallManager) {
-      return;
+      return this.speakerOn;
     }
 
     try {
-      const currentState = await InCallManager.getSpeakerphoneOn();
-      const newState = !currentState;
-      
-      await InCallManager.setSpeakerphoneOn(newState);
+      const newState = !this.speakerOn;
+      InCallManager.setForceSpeakerphoneOn(newState);
+      InCallManager.setSpeakerphoneOn(newState);
+      this.speakerOn = newState;
       console.log(`🔊 [AudioSession] Speakerphone ${newState ? 'on' : 'off'}`);
-      
       return newState;
     } catch (error: any) {
       console.error('❌ [AudioSession] Error toggling speakerphone:', error);
-      return false;
+      return this.speakerOn;
     }
   }
 
