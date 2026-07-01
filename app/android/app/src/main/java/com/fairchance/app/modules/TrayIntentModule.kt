@@ -1,4 +1,4 @@
-package com.tray.modules
+package com.fairchance.app.modules
 
 import android.content.Context
 import android.content.Intent
@@ -7,9 +7,9 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import com.tray.MainActivity
-import com.tray.notifications.CallNotificationHelper
-import com.tray.security.IntentSecurity
+import com.fairchance.app.MainActivity
+import com.fairchance.app.notifications.CallNotificationHelper
+import com.fairchance.app.security.IntentSecurity
 import java.util.HashMap
 
 class TrayIntentModule(reactContext: ReactApplicationContext) :

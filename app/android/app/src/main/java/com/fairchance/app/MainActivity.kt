@@ -1,4 +1,4 @@
-package com.tray
+package com.fairchance.app
 
 import android.content.Intent
 import android.os.Build
@@ -10,8 +10,8 @@ import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
-import com.tray.modules.TrayIntentModule
-import com.tray.security.IntentSecurity
+import com.fairchance.app.modules.TrayIntentModule
+import com.fairchance.app.security.IntentSecurity
 
 class MainActivity : ReactActivity() {
 

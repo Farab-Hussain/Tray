@@ -1,4 +1,4 @@
-package com.tray.notifications;
+package com.fairchance.app.notifications;
 
 import android.util.Log;
 

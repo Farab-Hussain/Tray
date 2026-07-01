@@ -1,4 +1,4 @@
-package com.tray.notifications;
+package com.fairchance.app.notifications;
 
 import android.app.ActivityManager;
 import android.app.Notification;
@@ -17,11 +17,11 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
-import com.tray.MainActivity;
-import com.tray.R;
-import com.tray.modules.TrayIntentModule;
-import com.tray.security.IntentSecurity;
-import com.tray.services.CallService;
+import com.fairchance.app.MainActivity;
+import com.fairchance.app.R;
+import com.fairchance.app.modules.TrayIntentModule;
+import com.fairchance.app.security.IntentSecurity;
+import com.fairchance.app.services.CallService;
 
 import java.util.Map;
 

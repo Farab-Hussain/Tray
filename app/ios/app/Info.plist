@@ -76,8 +76,6 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs access to your camera to make video calls</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs access to your microphone to make audio and video calls</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -89,16 +87,8 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
-		<string>processing</string>
-		<string>fetch</string>
-		<string>bluetooth-peripheral</string>
 		<string>audio</string>
-		<string>external-accessory</string>
-		<string>push-to-talk</string>
-		<string>bluetooth-central</string>
-		<string>nearby-interaction</string>
 		<string>voip</string>
-		<string>location</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

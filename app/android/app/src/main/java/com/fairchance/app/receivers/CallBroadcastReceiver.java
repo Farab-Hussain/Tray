@@ -1,4 +1,4 @@
-package com.tray.receivers;
+package com.fairchance.app.receivers;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -6,7 +6,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.tray.MainActivity;
+import com.fairchance.app.MainActivity;
 
 public class CallBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "CallBroadcastReceiver";
@@ -28,7 +28,7 @@ public class CallBroadcastReceiver extends BroadcastReceiver {
                     // Handle phone state changes if needed
                     break;
                     
-                case "com.tray.INCOMING_CALL":
+                case "com.fairchance.app.INCOMING_CALL":
                     Log.d(TAG, "Incoming call broadcast received");
                     handleIncomingCall(context, intent);
                     break;
@@ -42,7 +42,7 @@ public class CallBroadcastReceiver extends BroadcastReceiver {
         
         if (callId != null && callType != null) {
             // Start the call service to show notification
-            Intent serviceIntent = new Intent(context, com.tray.services.CallService.class);
+            Intent serviceIntent = new Intent(context, com.fairchance.app.services.CallService.class);
             serviceIntent.putExtra("callId", callId);
             serviceIntent.putExtra("callType", callType);
             

@@ -1,4 +1,4 @@
-package com.tray
+package com.fairchance.app
 
 import android.app.Application
 import android.app.NotificationChannel
@@ -20,7 +20,7 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          add(com.tray.modules.TrayIntentPackage())
+          add(com.fairchance.app.modules.TrayIntentPackage())
         },
     )
   }

@@ -169,7 +169,7 @@ describe('JobPostingPaymentScreen', () => {
         expect(mockCreatePaymentIntent).toHaveBeenCalled();
         expect(initPaymentSheet).toHaveBeenCalledWith({
           paymentIntentClientSecret: 'test-client-secret',
-          merchantDisplayName: 'Tray Platform',
+          merchantDisplayName: 'fairChance Platform',
           allowsDelayedPaymentMethods: true,
           defaultBillingDetails: {
             name: 'Test User',

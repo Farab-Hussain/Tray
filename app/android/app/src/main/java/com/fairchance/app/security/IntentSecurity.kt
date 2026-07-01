@@ -1,4 +1,4 @@
-package com.tray.security
+package com.fairchance.app.security
 
 import android.content.Context
 import android.content.Intent
@@ -9,7 +9,7 @@ import java.util.UUID
  * Validates intents delivered to exported activities and marks trusted in-app intents.
  */
 object IntentSecurity {
-  const val EXTRA_INTERNAL = "com.tray.extra.INTERNAL_TOKEN"
+  const val EXTRA_INTERNAL = "com.fairchance.app.extra.INTERNAL_TOKEN"
 
   private const val PREFS_NAME = "tray_intent_security"
   private const val KEY_TOKEN = "internal_intent_token"

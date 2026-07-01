@@ -1,4 +1,4 @@
-package com.tray.modules
+package com.fairchance.app.modules
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

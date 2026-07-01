@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
 
-const SERVICE_PREFIX = 'com.tray.secure';
+const SERVICE_PREFIX = 'com.fairchance.app.secure';
 const ASYNC_FALLBACK_PREFIX = 'secure:';
 
 const serviceForKey = (key: string): string => `${SERVICE_PREFIX}.${key}`;

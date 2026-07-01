@@ -1,12 +1,12 @@
-package com.tray;
+package com.fairchance.app;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 
-import com.tray.modules.TrayIntentModule;
-import com.tray.notifications.CallNotificationHelper;
-import com.tray.security.IntentSecurity;
+import com.fairchance.app.modules.TrayIntentModule;
+import com.fairchance.app.notifications.CallNotificationHelper;
+import com.fairchance.app.security.IntentSecurity;
 
 /**
  * Legacy entry point — immediately forwards to MainActivity so React Native

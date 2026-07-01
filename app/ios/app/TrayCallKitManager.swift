@@ -17,7 +17,7 @@ final class TrayCallKitManager: NSObject {
   }
 
   func configure() {
-    let configuration = CXProviderConfiguration(localizedName: "Tray")
+    let configuration = CXProviderConfiguration(localizedName: "FairChance")
     configuration.maximumCallGroups = 1
     configuration.maximumCallsPerCallGroup = 1
     configuration.supportsVideo = true

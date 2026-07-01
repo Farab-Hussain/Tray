@@ -1,4 +1,4 @@
-package com.tray.services;
+package com.fairchance.app.services;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -17,9 +17,9 @@ import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
-import com.tray.MainActivity;
-import com.tray.R;
-import com.tray.security.IntentSecurity;
+import com.fairchance.app.MainActivity;
+import com.fairchance.app.R;
+import com.fairchance.app.security.IntentSecurity;
 
 public class CallService extends Service {
     private static final String TAG = "TrayCallService";
@@ -198,7 +198,7 @@ public class CallService extends Service {
             }
             wakeLock = powerManager.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                "tray:incoming_call_wake"
+                "fairChance:incoming_call_wake"
             );
             wakeLock.acquire(60_000L);
         } catch (Exception e) {

@@ -279,8 +279,8 @@ export const useSocialLogin = () => {
         const developerErrorMessage = 
           'Google Sign-In configuration error. Please ensure:\n' +
           '1. GOOGLE_WEB_CLIENT_ID is set in your .env file\n' +
-          '2. SHA-1 fingerprint is added to Firebase Console\n' +
-          '3. OAuth client is properly configured in Google Cloud Console';
+          '2. Upload key AND Play App signing SHA-1 are added in Firebase (com.fairchance.app)\n' +
+          '3. OAuth clients exist in Google Cloud Console for both certificates';
         showError(developerErrorMessage, 'Google Sign-In Configuration Error');
         
         if (options?.onError) {
