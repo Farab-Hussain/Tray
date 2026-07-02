@@ -8,7 +8,7 @@ import { API_URL, FASTAPI_AI_URL, SSL_PINNING_ENABLED, SSL_PINNING_PUBLIC_KEY_HA
  *   See app/scripts/extract-ssl-pins.sh
  */
 export const DEFAULT_SSL_PUBLIC_KEY_PINS = [
-  'fndKWNHkmWFva8LCkbaQ6j1HS5JLIT9dD8JdQm41s7o=',
+  'ft9JFh9fyiSD0LI4vCAyVHDM1OKStfDBooxsWHHvngY=',
   'yDu9og255NN5GEf+Bwa9rTrqFQ0EydZ0r1FCh9TdAW4=',
   'hxqRlPTu1bMS/0DITB1SSu0vd4u/8l8TjPgfaAp63Gc=',
 ] as const;
