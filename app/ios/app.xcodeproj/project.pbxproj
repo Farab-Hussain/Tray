@@ -18,6 +18,9 @@
 		A1B2C3D52CA45674006654F5 /* TrayVoipModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D22CA45674006654F2 /* TrayVoipModule.swift */; };
 		A1B2C3D62CA45674006654F6 /* TrayVoipModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D32CA45674006654F3 /* TrayVoipModule.m */; };
 		B2C3D4E52CA45674006654F7 /* TrayCallKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E22CA45674006654F4 /* TrayCallKitManager.swift */; };
+		D0E1F2B12CA4567400665511 /* tray-ecru.vercel.app-1.cer in Resources */ = {isa = PBXBuildFile; fileRef = D0E1F2A12CA4567400665501 /* tray-ecru.vercel.app-1.cer */; };
+		D0E1F2B22CA4567400665512 /* tray-ecru.vercel.app-2.cer in Resources */ = {isa = PBXBuildFile; fileRef = D0E1F2A22CA4567400665502 /* tray-ecru.vercel.app-2.cer */; };
+		D0E1F2B32CA4567400665513 /* tray-ecru.vercel.app-3.cer in Resources */ = {isa = PBXBuildFile; fileRef = D0E1F2A32CA4567400665503 /* tray-ecru.vercel.app-3.cer */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -58,6 +61,9 @@
 		A1B2C3D32CA45674006654F3 /* TrayVoipModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = TrayVoipModule.m; path = app/TrayVoipModule.m; sourceTree = "<group>"; };
 		AB342697E0396152F4F504D4 /* Pods-app.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.debug.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.debug.xcconfig"; sourceTree = "<group>"; };
 		B2C3D4E22CA45674006654F4 /* TrayCallKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrayCallKitManager.swift; path = app/TrayCallKitManager.swift; sourceTree = "<group>"; };
+		D0E1F2A12CA4567400665501 /* tray-ecru.vercel.app-1.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = "tray-ecru.vercel.app-1.cer"; path = "app/SSLPinning/tray-ecru.vercel.app-1.cer"; sourceTree = "<group>"; };
+		D0E1F2A22CA4567400665502 /* tray-ecru.vercel.app-2.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = "tray-ecru.vercel.app-2.cer"; path = "app/SSLPinning/tray-ecru.vercel.app-2.cer"; sourceTree = "<group>"; };
+		D0E1F2A32CA4567400665503 /* tray-ecru.vercel.app-3.cer */ = {isa = PBXFileReference; lastKnownFileType = file; name = "tray-ecru.vercel.app-3.cer"; path = "app/SSLPinning/tray-ecru.vercel.app-3.cer"; sourceTree = "<group>"; };
 		E3658916B5EF34F6F0A52B04 /* Pods-app.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-app.release.xcconfig"; path = "Target Support Files/Pods-app/Pods-app.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -88,6 +94,7 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				D0E1F2C02CA4567400665520 /* SSLPinning */,
 			);
 			name = app;
 			sourceTree = "<group>";
@@ -137,6 +144,16 @@
 				E3658916B5EF34F6F0A52B04 /* Pods-app.release.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		D0E1F2C02CA4567400665520 /* SSLPinning */ = {
+			isa = PBXGroup;
+			children = (
+				D0E1F2A12CA4567400665501 /* tray-ecru.vercel.app-1.cer */,
+				D0E1F2A22CA4567400665502 /* tray-ecru.vercel.app-2.cer */,
+				D0E1F2A32CA4567400665503 /* tray-ecru.vercel.app-3.cer */,
+			);
+			name = SSLPinning;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -206,6 +223,9 @@
 				04F694752EB94E9B00447BA8 /* GoogleService-Info.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				193BA4A941795441D78A6E6D /* PrivacyInfo.xcprivacy in Resources */,
+				D0E1F2B12CA4567400665511 /* tray-ecru.vercel.app-1.cer in Resources */,
+				D0E1F2B22CA4567400665512 /* tray-ecru.vercel.app-2.cer in Resources */,
+				D0E1F2B32CA4567400665513 /* tray-ecru.vercel.app-3.cer in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -325,7 +345,7 @@
 				CODE_SIGN_ENTITLEMENTS = app/app.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 869KQZ29M7;
 				ENABLE_BITCODE = NO;
@@ -362,7 +382,7 @@
 				CODE_SIGN_ENTITLEMENTS = app/app.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 869KQZ29M7;
 				INFOPLIST_FILE = app/Info.plist;

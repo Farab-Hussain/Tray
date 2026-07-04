@@ -2,10 +2,11 @@ import { API_URL, FASTAPI_AI_URL, SSL_PINNING_ENABLED, SSL_PINNING_PUBLIC_KEY_HA
 
 /**
  * Public key pins (SPKI SHA-256, base64) for tray-ecru.vercel.app / tray-ai-backend.vercel.app.
- * Regenerate when the certificate chain rotates:
- *   echo | openssl s_client -servername HOST -connect HOST:443 -showcerts 2>/dev/null \
- *     | awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/{print}' | while read -r line; do ...
- *   See app/scripts/extract-ssl-pins.sh
+ *
+ * Android: uses SSL_PINNING_PUBLIC_KEY_HASHES from .env (sha256/... via sslPinningAdapter).
+ * iOS: react-native-ssl-pinning ignores JS pins — it loads .cer files from the app bundle
+ *      (see ios/app/SSLPinning/*.cer). Regenerate both when the certificate chain rotates:
+ *   ./scripts/extract-ssl-pins.sh tray-ecru.vercel.app
  */
 export const DEFAULT_SSL_PUBLIC_KEY_PINS = [
   'ft9JFh9fyiSD0LI4vCAyVHDM1OKStfDBooxsWHHvngY=',
