@@ -93,7 +93,7 @@ export function buildAccessFeePaidUpdate(role: AccessFeeRoleKey, extra: Record<s
     ...extra,
   };
 
-  if (role === 'student') {
+  if (role === 'student' || role === 'consultant') {
     update.hasPaidAccessFee = true;
   }
   if (role === 'recruiter') {

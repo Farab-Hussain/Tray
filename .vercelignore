@@ -1,16 +1,17 @@
-# Monorepo: Vercel project "tray" only needs the backend folder.
-# Keep upload under the 10MB CLI limit.
+# Shared monorepo ignore for Vercel git deploys.
+# Do NOT ignore `web` — tray-dashboard Root Directory is `web`.
+# Do NOT ignore `backend` — tray API Root Directory is `backend`.
 
-app
-web
-fastapi-ai-backend
-firebase
-doc
-docs
-tests
-.cursor
-.idea
-.vscode
+# Only ignore the React Native app at repo root (not web/app)
+/app
+/fastapi-ai-backend
+/firebase
+/doc
+/docs
+/tests
+/.cursor
+/.idea
+/.vscode
 .git
 **/.git
 **/node_modules
@@ -27,7 +28,6 @@ tests
 **/*.keystore
 google-services*.json
 tray-release.keystore
-*.md
 .env
 .env.*
 !.env.example

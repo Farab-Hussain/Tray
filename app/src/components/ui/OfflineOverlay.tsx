@@ -17,11 +17,14 @@ const OfflineOverlay: React.FC = () => {
 
   const handleRetry = async () => {
     setIsChecking(true);
-    await checkConnection();
-    // Small delay to show loading state
-    setTimeout(() => {
-      setIsChecking(false);
-    }, 500);
+    try {
+      await checkConnection();
+    } finally {
+      // Small delay so the button doesn't flash
+      setTimeout(() => {
+        setIsChecking(false);
+      }, 400);
+    }
   };
 
   // Don't show overlay if connected

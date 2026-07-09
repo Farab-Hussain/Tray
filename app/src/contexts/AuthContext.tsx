@@ -271,11 +271,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setActiveRole(userActiveRole);
         setRole(userActiveRole); // Keep for backward compatibility
         const paidRoles = res.data?.accessFeePaidRoles || {};
+        // Match backend: legacy hasPaidAccessFee covers student + consultant
         const rolePaid =
           userActiveRole === 'recruiter'
             ? paidRoles.recruiter === true || res.data?.hasPaidHiringManagerAccessFee === true
             : userActiveRole === 'consultant'
-              ? paidRoles.consultant === true
+              ? paidRoles.consultant === true || res.data?.hasPaidAccessFee === true
               : paidRoles.student === true || res.data?.hasPaidAccessFee === true;
         setHasPaidPlatformAccess(res.data?.accessFeeWaived === true || rolePaid);
 
@@ -504,12 +505,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           const profileActiveRole =
             backendProfile.data?.activeRole || backendProfile.data?.role || 'student';
           const profilePaidRoles = backendProfile.data?.accessFeePaidRoles || {};
+          // Match backend hasPaidAccessFeeForRole: legacy hasPaidAccessFee covers student + consultant
           const profileRolePaid =
             profileActiveRole === 'recruiter'
               ? profilePaidRoles.recruiter === true ||
                 backendProfile.data?.hasPaidHiringManagerAccessFee === true
               : profileActiveRole === 'consultant'
-                ? profilePaidRoles.consultant === true
+                ? profilePaidRoles.consultant === true ||
+                  backendProfile.data?.hasPaidAccessFee === true
                 : profilePaidRoles.student === true ||
                   backendProfile.data?.hasPaidAccessFee === true;
           setHasPaidPlatformAccess(
@@ -532,8 +535,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setUser(toAuthUserState(auth.currentUser));
         }
 
-        // Refresh role data as well
-        await fetchUserRole(true);
+        // Refresh role data as well (bounded — never hang callers like payment screens)
+        await Promise.race([
+          fetchUserRole(true),
+          new Promise<void>(resolve => setTimeout(resolve, 10000)),
+        ]);
       } catch (error) {
         if (__DEV__) {
           console.error('Error refreshing user:', error);

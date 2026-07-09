@@ -89,6 +89,20 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     navigation.replace('MainTabs');
   }, [navigation, returnTo]);
 
+  /** Don't block the UI on profile refresh after payment — it can hang on /auth/me. */
+  const refreshAfterAccessGranted = useCallback(async () => {
+    try {
+      await Promise.race([
+        refreshPlatformAccessStatus(),
+        new Promise<boolean>(resolve => setTimeout(() => resolve(true), 8000)),
+      ]);
+    } catch {
+      // Access was already granted server-side; continue anyway.
+    }
+    // Fire-and-forget full user refresh so the spinner is never stuck on it.
+    refreshUser?.().catch(() => undefined);
+  }, [refreshPlatformAccessStatus, refreshUser]);
+
   const initializePaymentSheet = useCallback(async (promoCodeInput?: string) => {
     try {
       setLoading(true);
@@ -100,7 +114,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       }
       if (status.paid) {
         setCompleted(true);
-        await refreshPlatformAccessStatus();
+        await refreshAfterAccessGranted();
         if (!isRequired) {
           navigation.goBack();
         } else {
@@ -178,7 +192,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     navigation,
     promotionCode,
     isRequired,
-    refreshPlatformAccessStatus,
+    refreshAfterAccessGranted,
     finishAndNavigate,
     feeRole,
   ]);
@@ -232,8 +246,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
 
     if (response.success) {
       setCompleted(true);
-      await refreshUser?.();
-      await refreshPlatformAccessStatus();
+      await refreshAfterAccessGranted();
       Alert.alert(
         'Payment Successful',
         'You now have full platform access. You can book sessions and purchase courses.',
@@ -255,8 +268,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       try {
         setProcessing(true);
         setCompleted(true);
-        await refreshUser?.();
-        await refreshPlatformAccessStatus();
+        await refreshAfterAccessGranted();
         Alert.alert(
           'Access granted',
           'Your promotion code was applied. You now have full platform access.',
