@@ -28,6 +28,12 @@ interface PlatformAccessPaymentScreenProps {
   navigation: any;
 }
 
+const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+  ]);
+
 const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = ({
   navigation,
 }) => {
@@ -40,7 +46,13 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   const isRequired = routeParams.required !== false;
   const returnTo = routeParams.returnTo;
 
-  const { user, activeRole, refreshUser, refreshPlatformAccessStatus } = useAuth();
+  const {
+    user,
+    activeRole,
+    refreshUser,
+    refreshPlatformAccessStatus,
+    markPlatformAccessPaid,
+  } = useAuth();
   const feeRole = routeParams.role || activeRole || 'student';
   const defaultRoleLabel =
     ACCESS_FEE_ROLE_LABELS[feeRole as keyof typeof ACCESS_FEE_ROLE_LABELS] || 'Client';
@@ -86,116 +98,155 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       navigateToReturnTarget(navigation, returnTo, 'replace');
       return;
     }
+    // MainTabs → RoleBasedTabs picks consultant / student / recruiter from activeRole
     navigation.replace('MainTabs');
   }, [navigation, returnTo]);
 
-  /** Don't block the UI on profile refresh after payment — it can hang on /auth/me. */
-  const refreshAfterAccessGranted = useCallback(async () => {
-    try {
-      await Promise.race([
-        refreshPlatformAccessStatus(),
-        new Promise<boolean>(resolve => setTimeout(() => resolve(true), 8000)),
-      ]);
-    } catch {
-      // Access was already granted server-side; continue anyway.
-    }
-    // Fire-and-forget full user refresh so the spinner is never stuck on it.
-    refreshUser?.().catch(() => undefined);
-  }, [refreshPlatformAccessStatus, refreshUser]);
-
-  const initializePaymentSheet = useCallback(async (promoCodeInput?: string) => {
-    try {
-      setLoading(true);
-      setInitError(null);
-
-      const status = await PaymentService.getAccessFeeStatus(feeRole);
-      if (status.roleLabel) {
-        setRoleLabel(status.roleLabel);
-      }
-      if (status.paid) {
-        setCompleted(true);
-        await refreshAfterAccessGranted();
-        if (!isRequired) {
-          navigation.goBack();
-        } else {
-          finishAndNavigate();
-        }
-        return;
-      }
-      const fee = status.fee ?? 25;
-      setBaseFee(fee);
-      setAccessFee(fee);
-
-      const trimmedPromo = (promoCodeInput ?? promotionCode).trim();
-      const response = await PaymentService.createAccessFeePaymentIntent(
-        trimmedPromo || undefined,
-        feeRole,
-      );
-      if (response.roleLabel) {
-        setRoleLabel(response.roleLabel);
-      }
-
-      if (!response.success) {
-        const message =
-          response.error || 'Could not apply this code. Check the code and try again.';
-        setInitError(message);
-        Alert.alert('Promotion code', message);
-        setPromoApplied(false);
-        setSheetReady(false);
-        return;
-      }
-
-      setPromoApplied(!!response.promoApplied && !!trimmedPromo);
-
-      if (response.freeAccess) {
-        setPaymentIntent(response);
-        setAccessFee(0);
-        setSheetReady(true);
-        return;
-      }
-
-      if (response.clientSecret && response.paymentIntentId) {
-        setPaymentIntent({
-          ...response,
-          paymentIntentId: response.paymentIntentId,
-          clientSecret: response.clientSecret,
-        });
-        if (typeof response.amount === 'number') {
-          setAccessFee(response.amount / 100);
-        }
-
-        const ready = await preparePaymentSheet(response.clientSecret);
-        if (!ready) {
-          setInitError(prev => prev || 'Payment could not be prepared. Tap Pay again to retry.');
-        }
-      } else {
-        setSheetReady(false);
-        setPaymentIntent(null);
-        const message = 'Failed to create payment session. Check your connection and try again.';
-        setInitError(message);
-        Alert.alert('Issue', message);
-      }
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.error ||
-        error?.message ||
-        'Failed to initialize payment';
-      setInitError(message);
-      setSheetReady(false);
-      Alert.alert('Issue', message);
-    } finally {
+  /** Mark paid locally and leave the paywall immediately — never block on network. */
+  const grantAccessAndLeave = useCallback(
+    (messageTitle: string, messageBody: string) => {
+      setCompleted(true);
+      setProcessing(false);
       setLoading(false);
-    }
-  }, [
-    user,
-    preparePaymentSheet,
-    navigation,
-    promotionCode,
-    isRequired,
-    refreshAfterAccessGranted,
-    finishAndNavigate,
-    feeRole,
-  ]);
+      markPlatformAccessPaid();
+
+      // Background sync only
+      refreshPlatformAccessStatus().catch(() => undefined);
+      refreshUser?.().catch(() => undefined);
+
+      Alert.alert(messageTitle, messageBody, [
+        { text: 'Continue', onPress: finishAndNavigate },
+      ]);
+    },
+    [
+      markPlatformAccessPaid,
+      refreshPlatformAccessStatus,
+      refreshUser,
+      finishAndNavigate,
+    ],
+  );
+
+  const initializePaymentSheet = useCallback(
+    async (promoCodeInput?: string) => {
+      try {
+        setLoading(true);
+        setInitError(null);
+
+        const status = await withTimeout(
+          PaymentService.getAccessFeeStatus(feeRole),
+          10000,
+          { paid: false, fee: 25 } as any,
+        );
+
+        if (status?.roleLabel) {
+          setRoleLabel(status.roleLabel);
+        }
+
+        if (status?.paid) {
+          setCompleted(true);
+          markPlatformAccessPaid();
+          setLoading(false);
+          if (!isRequired) {
+            navigation.goBack();
+          } else {
+            finishAndNavigate();
+          }
+          refreshPlatformAccessStatus().catch(() => undefined);
+          refreshUser?.().catch(() => undefined);
+          return;
+        }
+
+        const fee = status?.fee ?? 25;
+        setBaseFee(fee);
+        setAccessFee(fee);
+
+        const trimmedPromo = (promoCodeInput ?? promotionCode).trim();
+        const response = await withTimeout(
+          PaymentService.createAccessFeePaymentIntent(
+            trimmedPromo || undefined,
+            feeRole,
+          ),
+          15000,
+          {
+            success: false,
+            error: 'Payment setup timed out. Check your connection and try again.',
+            clientSecret: '',
+            paymentIntentId: '',
+          } as any,
+        );
+
+        if (response?.roleLabel) {
+          setRoleLabel(response.roleLabel);
+        }
+
+        if (!response?.success) {
+          const message =
+            response?.error ||
+            'Could not apply this code. Check the code and try again.';
+          setInitError(message);
+          Alert.alert('Promotion code', message);
+          setPromoApplied(false);
+          setSheetReady(false);
+          return;
+        }
+
+        setPromoApplied(!!response.promoApplied && !!trimmedPromo);
+
+        if (response.freeAccess) {
+          setPaymentIntent(response);
+          setAccessFee(0);
+          setSheetReady(true);
+          return;
+        }
+
+        if (response.clientSecret && response.paymentIntentId) {
+          setPaymentIntent({
+            ...response,
+            paymentIntentId: response.paymentIntentId,
+            clientSecret: response.clientSecret,
+          });
+          if (typeof response.amount === 'number') {
+            setAccessFee(response.amount / 100);
+          }
+
+          const ready = await preparePaymentSheet(response.clientSecret);
+          if (!ready) {
+            setInitError(
+              prev => prev || 'Payment could not be prepared. Tap Pay again to retry.',
+            );
+          }
+        } else {
+          setSheetReady(false);
+          setPaymentIntent(null);
+          const message =
+            'Failed to create payment session. Check your connection and try again.';
+          setInitError(message);
+          Alert.alert('Issue', message);
+        }
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.error ||
+          error?.message ||
+          'Failed to initialize payment';
+        setInitError(message);
+        setSheetReady(false);
+        Alert.alert('Issue', message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      preparePaymentSheet,
+      navigation,
+      promotionCode,
+      isRequired,
+      finishAndNavigate,
+      feeRole,
+      markPlatformAccessPaid,
+      refreshPlatformAccessStatus,
+      refreshUser,
+    ],
+  );
 
   useEffect(() => {
     initializePaymentSheet();
@@ -214,16 +265,19 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
         onBackPress,
       );
 
-      const unsubscribe = navigation.addListener('beforeRemove', (e: { preventDefault: () => void }) => {
-        if (completed) {
-          return;
-        }
-        e.preventDefault();
-        Alert.alert(
-          'Payment Required',
-          'Please complete the one-time platform access fee ($25) to use FairChance. You cannot book sessions or purchase courses until this is paid.',
-        );
-      });
+      const unsubscribe = navigation.addListener(
+        'beforeRemove',
+        (e: { preventDefault: () => void }) => {
+          if (completed) {
+            return;
+          }
+          e.preventDefault();
+          Alert.alert(
+            'Payment Required',
+            'Please complete the one-time platform access fee ($25) to use FairChance. You cannot book sessions or purchase courses until this is paid.',
+          );
+        },
+      );
 
       return () => {
         subscription.remove();
@@ -242,24 +296,33 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
   };
 
   const confirmPayment = async (paymentIntentId: string) => {
-    const response = await PaymentService.confirmAccessFeePayment(paymentIntentId);
+    const response = await withTimeout(
+      PaymentService.confirmAccessFeePayment(paymentIntentId),
+      15000,
+      {
+        success: false,
+        error: 'Confirmation timed out. If you were charged, reopen the app — access may already be active.',
+        clientSecret: '',
+        paymentIntentId: '',
+      } as any,
+    );
 
-    if (response.success) {
-      setCompleted(true);
-      await refreshAfterAccessGranted();
-      Alert.alert(
+    if (response?.success) {
+      grantAccessAndLeave(
         'Payment Successful',
         'You now have full platform access. You can book sessions and purchase courses.',
-        [{ text: 'Continue', onPress: finishAndNavigate }],
       );
     } else {
-      Alert.alert('Issue', response.error || 'Failed to confirm payment');
+      Alert.alert('Issue', response?.error || 'Failed to confirm payment');
     }
   };
 
   const handlePayment = async () => {
     if (!paymentIntent) {
-      Alert.alert('Issue', 'Payment not initialized. Pull down to reload or tap Apply Code.');
+      Alert.alert(
+        'Issue',
+        'Payment not initialized. Pull down to reload or tap Apply Code.',
+      );
       await initializePaymentSheet();
       return;
     }
@@ -267,12 +330,9 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
     if (paymentIntent.freeAccess) {
       try {
         setProcessing(true);
-        setCompleted(true);
-        await refreshAfterAccessGranted();
-        Alert.alert(
+        grantAccessAndLeave(
           'Access granted',
           'Your promotion code was applied. You now have full platform access.',
-          [{ text: 'Continue', onPress: finishAndNavigate }],
         );
       } finally {
         setProcessing(false);
@@ -318,7 +378,11 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
       <SafeAreaView style={paymentScreenStyles.container}>
         <View style={paymentScreenStyles.loadingContainer}>
           <Text style={paymentScreenStyles.pricingTitle}>Platform Access</Text>
-          <ActivityIndicator size="large" color={COLORS.blue} style={{ marginTop: 16 }} />
+          <ActivityIndicator
+            size="large"
+            color={COLORS.blue}
+            style={{ marginTop: 16 }}
+          />
           <Text style={paymentScreenStyles.loadingText}>Initializing payment...</Text>
         </View>
       </SafeAreaView>
@@ -327,12 +391,25 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
 
   return (
     <SafeAreaView style={paymentScreenStyles.container}>
-      <ScrollView style={paymentScreenStyles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={paymentScreenStyles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={paymentScreenStyles.content}>
-          <Text style={[paymentScreenStyles.pricingTitle, { marginBottom: 8, textAlign: 'center' }]}>
+          <Text
+            style={[
+              paymentScreenStyles.pricingTitle,
+              { marginBottom: 8, textAlign: 'center' },
+            ]}
+          >
             {roleLabel} Entry Fee Required
           </Text>
-          <Text style={[paymentScreenStyles.pricingSubtitle, { textAlign: 'center', marginBottom: 16 }]}>
+          <Text
+            style={[
+              paymentScreenStyles.pricingSubtitle,
+              { textAlign: 'center', marginBottom: 16 },
+            ]}
+          >
             {feeRole === 'recruiter'
               ? 'One-time fee to post jobs on the platform. Nonprofits can use a partner promotion code below.'
               : feeRole === 'consultant'
@@ -345,10 +422,14 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
               <Text style={paymentScreenStyles.pricingTitle}>{roleLabel} Entry Fee</Text>
               <View style={paymentScreenStyles.priceContainer}>
                 <Text style={paymentScreenStyles.currencySymbol}>$</Text>
-                <Text style={paymentScreenStyles.priceAmount}>{accessFee.toFixed(2)}</Text>
+                <Text style={paymentScreenStyles.priceAmount}>
+                  {accessFee.toFixed(2)}
+                </Text>
               </View>
               {promoApplied && accessFee < baseFee && (
-                <Text style={[paymentScreenStyles.pricingSubtitle, { marginTop: 8 }]}>
+                <Text
+                  style={[paymentScreenStyles.pricingSubtitle, { marginTop: 8 }]}
+                >
                   Was ${baseFee.toFixed(2)} — promotion applied
                 </Text>
               )}
@@ -366,7 +447,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
             }}
             placeholder="Nonprofit / partner code"
             value={promotionCode}
-            onChangeText={(text) => {
+            onChangeText={text => {
               setPromotionCode(text);
               setPromoApplied(false);
             }}
@@ -383,7 +464,12 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
 
           {initError ? (
             <View style={{ marginBottom: 12 }}>
-              <Text style={[paymentScreenStyles.pricingSubtitle, { color: COLORS.red || '#dc2626' }]}>
+              <Text
+                style={[
+                  paymentScreenStyles.pricingSubtitle,
+                  { color: COLORS.red || '#dc2626' },
+                ]}
+              >
                 {initError}
               </Text>
               <TouchableOpacity
@@ -391,7 +477,9 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
                 disabled={loading || processing}
                 style={{ marginTop: 8 }}
               >
-                <Text style={{ color: COLORS.blue, fontWeight: '600' }}>Retry payment setup</Text>
+                <Text style={{ color: COLORS.blue, fontWeight: '600' }}>
+                  Retry payment setup
+                </Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -401,7 +489,8 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
           <TouchableOpacity
             style={[
               paymentScreenStyles.payButton,
-              (processing || loading || !paymentIntent) && paymentScreenStyles.payButtonDisabled,
+              (processing || loading || !paymentIntent) &&
+                paymentScreenStyles.payButtonDisabled,
             ]}
             onPress={handlePayment}
             disabled={processing || loading || !paymentIntent}

@@ -68,7 +68,8 @@ export async function checkPlatformAccessPaid(activeRole?: string | null): Promi
     const status = await PaymentService.getAccessFeeStatus(activeRole || undefined);
     return status.paid === true;
   } catch {
-    return false;
+    // Fail open — network errors must not trap users on the paywall
+    return true;
   }
 }
 

@@ -30,6 +30,8 @@ interface AuthContextType {
   hasPaidPlatformAccess: boolean;
   refreshUser: () => Promise<void>;
   refreshPlatformAccessStatus: () => Promise<boolean>;
+  /** Optimistically mark access paid so paywall redirects stop immediately */
+  markPlatformAccessPaid: () => void;
   refreshConsultantStatus: () => Promise<void>;
   setIntendedRole: (role: string) => void;
   requestConsultantRole: () => Promise<void>;
@@ -49,6 +51,7 @@ const AuthContext = createContext<AuthContextType>({
   hasPaidPlatformAccess: false,
   refreshUser: async () => {},
   refreshPlatformAccessStatus: async () => false,
+  markPlatformAccessPaid: () => {},
   refreshConsultantStatus: async () => {},
   setIntendedRole: () => {},
   requestConsultantRole: async () => {},
@@ -423,10 +426,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setHasPaidPlatformAccess(paid);
       return paid;
     } catch {
-      setHasPaidPlatformAccess(false);
-      return false;
+      // Fail open: do not clear a previously granted paid flag on network errors
+      return hasPaidPlatformAccess;
     }
-  }, [activeRole]);
+  }, [activeRole, hasPaidPlatformAccess]);
+
+  const markPlatformAccessPaid = useCallback(() => {
+    setHasPaidPlatformAccess(true);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     if (auth.currentUser) {
@@ -872,6 +879,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     hasPaidPlatformAccess,
     refreshUser,
     refreshPlatformAccessStatus,
+    markPlatformAccessPaid,
     refreshConsultantStatus,
     setIntendedRole,
     requestConsultantRole,

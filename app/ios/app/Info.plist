@@ -89,6 +89,7 @@
 		<string>remote-notification</string>
 		<string>audio</string>
 		<string>voip</string>
+		<string>bluetooth-peripheral</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
