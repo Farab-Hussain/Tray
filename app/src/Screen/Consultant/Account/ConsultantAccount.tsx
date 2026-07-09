@@ -148,20 +148,21 @@ const ConsultantAccount = ({ navigation }: any) => {
     }, [user?.uid, fetchConsultantProfile, fetchUserProfile])
   );
   
-  // Memoize the profile image URL to always prioritize backendProfile.profileImage
-  // This ensures the most recently updated image is always used
+  // Prefer consultantProfiles (onboarding), then users / Auth
   const profileImageUrl = useMemo(() => {
-    // Priority: backendProfile.profileImage > user.photoURL > consultantProfile.personalInfo.profileImage
-    // backendProfile.profileImage is always the most up-to-date since it's updated first
-    const imageUrl = backendProfile?.profileImage || user?.photoURL || consultantProfile?.personalInfo?.profileImage || '';
-        if (__DEV__) {
+    const imageUrl =
+      consultantProfile?.personalInfo?.profileImage ||
+      backendProfile?.profileImage ||
+      user?.photoURL ||
+      '';
+    if (__DEV__) {
       logger.debug('🖼️ [ConsultantAccount] Profile image URL computed:', {
-      backendProfile: backendProfile?.profileImage ? 'has' : 'none',
-      userPhotoURL: user?.photoURL ? 'has' : 'none',
-      consultantProfile: consultantProfile?.personalInfo?.profileImage ? 'has' : 'none',
-      final: imageUrl ? 'has' : 'none'
-    })
-    };
+        backendProfile: backendProfile?.profileImage ? 'has' : 'none',
+        userPhotoURL: user?.photoURL ? 'has' : 'none',
+        consultantProfile: consultantProfile?.personalInfo?.profileImage ? 'has' : 'none',
+        final: imageUrl ? 'has' : 'none',
+      });
+    }
     return imageUrl;
   }, [backendProfile?.profileImage, user?.photoURL, consultantProfile?.personalInfo?.profileImage]);
 

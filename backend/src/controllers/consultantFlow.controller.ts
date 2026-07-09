@@ -302,7 +302,13 @@ export const getAllConsultantProfiles = async (req: Request, res: Response) => {
 export const updateConsultantProfile = async (req: Request, res: Response) => {
   try {
     const { uid } = req.params;
-    const profile = await consultantFlowService.updateProfile(uid, req.body);
+    const body = req.body || {};
+    // Accept either nested profile payload or full document from the app
+    const patch: Partial<import("../models/consultantProfile.model").ConsultantProfileInput> = {
+      personalInfo: body.personalInfo,
+      professionalInfo: body.professionalInfo,
+    };
+    const profile = await consultantFlowService.updateProfile(uid, patch);
     res.status(200).json({
       message: "Profile updated successfully",
       profile

@@ -222,3 +222,4 @@ coverage/
 *.tgz
 *.tar.gz
 .vercel
+.env*

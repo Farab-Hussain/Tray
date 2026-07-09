@@ -1,9 +1,9 @@
 // Application constants
 export const APP_CONFIG = {
-  name: 'Tray Dashboard',
+  name: 'FairChance Dashboard',
   version: '1.0.0',
   description: 'Consultant and Admin Dashboard',
-  author: 'Tray Team',
+  author: 'FairChance Team',
 } as const;
 
 // API Configuration (disabled - backend integration removed)

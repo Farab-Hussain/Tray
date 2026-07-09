@@ -193,7 +193,7 @@ export const sendBroadcast = async (req: Request, res: Response) => {
       const uniqueUserIds = Array.from(new Set(recipientUserIds));
       const notificationsRef = db.collection('notifications');
       const senderId = (req as any)?.user?.uid || 'system';
-      const senderName = (req as any)?.user?.email || 'Tray';
+      const senderName = (req as any)?.user?.email || 'FairChance';
 
       // Firestore batch limit: 500 writes; keep a safety margin
       const MAX_BATCH_SIZE = 450;
@@ -222,7 +222,7 @@ export const sendBroadcast = async (req: Request, res: Response) => {
           },
           read: false,
           senderId,
-          senderName: senderName || 'Tray',
+          senderName: senderName || 'FairChance',
           senderAvatar: null,
           createdAt: nowTs,
         });

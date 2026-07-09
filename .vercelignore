@@ -1,0 +1,33 @@
+# Monorepo: Vercel project "tray" only needs the backend folder.
+# Keep upload under the 10MB CLI limit.
+
+app
+web
+fastapi-ai-backend
+firebase
+doc
+docs
+tests
+.cursor
+.idea
+.vscode
+.git
+**/.git
+**/node_modules
+**/dist
+**/.next
+**/Pods
+**/build
+**/DerivedData
+**/.gradle
+**/.expo
+**/*.ipa
+**/*.apk
+**/*.aab
+**/*.keystore
+google-services*.json
+tray-release.keystore
+*.md
+.env
+.env.*
+!.env.example

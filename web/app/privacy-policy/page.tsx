@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Tray",
-  description: "Privacy Policy for Tray application",
+  title: "Privacy Policy - FairChance",
+  description: "Privacy Policy for FairChance application",
 };
 
 export default function PrivacyPolicyPage() {
@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
               1. Introduction
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              Welcome to Tray (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We are committed to
+              Welcome to FairChance (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We are committed to
               protecting your privacy and ensuring you have a positive
               experience on our application. This Privacy Policy explains how we
               collect, use, disclose, and safeguard your information when you
@@ -230,7 +230,7 @@ export default function PrivacyPolicyPage() {
               <p className="text-gray-700">
                 <strong>Email:</strong> privacy@tray.app
                 <br />
-                <strong>App:</strong> Tray
+                <strong>App:</strong> FairChance
                 <br />
                 <strong>Support:</strong> Available through the app settings
               </p>
@@ -240,7 +240,7 @@ export default function PrivacyPolicyPage() {
 
         <div className="mt-12 pt-8 border-t border-gray-200">
           <p className="text-sm text-gray-600 text-center">
-            By using Tray, you acknowledge that you have read and understood
+            By using FairChance, you acknowledge that you have read and understood
             this Privacy Policy.
           </p>
         </div>

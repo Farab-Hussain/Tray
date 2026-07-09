@@ -10,6 +10,15 @@ export interface ConsultantProfile {
     bio: string;
     experience: number;
     profileImage?: string;
+    profileImagePublicId?: string;
+    qualifications?: Array<
+      | string
+      | {
+          name: string;
+          imageUrl?: string;
+          imagePublicId?: string;
+        }
+    >;
   };
   professionalInfo: {
     category: string;
@@ -44,6 +53,14 @@ export interface ConsultantProfileInput {
     experience: number;
     profileImage?: string;
     profileImagePublicId?: string;
+    qualifications?: Array<
+      | string
+      | {
+          name: string;
+          imageUrl?: string;
+          imagePublicId?: string;
+        }
+    >;
   };
   professionalInfo: {
     category: string;
@@ -128,7 +145,7 @@ export const updateConsultantProfile = async (
   profileData: ConsultantProfileInput
 ): Promise<ConsultantProfile> => {
   const response = await api.put(`/consultant-flow/profiles/${uid}`, profileData);
-  return response.data;
+  return response.data.profile || response.data;
 };
 
 // Application APIs

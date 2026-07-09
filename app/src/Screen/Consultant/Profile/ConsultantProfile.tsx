@@ -295,10 +295,21 @@ const ConsultantProfile = ({ navigation }: any) => {
     );
   }
 
-  // Priority: backendProfile > consultantProfile > user
-  const profileImage = backendProfile?.profileImage || user?.photoURL || consultantProfile?.personalInfo?.profileImage;
-  const displayName = backendProfile?.name || consultantProfile?.personalInfo?.fullName || user?.displayName || 'No name set';
-  const email = backendProfile?.email || consultantProfile?.personalInfo?.email || user?.email || 'No email';
+  // Prefer consultantProfiles (onboarding source of truth), then users / Auth
+  const profileImage =
+    consultantProfile?.personalInfo?.profileImage ||
+    backendProfile?.profileImage ||
+    user?.photoURL;
+  const displayName =
+    consultantProfile?.personalInfo?.fullName ||
+    backendProfile?.name ||
+    user?.displayName ||
+    'No name set';
+  const email =
+    consultantProfile?.personalInfo?.email ||
+    backendProfile?.email ||
+    user?.email ||
+    'No email';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -735,27 +746,25 @@ const ConsultantProfile = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* Qualifications/Certifications Section */}
-        {consultantProfile?.personalInfo?.qualifications && 
-         consultantProfile.personalInfo.qualifications.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Certifications</Text>
-            
-            <View style={styles.sectionContent}>
-              <View style={styles.infoItem}>
-                <View style={styles.infoItemLeft}>
-                  <View style={styles.iconContainer}>
-                    <Award size={20} color={COLORS.green} />
-                  </View>
-                  <View style={styles.infoItemText}>
-                    <Text style={styles.infoLabel}>Certifications</Text>
+        {/* Qualifications/Certifications Section — always visible so users can add after onboarding */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Certifications</Text>
+          
+          <View style={styles.sectionContent}>
+            <View style={styles.infoItem}>
+              <View style={styles.infoItemLeft}>
+                <View style={styles.iconContainer}>
+                  <Award size={20} color={COLORS.green} />
+                </View>
+                <View style={styles.infoItemText}>
+                  <Text style={styles.infoLabel}>Certifications</Text>
+                  {consultantProfile?.personalInfo?.qualifications?.length > 0 ? (
                     <View style={styles.qualificationsContainer}>
                       {consultantProfile.personalInfo.qualifications.map((qualification: any, index: number) => (
                         <View key={index} style={styles.qualificationItem}>
                           <TouchableOpacity
                             style={styles.qualificationContent}
                             onPress={() => {
-                              // If certificate has an image, show it in a modal or viewer
                               if (qualification?.imageUrl) {
                                 setSelectedCertificate(qualification);
                                 setCertificateViewerVisible(true);
@@ -786,18 +795,20 @@ const ConsultantProfile = ({ navigation }: any) => {
                         </View>
                       ))}
                     </View>
-                    <TouchableOpacity
-                      style={styles.addButton}
-                      onPress={() => setQualificationModalVisible(true)}
-                    >
-                      <Text style={styles.addButtonText}>+ Add Certification</Text>
-                    </TouchableOpacity>
-                  </View>
+                  ) : (
+                    <Text style={styles.infoSubtext}>No certifications added yet</Text>
+                  )}
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => setQualificationModalVisible(true)}
+                  >
+                    <Text style={styles.addButtonText}>+ Add Certification</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
           </View>
-        )}
+        </View>
 
         {/* Security Section */}
         <View style={styles.section}>

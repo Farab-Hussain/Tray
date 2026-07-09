@@ -56,7 +56,7 @@ function VerifyEmailContent() {
             
             // Fallback: if app doesn't open, show continue button after a delay
             setTimeout(() => {
-              setMessage('Your email has been verified successfully! You can now return to the Tray app and sign in.');
+              setMessage('Your email has been verified successfully! You can now return to the FairChance app and sign in.');
             }, 1500);
             
             return;

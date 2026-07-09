@@ -92,7 +92,7 @@ export const sendAppointmentReminders = async () => {
                       <p><strong>Amount:</strong> $${booking.amount?.toFixed(2) || '0.00'}</p>
                     </div>
                     <p>We look forward to your session!</p>
-                    <p>Best regards,<br>The Tray Team</p>
+                    <p>Best regards,<br>The FairChance Team</p>
                   </div>
                 `
               });
@@ -119,7 +119,7 @@ export const sendAppointmentReminders = async () => {
                       <p><strong>Amount:</strong> $${booking.amount?.toFixed(2) || '0.00'}</p>
                     </div>
                     <p>Please be ready for your session!</p>
-                    <p>Best regards,<br>The Tray Team</p>
+                    <p>Best regards,<br>The FairChance Team</p>
                   </div>
                 `
               });

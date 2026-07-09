@@ -82,7 +82,7 @@
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.DEFAULT" />
             <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="tray" android:host="email-verification" />
+            <data android:scheme="fairchance" android:host="email-verification" />
         </intent-filter>
       </activity>
       

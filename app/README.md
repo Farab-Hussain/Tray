@@ -1,10 +1,10 @@
-# Tray Mobile App
+# FairChance Mobile App
 
-React Native application that delivers Tray's cross-platform mobile experience for students, consultants, recruiters, and administrators. The app provides booking sessions, job management, video/audio calls, real-time messaging, notifications, payments, and role-based navigation backed by Firebase services.
+React Native application that delivers FairChance's cross-platform mobile experience for students, consultants, recruiters, and administrators. The app provides booking sessions, job management, video/audio calls, real-time messaging, notifications, payments, and role-based navigation backed by Firebase services.
 
 ## Overview
 
-Tray is a multi-platform consultant booking and job management system connecting students with consultants for booking sessions, while also supporting job posting and application workflows for recruiters. The mobile app supports multiple user roles with dedicated interfaces and workflows for each role.
+FairChance is a multi-platform consultant booking and job management system connecting students with consultants for booking sessions, while also supporting job posting and application workflows for recruiters. The mobile app supports multiple user roles with dedicated interfaces and workflows for each role.
 
 ## Key Features
 
@@ -67,7 +67,7 @@ Tray is a multi-platform consultant booking and job management system connecting
 
 ## Twilio WebRTC Setup
 
-Tray uses Twilio Network Traversal Service for reliable audio/video calling in production.
+FairChance uses Twilio Network Traversal Service for reliable audio/video calling in production.
 
 - Full setup guide: [docs/TWILIO_TURN_GUIDE.md](docs/TWILIO_TURN_GUIDE.md)
 - Backend endpoint: `GET /webrtc/ice-servers`

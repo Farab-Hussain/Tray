@@ -43,7 +43,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
       // Step 2: Initialize payment sheet
       const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Tray',
+        merchantDisplayName: 'FairChance',
         paymentIntentClientSecret: clientSecret,
         defaultBillingDetails: {
           name: 'Customer',

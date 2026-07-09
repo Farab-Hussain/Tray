@@ -41,7 +41,7 @@ export const sendSupportMessage = async (req: Request, res: Response) => {
 
     const emailResult = await sendEmail({
       to: SUPPORT_EMAIL,
-      subject: `[Tray Support] ${sanitizedSubject}`,
+      subject: `[FairChance Support] ${sanitizedSubject}`,
       html: htmlContent,
       text: `${sanitizedMessage}\n\n—\nName: ${requesterName}\nEmail: ${email}`,
     });

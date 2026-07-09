@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service - Tray",
-  description: "Terms of Service for Tray application",
+  title: "Terms of Service - FairChance",
+  description: "Terms of Service for FairChance application",
 };
 
 export default function TermsOfServicePage() {
@@ -22,7 +22,7 @@ export default function TermsOfServicePage() {
               1. Agreement to Terms
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              By accessing or using the Tray mobile application
+              By accessing or using the FairChance mobile application
               (&quot;App&quot;), you agree to be bound by these Terms of Service
               (&quot;Terms&quot;). If you disagree with any part of these terms,
               then you may not access the App.
@@ -34,7 +34,7 @@ export default function TermsOfServicePage() {
               2. Description of Service
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              Tray is a mobile application that connects users with services and
+              FairChance is a mobile application that connects users with services and
               facilitates communication, bookings, and transactions. The App
               provides a platform for users to access various services and
               interact with service providers.
@@ -134,7 +134,7 @@ export default function TermsOfServicePage() {
             </h2>
             <p className="text-gray-700 leading-relaxed">
               The App and its original content, features, and functionality are
-              owned by Tray and are protected by international copyright,
+              owned by FairChance and are protected by international copyright,
               trademark, patent, trade secret, and other intellectual property
               laws. You may not modify, reproduce, distribute, or create
               derivative works based on the App without our express written
@@ -218,7 +218,7 @@ export default function TermsOfServicePage() {
               11. Indemnification
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              You agree to defend, indemnify, and hold harmless Tray and its
+              You agree to defend, indemnify, and hold harmless FairChance and its
               officers, directors, employees, and agents from and against any
               claims, liabilities, damages, losses, and expenses, including
               reasonable legal fees, arising out of or in any way connected with
@@ -274,7 +274,7 @@ export default function TermsOfServicePage() {
               <p className="text-gray-700">
                 <strong>Email:</strong> legal@tray.app
                 <br />
-                <strong>App:</strong> Tray
+                <strong>App:</strong> FairChance
                 <br />
                 <strong>Support:</strong> Available through the app settings
               </p>
@@ -284,7 +284,7 @@ export default function TermsOfServicePage() {
 
         <div className="mt-12 pt-8 border-t border-gray-200">
           <p className="text-sm text-gray-600 text-center">
-            By using Tray, you acknowledge that you have read, understood, and
+            By using FairChance, you acknowledge that you have read, understood, and
             agree to be bound by these Terms of Service.
           </p>
         </div>

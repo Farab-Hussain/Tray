@@ -420,7 +420,7 @@ export default function PendingApproval() {
   }
 
   const getStatusTitle = () => {
-    if (!profile) return 'Welcome to Tray Consultant!';
+    if (!profile) return 'Welcome to FairChance Consultant!';
     switch (profile.status) {
       case 'pending':
         return 'Verification Pending';

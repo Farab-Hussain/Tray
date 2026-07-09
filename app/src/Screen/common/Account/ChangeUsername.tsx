@@ -120,7 +120,7 @@ const ChangeUsername = ({ navigation }: any) => {
         <View style={authStyles.formContainer}>
           <Text style={authStyles.authHeading}>Update Username</Text>
           <Text style={authStyles.authPara}>
-            Enter a new username for your Tray account. This will be visible to other users.
+            Enter a new username for your FairChance account. This will be visible to other users.
           </Text>
 
           <View style={styles.inputGroup}>

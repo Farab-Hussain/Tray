@@ -21,7 +21,7 @@ const openUrl = async (url: string) => {
 const LegalLinks = ({ style }: LegalLinksProps) => (
   <View style={[styles.container, style]}>
     <Text style={styles.text}>
-      By using Tray, you agree to our{' '}
+      By using FairChance, you agree to our{' '}
       <Text style={styles.link} onPress={() => openUrl(LEGAL_URLS.termsOfService)}>
         Terms of Service
       </Text>

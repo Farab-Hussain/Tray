@@ -27,7 +27,7 @@ const INITIAL_AI_MESSAGES = [
   {
     role: 'assistant' as const,
     content:
-      "Hello, I'm Tray Support Assistant. I can help with resumes, job posts, profile setup, and account questions.",
+      "Hello, I'm FairChance Support Assistant. I can help with resumes, job posts, profile setup, and account questions.",
   },
 ];
 const INITIAL_PROMPT_STUDIO_MESSAGES = [
@@ -38,10 +38,10 @@ const INITIAL_PROMPT_STUDIO_MESSAGES = [
   },
 ];
 const PROMPT_STUDIO_SYSTEM_PROMPT =
-  'You are Tray Prompt Studio Assistant. Provide professional, concise, and practical responses. Keep context from prior turns and answer the latest user prompt clearly. If request is ambiguous, ask one focused clarifying question.';
+  'You are FairChance Prompt Studio Assistant. Provide professional, concise, and practical responses. Keep context from prior turns and answer the latest user prompt clearly. If request is ambiguous, ask one focused clarifying question.';
 
 const Help = ({ navigation }: any) => {
-  const { user } = useAuth();
+  const { user } = useAuth(); 
 
   const initialName = useMemo(() => {
     if (user?.displayName && user.displayName.trim()) {
@@ -118,7 +118,7 @@ const Help = ({ navigation }: any) => {
       setIsModalVisible(false);
       Alert.alert(
         'Message Sent',
-        'Thanks for contacting Tray support. Our team will reach out within 24 hours.',
+        'Thanks for contacting FairChance support. Our team will reach out within 24 hours.',
       );
     } catch (err: any) {
       if (__DEV__) {
@@ -339,14 +339,14 @@ ${transcript}`,
             >
               <View style={styles.contactContent}>
                 <Text style={styles.contactTitle}>Terms of Service</Text>
-                <Text style={styles.responseTime}>Rules for using Tray</Text>
+                <Text style={styles.responseTime}>Rules for using FairChance</Text>
               </View>
             </TouchableOpacity>
           </View>
 
           <View style={styles.appInfo}>
-            <Text style={styles.appInfoText}>Tray App v1.0.0</Text>
-            <Text style={styles.appInfoText}>© 2024 Tray. All rights reserved.</Text>
+            <Text style={styles.appInfoText}>FairChance App v1.0.0</Text>
+            <Text style={styles.appInfoText}>© 2024 FairChance. All rights reserved.</Text>
           </View>
         </View>
       </ScrollView>
@@ -375,7 +375,7 @@ ${transcript}`,
               keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.modalDescription}>
-                Fill out the form below and we’ll send the details directly to the Tray support team.
+                  Fill out the form below and we’ll send the details directly to the FairChance support team.
               </Text>
 
               <View style={styles.inputGroup}>

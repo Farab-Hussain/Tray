@@ -50,7 +50,7 @@ const FORM_STEPS = [
 
 export default function ConsultantProfileFlow() {
   const navigation = useNavigation();
-  const { user, refreshConsultantStatus } = useAuth();
+  const { user, refreshConsultantStatus, refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [profile, setProfile] = useState<ConsultantProfile | null>(null);
@@ -359,11 +359,13 @@ export default function ConsultantProfileFlow() {
         await updateConsultantProfile(user.uid, profileData);
         showSuccess('Profile updated successfully!');
         await refreshConsultantStatus();
+        await refreshUser();
         navigation.navigate('ConsultantTabs' as never);
       } else {
         await createConsultantProfile(profileData);
         showSuccess('Profile created successfully! You can now access the consultant dashboard.');
         await refreshConsultantStatus();
+        await refreshUser();
         // Navigate directly to consultant tabs since profile is auto-approved
         navigation.navigate('ConsultantTabs' as never);
       }

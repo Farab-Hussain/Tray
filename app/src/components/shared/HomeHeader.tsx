@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Image, ViewStyle } from 'react-native';
+import { View, Text, ViewStyle } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { COLORS } from '../../constants/core/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserService } from '../../services/user.service';
 import { getConsultantProfile } from '../../services/consultantFlow.service';
-import { User } from 'lucide-react-native';
 import { homeHeaderStyles } from '../../constants/styles/homeHeaderStyles';
 import { normalizeAvatarUrl } from '../../utils/normalize';
 import ProfileAvatar from '../ui/ProfileAvatar';
@@ -26,107 +24,113 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({
 }) => {
   const { user, role } = useAuth();
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
   const [_loading, setLoading] = useState(false);
   const [imageCacheKey, setImageCacheKey] = useState(0);
 
-  // Fetch profile image based on user role
-  const fetchProfileImage = useCallback(async () => {
-    if (user?.uid && !avatarUri) {
-      try {
-        setLoading(true);
-        logger.debug('🔍 [HomeHeader] Fetching profile image for role:', role);
+  const fetchHeaderProfile = useCallback(async () => {
+    if (!user?.uid) return;
 
-        if (role === 'consultant') {
-          // Fetch consultant profile image using the same service as ConsultantAccount
+    try {
+      setLoading(true);
+      logger.debug('🔍 [HomeHeader] Fetching header profile for role:', role);
+
+      let nextName: string | null = null;
+      let nextImage: string | null = null;
+
+      // Always prefer consultantProfiles for consultants (onboarding source of truth)
+      if (role === 'consultant') {
+        try {
           const profile = await getConsultantProfile(user.uid);
-          logger.debug('🔍 [HomeHeader] Consultant profile loaded for:', profile?.uid);
+          const fullName = profile?.personalInfo?.fullName?.trim();
+          if (fullName) nextName = fullName;
 
           const consultantImage = normalizeAvatarUrl({
             profileImage: profile?.personalInfo?.profileImage,
           });
-
-          if (consultantImage && consultantImage.trim() !== '') {
-            logger.debug('✅ [HomeHeader] Found consultant profile image');
-            setProfileImage(consultantImage.trim());
-          } else {
-            logger.debug('ℹ️ [HomeHeader] No consultant profile image found, will use fallback');
-            setProfileImage(null);
+          if (consultantImage?.trim()) {
+            nextImage = consultantImage.trim();
           }
-        } else if (role === 'student') {
-          // Fetch student profile image
+        } catch (consultantError) {
+          logger.warn('⚠️ [HomeHeader] Consultant profile fetch failed:', consultantError);
+        }
+      }
+
+      // Fallback / students: users doc via /auth/me
+      if (!nextName || !nextImage) {
+        try {
           const response = await UserService.getUserProfile();
+          if (!nextName) {
+            const userName = String(response?.name || response?.displayName || '').trim();
+            if (userName && userName !== 'User') nextName = userName;
+          }
+          if (!nextImage) {
+            const studentImage = normalizeAvatarUrl(response);
+            if (studentImage?.trim()) nextImage = studentImage.trim();
+          }
 
-          let studentImage = normalizeAvatarUrl(response);
-
-          // If student profile has no image, check consultant profile as fallback (if user has consultant role)
-          if (!studentImage && response?.roles?.includes('consultant')) {
+          // Student with consultant role but no image yet
+          if (
+            !nextImage &&
+            role !== 'consultant' &&
+            response?.roles?.includes('consultant')
+          ) {
             try {
-              logger.debug('🔄 [HomeHeader] Student profile has no image, checking consultant profile as fallback...');
               const consultantProfile = await getConsultantProfile(user.uid);
               const consultantImage = normalizeAvatarUrl({
                 profileImage: consultantProfile?.personalInfo?.profileImage,
               });
-
-              if (consultantImage && consultantImage.trim() !== '') {
-                logger.debug('✅ [HomeHeader] Found consultant profile image as fallback');
-                studentImage = consultantImage.trim();
-              } else {
-                logger.debug('ℹ️ [HomeHeader] No consultant profile image found either');
+              if (consultantImage?.trim()) nextImage = consultantImage.trim();
+              if (!nextName) {
+                const fullName = consultantProfile?.personalInfo?.fullName?.trim();
+                if (fullName) nextName = fullName;
               }
-            } catch (consultantError) {
-              // If consultant profile fetch fails, continue with student profile
-              logger.warn('⚠️ [HomeHeader] Failed to fetch consultant profile as fallback:', consultantError);
+            } catch {
+              // ignore
             }
           }
-
-          if (studentImage) {
-            logger.debug('✅ [HomeHeader] Found student profile image');
-            setProfileImage(studentImage);
-          } else {
-            logger.debug('ℹ️ [HomeHeader] No student profile image found');
-            setProfileImage(null);
-          }
+        } catch (userError) {
+          logger.warn('⚠️ [HomeHeader] User profile fetch failed:', userError);
         }
-      } catch (error: any) {
-        logger.warn('⚠️ [HomeHeader] Could not fetch profile image:', {
-          message: error?.message,
-          status: error?.response?.status,
-        });
-        // Don't show error to user, just fall back to default
-        setProfileImage(null);
-      } finally {
-        setLoading(false);
       }
+
+      setResolvedName(nextName);
+      setProfileImage(nextImage);
+    } catch (error: any) {
+      logger.warn('⚠️ [HomeHeader] Could not fetch header profile:', {
+        message: error?.message,
+        status: error?.response?.status,
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [user?.uid, role, avatarUri]);
+  }, [user?.uid, role]);
 
   useEffect(() => {
-    fetchProfileImage();
-  }, [fetchProfileImage]);
+    fetchHeaderProfile();
+  }, [fetchHeaderProfile]);
 
-  // Reload when user.photoURL changes (from AuthContext refreshUser)
   useEffect(() => {
-    if (user?.photoURL) {
-      logger.debug('🔄 [HomeHeader] user.photoURL changed, updating cache key');
+    if (user?.photoURL || user?.displayName) {
       setImageCacheKey(prev => prev + 1);
     }
-  }, [user?.photoURL]);
+  }, [user?.photoURL, user?.displayName]);
 
-  // Reload profile image when screen comes into focus (to get updated image)
   useFocusEffect(
     useCallback(() => {
-      fetchProfileImage();
+      fetchHeaderProfile();
       setImageCacheKey(prev => prev + 1);
-    }, [fetchProfileImage]),
+    }, [fetchHeaderProfile]),
   );
 
-  // Use props if provided, otherwise fall back to user data
   const displayName =
-    name || user?.displayName || user?.email?.split('@')[0] || 'User';
+    (name && name.trim()) ||
+    resolvedName ||
+    user?.displayName ||
+    user?.email?.split('@')[0] ||
+    'User';
 
-  // Priority: props > fetched profile image > user.photoURL (from AuthContext, which includes backend profileImage)
-  // Use user.photoURL as primary source since it's updated by refreshUser() and includes backend profileImage
-  const userAvatarUri = avatarUri || user?.photoURL || profileImage;
+  const userAvatarUri = avatarUri || profileImage || user?.photoURL;
 
   return (
     <View style={[styles.headerContainer, style]}>

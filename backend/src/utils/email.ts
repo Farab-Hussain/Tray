@@ -8,7 +8,7 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
 // Support both SMTP_USER and SMTP_EMAIL for compatibility
 const SMTP_USER = process.env.SMTP_USER || process.env.SMTP_EMAIL || "no-reply@tray.com";
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM || `Tray <${SMTP_USER}>`;
+const SMTP_FROM = process.env.SMTP_FROM || `FairChance <${SMTP_USER}>`;
 
 // Check if email credentials are configured
 const isEmailConfigured = SMTP_USER && SMTP_PASSWORD && SMTP_USER !== "no-reply@tray.com";
@@ -132,7 +132,7 @@ export const emailConsultantProfileCreated = (consultantName: string, consultant
           </p>
           
           <p style="color: #555; line-height: 1.6;">
-            Thank you for submitting your consultant profile to Tray! Your application is currently under review by our team.
+            Thank you for submitting your consultant profile to FairChance! Your application is currently under review by our team.
           </p>
           
           <div style="background-color: #f0f7ff; padding: 15px; border-left: 4px solid #0066cc; margin: 20px 0;">
@@ -154,12 +154,12 @@ export const emailConsultantProfileCreated = (consultantName: string, consultant
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
-            <strong>The Tray Team</strong>
+            <strong>The FairChance Team</strong>
           </p>
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray. All rights reserved.
+          © ${new Date().getFullYear()} FairChance. All rights reserved.
         </p>
       </div>
     `,
@@ -180,7 +180,7 @@ export const emailConsultantProfileApproved = (consultantName: string, consultan
           </p>
           
           <p style="color: #555; line-height: 1.6;">
-            Great news! Your consultant profile has been approved and you are now part of the Tray consultant network.
+            Great news! Your consultant profile has been approved and you are now part of the FairChance consultant network.
           </p>
           
           <div style="background-color: #f0fdf4; padding: 15px; border-left: 4px solid #22c55e; margin: 20px 0;">
@@ -201,12 +201,12 @@ export const emailConsultantProfileApproved = (consultantName: string, consultan
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
-            <strong>The Tray Team</strong>
+            <strong>The FairChance Team</strong>
           </p>
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray. All rights reserved.
+          © ${new Date().getFullYear()} FairChance. All rights reserved.
         </p>
       </div>
     `,
@@ -227,7 +227,7 @@ export const emailConsultantProfileRejected = (consultantName: string, consultan
           </p>
           
           <p style="color: #555; line-height: 1.6;">
-            Thank you for your interest in becoming a consultant on Tray. After careful review, we're unable to approve your profile at this time.
+            Thank you for your interest in becoming a consultant on FairChance. After careful review, we're unable to approve your profile at this time.
           </p>
           
           ${reason ? `
@@ -253,12 +253,12 @@ export const emailConsultantProfileRejected = (consultantName: string, consultan
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
-            <strong>The Tray Team</strong>
+            <strong>The FairChance Team</strong>
           </p>
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray. All rights reserved.
+          © ${new Date().getFullYear()} FairChance. All rights reserved.
         </p>
       </div>
     `,
@@ -299,12 +299,12 @@ export const emailApplicationSubmitted = (
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
-            <strong>The Tray Team</strong>
+            <strong>The FairChance Team</strong>
           </p>
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray. All rights reserved.
+          © ${new Date().getFullYear()} FairChance. All rights reserved.
         </p>
       </div>
     `,
@@ -353,12 +353,12 @@ export const emailApplicationApproved = (
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
-            <strong>The Tray Team</strong>
+            <strong>The FairChance Team</strong>
           </p>
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray. All rights reserved.
+          © ${new Date().getFullYear()} FairChance. All rights reserved.
         </p>
       </div>
     `,
@@ -411,12 +411,12 @@ export const emailApplicationRejected = (
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
-            <strong>The Tray Team</strong>
+            <strong>The FairChance Team</strong>
           </p>
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray. All rights reserved.
+          © ${new Date().getFullYear()} FairChance. All rights reserved.
         </p>
       </div>
     `,
@@ -453,7 +453,7 @@ export const emailAdminNewProfile = (adminEmail: string, consultantName: string,
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray Admin Notification
+          © ${new Date().getFullYear()} FairChance Admin Notification
         </p>
       </div>
     `,
@@ -499,7 +499,7 @@ export const emailAdminNewApplication = (
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray Admin Notification
+          © ${new Date().getFullYear()} FairChance Admin Notification
         </p>
       </div>
     `,
@@ -562,24 +562,24 @@ export const emailBookingConfirmation = (
             <p style="margin: 0; color: #0066cc; font-weight: bold;">What's Next?</p>
             <ul style="color: #555; margin: 10px 0 0 0; padding-left: 20px;">
               <li>You'll receive a reminder before your session</li>
-              <li>Access your session through the Tray app</li>
+              <li>Access your session through the FairChance app</li>
               <li>You can chat with your consultant before the session</li>
             </ul>
           </div>
           
           
           <p style="color: #555; line-height: 1.6;">
-            Thank you for choosing Tray! We look forward to your session.
+            Thank you for choosing FairChance! We look forward to your session.
           </p>
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
-            <strong>The Tray Team</strong>
+            <strong>The FairChance Team</strong>
           </p>
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray. All rights reserved.
+          © ${new Date().getFullYear()} FairChance. All rights reserved.
         </p>
       </div>
     `,
@@ -650,12 +650,12 @@ export const emailConsultantNewBooking = (
           
           <p style="color: #555; line-height: 1.6;">
             Best regards,<br/>
-            <strong>The Tray Team</strong>
+            <strong>The FairChance Team</strong>
           </p>
         </div>
         
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">
-          © ${new Date().getFullYear()} Tray. All rights reserved.
+          © ${new Date().getFullYear()} FairChance. All rights reserved.
         </p>
       </div>
     `,

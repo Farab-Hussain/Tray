@@ -207,7 +207,7 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
         e.preventDefault();
         Alert.alert(
           'Payment Required',
-          'Please complete the one-time platform access fee ($25) to use Tray. You cannot book sessions or purchase courses until this is paid.',
+          'Please complete the one-time platform access fee ($25) to use FairChance. You cannot book sessions or purchase courses until this is paid.',
         );
       });
 

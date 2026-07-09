@@ -203,7 +203,7 @@ export default function App() {
     return (
       <View style={styles.bootContainer}>
         <ActivityIndicator size="large" color={COLORS.white} />
-        <Text style={styles.bootText}>Starting Tray…</Text>
+        <Text style={styles.bootText}>Starting FairChance…</Text>
       </View>
     );
   }

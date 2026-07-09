@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Data Deletion Instructions - Tray",
-  description: "Instructions for deleting your data from Tray",
+  title: "Data Deletion Instructions - FairChance",
+  description: "Instructions for deleting your data from FairChance",
 };
 
 export default function DataDeletionPage() {
@@ -22,7 +22,7 @@ export default function DataDeletionPage() {
               Your Right to Delete Your Data
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              At Tray, we respect your privacy and your right to control your
+              At FairChance, we respect your privacy and your right to control your
               personal information. You have the right to request deletion of
               your account and associated data at any time. This page explains
               how to delete your data from our system.
@@ -38,7 +38,7 @@ export default function DataDeletionPage() {
               Option 1: Delete Through the App (Recommended)
             </h3>
             <ol className="list-decimal pl-6 space-y-3 text-gray-700">
-              <li>Open the Tray mobile application</li>
+              <li>Open the FairChance mobile application</li>
               <li>
                 Navigate to <strong>Settings</strong> or{" "}
                 <strong>Profile</strong>
@@ -266,7 +266,7 @@ export default function DataDeletionPage() {
               📋 Quick Summary
             </h3>
             <p className="text-blue-800 text-sm leading-relaxed">
-              To delete your data: (1) Open the Tray app → Settings → Delete
+              To delete your data: (1) Open the FairChance app → Settings → Delete
               Account, or (2) Email privacy@tray.app with your deletion request.
               Deletion is permanent and typically processed within 30 days. For
               more information, see our{" "}

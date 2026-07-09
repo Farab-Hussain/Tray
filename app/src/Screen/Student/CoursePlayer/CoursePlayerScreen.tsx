@@ -206,7 +206,7 @@ export default function CoursePlayerScreen() {
       });
 
       const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Tray',
+        merchantDisplayName: 'FairChance',
         paymentIntentClientSecret: paymentIntent.clientSecret,
         defaultBillingDetails: {
           name: user.displayName || user.email || 'Student',

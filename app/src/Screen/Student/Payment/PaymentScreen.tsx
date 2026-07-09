@@ -199,7 +199,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
 
       // Step 2: Initialize payment sheet
       const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Tray',
+        merchantDisplayName: 'FairChance',
         paymentIntentClientSecret: clientSecret,
         defaultBillingDetails: {
           name: user.displayName || 'Customer',

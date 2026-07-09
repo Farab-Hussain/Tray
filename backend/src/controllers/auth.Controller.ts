@@ -65,16 +65,40 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if user already exists
+    // Check if user already exists (may be a stub from GET /auth/me)
     const existingUser = await db.collection("users").doc(uid).get();
 
     if (existingUser.exists) {
-      // User already exists, return existing user data
-      const existingData = existingUser.data();
-      Logger.success(route, "", `User already registered: ${uid}`);
+      const existingData = existingUser.data() || {};
+      const existingRoles: string[] = Array.isArray(existingData.roles)
+        ? [...existingData.roles]
+        : existingData.role
+          ? [existingData.role]
+          : [];
+      if (!existingRoles.includes(role)) {
+        existingRoles.push(role);
+      }
+
+      // Upsert role/name so a student stub from getMe does not block real registration
+      const patched = {
+        name: name || existingData.name || null,
+        role,
+        roles: existingRoles,
+        activeRole: role,
+        email: email || existingData.email || null,
+        profileImage: existingData.profileImage ?? null,
+        isActive: true,
+        updatedAt: new Date(),
+      };
+
+      await db.collection("users").doc(uid).set(patched, { merge: true });
+      cache.delete(`user:${uid}`);
+      cache.set(`user:${uid}`, { ...existingData, ...patched }, 2 * 60 * 1000);
+
+      Logger.success(route, "", `User registration upserted: ${uid} (${role})`);
       return res.status(200).json({
         message: "User already registered",
-        user: { uid, ...existingData }
+        user: { uid, ...existingData, ...patched },
       });
     }
 
@@ -203,49 +227,22 @@ export const getMe = async (req: Request, res: Response) => {
     }
 
     if (!doc.exists) {
-      console.log(`⚠️ [GET /auth/me] - User profile not found, creating default profile: ${user.uid}`);
-
-      // Auto-create a default user profile
-      // Note: Firebase decoded token properties: uid, email, email_verified, name, picture
-      const defaultUserData = {
-        name: user.name || null,
-        role: 'student', // Keep for backward compatibility
-        roles: ['student'], // New: array of roles user has access to
-        activeRole: 'student', // New: currently active role
-        email: user.email || null,
-        profileImage: user.picture || null,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      // OPTIMIZED: Firestore write with timeout
-      const FIRESTORE_WRITE_TIMEOUT_MS = 5000; // 5 seconds
-      const writePromise = db.collection("users").doc(user.uid).set(defaultUserData, { merge: false });
-      const writeTimeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Firestore write timeout after ${FIRESTORE_WRITE_TIMEOUT_MS}ms`));
-        }, FIRESTORE_WRITE_TIMEOUT_MS);
-      });
-
-      try {
-        await Promise.race([writePromise, writeTimeoutPromise]);
-        // Cache the newly created default profile
-        cache.set(cacheKey, defaultUserData, 2 * 60 * 1000); // 2 minutes
-      } catch (writeError: any) {
-        console.error(`❌ [GET /auth/me] - Firestore write error:`, writeError.message);
-        // If write fails, still return the default data (it's in memory)
-        // Don't fail the request just because we couldn't persist
-        console.warn(`⚠️ [GET /auth/me] - Could not persist default profile, returning in-memory data`);
-        // Still cache it even if write failed (for faster subsequent requests)
-        cache.set(cacheKey, defaultUserData, 2 * 60 * 1000);
-      }
-      console.log(`✅ [GET /auth/me] - Default user profile created: ${user.uid}`);
+      // Do NOT persist a student stub here — that races with POST /auth/register
+      // and can leave consultants stuck with empty name/image. Return Auth token
+      // fields only; register (or consultant profile create) will write users/{uid}.
+      console.log(`⚠️ [GET /auth/me] - User profile not found, returning Auth token data only: ${user.uid}`);
 
       const responseData = {
         uid: user.uid,
+        email: user.email || null,
         emailVerified: user.email_verified,
-        ...defaultUserData
+        name: user.name || null,
+        profileImage: user.picture || null,
+        role: null,
+        roles: [],
+        activeRole: null,
+        isActive: true,
+        profileIncomplete: true,
       };
 
       console.log(`✅ [GET /auth/me] - Response sent in ${Date.now() - startTime}ms`);
@@ -507,7 +504,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     // Send OTP email using centralized sendEmail utility
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #333;">Your Tray App Password Reset Code</h2>
+        <h2 style="color: #333;">Your FairChance App Password Reset Code</h2>
         <p style="font-size: 18px; color: #555;">Your password reset code is:</p>
         <h1 style="background: #667eea; color: white; padding: 20px; text-align: center; border-radius: 5px; font-size: 32px; margin: 20px 0;">
           ${otp}
@@ -519,9 +516,9 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     const emailResult = await sendEmail({
       to: email,
-      subject: "Your Tray App Password Reset Code",
+      subject: "Your FairChance App Password Reset Code",
       html: emailHtml,
-      text: `Your Tray App Password Reset Code: ${otp}\n\nThis code will expire in 30 minutes.\n\nIf you didn't request this reset, please ignore this email.`
+      text: `Your FairChance App Password Reset Code: ${otp}\n\nThis code will expire in 30 minutes.\n\nIf you didn't request this reset, please ignore this email.`
     });
 
     if (emailResult.sent) {
@@ -860,7 +857,7 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
           </div>
           <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
             <p style="font-size: 16px;">Hello,</p>
-            <p style="font-size: 16px;">Thank you for registering with Tray! Please verify your email address by clicking one of the buttons below:</p>
+            <p style="font-size: 16px;">Thank you for registering with FairChance! Please verify your email address by clicking one of the buttons below:</p>
             <div style="text-align: center; margin: 30px 0;">
               ${webLink ? `<a href="${webLink}" style="background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px; margin: 10px; width: 200px;">Verify on Web</a>` : ''}
             </div>
@@ -874,7 +871,7 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
             <p style="font-size: 14px; color: #666;">If you didn't create an account, please ignore this email.</p>
           </div>
           <div style="text-align: center; margin-top: 20px; padding: 20px; color: #999; font-size: 12px;">
-            <p>© ${new Date().getFullYear()} Tray. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} FairChance. All rights reserved.</p>
           </div>
         </body>
         </html>
@@ -885,22 +882,22 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
         
         Hello,
         
-        Thank you for registering with Tray! Please verify your email address using one of the links below:
+        Thank you for registering with FairChance! Please verify your email address using one of the links below:
         
         ${webLink ? `🌐 For Web Users:\n${webLink}\n` : ''}
         
         This link will expire in 24 hours.
         
-        ${webLink ? 'Note: If you\'re on desktop, use the web link. If you\'re on mobile, use the mobile link to open in the app.' : 'Note: Click the mobile link above to open in the Tray app.'}
+        ${webLink ? 'Note: If you\'re on desktop, use the web link. If you\'re on mobile, use the mobile link to open in the app.' : 'Note: Click the mobile link above to open in the FairChance app.'}
         
         If you didn't create an account, please ignore this email.
         
-        © ${new Date().getFullYear()} Tray. All rights reserved.
+        © ${new Date().getFullYear()} FairChance. All rights reserved.
       `;
 
       const emailResult = await sendEmail({
         to: userRecord.email!,
-        subject: "Verify Your Email Address - Tray",
+        subject: "Verify Your Email Address - FairChance",
         html: emailHtml,
         text: emailText
       });

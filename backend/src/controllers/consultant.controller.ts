@@ -843,7 +843,7 @@ export const getDefaultServices = async (req: Request, res: Response) => {
         isPlatformService: service.isPlatformService || true,
         consultant: service.consultant || {
           uid: 'admin',
-          name: 'Tray Platform',
+          name: 'FairChance Platform',
           category: 'Platform Services',
           rating: 5,
           totalReviews: 0

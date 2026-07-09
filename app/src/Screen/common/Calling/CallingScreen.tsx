@@ -302,7 +302,7 @@ const CallingScreen = ({ navigation, route }: any) => {
             Alert.alert(
               'Connection Failed',
               'Unable to establish connection. This usually happens when devices are on different networks.\n\n' +
-                'Tray now uses Twilio Network Traversal Service for TURN. Make sure the backend is returning ICE servers from /webrtc/ice-servers.\n\n' +
+                'FairChance now uses Twilio Network Traversal Service for TURN. Make sure the backend is returning ICE servers from /webrtc/ice-servers.\n\n' +
                 'Quick options:\n' +
                 '• Verify TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in backend/.env\n' +
                 '• Check the Twilio guide in app/docs/TWILIO_TURN_GUIDE.md\n' +
@@ -1454,7 +1454,7 @@ const CallingScreen = ({ navigation, route }: any) => {
           Alert.alert(
             'Connection Failed',
             'Unable to establish connection. This usually happens when devices are on different networks.\n\n' +
-              'Tray now uses Twilio Network Traversal Service for TURN. Make sure the backend is returning ICE servers from /webrtc/ice-servers.\n\n' +
+              'FairChance now uses Twilio Network Traversal Service for TURN. Make sure the backend is returning ICE servers from /webrtc/ice-servers.\n\n' +
               'Quick options:\n' +
               '• Verify TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in backend/.env\n' +
               '• Check the Twilio guide in app/docs/TWILIO_TURN_GUIDE.md\n' +

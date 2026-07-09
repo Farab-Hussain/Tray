@@ -69,7 +69,7 @@ export const IncomingCallRingingView = ({
 
       <View style={{ paddingTop: insets.top + 16, alignItems: 'center' }}>
         <View style={styles.topBadge}>
-          <Text style={styles.topBadgeText}>Tray call</Text>
+          <Text style={styles.topBadgeText}>FairChance call</Text>
         </View>
       </View>
 

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Tray</string>
+	<string>FairChance</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -56,7 +56,7 @@
 	<key>FacebookClientToken</key>
 	<string>b9857fc3912f5f51556932745d508d08</string>
 	<key>FacebookDisplayName</key>
-	<string>Tray</string>
+	<string>FairChance</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>mailto</string>
@@ -81,7 +81,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to upload profile pictures and images</string>
 	<key>NSVoIPUsageDescription</key>
-	<string>Tray uses VoIP to show incoming audio and video calls when the app is closed, similar to phone calls.</string>
+	<string>FairChance uses VoIP to show incoming audio and video calls when the app is closed, similar to phone calls.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIBackgroundModes</key>

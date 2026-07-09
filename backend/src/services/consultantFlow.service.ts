@@ -1,20 +1,110 @@
-import { db } from "../config/firebase";
+import { auth, db } from "../config/firebase";
 import { ConsultantProfile, ConsultantProfileInput } from "../models/consultantProfile.model";
 import { ConsultantApplication, ConsultantApplicationInput } from "../models/consultantApplication.model";
 import { Consultant } from "../models/consultant.model";
 import { Timestamp } from "firebase-admin/firestore";
 import { Logger } from "../utils/logger";
+import { cache } from "../utils/cache";
 
 const PROFILES_COLLECTION = "consultantProfiles";
 const APPLICATIONS_COLLECTION = "consultantApplications";
 const CONSULTANTS_COLLECTION = "consultants";
 
+/**
+ * Keep users/{uid} in sync with consultantProfiles so /auth/me and the app
+ * show the same name / email / profile image the consultant entered onboarding.
+ */
+async function syncUserDocFromConsultantProfile(profile: ConsultantProfile): Promise<void> {
+  const uid = profile.uid;
+  if (!uid) return;
+
+  const name = profile.personalInfo?.fullName?.trim() || null;
+  const email = profile.personalInfo?.email?.trim() || null;
+  const profileImage = profile.personalInfo?.profileImage?.trim() || null;
+
+  const userUpdate: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+  if (name) userUpdate.name = name;
+  if (email) userUpdate.email = email;
+  if (profileImage) userUpdate.profileImage = profileImage;
+
+  // Ensure consultant role is present (fixes getMe stub that defaulted to student)
+  const userRef = db.collection("users").doc(uid);
+  const userDoc = await userRef.get();
+  if (userDoc.exists) {
+    const existing = userDoc.data() || {};
+    const roles: string[] = Array.isArray(existing.roles) ? [...existing.roles] : [];
+    if (!roles.includes("consultant")) {
+      roles.push("consultant");
+    }
+    userUpdate.roles = roles;
+    // Always align role for consultant onboarding sync (do not leave student stub)
+    if (existing.role !== "admin") {
+      userUpdate.role = "consultant";
+      userUpdate.activeRole = "consultant";
+    }
+    await userRef.update(userUpdate);
+  } else {
+    await userRef.set({
+      name,
+      email,
+      profileImage,
+      role: "consultant",
+      roles: ["consultant"],
+      activeRole: "consultant",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  cache.delete(`user:${uid}`);
+
+  // Best-effort Auth displayName / photoURL so HomeHeader fallbacks work
+  try {
+    const authUpdate: { displayName?: string; photoURL?: string } = {};
+    if (name) authUpdate.displayName = name;
+    if (profileImage) authUpdate.photoURL = profileImage;
+    if (Object.keys(authUpdate).length > 0) {
+      await auth.updateUser(uid, authUpdate);
+    }
+  } catch (err: any) {
+    console.warn(`⚠️ [syncUserDocFromConsultantProfile] Auth update skipped: ${err?.message}`);
+  }
+
+  Logger.info("ConsultantFlow", uid, "Synced users doc from consultant profile");
+}
+
 export const consultantFlowService = {
   
   async createProfile(data: ConsultantProfileInput): Promise<ConsultantProfile> {
     const now = Timestamp.now();
+
+    // Normalize certifications (string or { name, imageUrl, imagePublicId })
+    const personalInfo = { ...(data.personalInfo || {}) } as ConsultantProfile["personalInfo"];
+    if (Array.isArray(personalInfo.qualifications)) {
+      personalInfo.qualifications = (personalInfo.qualifications as any[])
+        .map((q) => {
+          if (typeof q === "string") {
+            const name = q.trim();
+            return name ? { name } : null;
+          }
+          if (q && typeof q === "object" && typeof q.name === "string" && q.name.trim()) {
+            return {
+              name: q.name.trim(),
+              ...(q.imageUrl ? { imageUrl: String(q.imageUrl) } : {}),
+              ...(q.imagePublicId ? { imagePublicId: String(q.imagePublicId) } : {}),
+            };
+          }
+          return null;
+        })
+        .filter(Boolean) as ConsultantProfile["personalInfo"]["qualifications"];
+    }
+
     const profile: ConsultantProfile = {
       ...data,
+      personalInfo,
       status: "approved",
       createdAt: now,
       updatedAt: now,
@@ -22,8 +112,9 @@ export const consultantFlowService = {
 
     await db.collection(PROFILES_COLLECTION).doc(data.uid).set(profile);
     
-    // Auto-link approved consultant
+    // Auto-link approved consultant + sync users/{uid} for app display
     await this.linkApprovedConsultant(profile);
+    await syncUserDocFromConsultantProfile(profile);
     
     return profile;
   },
@@ -50,13 +141,45 @@ export const consultantFlowService = {
   },
 
   async updateProfile(uid: string, data: Partial<ConsultantProfileInput>): Promise<ConsultantProfile> {
-    const updateData = {
-      ...data,
+    // Only persist known profile fields — clients often send the full document
+    // (status, createdAt, etc.) which must not overwrite server-managed values.
+    const updateData: Record<string, unknown> = {
       updatedAt: Timestamp.now(),
     };
 
+    if (data.personalInfo && typeof data.personalInfo === "object") {
+      const personalInfo: Record<string, unknown> = { ...data.personalInfo };
+      // Normalize certifications so image objects are always stored
+      if (Array.isArray(personalInfo.qualifications)) {
+        personalInfo.qualifications = (personalInfo.qualifications as any[])
+          .map((q) => {
+            if (typeof q === "string") {
+              const name = q.trim();
+              return name ? { name } : null;
+            }
+            if (q && typeof q === "object" && typeof q.name === "string" && q.name.trim()) {
+              return {
+                name: q.name.trim(),
+                ...(q.imageUrl ? { imageUrl: String(q.imageUrl) } : {}),
+                ...(q.imagePublicId ? { imagePublicId: String(q.imagePublicId) } : {}),
+              };
+            }
+            return null;
+          })
+          .filter(Boolean);
+      }
+      updateData.personalInfo = personalInfo;
+    }
+
+    if (data.professionalInfo && typeof data.professionalInfo === "object") {
+      updateData.professionalInfo = data.professionalInfo;
+    }
+
     await db.collection(PROFILES_COLLECTION).doc(uid).update(updateData);
-    return this.getProfileByUid(uid);
+    const profile = await this.getProfileByUid(uid);
+    await this.linkApprovedConsultant(profile);
+    await syncUserDocFromConsultantProfile(profile);
+    return profile;
   },
 
   async updateProfileStatus(

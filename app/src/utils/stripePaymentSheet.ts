@@ -6,7 +6,7 @@ export const getStripePaymentSheetOptions = (
   billing?: { name?: string; email?: string },
 ) => ({
   paymentIntentClientSecret: clientSecret,
-  merchantDisplayName: 'Tray Platform',
+  merchantDisplayName: 'FairChance Platform',
   allowsDelayedPaymentMethods: true,
   ...(Platform.OS === 'ios' ? { returnURL: 'tray://stripe-redirect' } : {}),
   defaultBillingDetails: {

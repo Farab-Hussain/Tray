@@ -22,11 +22,11 @@ const buildHtmlEmail = (subject: string, body: string) => {
     <div style="font-family: Arial, sans-serif; background: #f9fafb; padding: 24px;">
       <div style="max-width: 680px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 2px 10px rgba(15,23,42,0.08); padding: 28px;">
         <h2 style="margin: 0 0 4px 0; color: #0f172a; font-size: 22px;">${subject}</h2>
-        <p style="margin: 0 0 18px 0; color: #6b7280; font-size: 14px;">Platform-wide announcement from Tray</p>
+        <p style="margin: 0 0 18px 0; color: #6b7280; font-size: 14px;">Platform-wide announcement from FairChance</p>
         <div style="color: #111827; font-size: 16px; line-height: 1.6;">${formattedBody}</div>
         <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
         <p style="color: #6b7280; font-size: 13px; margin: 0;">
-          You are receiving this email because you have an active Tray account. If you prefer not to receive announcements, reply to this email with "UNSUBSCRIBE".
+          You are receiving this email because you have an active FairChance account. If you prefer not to receive announcements, reply to this email with "UNSUBSCRIBE".
         </p>
       </div>
     </div>

@@ -72,7 +72,7 @@ const JobPostingPaymentScreen: React.FC<JobPostingPaymentScreenProps> = ({
       if (response.success && response.clientSecret) {
         const paymentSheetResult = await initPaymentSheet({
           paymentIntentClientSecret: response.clientSecret,
-          merchantDisplayName: 'Tray Platform',
+          merchantDisplayName: 'FairChance Platform',
           allowsDelayedPaymentMethods: true,
           defaultBillingDetails: {
             name: user?.displayName || user?.email || '',

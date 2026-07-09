@@ -152,7 +152,7 @@ const NewsletterPage = () => {
 
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => setBody((prev) => `${prev ? `${prev}\n\n` : ''}We have shipped a new set of improvements to Tray. Update your app to get the latest experience.`)}
+                  onClick={() => setBody((prev) => `${prev ? `${prev}\n\n` : ''}We have shipped a new set of improvements to FairChance. Update your app to get the latest experience.`)}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm"
                   type="button"
                 >

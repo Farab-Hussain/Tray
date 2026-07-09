@@ -128,7 +128,7 @@ export const createPromotionCode = async (req: Request, res: Response) => {
 
     const couponParams: Record<string, unknown> = {
       duration: 'once',
-      name: `Tray — ${normalizedCode}`,
+      name: `FairChance — ${normalizedCode}`,
     };
 
     if (pct !== undefined) {

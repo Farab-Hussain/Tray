@@ -753,14 +753,14 @@ const EmailVerification = ({ route }: any) => {
           // Show standard message if still not verified (no error shown - just informational)
           Alert.alert(
             'Not Verified Yet',
-            'Your email has not been verified yet. Please check your email inbox (and spam folder) for a verification email from Tray and click the verification link.\n\nNote: This is different from profile approval emails - you need the email verification link.',
+            'Your email has not been verified yet. Please check your email inbox (and spam folder) for a verification email from FairChance and click the verification link.\n\nNote: This is different from profile approval emails - you need the email verification link.',
             [
               {
                 text: 'Check Spam Folder',
                 onPress: () => {
                   Alert.alert(
                     'Check Spam Folder',
-                    'Sometimes verification emails end up in spam. Please check your spam/junk folder for an email from Tray.',
+                    'Sometimes verification emails end up in spam. Please check your spam/junk folder for an email from FairChance.',
                     [{ text: 'OK' }]
                   );
                 },
@@ -783,7 +783,7 @@ const EmailVerification = ({ route }: any) => {
           if (!user.emailVerified) {
             Alert.alert(
               'Not Verified Yet',
-              'Your email has not been verified yet. Please check your email inbox (and spam folder) for a verification email from Tray and click the verification link.',
+              'Your email has not been verified yet. Please check your email inbox (and spam folder) for a verification email from FairChance and click the verification link.',
               [{ text: 'OK' }]
             );
           }

@@ -22,7 +22,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     FirebaseApp.configure()
     Settings.shared.appID = "1062926749049"
     Settings.shared.clientToken = "b9857fc3912f5f51556932745d508d08"
-    Settings.shared.displayName = "Tray"
+    Settings.shared.displayName = "FairChance"
     ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
     UNUserNotificationCenter.current().delegate = self
     application.registerForRemoteNotifications()

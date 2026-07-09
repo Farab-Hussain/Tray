@@ -64,6 +64,38 @@ export const useAuth = () => {
   return context;
 };
 
+/**
+ * Firebase Auth User fields are often getters on the class prototype.
+ * Object spread ({...user}) drops them, which blanks displayName/email in the UI.
+ * Always copy the fields we need onto a plain object.
+ */
+const toAuthUserState = (
+  firebaseUser: User | null,
+  overrides?: { displayName?: string | null; photoURL?: string | null },
+): User | null => {
+  if (!firebaseUser) return null;
+  return {
+    ...firebaseUser,
+    uid: firebaseUser.uid,
+    email: firebaseUser.email,
+    emailVerified: firebaseUser.emailVerified,
+    displayName:
+      overrides?.displayName !== undefined && overrides.displayName !== null
+        ? overrides.displayName
+        : firebaseUser.displayName,
+    photoURL:
+      overrides?.photoURL !== undefined && overrides.photoURL !== null
+        ? overrides.photoURL
+        : firebaseUser.photoURL,
+    phoneNumber: firebaseUser.phoneNumber,
+    isAnonymous: firebaseUser.isAnonymous,
+    metadata: firebaseUser.metadata,
+    providerData: firebaseUser.providerData,
+    refreshToken: firebaseUser.refreshToken,
+    tenantId: firebaseUser.tenantId,
+  } as User;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -246,6 +278,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               ? paidRoles.consultant === true
               : paidRoles.student === true || res.data?.hasPaidAccessFee === true;
         setHasPaidPlatformAccess(res.data?.accessFeeWaived === true || rolePaid);
+
+        // Keep AuthContext displayName/photo in sync with users/{uid}
+        // (Apple Sign-In often leaves displayName null / clears it on re-login)
+        if (auth.currentUser) {
+          const backendName =
+            typeof res.data?.name === 'string' && res.data.name.trim()
+              ? res.data.name.trim()
+              : null;
+          const backendImage =
+            typeof res.data?.profileImage === 'string' && res.data.profileImage.trim()
+              ? res.data.profileImage.trim()
+              : null;
+          setUser(
+            toAuthUserState(auth.currentUser, {
+              displayName: backendName || auth.currentUser.displayName,
+              photoURL: backendImage || auth.currentUser.photoURL,
+            }),
+          );
+        }
 
         await AsyncStorage.setItem('roles', JSON.stringify(userRoles));
         await AsyncStorage.setItem('activeRole', userActiveRole);
@@ -435,14 +486,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             }
           }
 
-          // Merge Firebase Auth data with backend profileImage
-          // If backend has profileImage, use it; otherwise use Firebase photoURL
-          const updatedUser = {
-            ...auth.currentUser,
-            photoURL: finalProfileImage || auth.currentUser.photoURL,
-          };
-
-          setUser(updatedUser as User);
+          // Merge Firebase Auth with backend name + image (Apple Sign-In often has no displayName)
+          const backendName =
+            typeof backendProfile.data?.name === 'string' &&
+            backendProfile.data.name.trim()
+              ? backendProfile.data.name.trim()
+              : null;
+          setUser(
+            toAuthUserState(auth.currentUser, {
+              displayName: backendName || auth.currentUser.displayName,
+              photoURL: finalProfileImage || auth.currentUser.photoURL,
+            }),
+          );
           const profileRoles =
             backendProfile.data?.roles ||
             (backendProfile.data?.role ? [backendProfile.data.role] : ['student']);
@@ -474,7 +529,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               backendError,
             );
           }
-          setUser({ ...auth.currentUser });
+          setUser(toAuthUserState(auth.currentUser));
         }
 
         // Refresh role data as well
@@ -685,7 +740,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
 
           // Set user after reload to ensure we have latest verification status
-          setUser(reloadedUser);
+          // Use toAuthUserState so displayName/email getters are not lost later on spread
+          setUser(toAuthUserState(reloadedUser));
           if (reloadedUser?.uid) {
             setUserContext({
               id: reloadedUser.uid,
@@ -723,7 +779,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 await reloadedUser.reload();
                 // Get fresh reference after second reload
                 reloadedUser = auth.currentUser;
-                setUser(reloadedUser);
+                setUser(toAuthUserState(reloadedUser));
 
                 // If still not verified after reload, try one more Firebase reload (client token cache)
                 if (reloadedUser && !reloadedUser.emailVerified) {
@@ -735,7 +791,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                   try {
                     await reloadedUser.reload();
                     reloadedUser = auth.currentUser;
-                    setUser(reloadedUser);
+                    setUser(toAuthUserState(reloadedUser));
                   } catch (syncError) {
                     if (__DEV__) {
                       console.warn(

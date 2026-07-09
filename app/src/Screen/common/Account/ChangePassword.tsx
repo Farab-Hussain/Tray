@@ -126,7 +126,7 @@ const ChangePassword = ({ navigation }: any) => {
         <View style={authStyles.formContainer}>
           <Text style={authStyles.authHeading}>Update Password</Text>
           <Text style={authStyles.authPara}>
-            Enter your current password, then choose a new password for your Tray account.
+            Enter your current password, then choose a new password for your FairChance account.
           </Text>
 
           <View style={styles.inputGroup}>

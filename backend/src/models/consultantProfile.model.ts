@@ -15,7 +15,12 @@ export interface ConsultantProfile {
     profileImage?: string | null;
     profileImagePublicId?: string | null;
     experience: number;
-    qualifications?: string[];
+    /** Certifications: legacy string[] or objects with image from onboarding */
+    qualifications?: Array<string | {
+      name: string;
+      imageUrl?: string;
+      imagePublicId?: string;
+    }>;
   };
   professionalInfo: {
     title?: string;
@@ -53,7 +58,11 @@ export interface ConsultantProfileInput {
     profileImage?: string | null;
     profileImagePublicId?: string | null;
     experience: number;
-    qualifications?: string[];
+    qualifications?: Array<string | {
+      name: string;
+      imageUrl?: string;
+      imagePublicId?: string;
+    }>;
   };
   professionalInfo: {
     title?: string;
