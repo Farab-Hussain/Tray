@@ -342,7 +342,21 @@ const CourseLibraryScreen: React.FC<Props> = ({ navigation }) => {
             />
             <View style={styles.horizontalCourseContent}>
               <Text style={styles.horizontalCourseTitle} numberOfLines={2}>{course.title}</Text>
-              <Text style={styles.horizontalInstructorName}>{course.instructorName}</Text>
+              <View style={styles.horizontalInstructorRow}>
+                {course.instructorAvatar ? (
+                  <Image
+                    source={{ uri: course.instructorAvatar }}
+                    style={styles.horizontalInstructorAvatar}
+                  />
+                ) : (
+                  <View style={[styles.horizontalInstructorAvatar, styles.horizontalInstructorAvatarFallback]}>
+                    <UserRound size={10} color="#666" />
+                  </View>
+                )}
+                <Text style={styles.horizontalInstructorName} numberOfLines={1}>
+                  {course.instructorName}
+                </Text>
+              </View>
               <View style={styles.horizontalCourseMeta}>
                 <View style={styles.horizontalRatingContainer}>
                   <Star size={12} color="#FFA500" />
@@ -871,10 +885,26 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
+  horizontalInstructorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  horizontalInstructorAvatar: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  horizontalInstructorAvatarFallback: {
+    backgroundColor: '#A5AFBD',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   horizontalInstructorName: {
+    flex: 1,
     fontSize: 12,
     color: '#666',
-    marginBottom: 8,
   },
   horizontalCourseMeta: {
     flexDirection: 'row',

@@ -551,12 +551,30 @@ const PublicProfileScreen: React.FC = () => {
               )}
               {qualifications.length > 0 && (
                 <View style={styles.qualificationList}>
-                  {qualifications.map((item: string, idx: number) => (
-                    <View key={`qualification-${idx}`} style={styles.qualificationItem}>
-                      <GraduationCap size={15} color={COLORS.green} />
-                      <Text style={styles.qualificationText}>{item}</Text>
-                    </View>
-                  ))}
+                  {qualifications.map((item: any, idx: number) => {
+                    const label =
+                      typeof item === 'string'
+                        ? item
+                        : item?.name || item?.title || 'Certification';
+                    const imageUrl =
+                      typeof item === 'object' && item?.imageUrl
+                        ? String(item.imageUrl)
+                        : null;
+                    return (
+                      <View key={`qualification-${idx}`} style={styles.qualificationItem}>
+                        {imageUrl ? (
+                          <Image
+                            source={{ uri: imageUrl }}
+                            style={styles.qualificationThumb}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <GraduationCap size={15} color={COLORS.green} />
+                        )}
+                        <Text style={styles.qualificationText}>{label}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
               )}
             </>,
@@ -974,6 +992,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  qualificationThumb: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: COLORS.lightGray || '#E8E8E8',
   },
   qualificationText: {
     flex: 1,

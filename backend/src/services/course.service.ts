@@ -69,6 +69,89 @@ export class CourseService {
     Logger.info('CourseLifecycle', courseId, `${action}.${transition}${actor}${extra}`.trim());
   }
 
+  /**
+   * Resolve consultant display name + profile image for course cards.
+   * Prefers consultantProfiles.personalInfo, then users/{uid}.
+   */
+  private async resolveInstructorProfile(instructorId?: string): Promise<{
+    name: string;
+    avatar: string;
+  }> {
+    if (!instructorId) return { name: '', avatar: '' };
+
+    try {
+      const [userSnap, profileSnap] = await Promise.all([
+        db.collection('users').doc(instructorId).get(),
+        db.collection('consultantProfiles').doc(instructorId).get(),
+      ]);
+
+      const user = userSnap.exists ? userSnap.data() || {} : {};
+      const personal = profileSnap.exists
+        ? (profileSnap.data()?.personalInfo || {})
+        : {};
+
+      const avatar =
+        (typeof personal.profileImage === 'string' && personal.profileImage.trim()) ||
+        (typeof user.profileImage === 'string' && user.profileImage.trim()) ||
+        (typeof user.photoURL === 'string' && user.photoURL.trim()) ||
+        '';
+
+      const name =
+        (typeof personal.fullName === 'string' && personal.fullName.trim()) ||
+        (typeof personal.name === 'string' && personal.name.trim()) ||
+        (typeof user.name === 'string' && user.name.trim()) ||
+        (typeof user.displayName === 'string' && user.displayName.trim()) ||
+        '';
+
+      return { name, avatar };
+    } catch (error) {
+      console.warn('⚠️ [CourseService] Failed to resolve instructor profile:', instructorId, error);
+      return { name: '', avatar: '' };
+    }
+  }
+
+  /** Fill missing instructorAvatar/name on course payloads for student UI */
+  private async enrichCoursesWithInstructorAvatars<T extends Record<string, any>>(
+    courses: T[],
+  ): Promise<T[]> {
+    if (!courses.length) return courses;
+
+    const ids = [
+      ...new Set(
+        courses
+          .map((c) => c.instructorId)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0),
+      ),
+    ];
+
+    const profileMap = new Map<string, { name: string; avatar: string }>();
+    await Promise.all(
+      ids.map(async (id) => {
+        profileMap.set(id, await this.resolveInstructorProfile(id));
+      }),
+    );
+
+    return courses.map((course) => {
+      const profile = course.instructorId
+        ? profileMap.get(course.instructorId)
+        : undefined;
+      if (!profile) return course;
+
+      const hasAvatar =
+        typeof course.instructorAvatar === 'string' &&
+        course.instructorAvatar.trim().length > 0;
+      const hasName =
+        typeof course.instructorName === 'string' &&
+        course.instructorName.trim().length > 0;
+
+      return {
+        ...course,
+        instructorAvatar: hasAvatar ? course.instructorAvatar : profile.avatar || '',
+        instructorName: hasName ? course.instructorName : profile.name || course.instructorName || '',
+      };
+    });
+  }
+
   private createHttpError(message: string, statusCode: number, details?: any): Error & {
     statusCode: number;
     details?: any;
@@ -161,14 +244,20 @@ export class CourseService {
     
     try {
       console.log('🔧 [Backend CourseService] Building course object...');
+
+      const resolvedInstructorId = instructorId || courseData.instructorId;
+      const instructorProfile = await this.resolveInstructorProfile(resolvedInstructorId);
       
       // Create course object with all required fields from the frontend
       const course: any = {
         title: courseData.title,
         description: courseData.description,
         shortDescription: courseData.shortDescription || courseData.description?.substring(0, 150),
-        instructorId: instructorId || courseData.instructorId,
-        instructorName: courseData.instructorName || '',
+        instructorId: resolvedInstructorId,
+        instructorName:
+          courseData.instructorName || instructorProfile.name || '',
+        instructorAvatar:
+          courseData.instructorAvatar || instructorProfile.avatar || '',
         category: courseData.category,
         level: courseData.level,
         language: courseData.language || 'en',
@@ -251,7 +340,11 @@ export class CourseService {
    */
   async getCourseById(courseId: string): Promise<Course | null> {
     const doc = await this.coursesCollection.doc(courseId).get();
-    return doc.exists ? ({ id: doc.id, ...doc.data() } as Course) : null;
+    if (!doc.exists) return null;
+    const [enriched] = await this.enrichCoursesWithInstructorAvatars([
+      { id: doc.id, ...doc.data() } as Course,
+    ]);
+    return enriched;
   }
 
   /**
@@ -372,7 +465,9 @@ export class CourseService {
 
     try {
       const snapshot = await query.get();
-      const courses = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Course));
+      const courses = await this.enrichCoursesWithInstructorAvatars(
+        snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Course)),
+      );
 
       return {
         courses,
@@ -429,7 +524,9 @@ export class CourseService {
 
       const start = offset;
       const end = start + limit;
-      const paged = fallbackCourses.slice(start, end);
+      const paged = await this.enrichCoursesWithInstructorAvatars(
+        fallbackCourses.slice(start, end),
+      );
 
       return {
         courses: paged,
@@ -694,14 +791,32 @@ export class CourseService {
       );
     }
 
-    await this.coursesCollection.doc(courseId).update({
+    const instructorProfile = await this.resolveInstructorProfile(
+      existingCourse.instructorId,
+    );
+    const updatePayload: Record<string, any> = {
       status: 'published',
       approvedBy: _adminId,
       approvedAt: new Date(),
       publishedAt: new Date(),
       rejectionReason: null,
       updatedAt: new Date(),
-    });
+    };
+    // Persist avatar on publish so student cards always have it
+    if (
+      !existingCourse.instructorAvatar &&
+      instructorProfile.avatar
+    ) {
+      updatePayload.instructorAvatar = instructorProfile.avatar;
+    }
+    if (
+      (!existingCourse.instructorName || !String(existingCourse.instructorName).trim()) &&
+      instructorProfile.name
+    ) {
+      updatePayload.instructorName = instructorProfile.name;
+    }
+
+    await this.coursesCollection.doc(courseId).update(updatePayload);
     this.logLifecycleEvent({
       action: 'approve',
       courseId,
@@ -934,7 +1049,9 @@ export class CourseService {
       .where('featured', '==', true)
       .limit(limit)
       .get();
-    return snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Course));
+    return this.enrichCoursesWithInstructorAvatars(
+      snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Course)),
+    );
   }
 
   async getTrendingCourses(limit: number = 10): Promise<Course[]> {
@@ -943,7 +1060,9 @@ export class CourseService {
       .where('trending', '==', true)
       .limit(limit)
       .get();
-    return snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Course));
+    return this.enrichCoursesWithInstructorAvatars(
+      snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Course)),
+    );
   }
 
   async getBestsellerCourses(limit: number = 10): Promise<Course[]> {
@@ -952,7 +1071,9 @@ export class CourseService {
       .where('bestseller', '==', true)
       .limit(limit)
       .get();
-    return snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Course));
+    return this.enrichCoursesWithInstructorAvatars(
+      snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Course)),
+    );
   }
 
   async purchaseCourse(

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,14 @@ import { Clock, X, Edit, Trash2, Star } from 'lucide-react-native';
 import { COLORS } from '../../constants/core/colors';
 import { consultantServiceCardStyles as styles } from '../../constants/styles/ConsultantServiceCard.styles';
 
+const FALLBACK_SERVICE_IMAGE = require('../../assets/image/services.png');
+
 type ConsultantServiceCardProps = {
   title: string;
   description: string;
-  imageUri?: ImageSourcePropType;
-  // VIDEO UPLOAD CODE - COMMENTED OUT
-  // videoUrl?: string;
+  imageUri?: ImageSourcePropType | string | null;
   duration?: number;
-  price?: number; 
+  price?: number;
   rating?: number;
   onSetAvailabilityPress?: () => void;
   onEditPress?: () => void;
@@ -27,12 +27,24 @@ type ConsultantServiceCardProps = {
   onReviewPress?: () => void;
 };
 
+const normalizeImageSource = (
+  imageUri?: ImageSourcePropType | string | null,
+): ImageSourcePropType | null => {
+  if (!imageUri) return null;
+  if (typeof imageUri === 'string') {
+    const trimmed = imageUri.trim();
+    if (!trimmed) return null;
+    // Skip known-dead legacy Cloudinary cloud
+    if (trimmed.includes('res.cloudinary.com/dkblutnml')) return null;
+    return { uri: trimmed };
+  }
+  return imageUri;
+};
+
 const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
   title,
   description,
   imageUri,
-  // VIDEO UPLOAD CODE - COMMENTED OUT
-  // videoUrl,
   duration,
   onSetAvailabilityPress,
   onEditPress,
@@ -40,186 +52,78 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
   onReviewPress,
 }) => {
   const [showModal, setShowModal] = useState(false);
-  // VIDEO UPLOAD CODE - COMMENTED OUT
-  // const [showVideoModal, setShowVideoModal] = useState(false);
-  const [imageLoadError, setImageLoadError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(false);
-  const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const stringImageUri = typeof imageUri === 'string' ? imageUri : undefined;
-  const isDisabledCloud = stringImageUri?.includes('res.cloudinary.com/dkblutnml');
-  const shouldShowImage = !!imageUri && !imageLoadError && !isDisabledCloud;
+  const [cardImageFailed, setCardImageFailed] = useState(false);
+  const [modalImageFailed, setModalImageFailed] = useState(false);
 
-  // VIDEO UPLOAD CODE - COMMENTED OUT
-  // const handlePlayVideo = () => {
-  //   if (videoUrl) {
-  //     setShowVideoModal(true);
-  //   }
-  // };
+  const imageSource = useMemo(() => normalizeImageSource(imageUri), [imageUri]);
+  const descriptionText = typeof description === 'string' ? description : '';
+  const needsReadMore = descriptionText.length > 150;
 
-  // Check if description is long enough to need "Read More"
-  // Industry best practice: Show "Read More" for descriptions longer than ~150 characters
-  // This allows for approximately 4-5 lines of text before truncation
-  const needsReadMore = description.length > 150;
-
-  // Debug logging for image
-    if (__DEV__) {
-    console.log(`🔍 [ConsultantServiceCard] Service: ${title}`, {
-    imageUri: imageUri,
-    hasImageUri: !!imageUri,
-    imageUriType: typeof imageUri,
-    imageUriValue: imageUri,
-    imageLoadError: imageLoadError
-  })
-  };
-
-  // Debug logging
-    if (__DEV__) {
-    console.log(
-    'Description length:',
-    description.length,
-    'needsReadMore:',
-    needsReadMore,
-  )
-  };
-
-  const isTitleLong = title.length > 10;
-
-  // Debug: Log which rendering path we're taking
-    if (__DEV__) {
-    console.log(`🎨 [ConsultantServiceCard] ${title} - imageUri: ${!!imageUri}, imageLoadError: ${imageLoadError}, will show: ${shouldShowImage ? 'Image' : 'Custom Background'}`)
-  };
-
-  // If cloud is disabled, fail fast to avoid noisy retries
+  // Reset failure flags when the URL changes
   useEffect(() => {
-    if (isDisabledCloud) {
-            if (__DEV__) {
-        console.log('🚫 [ConsultantServiceCard] Cloudinary cloud is disabled, falling back:', stringImageUri);
-      };
-      setImageLoadError(true);
-      setImageLoading(false);
-      if (imageLoadTimeoutRef.current) {
-        clearTimeout(imageLoadTimeoutRef.current);
-        imageLoadTimeoutRef.current = null;
-      }
-    } else if (imageUri) {
-      // Reset error when a different/valid image is supplied
-      setImageLoadError(false);
-    }
-  }, [isDisabledCloud, imageUri, stringImageUri]);
+    setCardImageFailed(false);
+    setModalImageFailed(false);
+  }, [imageUri]);
 
-  // Set up image load timeout
-  useEffect(() => {
-    // Clear existing timeout when dependencies change
-    if (imageLoadTimeoutRef.current) {
-      clearTimeout(imageLoadTimeoutRef.current);
-      imageLoadTimeoutRef.current = null;
-    }
+  const cardSource =
+    imageSource && !cardImageFailed ? imageSource : FALLBACK_SERVICE_IMAGE;
+  const modalSource =
+    imageSource && !modalImageFailed ? imageSource : FALLBACK_SERVICE_IMAGE;
 
-    if (shouldShowImage) {
-            if (__DEV__) {
-        console.log('🔄 [ConsultantServiceCard] Starting image load for:', imageUri)
-      };
-      setImageLoading(true);
-      
-      // Set a timeout to show fallback if image takes too long to load
-      const timeout = setTimeout(() => {
-                if (__DEV__) {
-          console.log('⏰ [ConsultantServiceCard] Image load timeout, showing fallback')
-        };
-        setImageLoadError(true);
-        setImageLoading(false);
-      }, 10000);
-      
-      imageLoadTimeoutRef.current = timeout;
-    }
-  }, [imageUri, imageLoadError]);
-
-  // Remove ALL height constraints when expanded to allow full content display
   return (
     <>
       <View style={styles.card}>
-        {/* Service Image/Video Section */}
         <View style={styles.imageContainer}>
-          {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
-          {/* {videoUrl ? (
-            ... video display code with play button ...
-          ) : */ shouldShowImage ? (
-            <>
-              <Image 
-                source={typeof imageUri === 'string' ? { uri: imageUri } : imageUri} 
-                style={styles.image}
-                onError={(error) => {
-                                    if (__DEV__) {
-                    console.log('❌ [ConsultantServiceCard] Image failed to load:', error.nativeEvent.error)
-                  };
-                                    if (__DEV__) {
-                    console.log('❌ [ConsultantServiceCard] Image URL:', imageUri)
-                  };
-                                    if (__DEV__) {
-                    console.log('❌ [ConsultantServiceCard] Error details:', JSON.stringify(error.nativeEvent, null, 2))
-                  };
-                                    if (__DEV__) {
-                    console.log('🔄 [ConsultantServiceCard] Setting imageLoadError to true')
-                  };
-                  setImageLoadError(true);
-                  setImageLoading(false);
-                }}
-                onLoad={() => {
-                                    if (__DEV__) {
-                    console.log('✅ [ConsultantServiceCard] Image loaded successfully:', imageUri)
-                  };
-                  setImageLoadError(false);
-                  setImageLoading(false);
-                  // Clear timeout since image loaded successfully
-                  if (imageLoadTimeoutRef.current) {
-                    clearTimeout(imageLoadTimeoutRef.current);
-                    imageLoadTimeoutRef.current = null;
-                  }
-                }}
-              />
-              {imageLoading && (
-                <View style={styles.imageLoadingOverlay}>
-                  <Text style={styles.imageLoadingText}>Loading...</Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <View style={styles.customImageBackground}>
-              <Text style={styles.customImageText}>{title}</Text>
-            </View>
-          )}
+          <Image
+            source={cardSource}
+            style={styles.image}
+            resizeMode="cover"
+            onError={() => {
+              if (imageSource) {
+                if (__DEV__) {
+                  console.warn(
+                    '[ConsultantServiceCard] Card image failed, using fallback:',
+                    imageUri,
+                  );
+                }
+                setCardImageFailed(true);
+              }
+            }}
+            onLoad={() => {
+              if (cardImageFailed) setCardImageFailed(false);
+            }}
+          />
         </View>
 
-        {/* Content Section - Flexible Height */}
         <View style={styles.content}>
           <View style={styles.contentTop}>
-            {/* Title - Adaptive lines based on length */}
             <Text style={styles.title} numberOfLines={2}>
               {title}
             </Text>
 
-            {/* Duration Badge */}
-            {duration && (
+            {duration ? (
               <View style={styles.durationBadge}>
                 <Clock size={14} color={COLORS.green} />
                 <Text style={styles.durationText}>{duration} minutes</Text>
               </View>
-            )}
+            ) : null}
 
             <View style={styles.descriptionContainer}>
               <Text
                 style={styles.description}
                 numberOfLines={4}
                 ellipsizeMode="tail"
-                allowFontScaling={true}
               >
-                {description}
+                {descriptionText}
               </Text>
             </View>
             <View style={styles.readMoreSlot}>
               {needsReadMore ? (
                 <TouchableOpacity
-                  onPress={() => setShowModal(true)}
+                  onPress={() => {
+                    setModalImageFailed(false);
+                    setShowModal(true);
+                  }}
                   style={styles.readMoreButton}
                   activeOpacity={0.7}
                 >
@@ -268,7 +172,6 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
         </View>
       </View>
 
-      {/* Full Description Modal */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -277,7 +180,6 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle} numberOfLines={2}>
                 {title}
@@ -290,33 +192,43 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Modal Body */}
             <ScrollView
               style={styles.modalBody}
-              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={true}
+              bounces={true}
             >
-              {/* Service Image */}
-              {shouldShowImage ? (
-                <Image source={typeof imageUri === 'string' ? { uri: imageUri } : imageUri} style={styles.modalImage} />
-              ) : (
-                <View style={styles.modalPlaceholderImage}>
-                  <Text style={styles.placeholderText}>Service Image</Text>
-                </View>
-              )}
+              <Image
+                source={modalSource}
+                style={styles.modalImage}
+                resizeMode="cover"
+                onError={() => {
+                  if (imageSource) {
+                    if (__DEV__) {
+                      console.warn(
+                        '[ConsultantServiceCard] Modal image failed, using fallback:',
+                        imageUri,
+                      );
+                    }
+                    setModalImageFailed(true);
+                  }
+                }}
+              />
 
-              {/* Duration Badge in Modal */}
-              {duration && (
+              {duration ? (
                 <View style={styles.modalDurationBadge}>
                   <Clock size={16} color={COLORS.green} />
                   <Text style={styles.durationText}>{duration} minutes</Text>
                 </View>
-              )}
+              ) : null}
 
-              {/* Full Description */}
-              <Text style={styles.modalDescription}>{description}</Text>
+              <Text style={styles.modalDescription}>
+                {descriptionText.trim()
+                  ? descriptionText
+                  : 'No description available.'}
+              </Text>
             </ScrollView>
 
-            {/* Modal Footer */}
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.modalButton}
@@ -328,13 +240,6 @@ const ConsultantServiceCard: React.FC<ConsultantServiceCardProps> = ({
           </View>
         </View>
       </Modal>
-
-      {/* VIDEO UPLOAD CODE - COMMENTED OUT */}
-      {/* Video Modal */}
-      {/* <Modal
-        visible={showVideoModal}
-        ... video modal code ...
-      </Modal> */}
     </>
   );
 };

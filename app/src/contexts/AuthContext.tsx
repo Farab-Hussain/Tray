@@ -72,31 +72,40 @@ export const useAuth = () => {
  * Object spread ({...user}) drops them, which blanks displayName/email in the UI.
  * Always copy the fields we need onto a plain object.
  */
+/**
+ * Keep a real Firebase User (methods like reload/getIdToken). Spreading User into a
+ * plain object drops those methods and caused splash/auth loops.
+ */
 const toAuthUserState = (
   firebaseUser: User | null,
   overrides?: { displayName?: string | null; photoURL?: string | null },
 ): User | null => {
   if (!firebaseUser) return null;
-  return {
-    ...firebaseUser,
-    uid: firebaseUser.uid,
-    email: firebaseUser.email,
-    emailVerified: firebaseUser.emailVerified,
-    displayName:
-      overrides?.displayName !== undefined && overrides.displayName !== null
-        ? overrides.displayName
-        : firebaseUser.displayName,
-    photoURL:
-      overrides?.photoURL !== undefined && overrides.photoURL !== null
-        ? overrides.photoURL
-        : firebaseUser.photoURL,
-    phoneNumber: firebaseUser.phoneNumber,
-    isAnonymous: firebaseUser.isAnonymous,
-    metadata: firebaseUser.metadata,
-    providerData: firebaseUser.providerData,
-    refreshToken: firebaseUser.refreshToken,
-    tenantId: firebaseUser.tenantId,
-  } as User;
+
+  const nextDisplayName =
+    overrides?.displayName !== undefined && overrides.displayName !== null
+      ? overrides.displayName
+      : firebaseUser.displayName;
+  const nextPhotoURL =
+    overrides?.photoURL !== undefined && overrides.photoURL !== null
+      ? overrides.photoURL
+      : firebaseUser.photoURL;
+
+  if (
+    nextDisplayName === firebaseUser.displayName &&
+    nextPhotoURL === firebaseUser.photoURL
+  ) {
+    return firebaseUser;
+  }
+
+  return new Proxy(firebaseUser, {
+    get(target, prop, receiver) {
+      if (prop === 'displayName') return nextDisplayName;
+      if (prop === 'photoURL') return nextPhotoURL;
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  }) as User;
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -146,7 +155,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const refreshConsultantStatus = useCallback(async () => {
-    if (!user?.uid) return;
+    // Use auth.currentUser so this callback stays stable (avoids remounting auth listener)
+    if (!auth.currentUser?.uid) return;
 
     // Prevent duplicate calls within 10 seconds
     const now = Date.now();
@@ -199,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       isFetchingStatus.current = false;
     }
-  }, [user]);
+  }, []);
 
   const fetchUserRole = useCallback(
     async (force = false, retryCount = 0) => {
@@ -244,8 +254,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           );
         }
 
-        // Check if profile needs to be created
-        if (res.data?.needsProfileCreation) {
+        // Check if profile needs to be created (legacy + profileIncomplete from getMe)
+        if (res.data?.needsProfileCreation === true) {
           if (__DEV__) {
             console.log('Profile needs to be created');
           }
@@ -258,10 +268,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setNeedsProfileCreation(false);
 
         // Handle new roles array and activeRole structure
+        // Empty [] is truthy — treat it as missing so we default to student
+        const rawRoles = res.data?.roles;
         const userRoles =
-          res.data?.roles || (res.data?.role ? [res.data.role] : ['student']);
+          Array.isArray(rawRoles) && rawRoles.length > 0
+            ? rawRoles
+            : res.data?.role
+              ? [res.data.role]
+              : ['student'];
         const userActiveRole =
-          res.data?.activeRole || res.data?.role || 'student';
+          res.data?.activeRole || res.data?.role || userRoles[0] || 'student';
 
         if (__DEV__) {
           console.log('Roles fetched:', userRoles);
@@ -653,6 +669,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     [refreshConsultantStatus, refreshUser],
   );
 
+  // Keep a stable ref so onAuthStateChanged does not re-subscribe when fetchUserRole identity changes
+  const fetchUserRoleRef = useRef(fetchUserRole);
+  fetchUserRoleRef.current = fetchUserRole;
+
   useEffect(() => {
     const initAuth = async () => {
       // Clear any leftover registration flag from previous sessions
@@ -670,9 +690,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           console.log('Loaded stored active role:', storedActiveRole);
         }
         const parsedRoles = JSON.parse(storedRoles);
-        setRoles(parsedRoles);
-        setActiveRole(storedActiveRole);
-        setRole(storedActiveRole); // Keep for backward compatibility
+        // Ignore empty roles array left by a previous incomplete /auth/me response
+        if (Array.isArray(parsedRoles) && parsedRoles.length > 0) {
+          setRoles(parsedRoles);
+          setActiveRole(storedActiveRole);
+          setRole(storedActiveRole); // Keep for backward compatibility
+        } else if (storedActiveRole) {
+          setRoles([storedActiveRole]);
+          setActiveRole(storedActiveRole);
+          setRole(storedActiveRole);
+        }
 
         // If consultant, also load verification status
         if (storedActiveRole === 'consultant') {
@@ -737,23 +764,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       try {
         if (firebaseUser) {
-          // Reload user to sync verification status from server (important after web verification)
+          // Avoid unconditional reload() — it re-fires onAuthStateChanged and loops.
+          // Only reload when email looks unverified (stale token after web verify).
           let reloadedUser = firebaseUser;
-          try {
-            await firebaseUser.reload();
-            // Get updated user reference after reload
-            reloadedUser = auth.currentUser;
-          } catch (reloadError) {
-            if (__DEV__) {
-              console.warn(
-                'AuthContext - Error reloading user (continuing anyway):',
-                reloadError,
-              );
+          if (!firebaseUser.emailVerified) {
+            try {
+              await firebaseUser.reload();
+              reloadedUser = auth.currentUser || firebaseUser;
+            } catch (reloadError) {
+              if (__DEV__) {
+                console.warn(
+                  'AuthContext - Error reloading user (continuing anyway):',
+                  reloadError,
+                );
+              }
             }
           }
 
-          // Set user after reload to ensure we have latest verification status
-          // Use toAuthUserState so displayName/email getters are not lost later on spread
+          // Set user after optional reload to ensure we have latest verification status
           setUser(toAuthUserState(reloadedUser));
           if (reloadedUser?.uid) {
             setUserContext({
@@ -791,7 +819,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 }
                 await reloadedUser.reload();
                 // Get fresh reference after second reload
-                reloadedUser = auth.currentUser;
+                reloadedUser = auth.currentUser || reloadedUser;
                 setUser(toAuthUserState(reloadedUser));
 
                 // If still not verified after reload, try one more Firebase reload (client token cache)
@@ -803,7 +831,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                   }
                   try {
                     await reloadedUser.reload();
-                    reloadedUser = auth.currentUser;
+                    reloadedUser = auth.currentUser || reloadedUser;
                     setUser(toAuthUserState(reloadedUser));
                   } catch (syncError) {
                     if (__DEV__) {
@@ -838,8 +866,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
 
           // User logged in and email verified - fetch their role from backend
-          // The fetchUserRole function now has robust retry logic
-          await fetchUserRole();
+          await fetchUserRoleRef.current();
         } else {
           // User logged out - clear roles
           setUser(null);
@@ -865,7 +892,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       clearTimeout(loadingTimeout);
       unsubscribe();
     };
-  }, [fetchUserRole]);
+  }, []);
 
   const value = {
     user,

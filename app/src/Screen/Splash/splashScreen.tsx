@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Image, View, Platform } from 'react-native';
 import { globalStyles } from '../../constants/core/global';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,6 +10,8 @@ import { resolveColdStartCallLaunch, hasColdStartCallIntent } from '../../servic
 
 const SplashScreen = ({ navigation }: any) => {
   const { user, loading } = useAuth();
+  const hasNavigatedRef = useRef(false);
+  const userId = user?.uid ?? null;
 
   useEffect(() => {
     const checkAuthAndNavigate = async () => {
@@ -18,6 +20,11 @@ const SplashScreen = ({ navigation }: any) => {
                 if (__DEV__) {
           console.log('SplashScreen - Waiting for auth to initialize...')
         };
+        return;
+      }
+
+      // Prevent re-running navigation when auth user object identity changes
+      if (hasNavigatedRef.current) {
         return;
       }
 
@@ -35,11 +42,13 @@ const SplashScreen = ({ navigation }: any) => {
             console.log('SplashScreen - User found, checking verification status...')
           };
           
-          // First, reload user to get latest status from Firebase
-          let reloadedUser = user;
+          // Reload via auth.currentUser (context user may be a Proxy; always use live Auth user)
+          let reloadedUser = auth.currentUser || user;
           try {
-            await user.reload();
-            reloadedUser = auth.currentUser || user;
+            if (auth.currentUser?.reload) {
+              await auth.currentUser.reload();
+              reloadedUser = auth.currentUser || user;
+            }
           } catch (reloadError) {
                         if (__DEV__) {
               console.warn('SplashScreen - Error reloading user:', reloadError)
@@ -73,7 +82,9 @@ const SplashScreen = ({ navigation }: any) => {
                   console.log('SplashScreen - Backend says verified but Firebase doesn\'t, reloading user...')
                 };
                 try {
-                  await reloadedUser.reload();
+                  if (auth.currentUser?.reload) {
+                    await auth.currentUser.reload();
+                  }
                   reloadedUser = auth.currentUser || reloadedUser;
                   isVerified = reloadedUser?.emailVerified || false;
                   if (__DEV__) {
@@ -129,6 +140,7 @@ const SplashScreen = ({ navigation }: any) => {
             const remainingTime = Math.max(0, minSplashTime - elapsedTime);
             
             setTimeout(() => {
+              hasNavigatedRef.current = true;
               navigation.replace('Auth', {
                 screen: 'EmailVerification',
                 params: { 
@@ -146,6 +158,7 @@ const SplashScreen = ({ navigation }: any) => {
             if (__DEV__) {
               console.log('SplashScreen - Cold start call launch:', coldStartCall.screen);
             }
+            hasNavigatedRef.current = true;
             navigation.replace('Screen', {
               screen: coldStartCall.screen,
               params: coldStartCall.params,
@@ -171,6 +184,7 @@ const SplashScreen = ({ navigation }: any) => {
           const remainingTime = Math.max(0, minSplashTime - elapsedTime);
 
           setTimeout(async () => {
+            hasNavigatedRef.current = true;
             // Navigate to appropriate screen based on role
             // RoleBasedTabs will handle checking for profile and service approval
             navigation.replace('Screen', {
@@ -192,6 +206,7 @@ const SplashScreen = ({ navigation }: any) => {
                         if (__DEV__) {
               console.log('SplashScreen - Navigating to SplashMain')
             };
+            hasNavigatedRef.current = true;
             navigation.replace('SplashMain');
           }, remainingTime);
         }
@@ -208,6 +223,7 @@ const SplashScreen = ({ navigation }: any) => {
             console.log('SplashScreen - Navigating to SplashMain (error fallback)')
           };
           try {
+            hasNavigatedRef.current = true;
             navigation.replace('SplashMain');
           } catch (navError) {
                         if (__DEV__) {
@@ -215,6 +231,7 @@ const SplashScreen = ({ navigation }: any) => {
             };
             // Last resort - try navigate instead of replace
             try {
+              hasNavigatedRef.current = true;
               navigation.navigate('SplashMain');
             } catch (finalError) {
                             if (__DEV__) {
@@ -231,6 +248,7 @@ const SplashScreen = ({ navigation }: any) => {
     // Safety timeout - ensure navigation happens even if something goes wrong
     // But only navigate to EmailVerification if email is actually not verified
     const safetyTimeout = setTimeout(async () => {
+      if (hasNavigatedRef.current) return;
             if (__DEV__) {
         console.warn('SplashScreen - Safety timeout triggered, forcing navigation')
       };
@@ -239,7 +257,9 @@ const SplashScreen = ({ navigation }: any) => {
           // Check verification status before deciding where to navigate
           let isVerified = false;
           try {
-            await user.reload();
+            if (auth.currentUser?.reload) {
+              await auth.currentUser.reload();
+            }
             const currentUser = auth.currentUser || user;
             isVerified = currentUser?.emailVerified || false;
                         if (__DEV__) {
@@ -272,6 +292,7 @@ const SplashScreen = ({ navigation }: any) => {
           }
           
           // Only navigate to EmailVerification if email is NOT verified
+          hasNavigatedRef.current = true;
           if (!isVerified) {
                         if (__DEV__) {
               console.log('SplashScreen - Safety timeout: Navigating to EmailVerification (not verified)')
@@ -295,6 +316,7 @@ const SplashScreen = ({ navigation }: any) => {
             });
           }
         } else {
+          hasNavigatedRef.current = true;
           navigation.replace('SplashMain');
         }
       } catch (error) {
@@ -303,6 +325,7 @@ const SplashScreen = ({ navigation }: any) => {
         };
         // Fallback: navigate to SplashMain on error
         try {
+          hasNavigatedRef.current = true;
           navigation.replace('SplashMain');
         } catch (finalError) {
                     if (__DEV__) {
@@ -315,7 +338,7 @@ const SplashScreen = ({ navigation }: any) => {
     return () => {
       clearTimeout(safetyTimeout);
     };
-  }, [user, loading, navigation]);
+  }, [userId, loading, navigation]);
 
   return (
     <View style={globalStyles.splash}>

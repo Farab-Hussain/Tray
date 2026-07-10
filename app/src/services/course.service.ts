@@ -283,6 +283,9 @@ class CourseService {
       shortDescription: String(course?.shortDescription || course?.description || ''),
       instructorId: String(course?.instructorId || ''),
       instructorName: String(course?.instructorName || ''),
+      instructorAvatar: course?.instructorAvatar
+        ? String(course.instructorAvatar)
+        : undefined,
       category: String(course?.category || ''),
       level: (String(course?.level || 'beginner').toLowerCase() as Course['level']),
       language: String(course?.language || 'en'),

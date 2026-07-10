@@ -227,25 +227,39 @@ export const getMe = async (req: Request, res: Response) => {
     }
 
     if (!doc.exists) {
-      // Do NOT persist a student stub here — that races with POST /auth/register
-      // and can leave consultants stuck with empty name/image. Return Auth token
-      // fields only; register (or consultant profile create) will write users/{uid}.
-      console.log(`⚠️ [GET /auth/me] - User profile not found, returning Auth token data only: ${user.uid}`);
+      // Create a minimal student stub so the app has a users/{uid} doc.
+      // POST /auth/register upserts (merge) if a stub already exists, so this
+      // no longer races registration or blocks consultant role assignment.
+      console.log(`⚠️ [GET /auth/me] - User profile not found, creating stub: ${user.uid}`);
+
+      const stub = {
+        name: user.name || null,
+        email: user.email || null,
+        profileImage: user.picture || null,
+        role: "student",
+        roles: ["student"],
+        activeRole: "student",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      try {
+        await db.collection("users").doc(user.uid).set(stub, { merge: true });
+        cache.set(cacheKey, stub, 2 * 60 * 1000);
+      } catch (createErr: any) {
+        console.error(`❌ [GET /auth/me] - Failed to create stub for ${user.uid}:`, createErr?.message);
+      }
 
       const responseData = {
         uid: user.uid,
         email: user.email || null,
         emailVerified: user.email_verified,
-        name: user.name || null,
-        profileImage: user.picture || null,
-        role: null,
-        roles: [],
-        activeRole: null,
-        isActive: true,
-        profileIncomplete: true,
+        ...stub,
+        profileIncomplete: false,
       };
 
-      console.log(`✅ [GET /auth/me] - Response sent in ${Date.now() - startTime}ms`);
+      console.log(`✅ [GET /auth/me] - Stub created/returned in ${Date.now() - startTime}ms`);
       return res.json(responseData);
     }
 

@@ -135,7 +135,8 @@ const PlatformAccessPaymentScreen: React.FC<PlatformAccessPaymentScreenProps> = 
         const status = await withTimeout(
           PaymentService.getAccessFeeStatus(feeRole),
           10000,
-          { paid: false, fee: 25 } as any,
+          // Fail open on timeout — do not trap paid users on a spinner/paywall
+          { paid: true, fee: 0 } as any,
         );
 
         if (status?.roleLabel) {

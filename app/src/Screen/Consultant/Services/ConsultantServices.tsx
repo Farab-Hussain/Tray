@@ -542,7 +542,11 @@ const ConsultantServices = ({ navigation }: any) => {
                 <ConsultantServiceCard
                   title={service.title}
                   description={service.description}
-                  imageUri={service.imageUrl}
+                  imageUri={
+                    typeof service.imageUrl === 'string' && service.imageUrl.trim()
+                      ? service.imageUrl.trim()
+                      : undefined
+                  }
                   duration={service.duration}
                   price={service.price}
                   rating={service.rating}

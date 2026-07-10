@@ -11,7 +11,8 @@ import {
   TrendingUp,
   LogOut,
   Mail,
-  Bell
+  Bell,
+  BookOpen
 } from "lucide-react";
 import Image from "next/image";
 import React, { useState } from "react";
@@ -66,6 +67,13 @@ const LeftSide = () => {
       label: "Service Applications",
       icon: FileText,
       isActive: pathname.includes("/admin/service-applications"),
+      showWhenCollapsed: true
+    },
+    {
+      href: "/admin/course-approvals",
+      label: "Course Approvals",
+      icon: BookOpen,
+      isActive: pathname.includes("/admin/course-approvals"),
       showWhenCollapsed: true
     },
     {

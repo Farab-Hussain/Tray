@@ -186,8 +186,11 @@ export const consultantServiceCardStyles = StyleSheet.create({
         backgroundColor: COLORS.white,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
+        // Fixed height so ScrollView flex:1 has a bounded parent (maxHeight alone collapses body to 0)
+        height: '80%',
         maxHeight: '85%',
         width: '100%',
+        overflow: 'hidden',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -197,6 +200,7 @@ export const consultantServiceCardStyles = StyleSheet.create({
         paddingVertical: 16,
         borderBottomWidth: 1,
         borderBottomColor: '#E5E5E5',
+        flexShrink: 0,
     },
     modalTitle: {
         fontSize: 20,
@@ -213,6 +217,9 @@ export const consultantServiceCardStyles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 20,
     },
+    modalBodyContent: {
+        paddingBottom: 24,
+    },
     modalImage: {
         width: '100%',
         height: 200,
@@ -224,7 +231,7 @@ export const consultantServiceCardStyles = StyleSheet.create({
         width: '100%',
         height: 200,
         borderRadius: 12,
-        backgroundColor: COLORS.gray,
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 16,
@@ -242,13 +249,14 @@ export const consultantServiceCardStyles = StyleSheet.create({
     modalDescription: {
         fontSize: 15,
         lineHeight: 24,
-        color: COLORS.gray,
+        color: '#374151',
         marginBottom: 20,
     },
     modalFooter: {
         padding: 20,
         borderTopWidth: 1,
         borderTopColor: '#E5E5E5',
+        flexShrink: 0,
     },
     modalButton: {
         backgroundColor: COLORS.green,

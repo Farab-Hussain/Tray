@@ -115,13 +115,28 @@ const RoleBasedTabs = () => {
   }, [role, activeRole, currentRole]);
 
   const shouldShowRoleLoader = user && (!currentRole || roles.length === 0);
-  if (shouldShowRoleLoader) {
+  const [roleWaitTimedOut, setRoleWaitTimedOut] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!shouldShowRoleLoader) {
+      setRoleWaitTimedOut(false);
+      return;
+    }
+    // Never spin forever if /auth/me is slow or fails after paywall
+    const timer = setTimeout(() => setRoleWaitTimedOut(true), 6000);
+    return () => clearTimeout(timer);
+  }, [shouldShowRoleLoader]);
+
+  if (shouldShowRoleLoader && !roleWaitTimedOut) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#4CAF50" />
       </View>
     );
   }
+
+  // Prefer known role; after timeout fall back so the app is usable
+  const resolvedRole = currentRole || (roles.length > 0 ? roles[0] : 'student');
   
   // If profile needs to be created, show profile creation screen
   if (needsProfileCreation) {
@@ -129,12 +144,12 @@ const RoleBasedTabs = () => {
   }
   
   // For consultants, approval gating was removed: route directly to consultant tabs.
-  if (currentRole === 'consultant') {
+  if (resolvedRole === 'consultant') {
     return <ConsultantBottomTabs />;
   }
   
   // For recruiters, show recruiter-specific screens
-  if (currentRole === 'recruiter') {
+  if (resolvedRole === 'recruiter') {
     if (__DEV__) {
       console.log('✅ [RoleBasedTabs] Showing recruiter tabs for recruiter role')
     }
@@ -143,7 +158,7 @@ const RoleBasedTabs = () => {
   
   // Default: show student tabs (for student role or if role is null/undefined)
   if (__DEV__) {
-    console.log('✅ [RoleBasedTabs] Showing student tabs for role:', currentRole);
+    console.log('✅ [RoleBasedTabs] Showing student tabs for role:', resolvedRole);
   }
   return <BottomTabs />;
 };
