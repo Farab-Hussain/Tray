@@ -42,8 +42,9 @@ class MainApplication : Application(), ReactApplication {
       .setAudioAttributes(audioAttributes)
       .createAudioDeviceModule()
     
-    // Enable screen sharing support (optional)
-    options.enableMediaProjectionService = true
+    // Screen sharing / media projection is not a product feature — keep disabled
+    // so Play Console does not require FOREGROUND_SERVICE_MEDIA_PROJECTION.
+    options.enableMediaProjectionService = false
     
     loadReactNative(this)
   }

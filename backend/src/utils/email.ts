@@ -6,12 +6,12 @@ import { Logger } from "./logger";
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
 // Support both SMTP_USER and SMTP_EMAIL for compatibility
-const SMTP_USER = process.env.SMTP_USER || process.env.SMTP_EMAIL || "no-reply@tray.com";
+const SMTP_USER = process.env.SMTP_USER || process.env.SMTP_EMAIL || "no-reply@fairchance.com";
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || `FairChance <${SMTP_USER}>`;
 
 // Check if email credentials are configured
-const isEmailConfigured = SMTP_USER && SMTP_PASSWORD && SMTP_USER !== "no-reply@tray.com";
+const isEmailConfigured = SMTP_USER && SMTP_PASSWORD && SMTP_USER !== "no-reply@fairchance.com";
 
 // Diagnostic logging (without exposing passwords)
 if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_EMAIL_DEBUG === 'true') {
@@ -58,7 +58,7 @@ if (isEmailConfigured && transporter) {
 } else {
   Logger.warn("Email", "", "Email credentials not configured - email functionality disabled");
   console.warn("⚠️ [Email] SMTP credentials not configured:");
-  if (!SMTP_USER || SMTP_USER === "no-reply@tray.com") {
+  if (!SMTP_USER || SMTP_USER === "no-reply@fairchance.com") {
     console.warn("   - SMTP_USER or SMTP_EMAIL is missing or using default value");
   }
   if (!SMTP_PASSWORD) {

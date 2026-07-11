@@ -141,7 +141,7 @@ app.get("/health", async (req, res) => {
   try {
     const SMTP_USER = process.env.SMTP_USER || process.env.SMTP_EMAIL;
     const SMTP_PASSWORD = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
-    const isEmailConfigured = SMTP_USER && SMTP_PASSWORD && SMTP_USER !== "no-reply@tray.com";
+    const isEmailConfigured = SMTP_USER && SMTP_PASSWORD && SMTP_USER !== "no-reply@fairchance.com";
     
     if (isEmailConfigured) {
       healthCheck.services.email = {

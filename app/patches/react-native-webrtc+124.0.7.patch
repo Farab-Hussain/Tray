@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-webrtc/android/src/main/AndroidManifest.xml b/node_modules/react-native-webrtc/android/src/main/AndroidManifest.xml
+index 8f3c2a1..9a1b4c2 100644
+--- a/node_modules/react-native-webrtc/android/src/main/AndroidManifest.xml
++++ b/node_modules/react-native-webrtc/android/src/main/AndroidManifest.xml
+@@ -2,10 +2,6 @@
+           package="com.oney.WebRTCModule"
+           xmlns:tools="http://schemas.android.com/tools"
+     >
+     <application>
+-        <service
+-                android:name=".MediaProjectionService"
+-                android:foregroundServiceType="mediaProjection">
+-        </service>
+     </application>
+ </manifest>

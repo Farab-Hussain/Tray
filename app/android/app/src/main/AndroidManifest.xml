@@ -35,10 +35,31 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     
-    <!-- Screen sharing support (optional) -->
+    <!-- Background call support (VoIP foreground service) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- Explicitly strip media-projection FGS permission if any dependency merges it -->
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
+        tools:node="remove" />
+
+    <!-- FairChance does not use advertising ID. Strip AD_ID merged in by Play Services
+         so Play Console Advertising ID declaration can be "No". -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_CUSTOM_AUDIENCE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_TOPICS"
+        tools:node="remove" />
     
     <!-- Background Call Permissions -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
@@ -130,6 +151,18 @@
         android:enabled="true"
         android:exported="false"
         android:foregroundServiceType="phoneCall" />
+
+      <!-- react-native-webrtc ships MediaProjectionService for screen share.
+           FairChance does not use screen sharing — remove so Play Console
+           does not require FOREGROUND_SERVICE_MEDIA_PROJECTION. -->
+      <service
+        android:name="com.oney.WebRTCModule.MediaProjectionService"
+        tools:node="remove" />
+
+      <!-- Strip Privacy Sandbox ad-services config merged by Play libraries -->
+      <property
+        android:name="android.adservices.AD_SERVICES_CONFIG"
+        tools:node="remove" />
       
       <!-- Call Broadcast Receiver: internal only (FCM uses TrayFirebaseMessagingService) -->
       <receiver
