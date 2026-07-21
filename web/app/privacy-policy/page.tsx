@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
               1. Introduction
             </h2>
             <p className="text-gray-700 leading-relaxed">
-              Welcome to FairChance (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We are committed to
+              Welcome to FairChance we. We are committed to
               protecting your privacy and ensuring you have a positive
               experience on our application. This Privacy Policy explains how we
               collect, use, disclose, and safeguard your information when you
