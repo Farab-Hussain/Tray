@@ -228,7 +228,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <p className="text-gray-700">
-                <strong>Email:</strong> privacy@tray.app
+                <strong>Email:</strong> privacy@fairchance.app  
                 <br />
                 <strong>App:</strong> FairChance
                 <br />

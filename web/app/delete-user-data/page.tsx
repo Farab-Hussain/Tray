@@ -65,7 +65,7 @@ export default function DataDeletionPage() {
             </p>
             <div className="mt-4 p-4 bg-gray-50 rounded-lg mb-4">
               <p className="text-gray-700">
-                <strong>Email:</strong> privacy@tray.app
+                <strong>Email:</strong> privacy@fairchance.app
                 <br />
                 <strong>Subject:</strong> Data Deletion Request
               </p>
@@ -226,7 +226,7 @@ export default function DataDeletionPage() {
             </p>
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <p className="text-gray-700">
-                <strong>Email:</strong> privacy@tray.app
+                <strong>Email:</strong> privacy@fairchance.app
                 <br />
                 <strong>Subject:</strong> Data Deletion Inquiry
                 <br />
@@ -254,7 +254,7 @@ export default function DataDeletionPage() {
             </ul>
             <p className="text-gray-700 leading-relaxed mt-4">
               To exercise any of these rights, please contact us at
-              privacy@tray.app. We will respond to your request in accordance
+              privacy@fairchance.app. We will respond to your request in accordance
               with applicable data protection laws.
             </p>
           </section>
@@ -267,7 +267,7 @@ export default function DataDeletionPage() {
             </h3>
             <p className="text-blue-800 text-sm leading-relaxed">
               To delete your data: (1) Open the FairChance app → Settings → Delete
-              Account, or (2) Email privacy@tray.app with your deletion request.
+              Account, or (2) Email privacy@fairchance.app with your deletion request.
               Deletion is permanent and typically processed within 30 days. For
               more information, see our{" "}
               <a
