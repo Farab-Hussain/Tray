@@ -338,7 +338,7 @@ ${transcript}`,
               onPress={() => Linking.openURL(LEGAL_URLS.termsOfService)}
             >
               <View style={styles.contactContent}>
-                <Text style={styles.contactTitle}>Terms of Service</Text>
+                <Text style={styles.contactTitle}>Terms & Conditions</Text>
                 <Text style={styles.responseTime}>Rules for using FairChance</Text>
               </View>
             </TouchableOpacity>

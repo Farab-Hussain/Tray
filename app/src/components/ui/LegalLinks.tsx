@@ -23,7 +23,7 @@ const LegalLinks = ({ style }: LegalLinksProps) => (
     <Text style={styles.text}>
       By using FairChance, you agree to our{' '}
       <Text style={styles.link} onPress={() => openUrl(LEGAL_URLS.termsOfService)}>
-        Terms of Service
+        Terms & Conditions
       </Text>
       {' and '}
       <Text style={styles.link} onPress={() => openUrl(LEGAL_URLS.privacyPolicy)}>
